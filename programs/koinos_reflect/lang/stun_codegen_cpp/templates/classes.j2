@@ -1,0 +1,69 @@
+
+{%- macro typearg(targ) -%}
+{%- if targ["info"]["type"] == "IntLiteral" -%}
+{{ targ["value"] }}
+{%- else -%}
+{{ targ["name"]|simple_name|classname_case }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro typeref(tref) -%}
+{{ tref["name"]|simple_name|classname_case }}
+{%- if tref["targs"] is not none -%}
+<
+{%- for targ in tref["targs"] -%}
+{{ typearg(targ) }}{{ "," if not loop.last }}
+{%- endfor -%}
+>
+{%- endif -%}
+{%- endmacro %}
+
+{%- macro typedef_decl(decl) -%}
+typedef {{ typeref(decl["tref"]) }} {{ decl["name"]|simple_name|classname_case }};
+{% endmacro -%}
+
+{%- macro struct_decl(decl) -%}
+struct {{ decl["name"]|simple_name|classname_case }}
+{
+{%- if decl["fields"]|length > 0 %}
+{% for field in decl["fields"] %}   {{ typeref(field["tref"]) }} {{ field["name"] }};
+{% endfor -%}
+{% endif -%}
+};
+{% endmacro -%}
+
+{%- macro reflect_decl(decl) -%}
+KOINOS_REFLECT( koinos::protocol::{{ decl["name"]|simple_name|classname_case }},
+{%- if decl["fields"]|length > 0 %}
+{% for field in decl["fields"] %}   ({{ field["name"] }})
+{% endfor -%}
+{% endif -%}
+)
+{% endmacro -%}
+
+#include <koinos/pack/rt/reflect.hpp>
+#include <koinos/pack/rt/basetypes.hpp>
+
+namespace koinos::protocol {
+
+using namespace koinos::pack;
+
+{% for name, decl in decls_by_name.items() %}
+{%- if decl["info"]["type"] == "Typedef" -%}
+{{ typedef_decl( decl ) }}
+{% elif decl["info"]["type"] == "Struct" -%}
+{{ struct_decl( decl ) }}
+{% elif decl["info"]["type"] == "EnumClass" -%}
+
+{%- endif -%}
+{% endfor %}
+
+} // koinos::protocol
+
+{% for name, decl in decls_by_name.items() %}
+{%- if decl["info"]["type"] == "Struct" -%}
+{{ reflect_decl( decl ) }}
+{% elif decl["info"]["type"] == "Typedef" -%}
+{% elif decl["info"]["type"] == "EnumClass" -%}
+{%- endif -%}
+{% endfor %}

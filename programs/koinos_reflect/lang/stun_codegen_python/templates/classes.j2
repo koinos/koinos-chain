@@ -1,0 +1,50 @@
+
+{%- import "common.j2" as common -%}
+
+{%- macro typearg(targ) -%}
+{%- if targ["info"]["type"] == "IntLiteral" -%}
+{{ targ["value"] }}
+{%- else -%}
+{{ targ["name"]|simple_name|classname_case }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro typeref(tref) -%}
+{{ tref["name"]|simple_name|classname_case }}
+{%- if tref["targs"] is not none -%}
+[
+{%- for targ in tref["targs"] -%}
+{{ typearg(targ) }}{{ "," if not loop.last }}
+{%- endfor -%}
+]
+{%- endif -%}
+{%- endmacro %}
+
+{%- macro typedef_decl(decl) -%}
+{{ decl["name"]|simple_name|classname_case }} = {{ typeref(decl["tref"]) }}
+{% endmacro -%}
+
+{%- macro struct_decl(decl) -%}
+@dataclass
+class {{ decl["name"]|simple_name|classname_case }}:
+{%- if decl["fields"]|length == 0 %}
+    pass
+{% else %}
+{% for field in decl["fields"] %}    {{ field["name"] }}: {{ typeref(field["tref"]) }} = field(default_factory={{ typeref(field["tref"]) }})
+{% endfor -%}
+{% endif -%}
+{% endmacro -%}
+
+{{ common.import_basetypes(decls_by_name) }}
+
+from dataclasses import dataclass, field
+
+{% for name, decl in decls_by_name.items() %}
+{%- if decl["info"]["type"] == "Typedef" -%}
+{{ typedef_decl( decl ) }}
+{% elif decl["info"]["type"] == "Struct" -%}
+{{ struct_decl( decl ) }}
+{% elif decl["info"]["type"] == "EnumClass" -%}
+
+{%- endif -%}
+{% endfor %}

@@ -1,0 +1,2 @@
+
+from .gencpp import setup

@@ -1,0 +1,9 @@
+
+build
+libraries/pack/gen
+
+*.pyc
+*.pyo
+__pycache__
+
+.vscode/

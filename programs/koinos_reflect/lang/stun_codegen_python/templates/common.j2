@@ -1,0 +1,8 @@
+
+{%- macro import_basetypes(decls_by_name) -%}
+{% for name, decl in decls_by_name.items() %}
+{%- if decl["info"]["type"] == "BaseType" -%}
+from .rt.basetypes import {{ name|simple_name|classname_case }}
+{% endif -%}
+{% endfor %}
+{%- endmacro -%}

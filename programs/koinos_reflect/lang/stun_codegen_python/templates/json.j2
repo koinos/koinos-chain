@@ -1,0 +1,76 @@
+
+{%- import "common.j2" as common -%}
+
+{%- macro call_serialize_typeref(rt, ctx, prefix, tref, obj) -%}
+{%- if tref["name"]|simple_name == "vector" -%}
+{{ rt }}.{{ prefix }}_begin_vector(ctx)
+for element in {{ obj }}:
+{{ call_serialize_typeref(rt, ctx, prefix, tref["targs"][0], "element")|indent(first=True) }}
+{{ rt }}.{{ prefix }}_end_vector(ctx)
+{% elif tref["name"]|simple_name == "variant" -%}
+{{ rt }}.{{ prefix }}_begin_variant(ctx)
+{% for targ in tref["targs"] %}
+{% if not loop.first -%}
+el
+{%- endif -%}
+if isinstance( {{ obj }}, {{ targ["name"]|simple_name|classname_case }} ):
+    {{ rt }}.{{ prefix }}_variant_choice(ctx, "{{ targ["name"]|simple_name|classname_case }}")
+{{ call_serialize_typeref(rt, ctx, prefix, targ, obj)|indent(first=True) }}
+{%- endfor %}
+{{ rt }}.{{ prefix }}_end_variant(ctx)
+{% else -%}
+{%- if decls_by_name[tref["name"]|fq_name]["info"]["type"] == "BaseType" -%}
+{{ rt }}.
+{%- endif -%}
+{{ prefix }}_{{ tref["name"]|simple_name }}({{ ctx }}, {{ obj }})
+{% endif -%}
+{%- endmacro -%}
+
+{%- macro call_serialize_typeref_lit_targs(rt, ctx, prefix, tref, obj) -%}
+{{ rt }}.{{ prefix }}_{{ tref["name"]|simple_name }}({{ ctx }}, {{ obj }}
+{%- for targ in tref["targs"] -%}
+, {{ targ["value"] }}
+{%- endfor -%}
+)
+{% endmacro -%}
+
+{%- macro ser_typedef(decl) -%}
+{%- if decl["tref"]|typeref_has_type_parameters -%}
+{%- if decl["tref"]["name"]|simple_name in ["vector", "variant"] -%}
+def ser_{{ decl["name"]|simple_name }}(ctx, obj):
+{{ call_serialize_typeref("rt", "ctx", "ser", decl["tref"], "obj")|indent(first=True) }}
+{%- else -%}
+from .bt import ser_{{ decl["name"] }}
+{%- endif -%}
+{% else -%}
+def ser_{{ decl["name"]|simple_name }}(ctx, obj):
+{{ call_serialize_typeref_lit_targs("rt", "ctx", "ser", decl["tref"], "obj")|indent(first=True) }}
+{% endif %}
+{%- endmacro -%}
+
+{%- macro ser_struct(decl) -%}
+def ser_{{ decl["name"]|simple_name }}(ctx, obj):
+    rt.ser_begin_object(ctx)
+{%- for field in decl["fields"] %}
+    rt.ser_object_field(ctx, "{{ field["name"] }}")
+{%- set obj_field -%}
+    obj.{{ field["name"] }}
+{%- endset %}
+{{ call_serialize_typeref("rt", "ctx", "ser", field["tref"], obj_field)|indent(first=True) }}
+{%- endfor %}
+    rt.ser_end_object(ctx)
+{% endmacro -%}
+
+{{ common.import_basetypes(decls_by_name) }}
+
+from .rt import json as rt
+
+{% for name, decl in decls_by_name.items() %}
+{%- if decl["info"]["type"] == "Typedef" -%}
+{{ ser_typedef( decl ) }}
+{% elif decl["info"]["type"] == "Struct" -%}
+{{ ser_struct( decl ) }}
+{% elif decl["info"]["type"] == "EnumClass" -%}
+
+{%- endif -%}
+{% endfor %}

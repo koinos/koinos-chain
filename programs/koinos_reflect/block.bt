@@ -1,0 +1,8 @@
+KOINOS_BASETYPE( std::vector )
+KOINOS_BASETYPE( std::variant )
+KOINOS_BASETYPE( uint32 )
+KOINOS_BASETYPE( uint64 )
+KOINOS_BASETYPE( koinos::protocol::multihash_type )
+KOINOS_BASETYPE( koinos::protocol::multihash_vector )
+KOINOS_BASETYPE( koinos::protocol::vl_blob )
+KOINOS_BASETYPE( koinos::protocol::fl_blob )
