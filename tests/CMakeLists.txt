@@ -54,4 +54,4 @@ add_boost_test( chain_test
    TESTS ${TEST_CASES}
 )
 
-target_link_libraries(chain_test chainbase mira fork fc pack ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(chain_test chainbase mira fork fc pack chain ${PLATFORM_SPECIFIC_LIBS})
