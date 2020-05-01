@@ -36,20 +36,21 @@ BOOST_AUTO_TEST_CASE( integer_bounds )
 BOOST_AUTO_TEST_CASE( json_integer_bounds )
 {
    json j;
+   const int64_t one = 1;
 
-   to_json( j, (1ll<<53) - 1 );
+   to_json( j, (one<<53) - 1 );
    std::string expected = "9007199254740991";
    BOOST_REQUIRE_EQUAL( expected, j.dump() );
 
-   to_json( j, 1ll<<53 );
+   to_json( j, one<<53 );
    expected = "\"9007199254740992\"";
    BOOST_REQUIRE_EQUAL( expected, j.dump() );
 
-   to_json( j, -((1ll<<53) - 1) );
+   to_json( j, -((one<<53) - 1) );
    expected = "-9007199254740991";
    BOOST_REQUIRE_EQUAL( expected, j.dump() );
 
-   to_json( j, -(1ll<<53) );
+   to_json( j, -(one<<53) );
    expected = "\"-9007199254740992\"";
    BOOST_REQUIRE_EQUAL( expected, j.dump() );
 }
