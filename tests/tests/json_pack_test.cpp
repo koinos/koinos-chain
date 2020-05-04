@@ -374,7 +374,7 @@ BOOST_AUTO_TEST_CASE( reflect_test )
 }
 
 /*
-BOOST_AUTO_TEST_CASE( depth_test )
+( depth_test )
 {
    // The compiler is not happy about the template deduction I am about to make it do,
    // but it will complete it...
