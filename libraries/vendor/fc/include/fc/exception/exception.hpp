@@ -310,13 +310,20 @@ namespace fc
 
   extern bool enable_record_assert_trip;
 } // namespace fc
-
+#ifndef LIKELY
 #if __APPLE__
     #define LIKELY(x)    __builtin_expect((long)!!(x), 1L)
-    #define UNLIKELY(x)  __builtin_expect((long)!!(x), 0L)
 #else
     #define LIKELY(x)   (x)
+#endif
+#endif
+
+#ifndef UNLIKELY
+#if __APPLE__
+    #define UNLIKELY(x)  __builtin_expect((long)!!(x), 0L)
+#else
     #define UNLIKELY(x) (x)
+#endif
 #endif
 
 /**

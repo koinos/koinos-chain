@@ -791,10 +791,11 @@ namespace chainbase {
          vector<unique_ptr<abstract_index_type>>                     _index_types;
 
          bfs::path                                                   _data_dir;
-
+#ifdef CHAINBASE_CHECK_LOCKING
          int32_t                                                     _read_lock_count = 0;
          int32_t                                                     _write_lock_count = 0;
          bool                                                        _enable_require_locking = false;
+#endif
 
          bool                                                        _is_open = false;
 
