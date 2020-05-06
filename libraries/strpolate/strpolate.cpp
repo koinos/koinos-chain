@@ -36,6 +36,7 @@ void strpol::to_string( std::string& result )const
             return (i-start)+1;
          }
       }
+      return 0;
    };
 
    for( i=0; i<n; i++ )
