@@ -48,19 +48,19 @@ BOOST_AUTO_TEST_CASE( fork_tests )
       prev = b;
    }
 
-   BOOST_ASSERT( fork_db.root()->block_num() == 1 );
-   BOOST_ASSERT( fork_db.head()->block_num() == 2000 );
+   BOOST_REQUIRE( fork_db.root()->block_num() == 1 );
+   BOOST_REQUIRE( fork_db.head()->block_num() == 2000 );
 
    BOOST_TEST_MESSAGE( "check advance root" );
    auto new_root = fork_db.search_on_branch( fork_db.head()->id(), 1000 );
    fork_db.advance_root( new_root->id() );
 
-   BOOST_ASSERT( fork_db.root()->block_num() == 1000 );
-   BOOST_ASSERT( fork_db.head()->block_num() == 2000 );
+   BOOST_REQUIRE( fork_db.root()->block_num() == 1000 );
+   BOOST_REQUIRE( fork_db.head()->block_num() == 2000 );
 
    for ( fork_database_type::block_num_type i = 1; i <= 999; i++ )
    {
-      BOOST_ASSERT( fork_db.fetch_block_by_number( i ).empty() );
+      BOOST_REQUIRE( fork_db.fetch_block_by_number( i ).empty() );
    }
 
    std::vector< fork_database_type::block_id_type > b1_ids;
@@ -88,18 +88,18 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    auto branch_pair = fork_db.fetch_branch_from( b1_ids.back(), b2_ids.back() );
 
    std::reverse( b1_ids.begin(), b1_ids.end() );
-   for ( int i = 0; i < branch_pair.first.size(); i++ )
+   for ( size_t i = 0; i < branch_pair.first.size(); i++ )
    {
-      BOOST_ASSERT( branch_pair.first[i]->id() == b1_ids[i] );
+      BOOST_REQUIRE( branch_pair.first[i]->id() == b1_ids[i] );
    }
 
    std::reverse( b2_ids.begin(), b2_ids.end() );
-   for ( int i = 0; i < branch_pair.second.size(); i++ )
+   for ( size_t i = 0; i < branch_pair.second.size(); i++ )
    {
-      BOOST_ASSERT( branch_pair.second[i]->id() == b2_ids[i] );
+      BOOST_REQUIRE( branch_pair.second[i]->id() == b2_ids[i] );
    }
 
-   BOOST_ASSERT( branch_pair.first.back()->previous_id() == branch_pair.second.back()->previous_id() );
+   BOOST_REQUIRE( branch_pair.first.back()->previous_id() == branch_pair.second.back()->previous_id() );
 
    for ( fork_database_type::block_num_type i = 2051; i <= 3000; i++ )
    {
@@ -108,22 +108,24 @@ BOOST_AUTO_TEST_CASE( fork_tests )
       prev = b;
    }
 
-   BOOST_ASSERT( fork_db.root()->block_num() == 1000 );
-   BOOST_ASSERT( fork_db.head()->block_num() == 3000 );
-   BOOST_ASSERT( fork_db.head()->id() == prev->id() );
+   BOOST_REQUIRE( fork_db.root()->block_num() == 1000 );
+   BOOST_REQUIRE( fork_db.head()->block_num() == 3000 );
+   BOOST_REQUIRE( fork_db.head()->id() == prev->id() );
 
    new_root = fork_db.search_on_branch( fork_db.head()->id(), 2001 );
 
    BOOST_TEST_MESSAGE( "check fetch block by number" );
    auto blocks = fork_db.fetch_block_by_number( 2001 );
 
-   BOOST_ASSERT( blocks.size() == 3 );
+   BOOST_REQUIRE( blocks.size() == 3 );
    for ( const auto& b : blocks )
    {
-      BOOST_ASSERT(
-         std::find( b1_ids.begin(), b1_ids.end(), b->id() ) != b1_ids.end() ||
+      
+         bool ok = std::find( b1_ids.begin(), b1_ids.end(), b->id() ) != b1_ids.end() ||
          std::find( b2_ids.begin(), b2_ids.end(), b->id() ) != b2_ids.end() ||
-         b->id() == new_root->id() );
+	   b->id() == new_root->id();
+
+	 BOOST_REQUIRE( ok );
    }
 
    fork_db.advance_root( new_root->id() );
@@ -136,11 +138,11 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    for ( const auto& id : removed_ids )
    {
-      BOOST_ASSERT( fork_db.fetch_block( id ) == nullptr );
+      BOOST_REQUIRE( fork_db.fetch_block( id ) == nullptr );
    }
 
-   BOOST_ASSERT( fork_db.root()->block_num() == 2001 );
-   BOOST_ASSERT( fork_db.head()->block_num() == 3000 );
+   BOOST_REQUIRE( fork_db.root()->block_num() == 2001 );
+   BOOST_REQUIRE( fork_db.head()->block_num() == 3000 );
 
    BOOST_TEST_MESSAGE( "check duplicate block exception" );
    BOOST_CHECK_THROW( fork_db.add( fork_db.head(), false ), duplicate_block_exception );
