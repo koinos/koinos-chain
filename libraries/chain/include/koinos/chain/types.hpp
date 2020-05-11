@@ -116,14 +116,14 @@ void to_variant( const float128_t& f, variant& v ) {
 
 inline
 void from_variant( const variant& v, float128_t& f ) {
-   // Temporarily hold the binary in uint128_t before casting it to float128_t
-   koinos::chain::uint128_t temp = 0;
+   // Temporarily hold the binary in a char* before casting to a float128_t
+   char temp[16];
    auto s = v.as_string();
    FC_ASSERT( s.size() == 2 + 2 * sizeof(temp) && s.find("0x") == 0,	"Failure in converting hex data into a float128_t");
-   auto sz = from_hex( s.substr(2), reinterpret_cast<char*>(&temp), sizeof(temp) );
+   auto sz = from_hex( s.substr(2), temp, sizeof(temp) );
    // Assumes platform is little endian and hex representation of 128-bit integer is in little endian order.
    FC_ASSERT( sz == sizeof(temp), "Failure in converting hex data into a float128_t" );
-   f = *reinterpret_cast<const float128_t*>(&temp);
+   f = *reinterpret_cast<const float128_t*>(temp);
 }
 
 namespace raw
