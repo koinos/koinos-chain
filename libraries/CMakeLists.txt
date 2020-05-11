@@ -1,3 +1,4 @@
+add_subdirectory(appbase)
 add_subdirectory(builtins)
 add_subdirectory(chain)
 add_subdirectory(fork)
