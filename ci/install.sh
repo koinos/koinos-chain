@@ -14,19 +14,13 @@ if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       libzstd-dev \
       valgrind
 elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
-   export PACKAGES="\
-      cmake \
+   brew install cmake \
       boost \
       openssl \
       python3 \
       zlib \
       snappy \
-      bzip2 \
-      valgrind \
-      readline \
-      gflags \
-      "
-   brew install $PACKAGES
+      bzip2
    brew upgrade $PACKAGES
 fi
 
