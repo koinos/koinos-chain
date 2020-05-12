@@ -21,7 +21,8 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       zlib \
       snappy \
       bzip2 \
-      valgrind
+      valgrind \
+      readline
    brew upgrade cmake
 fi
 
