@@ -24,6 +24,7 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       bzip2 \
       valgrind \
       readline \
+      gflags \
       "
    brew install $PACKAGES
    brew upgrade $PACKAGES
