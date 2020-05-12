@@ -29,14 +29,4 @@ std::string uint128_to_str( uint128_t value )
    return result;
 }
 
-BOOST_AUTO_TEST_CASE( int_math_test )
-{
-   constexpr uint128_t max_uint128 = (static_cast<uint128_t>(std::numeric_limits<uint64_t>::max()) << 64) | std::numeric_limits<uint64_t>::max();
-
-   std::cout << "max_uint128: " << uint128_to_str( max_uint128 ) << std::endl;
-   std::cout << "limits max : " << uint128_to_str( std::numeric_limits<uint128_t>::max() ) << std::endl;
-
-   BOOST_REQUIRE( std::numeric_limits<uint128_t>::max() == max_uint128 );
-}
-
 BOOST_AUTO_TEST_SUITE_END()
