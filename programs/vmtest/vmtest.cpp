@@ -1,5 +1,11 @@
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include <eosio/vm/backend.hpp>
+#pragma GCC diagnostic pop
+
 #include <eosio/vm/error_codes.hpp>
 #include <eosio/vm/host_function.hpp>
 #include <eosio/vm/exceptions.hpp>
