@@ -973,7 +973,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
    }
 
-   for( size_t i = 3; i <= db.revision(); i++ )
+   for( int i = 3; i <= db.revision(); i++ )
    {
       db.commit( i );
 
