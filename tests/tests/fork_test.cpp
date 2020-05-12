@@ -124,7 +124,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
      BOOST_REQUIRE(
         std::find( b1_ids.begin(), b1_ids.end(), b->id() ) != b1_ids.end() ||
         std::find( b2_ids.begin(), b2_ids.end(), b->id() ) != b2_ids.end() ||
-	b->id() == new_root->id(); );
+	b->id() == new_root->id() );
    }
 
    fork_db.advance_root( new_root->id() );
