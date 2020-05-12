@@ -1,3 +1,4 @@
+add_subdirectory(appbase)
 add_subdirectory(builtins)
 add_subdirectory(chain)
 add_subdirectory(fork)
@@ -6,3 +7,5 @@ add_subdirectory(statedb)
 add_subdirectory(koinos_exception)
 add_subdirectory(strpolate)
 add_subdirectory(vendor)
+add_subdirectory(manifest)
+
