@@ -22,6 +22,7 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       snappy \
       bzip2 \
       gflags
+   brew upgrade readline
 fi
 
 pip3 install dataclasses-json Jinja2 importlib_resources pluginbase
