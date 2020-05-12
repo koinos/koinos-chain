@@ -9,7 +9,7 @@
 #include "util/coding.h"
 #include "util/string_util.h"
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 
 namespace {
 
@@ -41,6 +41,13 @@ Status UserKeyTablePropertiesCollector::InternalAdd(const Slice& key,
                                 ikey.sequence, file_size);
 }
 
+void UserKeyTablePropertiesCollector::BlockAdd(
+    uint64_t bLockRawBytes, uint64_t blockCompressedBytesFast,
+    uint64_t blockCompressedBytesSlow) {
+  return collector_->BlockAdd(bLockRawBytes, blockCompressedBytesFast,
+                              blockCompressedBytesSlow);
+}
+
 Status UserKeyTablePropertiesCollector::Finish(
     UserCollectedProperties* properties) {
   return collector_->Finish(properties);
@@ -64,4 +71,4 @@ uint64_t GetMergeOperands(const UserCollectedProperties& props,
       props, TablePropertiesNames::kMergeOperands, property_present);
 }
 
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

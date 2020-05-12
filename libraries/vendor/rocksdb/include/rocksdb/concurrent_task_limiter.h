@@ -12,11 +12,10 @@
 #include "rocksdb/env.h"
 #include "rocksdb/statistics.h"
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 
 class ConcurrentTaskLimiter {
  public:
-
   virtual ~ConcurrentTaskLimiter() {}
 
   // Returns a name that identifies this concurrent task limiter.
@@ -41,7 +40,7 @@ class ConcurrentTaskLimiter {
 // @param limit: max concurrent tasks.
 //        limit = 0 means no new task allowed.
 //        limit < 0 means no limitation.
-extern ConcurrentTaskLimiter* NewConcurrentTaskLimiter(
-    const std::string& name, int32_t limit);
+extern ConcurrentTaskLimiter* NewConcurrentTaskLimiter(const std::string& name,
+                                                       int32_t limit);
 
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

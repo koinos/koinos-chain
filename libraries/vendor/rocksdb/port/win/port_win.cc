@@ -14,7 +14,7 @@
 #include "port/win/port_win.h"
 
 #include <io.h>
-#include "port/dirent.h"
+#include "port/port_dirent.h"
 #include "port/sys_time.h"
 
 #include <cstdlib>
@@ -33,9 +33,12 @@
 #include <codecvt>
 #endif
 
-#include "util/logging.h"
+#include "logging/logging.h"
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
+
+extern const bool kDefaultToAdaptiveMutex = false;
+
 namespace port {
 
 #ifdef ROCKSDB_WINDOWS_UTF8_FILENAMES
@@ -208,7 +211,7 @@ int truncate(const char* path, int64_t length) {
     errno = EFAULT;
     return -1;
   }
-  return rocksdb::port::Truncate(path, length);
+  return ROCKSDB_NAMESPACE::port::Truncate(path, length);
 }
 
 int Truncate(std::string path, int64_t len) {
@@ -259,5 +262,8 @@ void Crash(const std::string& srcfile, int srcline) {
 
 int GetMaxOpenFiles() { return -1; }
 
+// Assume 4KB page size
+const size_t kPageSize = 4U * 1024U;
+
 }  // namespace port
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

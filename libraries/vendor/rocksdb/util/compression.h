@@ -20,11 +20,12 @@
 #endif  // ROCKSDB_MALLOC_USABLE_SIZE
 #include <string>
 
+#include "memory/memory_allocator.h"
 #include "rocksdb/options.h"
 #include "rocksdb/table.h"
 #include "util/coding.h"
 #include "util/compression_context_cache.h"
-#include "util/memory_allocator.h"
+#include "util/string_util.h"
 
 #ifdef SNAPPY
 #include <snappy.h>
@@ -48,7 +49,7 @@
 #if ZSTD_VERSION_NUMBER >= 10103  // v1.1.3+
 #include <zdict.h>
 #endif  // ZSTD_VERSION_NUMBER >= 10103
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 // Need this for the context allocation override
 // On windows we need to do this explicitly
 #if (ZSTD_VERSION_NUMBER >= 500)
@@ -120,11 +121,11 @@ class ZSTDUncompressCachedData {
   int64_t cache_idx_ = -1;  // -1 means this instance owns the context
 };
 #endif  // (ZSTD_VERSION_NUMBER >= 500)
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE
 #endif  // ZSTD
 
 #if !(defined ZSTD) || !(ZSTD_VERSION_NUMBER >= 500)
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 class ZSTDUncompressCachedData {
   void* padding;  // unused
  public:
@@ -143,14 +144,14 @@ class ZSTDUncompressCachedData {
  private:
   void ignore_padding__() { padding = nullptr; }
 };
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE
 #endif
 
 #if defined(XPRESS)
 #include "port/xpress.h"
 #endif
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 
 // Holds dictionary and related data, like ZSTD's digested compression
 // dictionary.
@@ -216,33 +217,67 @@ struct CompressionDict {
 // Holds dictionary and related data, like ZSTD's digested uncompression
 // dictionary.
 struct UncompressionDict {
-#ifdef ROCKSDB_ZSTD_DDICT
-  ZSTD_DDict* zstd_ddict_;
-#endif  // ROCKSDB_ZSTD_DDICT
-  // Block containing the data for the compression dictionary. It may be
-  // redundant with the data held in `zstd_ddict_`.
+  // Block containing the data for the compression dictionary in case the
+  // constructor that takes a string parameter is used.
   std::string dict_;
-  // This `Statistics` pointer is intended to be used upon block cache eviction,
-  // so only needs to be populated on `UncompressionDict`s that'll be inserted
-  // into block cache.
-  Statistics* statistics_;
+
+  // Block containing the data for the compression dictionary in case the
+  // constructor that takes a Slice parameter is used and the passed in
+  // CacheAllocationPtr is not nullptr.
+  CacheAllocationPtr allocation_;
+
+  // Slice pointing to the compression dictionary data. Can point to
+  // dict_, allocation_, or some other memory location, depending on how
+  // the object was constructed.
+  Slice slice_;
 
 #ifdef ROCKSDB_ZSTD_DDICT
-  UncompressionDict(std::string dict, bool using_zstd,
-                    Statistics* _statistics = nullptr) {
-#else   // ROCKSDB_ZSTD_DDICT
-  UncompressionDict(std::string dict, bool /*using_zstd*/,
-                    Statistics* _statistics = nullptr) {
+  // Processed version of the contents of slice_ for ZSTD compression.
+  ZSTD_DDict* zstd_ddict_ = nullptr;
 #endif  // ROCKSDB_ZSTD_DDICT
-    dict_ = std::move(dict);
-    statistics_ = _statistics;
+
 #ifdef ROCKSDB_ZSTD_DDICT
-    zstd_ddict_ = nullptr;
-    if (!dict_.empty() && using_zstd) {
-      zstd_ddict_ = ZSTD_createDDict_byReference(dict_.data(), dict_.size());
+  UncompressionDict(std::string dict, bool using_zstd)
+#else   // ROCKSDB_ZSTD_DDICT
+  UncompressionDict(std::string dict, bool /* using_zstd */)
+#endif  // ROCKSDB_ZSTD_DDICT
+      : dict_(std::move(dict)), slice_(dict_) {
+#ifdef ROCKSDB_ZSTD_DDICT
+    if (!slice_.empty() && using_zstd) {
+      zstd_ddict_ = ZSTD_createDDict_byReference(slice_.data(), slice_.size());
       assert(zstd_ddict_ != nullptr);
     }
 #endif  // ROCKSDB_ZSTD_DDICT
+  }
+
+#ifdef ROCKSDB_ZSTD_DDICT
+  UncompressionDict(Slice slice, CacheAllocationPtr&& allocation,
+                    bool using_zstd)
+#else   // ROCKSDB_ZSTD_DDICT
+  UncompressionDict(Slice slice, CacheAllocationPtr&& allocation,
+                    bool /* using_zstd */)
+#endif  // ROCKSDB_ZSTD_DDICT
+      : allocation_(std::move(allocation)), slice_(std::move(slice)) {
+#ifdef ROCKSDB_ZSTD_DDICT
+    if (!slice_.empty() && using_zstd) {
+      zstd_ddict_ = ZSTD_createDDict_byReference(slice_.data(), slice_.size());
+      assert(zstd_ddict_ != nullptr);
+    }
+#endif  // ROCKSDB_ZSTD_DDICT
+  }
+
+  UncompressionDict(UncompressionDict&& rhs)
+      : dict_(std::move(rhs.dict_)),
+        allocation_(std::move(rhs.allocation_)),
+        slice_(std::move(rhs.slice_))
+#ifdef ROCKSDB_ZSTD_DDICT
+        ,
+        zstd_ddict_(rhs.zstd_ddict_)
+#endif
+  {
+#ifdef ROCKSDB_ZSTD_DDICT
+    rhs.zstd_ddict_ = nullptr;
+#endif
   }
 
   ~UncompressionDict() {
@@ -256,35 +291,61 @@ struct UncompressionDict {
 #endif                 // ROCKSDB_ZSTD_DDICT
   }
 
+  UncompressionDict& operator=(UncompressionDict&& rhs) {
+    if (this == &rhs) {
+      return *this;
+    }
+
+    dict_ = std::move(rhs.dict_);
+    allocation_ = std::move(rhs.allocation_);
+    slice_ = std::move(rhs.slice_);
+
+#ifdef ROCKSDB_ZSTD_DDICT
+    zstd_ddict_ = rhs.zstd_ddict_;
+    rhs.zstd_ddict_ = nullptr;
+#endif
+
+    return *this;
+  }
+
+  // The object is self-contained if the string constructor is used, or the
+  // Slice constructor is invoked with a non-null allocation. Otherwise, it
+  // is the caller's responsibility to ensure that the underlying storage
+  // outlives this object.
+  bool own_bytes() const { return !dict_.empty() || allocation_; }
+
+  const Slice& GetRawDict() const { return slice_; }
+
 #ifdef ROCKSDB_ZSTD_DDICT
   const ZSTD_DDict* GetDigestedZstdDDict() const { return zstd_ddict_; }
 #endif  // ROCKSDB_ZSTD_DDICT
-
-  Slice GetRawDict() const { return dict_; }
 
   static const UncompressionDict& GetEmptyDict() {
     static UncompressionDict empty_dict{};
     return empty_dict;
   }
 
-  Statistics* statistics() const { return statistics_; }
-
-  size_t ApproximateMemoryUsage() {
-    size_t usage = 0;
-    usage += sizeof(struct UncompressionDict);
+  size_t ApproximateMemoryUsage() const {
+    size_t usage = sizeof(struct UncompressionDict);
+    usage += dict_.size();
+    if (allocation_) {
+      auto allocator = allocation_.get_deleter().allocator;
+      if (allocator) {
+        usage += allocator->UsableSize(allocation_.get(), slice_.size());
+      } else {
+        usage += slice_.size();
+      }
+    }
 #ifdef ROCKSDB_ZSTD_DDICT
     usage += ZSTD_sizeof_DDict(zstd_ddict_);
 #endif  // ROCKSDB_ZSTD_DDICT
-    usage += dict_.size();
     return usage;
   }
 
   UncompressionDict() = default;
-  // Disable copy/move
+  // Disable copy
   UncompressionDict(const CompressionDict&) = delete;
   UncompressionDict& operator=(const CompressionDict&) = delete;
-  UncompressionDict(CompressionDict&&) = delete;
-  UncompressionDict& operator=(CompressionDict&&) = delete;
 };
 
 class CompressionContext {
@@ -333,17 +394,24 @@ class CompressionInfo {
   const CompressionContext& context_;
   const CompressionDict& dict_;
   const CompressionType type_;
+  const uint64_t sample_for_compression_;
 
  public:
   CompressionInfo(const CompressionOptions& _opts,
                   const CompressionContext& _context,
-                  const CompressionDict& _dict, CompressionType _type)
-      : opts_(_opts), context_(_context), dict_(_dict), type_(_type) {}
+                  const CompressionDict& _dict, CompressionType _type,
+                  uint64_t _sample_for_compression)
+      : opts_(_opts),
+        context_(_context),
+        dict_(_dict),
+        type_(_type),
+        sample_for_compression_(_sample_for_compression) {}
 
   const CompressionOptions& options() const { return opts_; }
   const CompressionContext& context() const { return context_; }
   const CompressionDict& dict() const { return dict_; }
   CompressionType type() const { return type_; }
+  uint64_t SampleForCompression() const { return sample_for_compression_; }
 };
 
 class UncompressionContext {
@@ -495,10 +563,37 @@ inline std::string CompressionTypeToString(CompressionType compression_type) {
       return "ZSTD";
     case kZSTDNotFinalCompression:
       return "ZSTDNotFinal";
+    case kDisableCompressionOption:
+      return "DisableOption";
     default:
       assert(false);
       return "";
   }
+}
+
+inline std::string CompressionOptionsToString(
+    CompressionOptions& compression_options) {
+  std::string result;
+  result.reserve(512);
+  result.append("window_bits=")
+      .append(ToString(compression_options.window_bits))
+      .append("; ");
+  result.append("level=")
+      .append(ToString(compression_options.level))
+      .append("; ");
+  result.append("strategy=")
+      .append(ToString(compression_options.strategy))
+      .append("; ");
+  result.append("max_dict_bytes=")
+      .append(ToString(compression_options.max_dict_bytes))
+      .append("; ");
+  result.append("zstd_max_train_bytes=")
+      .append(ToString(compression_options.zstd_max_train_bytes))
+      .append("; ");
+  result.append("enabled=")
+      .append(ToString(compression_options.enabled))
+      .append("; ");
+  return result;
 }
 
 // compress_format_version can have two values:
@@ -692,7 +787,7 @@ inline CacheAllocationPtr Zlib_Uncompress(
     return nullptr;
   }
 
-  Slice compression_dict = info.dict().GetRawDict();
+  const Slice& compression_dict = info.dict().GetRawDict();
   if (compression_dict.size()) {
     // Initialize the compression library's dictionary
     st = inflateSetDictionary(
@@ -955,7 +1050,6 @@ inline bool LZ4_Compress(const CompressionInfo& info,
 #else   // up to r123
   outlen = LZ4_compress_limitedOutput(input, &(*output)[output_header_len],
                                       static_cast<int>(length), compress_bound);
-  (void)ctx;
 #endif  // LZ4_VERSION_NUMBER >= 10400
 
   if (outlen == 0) {
@@ -1007,7 +1101,7 @@ inline CacheAllocationPtr LZ4_Uncompress(const UncompressionInfo& info,
   auto output = AllocateBlock(output_len, allocator);
 #if LZ4_VERSION_NUMBER >= 10400  // r124+
   LZ4_streamDecode_t* stream = LZ4_createStreamDecode();
-  Slice compression_dict = info.dict().GetRawDict();
+  const Slice& compression_dict = info.dict().GetRawDict();
   if (compression_dict.size()) {
     LZ4_setStreamDecode(stream, compression_dict.data(),
                         static_cast<int>(compression_dict.size()));
@@ -1020,7 +1114,6 @@ inline CacheAllocationPtr LZ4_Uncompress(const UncompressionInfo& info,
   *decompress_size = LZ4_decompress_safe(input_data, output.get(),
                                          static_cast<int>(input_length),
                                          static_cast<int>(output_len));
-  (void)ctx;
 #endif  // LZ4_VERSION_NUMBER >= 10400
 
   if (*decompress_size < 0) {
@@ -1311,4 +1404,4 @@ inline std::string ZSTD_TrainDictionary(const std::string& samples,
 #endif  // ZSTD_VERSION_NUMBER >= 10103
 }
 
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

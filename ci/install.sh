@@ -14,15 +14,14 @@ if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       libzstd-dev \
       valgrind
 elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
-   brew install \
+   brew install cmake \
       boost \
       openssl \
       python3 \
       zlib \
       snappy \
       bzip2 \
-      valgrind
-   brew upgrade cmake
+      gflags
 fi
 
 pip3 install dataclasses-json Jinja2 importlib_resources pluginbase

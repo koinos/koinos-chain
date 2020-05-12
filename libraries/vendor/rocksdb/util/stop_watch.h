@@ -7,7 +7,7 @@
 #include "monitoring/statistics.h"
 #include "rocksdb/env.h"
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 // Auto-scoped.
 // Records the measure time into the corresponding histogram if statistics
 // is not nullptr. It is also saved into *elapsed if the pointer is not nullptr
@@ -22,7 +22,10 @@ class StopWatch {
         hist_type_(hist_type),
         elapsed_(elapsed),
         overwrite_(overwrite),
-        stats_enabled_(statistics && statistics->HistEnabledForType(hist_type)),
+        stats_enabled_(statistics &&
+                       statistics->get_stats_level() >=
+                           StatsLevel::kExceptTimers &&
+                       statistics->HistEnabledForType(hist_type)),
         delay_enabled_(delay_enabled),
         total_delay_(0),
         delay_start_time_(0),
@@ -41,9 +44,10 @@ class StopWatch {
       *elapsed_ -= total_delay_;
     }
     if (stats_enabled_) {
-      statistics_->measureTime(hist_type_,
-          (elapsed_ != nullptr) ? *elapsed_ :
-                                  (env_->NowMicros() - start_time_));
+      statistics_->reportTimeToHistogram(
+          hist_type_, (elapsed_ != nullptr)
+                          ? *elapsed_
+                          : (env_->NowMicros() - start_time_));
     }
   }
 
@@ -111,4 +115,4 @@ class StopWatchNano {
   uint64_t start_;
 };
 
-} // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE
