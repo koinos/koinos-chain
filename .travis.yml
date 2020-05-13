@@ -31,5 +31,4 @@ install:
   - ci/install.sh
 
 script:
-  - ci/build.sh
-  - ci/test.sh
+  - ci/build.sh && ci/test.sh
