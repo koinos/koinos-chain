@@ -12,6 +12,9 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror" )
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas" )
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unknown-pragmas" )
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+
 set(Boost_NO_BOOST_CMAKE ON)
 if( NOT( Boost_VERSION LESS 106900 ) )
    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")

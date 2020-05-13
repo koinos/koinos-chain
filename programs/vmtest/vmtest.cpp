@@ -2,7 +2,11 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wunused-variable"
+
+#ifndef __clang__
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 #include <eosio/vm/backend.hpp>
 #pragma GCC diagnostic pop
 
