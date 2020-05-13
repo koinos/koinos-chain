@@ -1,6 +1,8 @@
 // Copyright (c) 2014 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
+//
+// Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 #pragma once
 
@@ -13,7 +15,7 @@
 #include "rocksdb/status.h"
 #include "rocksdb/table_properties.h"
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 
 typedef std::unordered_map<std::string, std::shared_ptr<const TableProperties>>
     TablePropertiesCollection;
@@ -89,6 +91,8 @@ enum class CompactionReason : int {
   kFlush,
   // Compaction caused by external sst file ingestion
   kExternalSstIngestion,
+  // Compaction due to SST file being too old
+  kPeriodicCompaction,
   // total number of compaction reasons, new reasons must be added above this.
   kNumOfReasons,
 };
@@ -166,6 +170,10 @@ struct FlushJobInfo {
   std::string cf_name;
   // the path to the newly created file
   std::string file_path;
+  // the file number of the newly created file
+  uint64_t file_number;
+  // the oldest blob file referenced by the newly created file
+  uint64_t oldest_blob_file_number;
   // the id of the thread that completed this flush job.
   uint64_t thread_id;
   // the job id, which is unique in the same thread.
@@ -190,11 +198,18 @@ struct FlushJobInfo {
   FlushReason flush_reason;
 };
 
-struct CompactionJobInfo {
-  CompactionJobInfo() = default;
-  explicit CompactionJobInfo(const CompactionJobStats& _stats) :
-      stats(_stats) {}
+struct CompactionFileInfo {
+  // The level of the file.
+  int level;
 
+  // The file number of the file.
+  uint64_t file_number;
+
+  // The file number of the oldest blob file this SST file references.
+  uint64_t oldest_blob_file_number;
+};
+
+struct CompactionJobInfo {
   // the id of the column family where the compaction happened.
   uint32_t cf_id;
   // the name of the column family where the compaction happened.
@@ -209,11 +224,25 @@ struct CompactionJobInfo {
   int base_input_level;
   // the output level of the compaction.
   int output_level;
-  // the names of the compaction input files.
+
+  // The following variables contain information about compaction inputs
+  // and outputs. A file may appear in both the input and output lists
+  // if it was simply moved to a different level. The order of elements
+  // is the same across input_files and input_file_infos; similarly, it is
+  // the same across output_files and output_file_infos.
+
+  // The names of the compaction input files.
   std::vector<std::string> input_files;
 
-  // the names of the compaction output files.
+  // Additional information about the compaction input files.
+  std::vector<CompactionFileInfo> input_file_infos;
+
+  // The names of the compaction output files.
   std::vector<std::string> output_files;
+
+  // Additional information about the compaction output files.
+  std::vector<CompactionFileInfo> output_file_infos;
+
   // Table properties for input and output tables.
   // The map is keyed by values from input_files and output_files.
   TablePropertiesCollection table_properties;
@@ -244,7 +273,6 @@ struct MemTableInfo {
   uint64_t num_entries;
   // Total number of deletes in memtable
   uint64_t num_deletes;
-
 };
 
 struct ExternalFileIngestionInfo {
@@ -324,8 +352,7 @@ class EventListener {
   // Note that the this function must be implemented in a way such that
   // it should not run for an extended period of time before the function
   // returns.  Otherwise, RocksDB may be blocked.
-  virtual void OnCompactionBegin(DB* /*db*/,
-                                 const CompactionJobInfo& /*ci*/) {}
+  virtual void OnCompactionBegin(DB* /*db*/, const CompactionJobInfo& /*ci*/) {}
 
   // A callback function for RocksDB which will be called whenever
   // a registered RocksDB compacts a file. The default implementation
@@ -380,8 +407,7 @@ class EventListener {
   // Note that if applications would like to use the passed reference
   // outside this function call, they should make copies from these
   // returned value.
-  virtual void OnMemTableSealed(
-    const MemTableInfo& /*info*/) {}
+  virtual void OnMemTableSealed(const MemTableInfo& /*info*/) {}
 
   // A callback function for RocksDB which will be called before
   // a column family handle is deleted.
@@ -457,9 +483,9 @@ class EventListener {
 
 #else
 
-class EventListener {
-};
+class EventListener {};
+struct FlushJobInfo {};
 
 #endif  // ROCKSDB_LITE
 
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

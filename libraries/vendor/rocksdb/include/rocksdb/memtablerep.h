@@ -35,13 +35,13 @@
 
 #pragma once
 
-#include <memory>
-#include <stdexcept>
+#include <rocksdb/slice.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <rocksdb/slice.h>
+#include <memory>
+#include <stdexcept>
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 
 class Arena;
 class Allocator;
@@ -59,7 +59,7 @@ class MemTableRep {
   // concatenated with values.
   class KeyComparator {
    public:
-    typedef rocksdb::Slice DecodedType;
+    typedef ROCKSDB_NAMESPACE::Slice DecodedType;
 
     virtual DecodedType decode_key(const char* key) const {
       // The format of key is frozen and can be terated as a part of the API
@@ -75,7 +75,7 @@ class MemTableRep {
     virtual int operator()(const char* prefix_len_key,
                            const Slice& key) const = 0;
 
-    virtual ~KeyComparator() { }
+    virtual ~KeyComparator() {}
   };
 
   explicit MemTableRep(Allocator* allocator) : allocator_(allocator) {}
@@ -120,6 +120,28 @@ class MemTableRep {
     return true;
   }
 
+  // Same as ::InsertWithHint, but allow concurrnet write
+  //
+  // If hint points to nullptr, a new hint will be allocated on heap, otherwise
+  // the hint will be updated to reflect the last insert location. The hint is
+  // owned by the caller and it is the caller's responsibility to delete the
+  // hint later.
+  //
+  // Currently only skip-list based memtable implement the interface. Other
+  // implementations will fallback to InsertConcurrently() by default.
+  virtual void InsertWithHintConcurrently(KeyHandle handle, void** /*hint*/) {
+    // Ignore the hint by default.
+    InsertConcurrently(handle);
+  }
+
+  // Same as ::InsertWithHintConcurrently
+  // Returns false if MemTableRepFactory::CanHandleDuplicatedKey() is true and
+  // the <key, seq> already exists.
+  virtual bool InsertKeyWithHintConcurrently(KeyHandle handle, void** hint) {
+    InsertWithHintConcurrently(handle, hint);
+    return true;
+  }
+
   // Like Insert(handle), but may be called concurrent with other calls
   // to InsertConcurrently for other handles.
   //
@@ -142,7 +164,7 @@ class MemTableRep {
   // does nothing.  After MarkReadOnly() is called, this table rep will
   // not be written to (ie No more calls to Allocate(), Insert(),
   // or any writes done directly to entries accessed through the iterator.)
-  virtual void MarkReadOnly() { }
+  virtual void MarkReadOnly() {}
 
   // Notify this table rep that it has been flushed to stable storage.
   // By default, does nothing.
@@ -150,7 +172,7 @@ class MemTableRep {
   // Invariant: MarkReadOnly() is called, before MarkFlushed().
   // Note that this method if overridden, should not run for an extended period
   // of time. Otherwise, RocksDB may be blocked.
-  virtual void MarkFlushed() { }
+  virtual void MarkFlushed() {}
 
   // Look up key from the mem table, since the first key in the mem table whose
   // user_key matches the one given k, call the function callback_func(), with
@@ -176,7 +198,7 @@ class MemTableRep {
   // that was allocated through the allocator.  Safe to call from any thread.
   virtual size_t ApproximateMemoryUsage() = 0;
 
-  virtual ~MemTableRep() { }
+  virtual ~MemTableRep() {}
 
   // Iteration over the contents of a skip collection
   class Iterator {
@@ -317,16 +339,14 @@ class VectorRepFactory : public MemTableRepFactory {
   const size_t count_;
 
  public:
-  explicit VectorRepFactory(size_t count = 0) : count_(count) { }
+  explicit VectorRepFactory(size_t count = 0) : count_(count) {}
 
   using MemTableRepFactory::CreateMemTableRep;
   virtual MemTableRep* CreateMemTableRep(const MemTableRep::KeyComparator&,
                                          Allocator*, const SliceTransform*,
                                          Logger* logger) override;
 
-  virtual const char* Name() const override {
-    return "VectorRepFactory";
-  }
+  virtual const char* Name() const override { return "VectorRepFactory"; }
 };
 
 // This class contains a fixed array of buckets, each
@@ -337,8 +357,7 @@ class VectorRepFactory : public MemTableRepFactory {
 //                            link lists in the skiplist
 extern MemTableRepFactory* NewHashSkipListRepFactory(
     size_t bucket_count = 1000000, int32_t skiplist_height = 4,
-    int32_t skiplist_branching_factor = 4
-);
+    int32_t skiplist_branching_factor = 4);
 
 // The factory is to create memtables based on a hash table:
 // it contains a fixed array of buckets, each pointing to either a linked list
@@ -363,4 +382,4 @@ extern MemTableRepFactory* NewHashLinkListRepFactory(
     uint32_t threshold_use_skiplist = 256);
 
 #endif  // ROCKSDB_LITE
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

@@ -14,13 +14,8 @@
 // missing some functions we require.  We're developing against 6.3, but probably anything in the 6.x
 // series is fine
 # if RL_VERSION_MAJOR < 6
-#  ifdef _MSC_VER
-#   pragma message("You have an old version of readline installed that might not support some of the features we need")
-#   pragma message("Readline support will not be compiled in")
-#  else
-#   warning "You have an old version of readline installed that might not support some of the features we need"
-#   warning "Readline support will not be compiled in"
-#  endif
+#  pragma message("You have an old version of readline installed that might not support some of the features we need")
+#  pragma message("Readline support will not be compiled in")
 #  undef HAVE_READLINE
 # endif
 # ifdef WIN32

@@ -8,10 +8,10 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 //
 #pragma once
-#include "rocksdb/env.h"
+#include "rocksdb/file_system.h"
 #include "rocksdb/slice_transform.h"
 
-namespace rocksdb {
+namespace ROCKSDB_NAMESPACE {
 
 class TableCache;
 class VersionStorageInfo;
@@ -24,19 +24,19 @@ class InternalStats;
 // Versions that contain full copies of the intermediate state.
 class VersionBuilder {
  public:
-  VersionBuilder(const EnvOptions& env_options, TableCache* table_cache,
+  VersionBuilder(const FileOptions& file_options, TableCache* table_cache,
                  VersionStorageInfo* base_vstorage, Logger* info_log = nullptr);
   ~VersionBuilder();
-  void CheckConsistency(VersionStorageInfo* vstorage);
-  void CheckConsistencyForDeletes(VersionEdit* edit, uint64_t number,
-                                  int level);
+  Status CheckConsistency(VersionStorageInfo* vstorage);
+  Status CheckConsistencyForDeletes(VersionEdit* edit, uint64_t number,
+                                    int level);
   bool CheckConsistencyForNumLevels();
-  void Apply(VersionEdit* edit);
-  void SaveTo(VersionStorageInfo* vstorage);
-  void LoadTableHandlers(InternalStats* internal_stats, int max_threads,
-                         bool prefetch_index_and_filter_in_cache,
-                         bool is_initial_load,
-                         const SliceTransform* prefix_extractor);
+  Status Apply(VersionEdit* edit);
+  Status SaveTo(VersionStorageInfo* vstorage);
+  Status LoadTableHandlers(InternalStats* internal_stats, int max_threads,
+                           bool prefetch_index_and_filter_in_cache,
+                           bool is_initial_load,
+                           const SliceTransform* prefix_extractor);
   void MaybeAddFile(VersionStorageInfo* vstorage, int level, FileMetaData* f);
 
  private:
@@ -45,4 +45,4 @@ class VersionBuilder {
 };
 
 extern bool NewestFirstBySeqNo(FileMetaData* a, FileMetaData* b);
-}  // namespace rocksdb
+}  // namespace ROCKSDB_NAMESPACE

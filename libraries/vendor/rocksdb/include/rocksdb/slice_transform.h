@@ -16,7 +16,9 @@
 
 #include <string>
 
-namespace rocksdb {
+#include "rocksdb/rocksdb_namespace.h"
+
+namespace ROCKSDB_NAMESPACE {
 
 class Slice;
 
@@ -28,7 +30,7 @@ class Slice;
  */
 class SliceTransform {
  public:
-  virtual ~SliceTransform() {};
+  virtual ~SliceTransform(){};
 
   // Return the name of this transformation.
   virtual const char* Name() const = 0;
@@ -98,4 +100,4 @@ extern const SliceTransform* NewCappedPrefixTransform(size_t cap_len);
 
 extern const SliceTransform* NewNoopTransform();
 
-}
+}  // namespace ROCKSDB_NAMESPACE
