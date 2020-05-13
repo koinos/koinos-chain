@@ -12,4 +12,4 @@ enum class privilege : uint8_t
    user_mode
 };
 
-} // koinos::kernel
+} // koinos::chain

@@ -9,107 +9,118 @@ namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( syscall_not_overridable );
 
-using vm_code_ptr = int;
+// For any given system call, two slots are used. The first definition
+// is considered overridable. The second system call slot is prefixed
+// with an underscore to denote a private unoverridable implementation.
+
+// When adding a system call slot, use the provided macro SYSCALL_SLOT
+// to declare both a public and private implementation.
+
+#define SYSCALL_SLOT(s) s, _##s
 
 enum class syscall_slot : uint32_t
 {
-   register_syscall,
-   verify_block_header,
-   call_contract,
+   SYSCALL_SLOT(register_syscall),
+   SYSCALL_SLOT(verify_block_header),
+   SYSCALL_SLOT(call_contract),
 
-   prints,
-   prints_l,
-   printi,
-   printui,
-   printi128,
-   printui128,
-   printsf,
-   printdf,
-   printqf,
-   printn,
-   printhex,
+   SYSCALL_SLOT(prints),
+   SYSCALL_SLOT(prints_l),
+   SYSCALL_SLOT(printi),
+   SYSCALL_SLOT(printui),
+   SYSCALL_SLOT(printi128),
+   SYSCALL_SLOT(printui128),
+   SYSCALL_SLOT(printsf),
+   SYSCALL_SLOT(printdf),
+   SYSCALL_SLOT(printqf),
+   SYSCALL_SLOT(printn),
+   SYSCALL_SLOT(printhex),
 
-   memset,
-   memcmp,
-   memmove,
-   memcpy,
+   SYSCALL_SLOT(memset),
+   SYSCALL_SLOT(memcmp),
+   SYSCALL_SLOT(memmove),
+   SYSCALL_SLOT(memcpy),
 
-   current_receiver,
-   action_data_size,
-   read_action_data,
+   SYSCALL_SLOT(current_receiver),
+   SYSCALL_SLOT(action_data_size),
+   SYSCALL_SLOT(read_action_data),
 
-   eosio_assert,
-   eosio_assert_message,
-   eosio_assert_code,
-   eosio_exit,
-   abort,
+   SYSCALL_SLOT(eosio_assert),
+   SYSCALL_SLOT(eosio_assert_message),
+   SYSCALL_SLOT(eosio_assert_code),
+   SYSCALL_SLOT(eosio_exit),
+   SYSCALL_SLOT(abort),
 
-   db_store_i64,
-   db_update_i64,
-   db_remove_i64,
-   db_get_i64,
-   db_next_i64,
-   db_previous_i64,
-   db_find_i64,
-   db_lowerbound_i64,
-   db_upperbound_i64,
-   db_end_i64,
+   SYSCALL_SLOT(db_store_i64),
+   SYSCALL_SLOT(db_update_i64),
+   SYSCALL_SLOT(db_remove_i64),
+   SYSCALL_SLOT(db_get_i64),
+   SYSCALL_SLOT(db_next_i64),
+   SYSCALL_SLOT(db_previous_i64),
+   SYSCALL_SLOT(db_find_i64),
+   SYSCALL_SLOT(db_lowerbound_i64),
+   SYSCALL_SLOT(db_upperbound_i64),
+   SYSCALL_SLOT(db_end_i64),
 
-   db_idx64_store,
-   db_idx64_update,
-   db_idx64_remove,
-   db_idx64_next,
-   db_idx64_previous,
-   db_idx64_find_primary,
-   db_idx64_find_secondary,
-   db_idx64_lowerbound,
-   db_idx64_upperbound,
-   db_idx64_end,
+   SYSCALL_SLOT(db_idx64_store),
+   SYSCALL_SLOT(db_idx64_update),
+   SYSCALL_SLOT(db_idx64_remove),
+   SYSCALL_SLOT(db_idx64_next),
+   SYSCALL_SLOT(db_idx64_previous),
+   SYSCALL_SLOT(db_idx64_find_primary),
+   SYSCALL_SLOT(db_idx64_find_secondary),
+   SYSCALL_SLOT(db_idx64_lowerbound),
+   SYSCALL_SLOT(db_idx64_upperbound),
+   SYSCALL_SLOT(db_idx64_end),
 
-   db_idx128_store,
-   db_idx128_update,
-   db_idx128_remove,
-   db_idx128_next,
-   db_idx128_previous,
-   db_idx128_find_primary,
-   db_idx128_find_secondary,
-   db_idx128_lowerbound,
-   db_idx128_upperbound,
-   db_idx128_end,
+   SYSCALL_SLOT(db_idx128_store),
+   SYSCALL_SLOT(db_idx128_update),
+   SYSCALL_SLOT(db_idx128_remove),
+   SYSCALL_SLOT(db_idx128_next),
+   SYSCALL_SLOT(db_idx128_previous),
+   SYSCALL_SLOT(db_idx128_find_primary),
+   SYSCALL_SLOT(db_idx128_find_secondary),
+   SYSCALL_SLOT(db_idx128_lowerbound),
+   SYSCALL_SLOT(db_idx128_upperbound),
+   SYSCALL_SLOT(db_idx128_end),
 
-   db_idx256_store,
-   db_idx256_update,
-   db_idx256_remove,
-   db_idx256_next,
-   db_idx256_previous,
-   db_idx256_find_primary,
-   db_idx256_find_secondary,
-   db_idx256_lowerbound,
-   db_idx256_upperbound,
-   db_idx256_end,
+   SYSCALL_SLOT(db_idx256_store),
+   SYSCALL_SLOT(db_idx256_update),
+   SYSCALL_SLOT(db_idx256_remove),
+   SYSCALL_SLOT(db_idx256_next),
+   SYSCALL_SLOT(db_idx256_previous),
+   SYSCALL_SLOT(db_idx256_find_primary),
+   SYSCALL_SLOT(db_idx256_find_secondary),
+   SYSCALL_SLOT(db_idx256_lowerbound),
+   SYSCALL_SLOT(db_idx256_upperbound),
+   SYSCALL_SLOT(db_idx256_end),
 
-   db_idx_double_store,
-   db_idx_double_update,
-   db_idx_double_remove,
-   db_idx_double_next,
-   db_idx_double_previous,
-   db_idx_double_find_primary,
-   db_idx_double_find_secondary,
-   db_idx_double_lowerbound,
-   db_idx_double_upperbound,
-   db_idx_double_end,
+   SYSCALL_SLOT(db_idx_double_store),
+   SYSCALL_SLOT(db_idx_double_update),
+   SYSCALL_SLOT(db_idx_double_remove),
+   SYSCALL_SLOT(db_idx_double_next),
+   SYSCALL_SLOT(db_idx_double_previous),
+   SYSCALL_SLOT(db_idx_double_find_primary),
+   SYSCALL_SLOT(db_idx_double_find_secondary),
+   SYSCALL_SLOT(db_idx_double_lowerbound),
+   SYSCALL_SLOT(db_idx_double_upperbound),
+   SYSCALL_SLOT(db_idx_double_end),
 
-   db_idx_long_double_store,
-   db_idx_long_double_update,
-   db_idx_long_double_remove,
-   db_idx_long_double_next,
-   db_idx_long_double_previous,
-   db_idx_long_double_find_primary,
-   db_idx_long_double_find_secondary,
-   db_idx_long_double_lowerbound,
-   db_idx_long_double_upperbound,
-   db_idx_long_double_end
+   SYSCALL_SLOT(db_idx_long_double_store),
+   SYSCALL_SLOT(db_idx_long_double_update),
+   SYSCALL_SLOT(db_idx_long_double_remove),
+   SYSCALL_SLOT(db_idx_long_double_next),
+   SYSCALL_SLOT(db_idx_long_double_previous),
+   SYSCALL_SLOT(db_idx_long_double_find_primary),
+   SYSCALL_SLOT(db_idx_long_double_find_secondary),
+   SYSCALL_SLOT(db_idx_long_double_lowerbound),
+   SYSCALL_SLOT(db_idx_long_double_upperbound),
+   SYSCALL_SLOT(db_idx_long_double_end)
 };
+
+#undef SYSCALL_SLOT
+
+using vm_code_ptr = int;
 
 class syscall_table final
 {
@@ -124,4 +135,4 @@ class syscall_table final
       bool overridable( syscall_slot s ) noexcept;
 };
 
-} // koinos::kernel
+} // koinos::chain
