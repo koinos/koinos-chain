@@ -1,5 +1,7 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
+#include <koinos/chain/debug_state.hpp>
+
 #include <mira/database_configuration.hpp>
 
 #include <fc/io/json.hpp>
@@ -104,6 +106,7 @@ void chain_plugin::plugin_startup()
    try
    {
       my->db.open( my->state_dir, my->chainbase_flags, database_config );
+      my->db.add_index< koinos::chain::debug_state_index >();
    }
    catch( fc::exception& e )
    {
