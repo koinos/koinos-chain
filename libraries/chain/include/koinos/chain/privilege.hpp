@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <koinos/exception.hpp>
 
-namespace koinos::kernel {
+namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( insufficient_privileges );
 

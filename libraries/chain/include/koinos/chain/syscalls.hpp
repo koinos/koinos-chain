@@ -5,7 +5,7 @@
 
 #include <koinos/exception.hpp>
 
-namespace koinos::kernel {
+namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( syscall_not_overridable );
 
