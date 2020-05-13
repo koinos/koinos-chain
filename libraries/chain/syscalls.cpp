@@ -1,7 +1,7 @@
-#include <koinos/kernel/syscalls.hpp>
-#include <koinos/kernel/privilege.hpp>
+#include <koinos/chain/syscalls.hpp>
+#include <koinos/chain/privilege.hpp>
 
-namespace koinos::kernel {
+namespace koinos::chain {
 
 bool syscall_table::overridable( syscall_slot s ) noexcept
 {
