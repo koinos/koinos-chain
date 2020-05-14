@@ -9,25 +9,25 @@ namespace fc {
     namespace detail {
       template<typename A, typename U>
       struct add {
-        typedef decltype( *((A*)0) + *((typename fc::remove_reference<U>::type*)0) ) type; 
+        typedef decltype( *((A*)0) + *((typename fc::remove_reference<U>::type*)0) ) type;
       };
       template<typename A, typename U>
       struct add_eq {
-        typedef decltype( *((A*)0) += *((typename fc::remove_reference<U>::type*)0) ) type; 
+        typedef decltype( *((A*)0) += *((typename fc::remove_reference<U>::type*)0) ) type;
       };
 
       template<typename A, typename U>
       struct sub {
-        typedef decltype( *((A*)0) - *((typename fc::remove_reference<U>::type*)0) ) type; 
+        typedef decltype( *((A*)0) - *((typename fc::remove_reference<U>::type*)0) ) type;
       };
 
       template<typename A, typename U>
       struct sub_eq {
-        typedef decltype( *((A*)0) -= *((typename fc::remove_reference<U>::type*)0) ) type; 
+        typedef decltype( *((A*)0) -= *((typename fc::remove_reference<U>::type*)0) ) type;
       };
       template<typename A, typename U>
       struct insert_op {
-        typedef decltype( *((A*)0) << *((typename fc::remove_reference<U>::type*)0) ) type; 
+        typedef decltype( *((A*)0) << *((typename fc::remove_reference<U>::type*)0) ) type;
       };
       template<typename A, typename U>
       struct extract_op {

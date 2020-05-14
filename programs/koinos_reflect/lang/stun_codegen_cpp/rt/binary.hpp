@@ -2,6 +2,8 @@
 
 #include <koinos/pack/rt/basetypes.hpp>
 #include <koinos/pack/rt/exceptions.hpp>
+#include <koinos/pack/rt/reflect.hpp>
+#include <koinos/pack/rt/typename.hpp>
 #include <koinos/pack/rt/varint.hpp>
 #include <koinos/pack/rt/util/variant_helpers.hpp>
 

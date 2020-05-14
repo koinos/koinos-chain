@@ -1,6 +1,7 @@
 add_subdirectory(appbase)
 add_subdirectory(builtins)
 add_subdirectory(chain)
+add_subdirectory(crypto)
 add_subdirectory(fork)
 add_subdirectory(pack)
 add_subdirectory(statedb)
