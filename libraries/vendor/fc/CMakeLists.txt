@@ -64,7 +64,7 @@ if ( MSVC )
         USE_NUM_NONE
         USE_SCALAR_8X32
         USE_SCALAR_INV_BUILTIN )
-    set_target_properties( secp256k1 PROPERTIES COMPILE_DEFINITIONS "${SECP256K1_BUILD_DEFINES}" LINKER_LANGUAGE C )
+    set_target_properties( fc_secp256k1 PROPERTIES COMPILE_DEFINITIONS "${SECP256K1_BUILD_DEFINES}" LINKER_LANGUAGE C )
 else ( MSVC )
     include(ExternalProject)
     if ( MINGW )
