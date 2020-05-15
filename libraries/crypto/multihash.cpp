@@ -11,7 +11,9 @@ namespace koinos::crypto {
    {
       static const std::map<uint64_t, const EVP_MD*> evp_md_map = {
          { CRYPTO_SHA1_ID, EVP_sha1() },
-         { CRYPTO_SHA2_256_ID, EVP_sha256() }
+         { CRYPTO_SHA2_256_ID, EVP_sha256() },
+         { CRYPTO_SHA2_512_ID, EVP_sha512() },
+         { CRYPTO_RIPEMD160_ID, EVP_ripemd160() }
       };
 
       auto md_itr = evp_md_map.find( code );
@@ -30,12 +32,12 @@ namespace koinos::crypto {
       mhv.hash_id |= (code << HASH_OFFSET);
    }
 
-   uint64_t multihash::id( multihash_type& mh )
+   uint64_t multihash::get_id( const multihash_type& mh )
    {
       return (mh.hash_id | HASH_MASK) >> HASH_OFFSET;
    }
 
-   uint64_t multihash::id( multihash_vector& mhv )
+   uint64_t multihash::get_id( const multihash_vector& mhv )
    {
       return (mhv.hash_id | HASH_MASK) >> HASH_OFFSET;
    }
@@ -52,27 +54,31 @@ namespace koinos::crypto {
       mhv.hash_id |= std::min( size, SIZE_MASK );
    }
 
-   uint64_t multihash::size( multihash_type& mh )
+   uint64_t multihash::get_size( const multihash_type& mh )
    {
       return mh.hash_id & SIZE_MASK;
    }
 
-   uint64_t multihash::size( multihash_vector& mhv )
+   uint64_t multihash::get_size( const multihash_vector& mhv )
    {
       return mhv.hash_id & SIZE_MASK;
    }
 
-   bool multihash::validate( multihash_type& mh )
+   bool multihash::validate( const multihash_type& mh, uint64_t code, uint64_t size )
    {
-      return get_evp_md( id( mh ) ) != nullptr
-         && size( mh ) == mh.digest.data.size();
+      if( code && ( get_id( mh ) != code ) ) return false;
+      if( size && ( get_size( mh ) != size ) ) return false;
+      return get_evp_md( get_id( mh ) ) != nullptr
+         && get_size( mh ) == mh.digest.data.size();
    }
 
-   bool multihash::validate( multihash_vector& mhv )
+   bool multihash::validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
    {
-      if( get_evp_md( id( mhv ) ) == nullptr ) return false;
+      if( code && get_id( mhv ) != code ) return false;
+      if( size && get_size( mhv ) != size ) return false;
+      if( get_evp_md( get_id( mhv ) ) == nullptr ) return false;
 
-      uint64_t s = size( mhv );
+      uint64_t s = get_size( mhv );
 
       for( auto d : mhv.digests )
       {

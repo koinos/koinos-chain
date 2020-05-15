@@ -48,6 +48,8 @@ ELSE( ECC_IMPL STREQUAL openssl )
   ENDIF( ECC_IMPL STREQUAL mixed )
 ENDIF( ECC_IMPL STREQUAL openssl )
 
+MESSAGE( STATUS "---------- ECC_IMPL ${ECC_IMPL}" )
+
 # Configure secp256k1-zkp
 if ( MSVC )
     # autoconf won't work here, hard code the defines
