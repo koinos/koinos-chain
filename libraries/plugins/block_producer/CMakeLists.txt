@@ -1,7 +1,7 @@
 add_library( block_producer_plugin
              block_producer_plugin.cpp )
 
-target_link_libraries( block_producer_plugin chain chainbase appbase )
+target_link_libraries( block_producer_plugin chain chainbase appbase pack )
 # target_include_directories( block_producer_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 
 install( TARGETS
