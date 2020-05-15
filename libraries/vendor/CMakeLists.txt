@@ -29,6 +29,7 @@ SET(WITH_TOOLS OFF CACHE BOOL "build with tools")
 #endif()
 
 add_subdirectory(rocksdb)
+#add_subdirectory(secp256k1)
 
 # Configure secp256k1
 include(ExternalProject)
@@ -46,6 +47,11 @@ ExternalProject_Add_Step(project_secp256k1 autogen
    DEPENDERS configure
 )
 ExternalProject_Get_Property(project_secp256k1 binary_dir)
+set_property(TARGET project_secp256k1 PROPERTY IMPORTED_LOCATION ${binary_dir}/.libs/libsecp256k1.a)
+set_property(TARGET project_secp256k1 PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/secp256k1/include)
+
+MESSAGE( STATUS "---------- binary_dir ${binary_dir}" )
+MESSAGE( STATUS "---------- CMAKE_STATIC_LIBRARY_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX}" )
 
 add_library(secp256k1 STATIC IMPORTED)
 set_property(TARGET secp256k1 PROPERTY IMPORTED_LOCATION ${binary_dir}/.libs/libsecp256k1${CMAKE_STATIC_LIBRARY_SUFFIX})
