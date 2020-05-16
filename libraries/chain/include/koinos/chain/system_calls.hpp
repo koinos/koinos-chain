@@ -20,108 +20,107 @@ DECLARE_KOINOS_EXCEPTION( system_call_not_overridable );
 // is considered overridable. The second system call slot is prefixed
 // with an underscore to denote a private unoverridable implementation.
 
-// When adding a system call slot, use the provided macro SYSTEM_CALL_SLOT
+// When adding a system call slot, use the provided macro SYSTEM_CALL_SLOTS
 // to declare both a public and private implementation.
 
-enum class system_call_slot : uint32_t
-{
-   SYSTEM_CALL_SLOT(register_syscall),
-   SYSTEM_CALL_SLOT(verify_block_header),
-   SYSTEM_CALL_SLOT(call_contract),
+SYSTEM_CALL_SLOTS(
+   (register_syscall)
+   (verify_block_header)
+   (call_contract)
 
-   SYSTEM_CALL_SLOT(prints),
-   SYSTEM_CALL_SLOT(prints_l),
-   SYSTEM_CALL_SLOT(printi),
-   SYSTEM_CALL_SLOT(printui),
-   SYSTEM_CALL_SLOT(printi128),
-   SYSTEM_CALL_SLOT(printui128),
-   SYSTEM_CALL_SLOT(printsf),
-   SYSTEM_CALL_SLOT(printdf),
-   SYSTEM_CALL_SLOT(printqf),
-   SYSTEM_CALL_SLOT(printn),
-   SYSTEM_CALL_SLOT(printhex),
+   (prints)
+   (prints_l)
+   (printi)
+   (printui)
+   (printi128)
+   (printui128)
+   (printsf)
+   (printdf)
+   (printqf)
+   (printn)
+   (printhex)
 
-   SYSTEM_CALL_SLOT(memset),
-   SYSTEM_CALL_SLOT(memcmp),
-   SYSTEM_CALL_SLOT(memmove),
-   SYSTEM_CALL_SLOT(memcpy),
+   (memset)
+   (memcmp)
+   (memmove)
+   (memcpy)
 
-   SYSTEM_CALL_SLOT(current_receiver),
-   SYSTEM_CALL_SLOT(action_data_size),
-   SYSTEM_CALL_SLOT(read_action_data),
+   (current_receiver)
+   (action_data_size)
+   (read_action_data)
 
-   SYSTEM_CALL_SLOT(eosio_assert),
-   SYSTEM_CALL_SLOT(eosio_assert_message),
-   SYSTEM_CALL_SLOT(eosio_assert_code),
-   SYSTEM_CALL_SLOT(eosio_exit),
-   SYSTEM_CALL_SLOT(abort),
+   (eosio_assert)
+   (eosio_assert_message)
+   (eosio_assert_code)
+   (eosio_exit)
+   (abort)
 
-   SYSTEM_CALL_SLOT(db_store_i64),
-   SYSTEM_CALL_SLOT(db_update_i64),
-   SYSTEM_CALL_SLOT(db_remove_i64),
-   SYSTEM_CALL_SLOT(db_get_i64),
-   SYSTEM_CALL_SLOT(db_next_i64),
-   SYSTEM_CALL_SLOT(db_previous_i64),
-   SYSTEM_CALL_SLOT(db_find_i64),
-   SYSTEM_CALL_SLOT(db_lowerbound_i64),
-   SYSTEM_CALL_SLOT(db_upperbound_i64),
-   SYSTEM_CALL_SLOT(db_end_i64),
+   (db_store_i64)
+   (db_update_i64)
+   (db_remove_i64)
+   (db_get_i64)
+   (db_next_i64)
+   (db_previous_i64)
+   (db_find_i64)
+   (db_lowerbound_i64)
+   (db_upperbound_i64)
+   (db_end_i64)
 
-   SYSTEM_CALL_SLOT(db_idx64_store),
-   SYSTEM_CALL_SLOT(db_idx64_update),
-   SYSTEM_CALL_SLOT(db_idx64_remove),
-   SYSTEM_CALL_SLOT(db_idx64_next),
-   SYSTEM_CALL_SLOT(db_idx64_previous),
-   SYSTEM_CALL_SLOT(db_idx64_find_primary),
-   SYSTEM_CALL_SLOT(db_idx64_find_secondary),
-   SYSTEM_CALL_SLOT(db_idx64_lowerbound),
-   SYSTEM_CALL_SLOT(db_idx64_upperbound),
-   SYSTEM_CALL_SLOT(db_idx64_end),
+   (db_idx64_store)
+   (db_idx64_update)
+   (db_idx64_remove)
+   (db_idx64_next)
+   (db_idx64_previous)
+   (db_idx64_find_primary)
+   (db_idx64_find_secondary)
+   (db_idx64_lowerbound)
+   (db_idx64_upperbound)
+   (db_idx64_end)
 
-   SYSTEM_CALL_SLOT(db_idx128_store),
-   SYSTEM_CALL_SLOT(db_idx128_update),
-   SYSTEM_CALL_SLOT(db_idx128_remove),
-   SYSTEM_CALL_SLOT(db_idx128_next),
-   SYSTEM_CALL_SLOT(db_idx128_previous),
-   SYSTEM_CALL_SLOT(db_idx128_find_primary),
-   SYSTEM_CALL_SLOT(db_idx128_find_secondary),
-   SYSTEM_CALL_SLOT(db_idx128_lowerbound),
-   SYSTEM_CALL_SLOT(db_idx128_upperbound),
-   SYSTEM_CALL_SLOT(db_idx128_end),
+   (db_idx128_store)
+   (db_idx128_update)
+   (db_idx128_remove)
+   (db_idx128_next)
+   (db_idx128_previous)
+   (db_idx128_find_primary)
+   (db_idx128_find_secondary)
+   (db_idx128_lowerbound)
+   (db_idx128_upperbound)
+   (db_idx128_end)
 
-   SYSTEM_CALL_SLOT(db_idx256_store),
-   SYSTEM_CALL_SLOT(db_idx256_update),
-   SYSTEM_CALL_SLOT(db_idx256_remove),
-   SYSTEM_CALL_SLOT(db_idx256_next),
-   SYSTEM_CALL_SLOT(db_idx256_previous),
-   SYSTEM_CALL_SLOT(db_idx256_find_primary),
-   SYSTEM_CALL_SLOT(db_idx256_find_secondary),
-   SYSTEM_CALL_SLOT(db_idx256_lowerbound),
-   SYSTEM_CALL_SLOT(db_idx256_upperbound),
-   SYSTEM_CALL_SLOT(db_idx256_end),
+   (db_idx256_store)
+   (db_idx256_update)
+   (db_idx256_remove)
+   (db_idx256_next)
+   (db_idx256_previous)
+   (db_idx256_find_primary)
+   (db_idx256_find_secondary)
+   (db_idx256_lowerbound)
+   (db_idx256_upperbound)
+   (db_idx256_end)
 
-   SYSTEM_CALL_SLOT(db_idx_double_store),
-   SYSTEM_CALL_SLOT(db_idx_double_update),
-   SYSTEM_CALL_SLOT(db_idx_double_remove),
-   SYSTEM_CALL_SLOT(db_idx_double_next),
-   SYSTEM_CALL_SLOT(db_idx_double_previous),
-   SYSTEM_CALL_SLOT(db_idx_double_find_primary),
-   SYSTEM_CALL_SLOT(db_idx_double_find_secondary),
-   SYSTEM_CALL_SLOT(db_idx_double_lowerbound),
-   SYSTEM_CALL_SLOT(db_idx_double_upperbound),
-   SYSTEM_CALL_SLOT(db_idx_double_end),
+   (db_idx_double_store)
+   (db_idx_double_update)
+   (db_idx_double_remove)
+   (db_idx_double_next)
+   (db_idx_double_previous)
+   (db_idx_double_find_primary)
+   (db_idx_double_find_secondary)
+   (db_idx_double_lowerbound)
+   (db_idx_double_upperbound)
+   (db_idx_double_end)
 
-   SYSTEM_CALL_SLOT(db_idx_long_double_store),
-   SYSTEM_CALL_SLOT(db_idx_long_double_update),
-   SYSTEM_CALL_SLOT(db_idx_long_double_remove),
-   SYSTEM_CALL_SLOT(db_idx_long_double_next),
-   SYSTEM_CALL_SLOT(db_idx_long_double_previous),
-   SYSTEM_CALL_SLOT(db_idx_long_double_find_primary),
-   SYSTEM_CALL_SLOT(db_idx_long_double_find_secondary),
-   SYSTEM_CALL_SLOT(db_idx_long_double_lowerbound),
-   SYSTEM_CALL_SLOT(db_idx_long_double_upperbound),
-   SYSTEM_CALL_SLOT(db_idx_long_double_end)
-};
+   (db_idx_long_double_store)
+   (db_idx_long_double_update)
+   (db_idx_long_double_remove)
+   (db_idx_long_double_next)
+   (db_idx_long_double_previous)
+   (db_idx_long_double_find_primary)
+   (db_idx_long_double_find_secondary)
+   (db_idx_long_double_lowerbound)
+   (db_idx_long_double_upperbound)
+   (db_idx_long_double_end)
+);
 
 struct system_call_bundle
 {

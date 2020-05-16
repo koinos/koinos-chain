@@ -1,9 +1,15 @@
 #pragma once
 #include <boost/preprocessor.hpp>
 
-#define SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE "cannot be called directly from user mode"
+#define SYSTEM_CALL_SLOT(r, data, i, elem) BOOST_PP_COMMA_IF(i) elem, BOOST_PP_CAT(_,elem)
 
-#define SYSTEM_CALL_SLOT(s) s, BOOST_PP_CAT(_,s)
+#define SYSTEM_CALL_SLOTS( args ) \
+enum class system_call_slot : uint32_t\
+{\
+   BOOST_PP_SEQ_FOR_EACH_I(SYSTEM_CALL_SLOT, =>, args )\
+}
+
+#define SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE "cannot be called directly from user mode"
 
 #define SYSTEM_CALL_DECLARE(return_type, name, ...) \
    return_type name(__VA_ARGS__);               \
@@ -68,7 +74,7 @@
    }                                                                                          \
    RETURN_TYPE system_api::BOOST_PP_CAT(_,SYSCALL)( DETAIL_DEFINE_ARGS(__VA_ARGS__) )
 
-#define DB_API_METHOD_WRAPPERS_SIMPLE_SECONDARY(IDX, TYPE)\
+#define SYSTEM_CALL_DB_WRAPPERS_SIMPLE_SECONDARY(IDX, TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (const TYPE&) secondary) ) {\
       KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.store( scope, table, account_name(payer), id, secondary );\
@@ -110,7 +116,7 @@
       return context.IDX.previous_secondary(iterator, primary);\
    }
 
-#define DB_API_METHOD_WRAPPERS_ARRAY_SECONDARY(IDX, ARR_SIZE, ARR_ELEMENT_TYPE)\
+#define SYSTEM_CALL_DB_WRAPPERS_ARRAY_SECONDARY(IDX, ARR_SIZE, ARR_ELEMENT_TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (array_ptr<const ARR_ELEMENT_TYPE>) data, (uint32_t) data_len) ) {\
       KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
@@ -176,7 +182,7 @@
       return context.IDX.previous_secondary(iterator, primary);\
    }
 
-#define DB_API_METHOD_WRAPPERS_FLOAT_SECONDARY(IDX, TYPE)\
+#define SYSTEM_CALL_DB_WRAPPERS_FLOAT_SECONDARY(IDX, TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (const TYPE&) secondary) ) {\
       KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
