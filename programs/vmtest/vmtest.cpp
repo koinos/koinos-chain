@@ -14,7 +14,9 @@
 #include <eosio/vm/host_function.hpp>
 #include <eosio/vm/exceptions.hpp>
 #include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/syscalls.hpp>
 #include <koinos/chain/wasm_interface.hpp>
+#include <koinos/chain/wasm/common.hpp>
 #include <koinos/chain/wasm/type_conversion.hpp>
 #include <chainbase/chainbase.hpp>
 #include <mira/database_configuration.hpp>
@@ -86,100 +88,100 @@ int main(int argc, char** argv, char** envp)
    rhf_t::add< compiler_builtins, &compiler_builtins::__cmptf2, wasm_allocator >( "env", "__cmptf2" );
    rhf_t::add< compiler_builtins, &compiler_builtins::__unordtf2, wasm_allocator >( "env", "__unordtf2" );
 
-   rhf_t::add< console_api, &console_api::prints, wasm_allocator >( "env", "prints" );
-   rhf_t::add< console_api, &console_api::prints_l, wasm_allocator >( "env", "prints_l" );
-   rhf_t::add< console_api, &console_api::printi, wasm_allocator >( "env", "printi" );
-   rhf_t::add< console_api, &console_api::printui, wasm_allocator >( "env", "printui" );
-   rhf_t::add< console_api, &console_api::printi128, wasm_allocator >( "env", "printi128" );
-   rhf_t::add< console_api, &console_api::printui128, wasm_allocator >( "env", "printui128" );
-   rhf_t::add< console_api, &console_api::printsf, wasm_allocator >( "env", "printsf" );
-   rhf_t::add< console_api, &console_api::printdf, wasm_allocator >( "env", "printdf" );
-   rhf_t::add< console_api, &console_api::printqf, wasm_allocator >( "env", "printqf" );
-   rhf_t::add< console_api, &console_api::printn, wasm_allocator >( "env", "printn" );
-   rhf_t::add< console_api, &console_api::printhex, wasm_allocator >( "env", "printhex" );
+   rhf_t::add< system_api, &system_api::prints, wasm_allocator >( "env", "prints" );
+   rhf_t::add< system_api, &system_api::prints_l, wasm_allocator >( "env", "prints_l" );
+   rhf_t::add< system_api, &system_api::printi, wasm_allocator >( "env", "printi" );
+   rhf_t::add< system_api, &system_api::printui, wasm_allocator >( "env", "printui" );
+   rhf_t::add< system_api, &system_api::printi128, wasm_allocator >( "env", "printi128" );
+   rhf_t::add< system_api, &system_api::printui128, wasm_allocator >( "env", "printui128" );
+   rhf_t::add< system_api, &system_api::printsf, wasm_allocator >( "env", "printsf" );
+   rhf_t::add< system_api, &system_api::printdf, wasm_allocator >( "env", "printdf" );
+   rhf_t::add< system_api, &system_api::printqf, wasm_allocator >( "env", "printqf" );
+   rhf_t::add< system_api, &system_api::printn, wasm_allocator >( "env", "printn" );
+   rhf_t::add< system_api, &system_api::printhex, wasm_allocator >( "env", "printhex" );
 
-   rhf_t::add< memory_api, &memory_api::memset, wasm_allocator >( "env", "memset" );
-   rhf_t::add< memory_api, &memory_api::memcmp, wasm_allocator >( "env", "memcmp" );
-   rhf_t::add< memory_api, &memory_api::memmove, wasm_allocator >( "env", "memmove" );
-   rhf_t::add< memory_api, &memory_api::memcpy, wasm_allocator >( "env", "memcpy" );
+   rhf_t::add< system_api, &system_api::memset, wasm_allocator >( "env", "memset" );
+   rhf_t::add< system_api, &system_api::memcmp, wasm_allocator >( "env", "memcmp" );
+   rhf_t::add< system_api, &system_api::memmove, wasm_allocator >( "env", "memmove" );
+   rhf_t::add< system_api, &system_api::memcpy, wasm_allocator >( "env", "memcpy" );
 
-   rhf_t::add< action_api, &action_api::current_receiver, wasm_allocator >( "env", "current_receiver" );
-   rhf_t::add< action_api, &action_api::action_data_size, wasm_allocator >( "env", "action_data_size" );
-   rhf_t::add< action_api, &action_api::read_action_data, wasm_allocator >( "env", "read_action_data" );
+   rhf_t::add< system_api, &system_api::current_receiver, wasm_allocator >( "env", "current_receiver" );
+   rhf_t::add< system_api, &system_api::action_data_size, wasm_allocator >( "env", "action_data_size" );
+   rhf_t::add< system_api, &system_api::read_action_data, wasm_allocator >( "env", "read_action_data" );
 
-   rhf_t::add< context_free_system_api, &context_free_system_api::eosio_assert, wasm_allocator >( "env", "eosio_assert" );
-   rhf_t::add< context_free_system_api, &context_free_system_api::eosio_assert_message, wasm_allocator >( "env", "eosio_assert_message" );
-   rhf_t::add< context_free_system_api, &context_free_system_api::eosio_assert_code, wasm_allocator >( "env", "eosio_assert_code" );
-   rhf_t::add< context_free_system_api, &context_free_system_api::eosio_exit, wasm_allocator >( "env", "eosio_exit" );
-   rhf_t::add< context_free_system_api, &context_free_system_api::abort, wasm_allocator >( "env", "abort" );
+   rhf_t::add< system_api, &system_api::eosio_assert, wasm_allocator >( "env", "eosio_assert" );
+   rhf_t::add< system_api, &system_api::eosio_assert_message, wasm_allocator >( "env", "eosio_assert_message" );
+   rhf_t::add< system_api, &system_api::eosio_assert_code, wasm_allocator >( "env", "eosio_assert_code" );
+   rhf_t::add< system_api, &system_api::eosio_exit, wasm_allocator >( "env", "eosio_exit" );
+   rhf_t::add< system_api, &system_api::abort, wasm_allocator >( "env", "abort" );
 
-   rhf_t::add< database_api, &database_api::db_store_i64, wasm_allocator >( "env", "db_store_i64" );
-   rhf_t::add< database_api, &database_api::db_update_i64, wasm_allocator >( "env", "db_update_i64" );
-   rhf_t::add< database_api, &database_api::db_remove_i64, wasm_allocator >( "env", "db_remove_i64" );
-   rhf_t::add< database_api, &database_api::db_get_i64, wasm_allocator >( "env", "db_get_i64" );
-   rhf_t::add< database_api, &database_api::db_next_i64, wasm_allocator >( "env", "db_next_i64" );
-   rhf_t::add< database_api, &database_api::db_previous_i64, wasm_allocator >( "env", "db_previous_i64" );
-   rhf_t::add< database_api, &database_api::db_find_i64, wasm_allocator >( "env", "db_find_i64" );
-   rhf_t::add< database_api, &database_api::db_lowerbound_i64, wasm_allocator >( "env", "db_lowerbound_i64" );
-   rhf_t::add< database_api, &database_api::db_upperbound_i64, wasm_allocator >( "env", "db_upperbound_i64" );
-   rhf_t::add< database_api, &database_api::db_end_i64, wasm_allocator >( "env", "db_end_i64" );
-
-
-   rhf_t::add< database_api, &database_api::db_idx64_store, wasm_allocator >( "env", "db_idx64_store" );
-   rhf_t::add< database_api, &database_api::db_idx64_update, wasm_allocator >( "env", "db_idx64_update" );
-   rhf_t::add< database_api, &database_api::db_idx64_remove, wasm_allocator >( "env", "db_idx64_remove" );
-   rhf_t::add< database_api, &database_api::db_idx64_next, wasm_allocator >( "env", "db_idx64_next" );
-   rhf_t::add< database_api, &database_api::db_idx64_previous, wasm_allocator >( "env", "db_idx64_previous" );
-   rhf_t::add< database_api, &database_api::db_idx64_find_primary, wasm_allocator >( "env", "db_idx64_find_primary" );
-   rhf_t::add< database_api, &database_api::db_idx64_find_secondary, wasm_allocator >( "env", "db_idx64_find_secondary" );
-   rhf_t::add< database_api, &database_api::db_idx64_lowerbound, wasm_allocator >( "env", "db_idx64_lowerbound" );
-   rhf_t::add< database_api, &database_api::db_idx64_upperbound, wasm_allocator >( "env", "db_idx64_upperbound" );
-   rhf_t::add< database_api, &database_api::db_idx64_end, wasm_allocator >( "env", "db_idx64_end" );
+   rhf_t::add< system_api, &system_api::db_store_i64, wasm_allocator >( "env", "db_store_i64" );
+   rhf_t::add< system_api, &system_api::db_update_i64, wasm_allocator >( "env", "db_update_i64" );
+   rhf_t::add< system_api, &system_api::db_remove_i64, wasm_allocator >( "env", "db_remove_i64" );
+   rhf_t::add< system_api, &system_api::db_get_i64, wasm_allocator >( "env", "db_get_i64" );
+   rhf_t::add< system_api, &system_api::db_next_i64, wasm_allocator >( "env", "db_next_i64" );
+   rhf_t::add< system_api, &system_api::db_previous_i64, wasm_allocator >( "env", "db_previous_i64" );
+   rhf_t::add< system_api, &system_api::db_find_i64, wasm_allocator >( "env", "db_find_i64" );
+   rhf_t::add< system_api, &system_api::db_lowerbound_i64, wasm_allocator >( "env", "db_lowerbound_i64" );
+   rhf_t::add< system_api, &system_api::db_upperbound_i64, wasm_allocator >( "env", "db_upperbound_i64" );
+   rhf_t::add< system_api, &system_api::db_end_i64, wasm_allocator >( "env", "db_end_i64" );
 
 
-   rhf_t::add< database_api, &database_api::db_idx128_store, wasm_allocator >( "env", "db_idx128_store" );
-   rhf_t::add< database_api, &database_api::db_idx128_update, wasm_allocator >( "env", "db_idx128_update" );
-   rhf_t::add< database_api, &database_api::db_idx128_remove, wasm_allocator >( "env", "db_idx128_remove" );
-   rhf_t::add< database_api, &database_api::db_idx128_next, wasm_allocator >( "env", "db_idx128_next" );
-   rhf_t::add< database_api, &database_api::db_idx128_previous, wasm_allocator >( "env", "db_idx128_previous" );
-   rhf_t::add< database_api, &database_api::db_idx128_find_primary, wasm_allocator >( "env", "db_idx128_find_primary" );
-   rhf_t::add< database_api, &database_api::db_idx128_find_secondary, wasm_allocator >( "env", "db_idx128_find_secondary" );
-   rhf_t::add< database_api, &database_api::db_idx128_lowerbound, wasm_allocator >( "env", "db_idx128_lowerbound" );
-   rhf_t::add< database_api, &database_api::db_idx128_upperbound, wasm_allocator >( "env", "db_idx128_upperbound" );
-   rhf_t::add< database_api, &database_api::db_idx128_end, wasm_allocator >( "env", "db_idx128_end" );
+   rhf_t::add< system_api, &system_api::db_idx64_store, wasm_allocator >( "env", "db_idx64_store" );
+   rhf_t::add< system_api, &system_api::db_idx64_update, wasm_allocator >( "env", "db_idx64_update" );
+   rhf_t::add< system_api, &system_api::db_idx64_remove, wasm_allocator >( "env", "db_idx64_remove" );
+   rhf_t::add< system_api, &system_api::db_idx64_next, wasm_allocator >( "env", "db_idx64_next" );
+   rhf_t::add< system_api, &system_api::db_idx64_previous, wasm_allocator >( "env", "db_idx64_previous" );
+   rhf_t::add< system_api, &system_api::db_idx64_find_primary, wasm_allocator >( "env", "db_idx64_find_primary" );
+   rhf_t::add< system_api, &system_api::db_idx64_find_secondary, wasm_allocator >( "env", "db_idx64_find_secondary" );
+   rhf_t::add< system_api, &system_api::db_idx64_lowerbound, wasm_allocator >( "env", "db_idx64_lowerbound" );
+   rhf_t::add< system_api, &system_api::db_idx64_upperbound, wasm_allocator >( "env", "db_idx64_upperbound" );
+   rhf_t::add< system_api, &system_api::db_idx64_end, wasm_allocator >( "env", "db_idx64_end" );
 
-   rhf_t::add< database_api, &database_api::db_idx256_store, wasm_allocator >( "env", "db_idx256_store" );
-   rhf_t::add< database_api, &database_api::db_idx256_update, wasm_allocator >( "env", "db_idx256_update" );
-   rhf_t::add< database_api, &database_api::db_idx256_remove, wasm_allocator >( "env", "db_idx256_remove" );
-   rhf_t::add< database_api, &database_api::db_idx256_next, wasm_allocator >( "env", "db_idx256_next" );
-   rhf_t::add< database_api, &database_api::db_idx256_previous, wasm_allocator >( "env", "db_idx256_previous" );
-   rhf_t::add< database_api, &database_api::db_idx256_find_primary, wasm_allocator >( "env", "db_idx256_find_primary" );
-   rhf_t::add< database_api, &database_api::db_idx256_find_secondary, wasm_allocator >( "env", "db_idx256_find_secondary" );
-   rhf_t::add< database_api, &database_api::db_idx256_lowerbound, wasm_allocator >( "env", "db_idx256_lowerbound" );
-   rhf_t::add< database_api, &database_api::db_idx256_upperbound, wasm_allocator >( "env", "db_idx256_upperbound" );
-   rhf_t::add< database_api, &database_api::db_idx256_end, wasm_allocator >( "env", "db_idx256_end" );
 
-   rhf_t::add< database_api, &database_api::db_idx_double_store, wasm_allocator >( "env", "db_idx_double_store" );
-   rhf_t::add< database_api, &database_api::db_idx_double_update, wasm_allocator >( "env", "db_idx_double_update" );
-   rhf_t::add< database_api, &database_api::db_idx_double_remove, wasm_allocator >( "env", "db_idx_double_remove" );
-   rhf_t::add< database_api, &database_api::db_idx_double_next, wasm_allocator >( "env", "db_idx_double_next" );
-   rhf_t::add< database_api, &database_api::db_idx_double_previous, wasm_allocator >( "env", "db_idx_double_previous" );
-   rhf_t::add< database_api, &database_api::db_idx_double_find_primary, wasm_allocator >( "env", "db_idx_double_find_primary" );
-   rhf_t::add< database_api, &database_api::db_idx_double_find_secondary, wasm_allocator >( "env", "db_idx_double_find_secondary" );
-   rhf_t::add< database_api, &database_api::db_idx_double_lowerbound, wasm_allocator >( "env", "db_idx_double_lowerbound" );
-   rhf_t::add< database_api, &database_api::db_idx_double_upperbound, wasm_allocator >( "env", "db_idx_double_upperbound" );
-   rhf_t::add< database_api, &database_api::db_idx_double_end, wasm_allocator >( "env", "db_idx_double_end" );
+   rhf_t::add< system_api, &system_api::db_idx128_store, wasm_allocator >( "env", "db_idx128_store" );
+   rhf_t::add< system_api, &system_api::db_idx128_update, wasm_allocator >( "env", "db_idx128_update" );
+   rhf_t::add< system_api, &system_api::db_idx128_remove, wasm_allocator >( "env", "db_idx128_remove" );
+   rhf_t::add< system_api, &system_api::db_idx128_next, wasm_allocator >( "env", "db_idx128_next" );
+   rhf_t::add< system_api, &system_api::db_idx128_previous, wasm_allocator >( "env", "db_idx128_previous" );
+   rhf_t::add< system_api, &system_api::db_idx128_find_primary, wasm_allocator >( "env", "db_idx128_find_primary" );
+   rhf_t::add< system_api, &system_api::db_idx128_find_secondary, wasm_allocator >( "env", "db_idx128_find_secondary" );
+   rhf_t::add< system_api, &system_api::db_idx128_lowerbound, wasm_allocator >( "env", "db_idx128_lowerbound" );
+   rhf_t::add< system_api, &system_api::db_idx128_upperbound, wasm_allocator >( "env", "db_idx128_upperbound" );
+   rhf_t::add< system_api, &system_api::db_idx128_end, wasm_allocator >( "env", "db_idx128_end" );
 
-   rhf_t::add< database_api, &database_api::db_idx_long_double_store, wasm_allocator >( "env", "db_idx_long_double_store" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_update, wasm_allocator >( "env", "db_idx_long_double_update" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_remove, wasm_allocator >( "env", "db_idx_long_double_remove" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_next, wasm_allocator >( "env", "db_idx_long_double_next" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_previous, wasm_allocator >( "env", "db_idx_long_double_previous" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_find_primary, wasm_allocator >( "env", "db_idx_long_double_find_primary" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_find_secondary, wasm_allocator >( "env", "db_idx_long_double_find_secondary" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_lowerbound, wasm_allocator >( "env", "db_idx_long_double_lowerbound" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_upperbound, wasm_allocator >( "env", "db_idx_long_double_upperbound" );
-   rhf_t::add< database_api, &database_api::db_idx_long_double_end, wasm_allocator >( "env", "db_idx_long_double_end" );
+   rhf_t::add< system_api, &system_api::db_idx256_store, wasm_allocator >( "env", "db_idx256_store" );
+   rhf_t::add< system_api, &system_api::db_idx256_update, wasm_allocator >( "env", "db_idx256_update" );
+   rhf_t::add< system_api, &system_api::db_idx256_remove, wasm_allocator >( "env", "db_idx256_remove" );
+   rhf_t::add< system_api, &system_api::db_idx256_next, wasm_allocator >( "env", "db_idx256_next" );
+   rhf_t::add< system_api, &system_api::db_idx256_previous, wasm_allocator >( "env", "db_idx256_previous" );
+   rhf_t::add< system_api, &system_api::db_idx256_find_primary, wasm_allocator >( "env", "db_idx256_find_primary" );
+   rhf_t::add< system_api, &system_api::db_idx256_find_secondary, wasm_allocator >( "env", "db_idx256_find_secondary" );
+   rhf_t::add< system_api, &system_api::db_idx256_lowerbound, wasm_allocator >( "env", "db_idx256_lowerbound" );
+   rhf_t::add< system_api, &system_api::db_idx256_upperbound, wasm_allocator >( "env", "db_idx256_upperbound" );
+   rhf_t::add< system_api, &system_api::db_idx256_end, wasm_allocator >( "env", "db_idx256_end" );
+
+   rhf_t::add< system_api, &system_api::db_idx_double_store, wasm_allocator >( "env", "db_idx_double_store" );
+   rhf_t::add< system_api, &system_api::db_idx_double_update, wasm_allocator >( "env", "db_idx_double_update" );
+   rhf_t::add< system_api, &system_api::db_idx_double_remove, wasm_allocator >( "env", "db_idx_double_remove" );
+   rhf_t::add< system_api, &system_api::db_idx_double_next, wasm_allocator >( "env", "db_idx_double_next" );
+   rhf_t::add< system_api, &system_api::db_idx_double_previous, wasm_allocator >( "env", "db_idx_double_previous" );
+   rhf_t::add< system_api, &system_api::db_idx_double_find_primary, wasm_allocator >( "env", "db_idx_double_find_primary" );
+   rhf_t::add< system_api, &system_api::db_idx_double_find_secondary, wasm_allocator >( "env", "db_idx_double_find_secondary" );
+   rhf_t::add< system_api, &system_api::db_idx_double_lowerbound, wasm_allocator >( "env", "db_idx_double_lowerbound" );
+   rhf_t::add< system_api, &system_api::db_idx_double_upperbound, wasm_allocator >( "env", "db_idx_double_upperbound" );
+   rhf_t::add< system_api, &system_api::db_idx_double_end, wasm_allocator >( "env", "db_idx_double_end" );
+
+   rhf_t::add< system_api, &system_api::db_idx_long_double_store, wasm_allocator >( "env", "db_idx_long_double_store" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_update, wasm_allocator >( "env", "db_idx_long_double_update" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_remove, wasm_allocator >( "env", "db_idx_long_double_remove" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_next, wasm_allocator >( "env", "db_idx_long_double_next" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_previous, wasm_allocator >( "env", "db_idx_long_double_previous" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_find_primary, wasm_allocator >( "env", "db_idx_long_double_find_primary" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_find_secondary, wasm_allocator >( "env", "db_idx_long_double_find_secondary" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_lowerbound, wasm_allocator >( "env", "db_idx_long_double_lowerbound" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_upperbound, wasm_allocator >( "env", "db_idx_long_double_upperbound" );
+   rhf_t::add< system_api, &system_api::db_idx_long_double_end, wasm_allocator >( "env", "db_idx_long_double_end" );
 
    try
    {
@@ -204,7 +206,8 @@ int main(int argc, char** argv, char** envp)
       db.add_index< index_double_index >();
       db.add_index< index_long_double_index >();
 
-      koinos::chain::apply_context ctx( db );
+      koinos::chain::syscall_table t;
+      koinos::chain::apply_context ctx( db, t );
       ctx.receiver = koinos::chain::name(0);
       bkend(&ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0);
       std::cout << ctx.get_pending_console_output() << std::endl;

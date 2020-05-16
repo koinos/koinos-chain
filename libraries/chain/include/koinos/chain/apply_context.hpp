@@ -2,16 +2,18 @@
 
 #include <koinos/chain/contract_table_objects.hpp>
 #include <koinos/chain/name.hpp>
+#include <koinos/chain/privilege.hpp>
+//#include <koinos/chain/syscalls.hpp>
 #include <string>
 
 namespace chainbase { class database; }
 
 namespace koinos { namespace chain {
-
+class syscall_table;
 class apply_context
 {
    public:
-      apply_context( chainbase::database& db );
+      apply_context( chainbase::database& db, syscall_table& sct );
 
    private:
       template<typename T>
@@ -478,6 +480,8 @@ class apply_context
    /// Fields:
    public:
       chainbase::database&          db;
+      syscall_table&                syscalls;
+      privilege                     privilege_level = privilege::user_mode;
 
       generic_index<index64_object>                                  idx64;
       generic_index<index128_object>                                 idx128;

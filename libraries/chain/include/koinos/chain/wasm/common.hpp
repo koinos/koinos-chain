@@ -1,7 +1,5 @@
 #pragma once
 
-#include <koinos/chain/wasm_interface.hpp>
-
 // forward declaraton of alligned_array_wrapper
 namespace eosio::vm {
    template< typename T, size_t Align >
