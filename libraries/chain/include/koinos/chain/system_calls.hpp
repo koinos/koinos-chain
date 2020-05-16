@@ -3,6 +3,7 @@
 #include <optional>
 #include <map>
 #include <vector>
+#include <cstring>
 
 #include <compiler_builtins.hpp>
 #include <koinos/exception.hpp>
