@@ -2,6 +2,12 @@
 
 namespace koinos::chain {
 
+// System Call Table API
+//
+// The system_call_table keeps track of system calls that have been overridden. It is
+// called from the public system call slot automatically defined by the SYSTEM_CALL_DEFINE
+// macro.
+
 bool system_call_table::overridable( system_call_slot s ) noexcept
 {
    return static_cast< uint32_t >( s ) % 2 == 0;
@@ -29,16 +35,25 @@ void system_call_table::set_system_call( system_call_slot s, system_call_bundle 
 }
 
 // System API Definitions
+//
+// Using the SYSTEM_CALL_DEFINE macro will define the public facing system call for you. It will check the
+// system_call_table class to see if an override exists and call it. If there is no system call override for
+// the given system call it will call the native implement that you define.
+//
+// The native implementation should check whether or not we are in kernel mode and throw if we are not. This
+// will prevent the user mode contract from circumventing the public interface.
 
 system_api::system_api( apply_context& _ctx ) : context( _ctx ) {}
 
 SYSTEM_CALL_DEFINE( void, abort )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    KOINOS_ASSERT( false, abort_called, "abort() called");
 }
 
 SYSTEM_CALL_DEFINE( void, eosio_assert, ((bool) condition, (null_terminated_ptr) msg) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    constexpr size_t max_assert_message = 1024;
    if( BOOST_UNLIKELY( !condition ) )
    {
@@ -50,6 +65,7 @@ SYSTEM_CALL_DEFINE( void, eosio_assert, ((bool) condition, (null_terminated_ptr)
 
 SYSTEM_CALL_DEFINE( void, eosio_assert_message, ((bool) condition, (array_ptr<const char>) msg, (uint32_t) len) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    constexpr size_t max_assert_message = 1024;
    if( BOOST_UNLIKELY( !condition ) )
    {
@@ -59,11 +75,18 @@ SYSTEM_CALL_DEFINE( void, eosio_assert_message, ((bool) condition, (array_ptr<co
    }
 }
 
-SYSTEM_CALL_DEFINE( void, eosio_assert_code, ((bool) condition, (uint64_t) error_code) ) {}
-SYSTEM_CALL_DEFINE( void, eosio_exit, ((int32_t) code) ) {}
+SYSTEM_CALL_DEFINE( void, eosio_assert_code, ((bool) condition, (uint64_t) error_code) )
+{
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+}
+SYSTEM_CALL_DEFINE( void, eosio_exit, ((int32_t) code) )
+{
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+}
 
 SYSTEM_CALL_DEFINE( int, read_action_data, ((array_ptr<char>) memory, (uint32_t) buffer_size) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
 //   auto s = ctx.get_action().data.size();
 //   if( buffer_size == 0 ) return s;
 //
@@ -76,27 +99,32 @@ SYSTEM_CALL_DEFINE( int, read_action_data, ((array_ptr<char>) memory, (uint32_t)
 
 SYSTEM_CALL_DEFINE( int, action_data_size )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return 0;
 }
 
 SYSTEM_CALL_DEFINE( name, current_receiver )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.receiver;
 }
 
 SYSTEM_CALL_DEFINE( char*, memcpy, ((array_ptr< char >) dest, (array_ptr< const char >) src, (uint32_t) length) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    KOINOS_ASSERT((size_t)(std::abs((ptrdiff_t)dest.value - (ptrdiff_t)src.value)) >= length, chain_exception, "memcpy can only accept non-aliasing pointers");
    return (char *)::memcpy(dest, src, length);
 }
 
 SYSTEM_CALL_DEFINE( char*, memmove, ((array_ptr< char >) dest, (array_ptr< const char >) src, (uint32_t) length) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return (char *)::memmove(dest, src, length);
 }
 
 SYSTEM_CALL_DEFINE( int, memcmp, ((array_ptr< const char >) dest, (array_ptr< const char >) src, (uint32_t) length) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    int ret = ::memcmp(dest, src, length);
    if(ret < 0)
       return -1;
@@ -107,21 +135,25 @@ SYSTEM_CALL_DEFINE( int, memcmp, ((array_ptr< const char >) dest, (array_ptr< co
 
 SYSTEM_CALL_DEFINE( char*, memset, ((array_ptr< char >) dest, (int) value, (uint32_t) length) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return (char *)::memset( dest, value, length );
 }
 
 SYSTEM_CALL_DEFINE( void, prints, ((null_terminated_ptr) str) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    context.console_append( static_cast< const char* >(str) );
 }
 
 SYSTEM_CALL_DEFINE( void, prints_l, ((array_ptr< const char >) str, (uint32_t) str_len ) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    context.console_append(string(str, str_len));
 }
 
 SYSTEM_CALL_DEFINE( void, printi, ((int64_t) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    std::ostringstream oss;
    oss << val;
    context.console_append( oss.str() );
@@ -129,6 +161,7 @@ SYSTEM_CALL_DEFINE( void, printi, ((int64_t) val) )
 
 SYSTEM_CALL_DEFINE( void, printui, ((uint64_t) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    std::ostringstream oss;
    oss << val;
    context.console_append( oss.str() );
@@ -136,6 +169,7 @@ SYSTEM_CALL_DEFINE( void, printui, ((uint64_t) val) )
 
 SYSTEM_CALL_DEFINE( void, printi128, ((const __int128&) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    bool is_negative = (val < 0);
    unsigned __int128 val_magnitude;
 
@@ -157,12 +191,14 @@ SYSTEM_CALL_DEFINE( void, printi128, ((const __int128&) val) )
 
 SYSTEM_CALL_DEFINE( void, printui128, ((const unsigned __int128&) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    fc::uint128_t v(val>>64, static_cast<uint64_t>(val) );
    context.console_append(fc::variant(v).get_string());
 }
 
 SYSTEM_CALL_DEFINE( void, printsf, ((float) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    // Assumes float representation on native side is the same as on the WASM side
    std::ostringstream oss;
    oss.setf( std::ios::scientific, std::ios::floatfield );
@@ -173,6 +209,7 @@ SYSTEM_CALL_DEFINE( void, printsf, ((float) val) )
 
 SYSTEM_CALL_DEFINE( void, printdf, ((double) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    // Assumes double representation on native side is the same as on the WASM side
    std::ostringstream oss;
    oss.setf( std::ios::scientific, std::ios::floatfield );
@@ -183,6 +220,7 @@ SYSTEM_CALL_DEFINE( void, printdf, ((double) val) )
 
 SYSTEM_CALL_DEFINE( void, printqf, ((const float128_t&) val) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    /*
     * Native-side long double uses an 80-bit extended-precision floating-point number.
     * The easiest solution for now was to use the Berkeley softfloat library to round the 128-bit
@@ -216,61 +254,73 @@ SYSTEM_CALL_DEFINE( void, printqf, ((const float128_t&) val) )
 
 SYSTEM_CALL_DEFINE( void, printn, ((name) value) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    context.console_append(value.to_string());
 }
 
 SYSTEM_CALL_DEFINE( void, printhex, ((array_ptr< const char >) data, (uint32_t) data_len ) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    context.console_append(fc::to_hex(data, data_len));
 }
 
 SYSTEM_CALL_DEFINE( int, db_store_i64, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (array_ptr<const char>) buffer, (uint32_t) buffer_size) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_store_i64( name(scope), name(table), account_name(payer), id, buffer, buffer_size );
 }
 
 SYSTEM_CALL_DEFINE( void, db_update_i64, ((int) itr, (uint64_t) payer, (array_ptr< const char >) buffer, (uint32_t) buffer_size) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    context.db_update_i64( itr, account_name(payer), buffer, buffer_size );
 }
 
 SYSTEM_CALL_DEFINE( void, db_remove_i64, ((int) itr) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    context.db_remove_i64( itr );
 }
 
 SYSTEM_CALL_DEFINE( int, db_get_i64, ((int) itr, (array_ptr< char >) buffer, (uint32_t) buffer_size) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_get_i64( itr, buffer, buffer_size );
 }
 
 SYSTEM_CALL_DEFINE( int, db_next_i64, ((int) itr, (uint64_t&) primary) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_next_i64(itr, primary);
 }
 
 SYSTEM_CALL_DEFINE( int, db_previous_i64, ((int) itr, (uint64_t&) primary) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_previous_i64(itr, primary);
 }
 
 SYSTEM_CALL_DEFINE( int, db_find_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (uint64_t) id) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_find_i64( name(code), name(scope), name(table), id );
 }
 
 SYSTEM_CALL_DEFINE( int, db_lowerbound_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (uint64_t) id) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_lowerbound_i64( name(code), name(scope), name(table), id );
 }
 
 SYSTEM_CALL_DEFINE( int, db_upperbound_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (uint64_t) id) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_upperbound_i64( name(code), name(scope), name(table), id );
 }
 
 SYSTEM_CALL_DEFINE( int, db_end_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table) )
 {
+   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
    return context.db_end_i64( name(code), name(scope), name(table) );
 }
 

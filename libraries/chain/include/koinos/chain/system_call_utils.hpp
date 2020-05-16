@@ -1,6 +1,8 @@
 #pragma once
 #include <boost/preprocessor.hpp>
 
+#define SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE "cannot be called directly from user mode"
+
 #define SYSTEM_CALL_SLOT(s) s, BOOST_PP_CAT(_,s)
 
 #define SYSTEM_CALL_DECLARE(return_type, name, ...) \
@@ -68,38 +70,49 @@
 
 #define DB_API_METHOD_WRAPPERS_SIMPLE_SECONDARY(IDX, TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (const TYPE&) secondary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.store( scope, table, account_name(payer), id, secondary );\
    }\
    SYSTEM_CALL_DEFINE( void, db_##IDX##_update, ((int) iterator, (uint64_t) payer, (const TYPE&) secondary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.update( iterator, account_name(payer), secondary );\
    }\
    SYSTEM_CALL_DEFINE( void, db_##IDX##_remove, ((int) iterator ) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.remove( iterator );\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_find_secondary, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (const TYPE&) secondary, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.find_secondary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_find_primary, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (TYPE&) secondary, (uint64_t) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.find_primary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_lowerbound, ((uint64_t) code, (uint64_t) scope, (uint64_t) table,  (TYPE&) secondary, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.lowerbound_secondary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_upperbound, ((uint64_t) code, (uint64_t) scope, (uint64_t) table,  (TYPE&) secondary, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.upperbound_secondary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_end, ((uint64_t) code, (uint64_t) scope, (uint64_t) table) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.end_secondary(code, scope, table);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_next, ((int) iterator, (uint64_t&) primary)  ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.next_secondary(iterator, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_previous, ((int) iterator, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.previous_secondary(iterator, primary);\
    }
 
 #define DB_API_METHOD_WRAPPERS_ARRAY_SECONDARY(IDX, ARR_SIZE, ARR_ELEMENT_TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (array_ptr<const ARR_ELEMENT_TYPE>) data, (uint32_t) data_len) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
                     db_api_exception,\
                     "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
@@ -107,6 +120,7 @@
          return context.IDX.store(scope, table, account_name(payer), id, data.value);\
    }\
    SYSTEM_CALL_DEFINE( void, db_##IDX##_update, ((int) iterator, (uint64_t) payer, (array_ptr<const ARR_ELEMENT_TYPE>) data, (uint32_t) data_len) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
                     db_api_exception,\
                     "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
@@ -114,9 +128,11 @@
       return context.IDX.update(iterator, account_name(payer), data.value);\
    }\
    SYSTEM_CALL_DEFINE( void, db_##IDX##_remove, ((int) iterator ) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.remove( iterator );\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_find_secondary, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (array_ptr<const ARR_ELEMENT_TYPE>) data, (uint32_t) data_len, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
                     db_api_exception,\
                     "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
@@ -124,6 +140,7 @@
       return context.IDX.find_secondary(code, scope, table, data, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_find_primary, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (array_ptr<ARR_ELEMENT_TYPE>) data, (uint32_t) data_len, (uint64_t) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
                     db_api_exception,\
                     "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
@@ -131,6 +148,7 @@
       return context.IDX.find_primary(code, scope, table, data.value, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_lowerbound, ((uint64_t) code, (uint64_t) scope, (uint64_t) table,  (array_ptr<ARR_ELEMENT_TYPE>) data, (uint32_t) data_len, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
                     db_api_exception,\
                     "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
@@ -138,6 +156,7 @@
       return context.IDX.lowerbound_secondary(code, scope, table, data.value, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_upperbound, ((uint64_t) code, (uint64_t) scope, (uint64_t) table,  (array_ptr<ARR_ELEMENT_TYPE>) data, (uint32_t) data_len, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( data_len == ARR_SIZE,\
                     db_api_exception,\
                     "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
@@ -145,48 +164,61 @@
       return context.IDX.upperbound_secondary(code, scope, table, data.value, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_end, ((uint64_t) code, (uint64_t) scope, (uint64_t) table) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.end_secondary(code, scope, table);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_next, ((int) iterator, (uint64_t&) primary)  ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.next_secondary(iterator, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_previous, ((int) iterator, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.previous_secondary(iterator, primary);\
    }
 
 #define DB_API_METHOD_WRAPPERS_FLOAT_SECONDARY(IDX, TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (const TYPE&) secondary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
       return context.IDX.store( scope, table, account_name(payer), id, secondary );\
    }\
    SYSTEM_CALL_DEFINE( void, db_##IDX##_update, ((int) iterator, (uint64_t) payer, (const TYPE&) secondary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
       return context.IDX.update( iterator, account_name(payer), secondary );\
    }\
    SYSTEM_CALL_DEFINE( void, db_##IDX##_remove, ((int) iterator ) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.remove( iterator );\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_find_secondary, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (const TYPE&) secondary, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
       return context.IDX.find_secondary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_find_primary, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (TYPE&) secondary, (uint64_t) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.find_primary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_lowerbound, ((uint64_t) code, (uint64_t) scope, (uint64_t) table,  (TYPE&) secondary, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
       return context.IDX.lowerbound_secondary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_upperbound, ((uint64_t) code, (uint64_t) scope, (uint64_t) table,  (TYPE&) secondary, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
       return context.IDX.upperbound_secondary(code, scope, table, secondary, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_end, ((uint64_t) code, (uint64_t) scope, (uint64_t) table) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.end_secondary(code, scope, table);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_next, ((int) iterator, (uint64_t&) primary)  ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.next_secondary(iterator, primary);\
    }\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_previous, ((int) iterator, (uint64_t&) primary) ) {\
+      KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );\
       return context.IDX.previous_secondary(iterator, primary);\
    }
