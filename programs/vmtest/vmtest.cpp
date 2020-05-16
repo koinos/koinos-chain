@@ -13,11 +13,8 @@
 #include <eosio/vm/error_codes.hpp>
 #include <eosio/vm/host_function.hpp>
 #include <eosio/vm/exceptions.hpp>
-#include <koinos/chain/apply_context.hpp>
-#include <koinos/chain/syscalls.hpp>
-#include <koinos/chain/wasm_interface.hpp>
-#include <koinos/chain/wasm/common.hpp>
 #include <koinos/chain/wasm/type_conversion.hpp>
+#include <koinos/chain/system_calls.hpp>
 #include <chainbase/chainbase.hpp>
 #include <mira/database_configuration.hpp>
 #include <koinos/exception.hpp>
@@ -206,7 +203,7 @@ int main(int argc, char** argv, char** envp)
       db.add_index< index_double_index >();
       db.add_index< index_long_double_index >();
 
-      koinos::chain::syscall_table t;
+      koinos::chain::system_call_table t;
       koinos::chain::apply_context ctx( db, t );
       ctx.receiver = koinos::chain::name(0);
       bkend(&ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0);

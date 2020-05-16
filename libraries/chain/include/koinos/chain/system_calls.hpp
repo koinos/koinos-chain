@@ -1,160 +1,258 @@
 #pragma once
-#include <koinos/chain/types.hpp>
-#include <koinos/chain/apply_context.hpp>
-#include <koinos/chain/wasm/common.hpp>
-#include <fc/uint128.hpp>
+#include <cstdint>
+#include <optional>
+#include <map>
+#include <vector>
+
 #include <compiler_builtins.hpp>
-
-#define DB_API_METHOD_WRAPPERS_SIMPLE_SECONDARY(IDX, TYPE)\
-      int db_##IDX##_store( uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const TYPE& secondary ) {\
-         return context.IDX.store( scope, table, account_name(payer), id, secondary );\
-      }\
-      void db_##IDX##_update( int iterator, uint64_t payer, const TYPE& secondary ) {\
-         return context.IDX.update( iterator, account_name(payer), secondary );\
-      }\
-      void db_##IDX##_remove( int iterator ) {\
-         return context.IDX.remove( iterator );\
-      }\
-      int db_##IDX##_find_secondary( uint64_t code, uint64_t scope, uint64_t table, const TYPE& secondary, uint64_t& primary ) {\
-         return context.IDX.find_secondary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_find_primary( uint64_t code, uint64_t scope, uint64_t table, TYPE& secondary, uint64_t primary ) {\
-         return context.IDX.find_primary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_lowerbound( uint64_t code, uint64_t scope, uint64_t table,  TYPE& secondary, uint64_t& primary ) {\
-         return context.IDX.lowerbound_secondary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_upperbound( uint64_t code, uint64_t scope, uint64_t table,  TYPE& secondary, uint64_t& primary ) {\
-         return context.IDX.upperbound_secondary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_end( uint64_t code, uint64_t scope, uint64_t table ) {\
-         return context.IDX.end_secondary(code, scope, table);\
-      }\
-      int db_##IDX##_next( int iterator, uint64_t& primary  ) {\
-         return context.IDX.next_secondary(iterator, primary);\
-      }\
-      int db_##IDX##_previous( int iterator, uint64_t& primary ) {\
-         return context.IDX.previous_secondary(iterator, primary);\
-      }
-
-#define DB_API_METHOD_WRAPPERS_ARRAY_SECONDARY(IDX, ARR_SIZE, ARR_ELEMENT_TYPE)\
-      int db_##IDX##_store( uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, array_ptr<const ARR_ELEMENT_TYPE> data, uint32_t data_len) {\
-         KOINOS_ASSERT( data_len == ARR_SIZE,\
-                    db_api_exception,\
-                    "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
-                    ("given",data_len)("expected",ARR_SIZE) );\
-         return context.IDX.store(scope, table, account_name(payer), id, data.value);\
-      }\
-      void db_##IDX##_update( int iterator, uint64_t payer, array_ptr<const ARR_ELEMENT_TYPE> data, uint32_t data_len ) {\
-         KOINOS_ASSERT( data_len == ARR_SIZE,\
-                    db_api_exception,\
-                    "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
-                    ("given",data_len)("expected",ARR_SIZE) );\
-         return context.IDX.update(iterator, account_name(payer), data.value);\
-      }\
-      void db_##IDX##_remove( int iterator ) {\
-         return context.IDX.remove(iterator);\
-      }\
-      int db_##IDX##_find_secondary( uint64_t code, uint64_t scope, uint64_t table, array_ptr<const ARR_ELEMENT_TYPE> data, uint32_t data_len, uint64_t& primary ) {\
-         KOINOS_ASSERT( data_len == ARR_SIZE,\
-                    db_api_exception,\
-                    "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
-                    ("given",data_len)("expected",ARR_SIZE) );\
-         return context.IDX.find_secondary(code, scope, table, data, primary);\
-      }\
-      int db_##IDX##_find_primary( uint64_t code, uint64_t scope, uint64_t table, array_ptr<ARR_ELEMENT_TYPE> data, uint32_t data_len, uint64_t primary ) {\
-         KOINOS_ASSERT( data_len == ARR_SIZE,\
-                    db_api_exception,\
-                    "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
-                    ("given",data_len)("expected",ARR_SIZE) );\
-         return context.IDX.find_primary(code, scope, table, data.value, primary);\
-      }\
-      int db_##IDX##_lowerbound( uint64_t code, uint64_t scope, uint64_t table, array_ptr<ARR_ELEMENT_TYPE> data, uint32_t data_len, uint64_t& primary ) {\
-         KOINOS_ASSERT( data_len == ARR_SIZE,\
-                    db_api_exception,\
-                    "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
-                    ("given",data_len)("expected",ARR_SIZE) );\
-         return context.IDX.lowerbound_secondary(code, scope, table, data.value, primary);\
-      }\
-      int db_##IDX##_upperbound( uint64_t code, uint64_t scope, uint64_t table, array_ptr<ARR_ELEMENT_TYPE> data, uint32_t data_len, uint64_t& primary ) {\
-         KOINOS_ASSERT( data_len == ARR_SIZE,\
-                    db_api_exception,\
-                    "invalid size of secondary key array for " #IDX ": given ${given} bytes but expected ${expected} bytes",\
-                    ("given",data_len)("expected",ARR_SIZE) );\
-         return context.IDX.upperbound_secondary(code, scope, table, data.value, primary);\
-      }\
-      int db_##IDX##_end( uint64_t code, uint64_t scope, uint64_t table ) {\
-         return context.IDX.end_secondary(code, scope, table);\
-      }\
-      int db_##IDX##_next( int iterator, uint64_t& primary  ) {\
-         return context.IDX.next_secondary(iterator, primary);\
-      }\
-      int db_##IDX##_previous( int iterator, uint64_t& primary ) {\
-         return context.IDX.previous_secondary(iterator, primary);\
-      }
-
-#define DB_API_METHOD_WRAPPERS_FLOAT_SECONDARY(IDX, TYPE)\
-      int db_##IDX##_store( uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const TYPE& secondary ) {\
-         KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
-         return context.IDX.store( scope, table, account_name(payer), id, secondary );\
-      }\
-      void db_##IDX##_update( int iterator, uint64_t payer, const TYPE& secondary ) {\
-         KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
-         return context.IDX.update( iterator, account_name(payer), secondary );\
-      }\
-      void db_##IDX##_remove( int iterator ) {\
-         return context.IDX.remove( iterator );\
-      }\
-      int db_##IDX##_find_secondary( uint64_t code, uint64_t scope, uint64_t table, const TYPE& secondary, uint64_t& primary ) {\
-         KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
-         return context.IDX.find_secondary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_find_primary( uint64_t code, uint64_t scope, uint64_t table, TYPE& secondary, uint64_t primary ) {\
-         return context.IDX.find_primary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_lowerbound( uint64_t code, uint64_t scope, uint64_t table,  TYPE& secondary, uint64_t& primary ) {\
-         KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
-         return context.IDX.lowerbound_secondary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_upperbound( uint64_t code, uint64_t scope, uint64_t table,  TYPE& secondary, uint64_t& primary ) {\
-         KOINOS_ASSERT( !softfloat_api::is_nan( secondary ), transaction_exception, "NaN is not an allowed value for a secondary key" );\
-         return context.IDX.upperbound_secondary(code, scope, table, secondary, primary);\
-      }\
-      int db_##IDX##_end( uint64_t code, uint64_t scope, uint64_t table ) {\
-         return context.IDX.end_secondary(code, scope, table);\
-      }\
-      int db_##IDX##_next( int iterator, uint64_t& primary  ) {\
-         return context.IDX.next_secondary(iterator, primary);\
-      }\
-      int db_##IDX##_previous( int iterator, uint64_t& primary ) {\
-         return context.IDX.previous_secondary(iterator, primary);\
-      }
+#include <koinos/exception.hpp>
+#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/types.hpp>
+#include <koinos/chain/system_call_utils.hpp>
+#include <koinos/chain/wasm/common.hpp>
 
 namespace koinos::chain {
 
-class context_aware_api {
-   public:
-      context_aware_api( apply_context& ctx, bool context_free = false )
-      :context(ctx)
-      {
-         if( context.is_context_free() )
-            KOINOS_ASSERT( context_free, unaccessible_api, "only context free api's can be used in this context" );
-      }
+DECLARE_KOINOS_EXCEPTION( system_call_not_overridable );
 
-      //void checktime() {
-      //   context.trx_context.checktime();
-      //}
+// For any given system call, two slots are used. The first definition
+// is considered overridable. The second system call slot is prefixed
+// with an underscore to denote a private unoverridable implementation.
 
-   protected:
-      apply_context&             context;
+// When adding a system call slot, use the provided macro SYSTEM_CALL_SLOT
+// to declare both a public and private implementation.
 
+enum class system_call_slot : uint32_t
+{
+   SYSTEM_CALL_SLOT(register_syscall),
+   SYSTEM_CALL_SLOT(verify_block_header),
+   SYSTEM_CALL_SLOT(call_contract),
+
+   SYSTEM_CALL_SLOT(prints),
+   SYSTEM_CALL_SLOT(prints_l),
+   SYSTEM_CALL_SLOT(printi),
+   SYSTEM_CALL_SLOT(printui),
+   SYSTEM_CALL_SLOT(printi128),
+   SYSTEM_CALL_SLOT(printui128),
+   SYSTEM_CALL_SLOT(printsf),
+   SYSTEM_CALL_SLOT(printdf),
+   SYSTEM_CALL_SLOT(printqf),
+   SYSTEM_CALL_SLOT(printn),
+   SYSTEM_CALL_SLOT(printhex),
+
+   SYSTEM_CALL_SLOT(memset),
+   SYSTEM_CALL_SLOT(memcmp),
+   SYSTEM_CALL_SLOT(memmove),
+   SYSTEM_CALL_SLOT(memcpy),
+
+   SYSTEM_CALL_SLOT(current_receiver),
+   SYSTEM_CALL_SLOT(action_data_size),
+   SYSTEM_CALL_SLOT(read_action_data),
+
+   SYSTEM_CALL_SLOT(eosio_assert),
+   SYSTEM_CALL_SLOT(eosio_assert_message),
+   SYSTEM_CALL_SLOT(eosio_assert_code),
+   SYSTEM_CALL_SLOT(eosio_exit),
+   SYSTEM_CALL_SLOT(abort),
+
+   SYSTEM_CALL_SLOT(db_store_i64),
+   SYSTEM_CALL_SLOT(db_update_i64),
+   SYSTEM_CALL_SLOT(db_remove_i64),
+   SYSTEM_CALL_SLOT(db_get_i64),
+   SYSTEM_CALL_SLOT(db_next_i64),
+   SYSTEM_CALL_SLOT(db_previous_i64),
+   SYSTEM_CALL_SLOT(db_find_i64),
+   SYSTEM_CALL_SLOT(db_lowerbound_i64),
+   SYSTEM_CALL_SLOT(db_upperbound_i64),
+   SYSTEM_CALL_SLOT(db_end_i64),
+
+   SYSTEM_CALL_SLOT(db_idx64_store),
+   SYSTEM_CALL_SLOT(db_idx64_update),
+   SYSTEM_CALL_SLOT(db_idx64_remove),
+   SYSTEM_CALL_SLOT(db_idx64_next),
+   SYSTEM_CALL_SLOT(db_idx64_previous),
+   SYSTEM_CALL_SLOT(db_idx64_find_primary),
+   SYSTEM_CALL_SLOT(db_idx64_find_secondary),
+   SYSTEM_CALL_SLOT(db_idx64_lowerbound),
+   SYSTEM_CALL_SLOT(db_idx64_upperbound),
+   SYSTEM_CALL_SLOT(db_idx64_end),
+
+   SYSTEM_CALL_SLOT(db_idx128_store),
+   SYSTEM_CALL_SLOT(db_idx128_update),
+   SYSTEM_CALL_SLOT(db_idx128_remove),
+   SYSTEM_CALL_SLOT(db_idx128_next),
+   SYSTEM_CALL_SLOT(db_idx128_previous),
+   SYSTEM_CALL_SLOT(db_idx128_find_primary),
+   SYSTEM_CALL_SLOT(db_idx128_find_secondary),
+   SYSTEM_CALL_SLOT(db_idx128_lowerbound),
+   SYSTEM_CALL_SLOT(db_idx128_upperbound),
+   SYSTEM_CALL_SLOT(db_idx128_end),
+
+   SYSTEM_CALL_SLOT(db_idx256_store),
+   SYSTEM_CALL_SLOT(db_idx256_update),
+   SYSTEM_CALL_SLOT(db_idx256_remove),
+   SYSTEM_CALL_SLOT(db_idx256_next),
+   SYSTEM_CALL_SLOT(db_idx256_previous),
+   SYSTEM_CALL_SLOT(db_idx256_find_primary),
+   SYSTEM_CALL_SLOT(db_idx256_find_secondary),
+   SYSTEM_CALL_SLOT(db_idx256_lowerbound),
+   SYSTEM_CALL_SLOT(db_idx256_upperbound),
+   SYSTEM_CALL_SLOT(db_idx256_end),
+
+   SYSTEM_CALL_SLOT(db_idx_double_store),
+   SYSTEM_CALL_SLOT(db_idx_double_update),
+   SYSTEM_CALL_SLOT(db_idx_double_remove),
+   SYSTEM_CALL_SLOT(db_idx_double_next),
+   SYSTEM_CALL_SLOT(db_idx_double_previous),
+   SYSTEM_CALL_SLOT(db_idx_double_find_primary),
+   SYSTEM_CALL_SLOT(db_idx_double_find_secondary),
+   SYSTEM_CALL_SLOT(db_idx_double_lowerbound),
+   SYSTEM_CALL_SLOT(db_idx_double_upperbound),
+   SYSTEM_CALL_SLOT(db_idx_double_end),
+
+   SYSTEM_CALL_SLOT(db_idx_long_double_store),
+   SYSTEM_CALL_SLOT(db_idx_long_double_update),
+   SYSTEM_CALL_SLOT(db_idx_long_double_remove),
+   SYSTEM_CALL_SLOT(db_idx_long_double_next),
+   SYSTEM_CALL_SLOT(db_idx_long_double_previous),
+   SYSTEM_CALL_SLOT(db_idx_long_double_find_primary),
+   SYSTEM_CALL_SLOT(db_idx_long_double_find_secondary),
+   SYSTEM_CALL_SLOT(db_idx_long_double_lowerbound),
+   SYSTEM_CALL_SLOT(db_idx_long_double_upperbound),
+   SYSTEM_CALL_SLOT(db_idx_long_double_end)
 };
 
-class softfloat_api : public context_aware_api {
+struct system_call_bundle
+{
+   std::vector< uint8_t > wasm_bytes;
+   name action;
+};
+
+class system_call_table final
+{
+   public:
+      void update();
+      void set_system_call( system_call_slot s, system_call_bundle v );
+      std::optional< system_call_bundle > get_system_call( system_call_slot s );
+
+   private:
+      using system_call_override_map = std::map< system_call_slot, system_call_bundle >;
+      system_call_override_map system_call_map;
+      system_call_override_map pending_updates;
+
+      bool overridable( system_call_slot s ) noexcept;
+};
+
+// When defining a new system call, we have essentially two different implementations.
+// One of the implementations is considered upgradeable and can be overridden with
+// VM code. The other implementation is prefixed with an underscore and cannot be
+// overridden and is the default implement if no override is provided.
+
+// Use the macro SYSTEM_CALL_DECLARE to simultaneously declare both public and private versions.
+
+struct system_api final
+{
+   system_api( apply_context& ctx );
+   apply_context& context;
+
+   SYSTEM_CALL_DECLARE( void, abort );
+   SYSTEM_CALL_DECLARE( void, eosio_assert, bool condition, null_terminated_ptr msg );
+   SYSTEM_CALL_DECLARE( void, eosio_assert_message, bool, array_ptr< const char > msg, uint32_t len );
+   SYSTEM_CALL_DECLARE( void, eosio_assert_code, bool condition, uint64_t error_code );
+   SYSTEM_CALL_DECLARE( void, eosio_exit, int32_t code );
+
+   SYSTEM_CALL_DECLARE( int, read_action_data, array_ptr<char> memory, uint32_t buffer_size );
+   SYSTEM_CALL_DECLARE( int, action_data_size );
+   SYSTEM_CALL_DECLARE( name, current_receiver );
+
+   SYSTEM_CALL_DECLARE( char*, memcpy, array_ptr< char > dest, array_ptr< const char > src, uint32_t length );
+   SYSTEM_CALL_DECLARE( char*, memmove, array_ptr< char > dest, array_ptr< const char > src, uint32_t length );
+   SYSTEM_CALL_DECLARE( int, memcmp, array_ptr< const char > dest, array_ptr< const char > src, uint32_t length );
+   SYSTEM_CALL_DECLARE( char*, memset, array_ptr<char> dest, int value, uint32_t length );
+
+   SYSTEM_CALL_DECLARE( void, prints, null_terminated_ptr str );
+   SYSTEM_CALL_DECLARE( void, prints_l, array_ptr< const char > str, uint32_t str_len );
+   SYSTEM_CALL_DECLARE( void, printi, int64_t val );
+   SYSTEM_CALL_DECLARE( void, printui, uint64_t val );
+   SYSTEM_CALL_DECLARE( void, printi128, const __int128& val );
+   SYSTEM_CALL_DECLARE( void, printui128, const unsigned __int128& val );
+   SYSTEM_CALL_DECLARE( void, printsf, float val );
+   SYSTEM_CALL_DECLARE( void, printdf, double val );
+   SYSTEM_CALL_DECLARE( void, printqf, const float128_t& val );
+   SYSTEM_CALL_DECLARE( void, printn, name val );
+   SYSTEM_CALL_DECLARE( void, printhex, array_ptr< const char > data, uint32_t data_len );
+
+   SYSTEM_CALL_DECLARE( int, db_store_i64, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, array_ptr< const char > buffer, uint32_t buffer_size );
+   SYSTEM_CALL_DECLARE( void, db_update_i64, int itr, uint64_t payer, array_ptr< const char > buffer, uint32_t buffer_size );
+   SYSTEM_CALL_DECLARE( void, db_remove_i64, int itr );
+   SYSTEM_CALL_DECLARE( int, db_get_i64, int itr, array_ptr< char > buffer, uint32_t buffer_size );
+   SYSTEM_CALL_DECLARE( int, db_next_i64, int itr, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_previous_i64, int itr, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_find_i64, uint64_t code, uint64_t scope, uint64_t table, uint64_t id );
+   SYSTEM_CALL_DECLARE( int, db_lowerbound_i64, uint64_t code, uint64_t scope, uint64_t table, uint64_t id );
+   SYSTEM_CALL_DECLARE( int, db_upperbound_i64, uint64_t code, uint64_t scope, uint64_t table, uint64_t id );
+   SYSTEM_CALL_DECLARE( int, db_end_i64, uint64_t code, uint64_t scope, uint64_t table );
+
+   SYSTEM_CALL_DECLARE( int, db_idx64_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const uint64_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx64_update, int iterator, uint64_t payer, const uint64_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx64_remove, int iterator );
+   SYSTEM_CALL_DECLARE( int, db_idx64_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const uint64_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx64_find_primary, uint64_t code, uint64_t scope, uint64_t table, uint64_t& secondary, uint64_t primary );
+   SYSTEM_CALL_DECLARE( int, db_idx64_lowerbound, uint64_t code, uint64_t scope, uint64_t table, uint64_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx64_upperbound, uint64_t code, uint64_t scope, uint64_t table, uint64_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx64_end, uint64_t code, uint64_t scope, uint64_t table );
+   SYSTEM_CALL_DECLARE( int, db_idx64_next, int iterator, uint64_t& primary  );
+   SYSTEM_CALL_DECLARE( int, db_idx64_previous, int iterator, uint64_t& primary );
+
+   SYSTEM_CALL_DECLARE( int, db_idx128_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const uint128_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx128_update, int iterator, uint64_t payer, const uint128_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx128_remove, int iterator );
+   SYSTEM_CALL_DECLARE( int, db_idx128_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const uint128_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx128_find_primary, uint64_t code, uint64_t scope, uint64_t table, uint128_t& secondary, uint64_t primary );
+   SYSTEM_CALL_DECLARE( int, db_idx128_lowerbound, uint64_t code, uint64_t scope, uint64_t table, uint128_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx128_upperbound, uint64_t code, uint64_t scope, uint64_t table, uint128_t& secondary, uint64_t& primary );;
+   SYSTEM_CALL_DECLARE( int, db_idx128_end, uint64_t code, uint64_t scope, uint64_t table );
+   SYSTEM_CALL_DECLARE( int, db_idx128_next, int iterator, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx128_previous, int iterator, uint64_t& primary );
+
+   SYSTEM_CALL_DECLARE( int, db_idx256_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, array_ptr< const uint128_t > data, uint32_t data_len );
+   SYSTEM_CALL_DECLARE( void, db_idx256_update, int iterator, uint64_t payer, array_ptr< const uint128_t > data, uint32_t data_len );
+   SYSTEM_CALL_DECLARE( void, db_idx256_remove, int iterator );
+   SYSTEM_CALL_DECLARE( int, db_idx256_find_secondary, uint64_t code, uint64_t scope, uint64_t table, array_ptr< const uint128_t > data, uint32_t data_len, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx256_find_primary, uint64_t code, uint64_t scope, uint64_t table, array_ptr< uint128_t > data, uint32_t data_len, uint64_t primary );
+   SYSTEM_CALL_DECLARE( int, db_idx256_lowerbound, uint64_t code, uint64_t scope, uint64_t table, array_ptr< uint128_t > data, uint32_t data_len, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx256_upperbound, uint64_t code, uint64_t scope, uint64_t table, array_ptr< uint128_t > data, uint32_t data_len, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx256_end, uint64_t code, uint64_t scope, uint64_t table );
+   SYSTEM_CALL_DECLARE( int, db_idx256_next, int iterator, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx256_previous, int iterator, uint64_t& primary );
+
+   SYSTEM_CALL_DECLARE( int, db_idx_double_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const float64_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx_double_update, int iterator, uint64_t payer, const float64_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx_double_remove, int iterator );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const float64_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_find_primary, uint64_t code, uint64_t scope, uint64_t table, float64_t& secondary, uint64_t primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_lowerbound, uint64_t code, uint64_t scope, uint64_t table, float64_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_upperbound, uint64_t code, uint64_t scope, uint64_t table, float64_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_end, uint64_t code, uint64_t scope, uint64_t table );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_next, int iterator, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_double_previous, int iterator, uint64_t& primary );
+
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const float128_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx_long_double_update, int iterator, uint64_t payer, const float128_t& secondary );
+   SYSTEM_CALL_DECLARE( void, db_idx_long_double_remove, int iterator );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const float128_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_find_primary, uint64_t code, uint64_t scope, uint64_t table, float128_t& secondary, uint64_t primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_lowerbound, uint64_t code, uint64_t scope, uint64_t table, float128_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_upperbound, uint64_t code, uint64_t scope, uint64_t table, float128_t& secondary, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_end, uint64_t code, uint64_t scope, uint64_t table );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_next, int iterator, uint64_t& primary );
+   SYSTEM_CALL_DECLARE( int, db_idx_long_double_previous, int iterator, uint64_t& primary );
+};
+
+class softfloat_api  {
    public:
       // TODO add traps on truncations for special cases (NaN or outside the range which rounds to an integer)
-      softfloat_api( apply_context& ctx )
-      :context_aware_api(ctx, true) {}
+      softfloat_api( apply_context& ctx ){}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
@@ -608,295 +706,9 @@ class softfloat_api : public context_aware_api {
       static constexpr uint64_t inv_double_eps = 0x4330000000000000;
 };
 
-
-class database_api : context_aware_api
-{
+class compiler_builtins  {
    public:
-      database_api( apply_context& ctx, bool context_free = false ) : context_aware_api( ctx, context_free ) {}
-
-      int db_store_i64( uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, array_ptr<const char> buffer, uint32_t buffer_size ) {
-         return context.db_store_i64( name(scope), name(table), account_name(payer), id, buffer, buffer_size );
-      }
-      void db_update_i64( int itr, uint64_t payer, array_ptr<const char> buffer, uint32_t buffer_size ) {
-         context.db_update_i64( itr, account_name(payer), buffer, buffer_size );
-      }
-      void db_remove_i64( int itr ) {
-         context.db_remove_i64( itr );
-      }
-      int db_get_i64( int itr, array_ptr<char> buffer, uint32_t buffer_size ) {
-         return context.db_get_i64( itr, buffer, buffer_size );
-      }
-      int db_next_i64( int itr, uint64_t& primary ) {
-         return context.db_next_i64(itr, primary);
-      }
-      int db_previous_i64( int itr, uint64_t& primary ) {
-         return context.db_previous_i64(itr, primary);
-      }
-      int db_find_i64( uint64_t code, uint64_t scope, uint64_t table, uint64_t id ) {
-         return context.db_find_i64( name(code), name(scope), name(table), id );
-      }
-      int db_lowerbound_i64( uint64_t code, uint64_t scope, uint64_t table, uint64_t id ) {
-         return context.db_lowerbound_i64( name(code), name(scope), name(table), id );
-      }
-      int db_upperbound_i64( uint64_t code, uint64_t scope, uint64_t table, uint64_t id ) {
-         return context.db_upperbound_i64( name(code), name(scope), name(table), id );
-      }
-      int db_end_i64( uint64_t code, uint64_t scope, uint64_t table ) {
-         return context.db_end_i64( name(code), name(scope), name(table) );
-      }
-
-      DB_API_METHOD_WRAPPERS_SIMPLE_SECONDARY(idx64,  uint64_t)
-      DB_API_METHOD_WRAPPERS_SIMPLE_SECONDARY(idx128, uint128_t)
-      DB_API_METHOD_WRAPPERS_ARRAY_SECONDARY(idx256, 2, uint128_t)
-      DB_API_METHOD_WRAPPERS_FLOAT_SECONDARY(idx_double, float64_t)
-      DB_API_METHOD_WRAPPERS_FLOAT_SECONDARY(idx_long_double, float128_t)
-};
-
-constexpr size_t max_assert_message = 1024;
-
-class context_free_system_api :  public context_aware_api {
-public:
-   explicit context_free_system_api( apply_context& ctx )
-   :context_aware_api(ctx,true){}
-   void abort() {
-      KOINOS_ASSERT( false, abort_called, "abort() called");
-   }
-   // Kept as intrinsic rather than implementing on WASM side (using eosio_assert_message and strlen) because strlen is faster on native side.
-   void eosio_assert( bool condition, null_terminated_ptr msg ) {
-      if( BOOST_UNLIKELY( !condition ) ) {
-         const size_t sz = strnlen( msg, max_assert_message );
-         std::string message( msg, sz );
-         KOINOS_THROW( chain_exception, "assertion failure with message: ${s}", ("s",message) );
-      }
-   }
-   void eosio_assert_message( bool condition, array_ptr<const char> msg, uint32_t msg_len ) {
-      if( BOOST_UNLIKELY( !condition ) ) {
-         const size_t sz = msg_len > max_assert_message ? max_assert_message : msg_len;
-         std::string message( msg, sz );
-         KOINOS_THROW( chain_exception, "assertion failure with message: ${s}", ("s",message) );
-      }
-   }
-   void eosio_assert_code( bool condition, uint64_t error_code ) {
-//      if( BOOST_UNLIKELY( !condition ) ) {
-//         if( error_code >= static_cast<uint64_t>(system_error_code::generic_system_error) ) {
-//            chain_exception e( FC_LOG_MESSAGE(
-//                                                   error,
-//                                                   "eosio_assert_code called with reserved error code: ${error_code}",
-//                                                   ("error_code", error_code)
-//            ) );
-//            e.error_code = static_cast<uint64_t>(system_error_code::contract_restricted_error_code);
-//            throw e;
-//         } else {
-//            chain_exception e( FC_LOG_MESSAGE(
-//                                             error,
-//                                             "assertion failure with error code: ${error_code}",
-//                                             ("error_code", error_code)
-//            ) );
-//            e.error_code = error_code;
-//            throw e;
-//         }
-//      }
-   }
-   void eosio_exit(int32_t code) {
-      //context.db.get_wasm_interface().exit();
-   }
-};
-
-class action_api : public context_aware_api {
-   public:
-   action_api( apply_context& ctx )
-      :context_aware_api(ctx,true){}
-
-      int read_action_data(array_ptr<char> memory, uint32_t buffer_size) {
-//         auto s = context.get_action().data.size();
-//         if( buffer_size == 0 ) return s;
-//
-//         auto copy_size = std::min( static_cast<size_t>(buffer_size), s );
-//         memcpy( (char*)memory.value, context.get_action().data.data(), copy_size );
-//
-//         return copy_size;
-         return 0;
-      }
-
-      int action_data_size() {
-         //return context.get_action().data.size();
-         return 0;
-      }
-
-      name current_receiver() {
-         return context.receiver;
-      }
-};
-
-class memory_api : public context_aware_api {
-   public:
-      memory_api( apply_context& ctx )
-      :context_aware_api(ctx,true){}
-
-      char* memcpy( array_ptr<char> dest, array_ptr<const char> src, uint32_t length) {
-         KOINOS_ASSERT((size_t)(std::abs((ptrdiff_t)dest.value - (ptrdiff_t)src.value)) >= length,
-               chain_exception, "memcpy can only accept non-aliasing pointers");
-         return (char *)::memcpy(dest, src, length);
-      }
-
-      char* memmove( array_ptr<char> dest, array_ptr<const char> src, uint32_t length) {
-         return (char *)::memmove(dest, src, length);
-      }
-
-      int memcmp( array_ptr<const char> dest, array_ptr<const char> src, uint32_t length) {
-         int ret = ::memcmp(dest, src, length);
-         if(ret < 0)
-            return -1;
-         if(ret > 0)
-            return 1;
-         return 0;
-      }
-
-      char* memset( array_ptr<char> dest, int value, uint32_t length ) {
-         return (char *)::memset( dest, value, length );
-      }
-};
-
-class console_api : public context_aware_api {
-   public:
-      console_api( apply_context& ctx )
-      : context_aware_api(ctx,true), ignore(false) {}
-//      , ignore(!ctx.control.contracts_console()) {}
-
-      // Kept as intrinsic rather than implementing on WASM side (using prints_l and strlen) because strlen is faster on native side.
-      void prints(null_terminated_ptr str) {
-         if ( !ignore ) {
-            context.console_append( static_cast<const char*>(str) );
-         }
-      }
-
-      void prints_l(array_ptr<const char> str, uint32_t str_len ) {
-         if ( !ignore ) {
-            context.console_append(string(str, str_len));
-         }
-      }
-
-      void printi(int64_t val) {
-         if ( !ignore ) {
-            std::ostringstream oss;
-            oss << val;
-            context.console_append( oss.str() );
-         }
-      }
-
-      void printui(uint64_t val) {
-         if ( !ignore ) {
-            std::ostringstream oss;
-            oss << val;
-            context.console_append( oss.str() );
-         }
-      }
-
-      void printi128(const __int128& val) {
-         if ( !ignore ) {
-            bool is_negative = (val < 0);
-            unsigned __int128 val_magnitude;
-
-            if( is_negative )
-               val_magnitude = static_cast<unsigned __int128>(-val); // Works even if val is at the lowest possible value of a int128_t
-            else
-               val_magnitude = static_cast<unsigned __int128>(val);
-
-            fc::uint128_t v(val_magnitude>>64, static_cast<uint64_t>(val_magnitude) );
-
-            string s;
-            if( is_negative ) {
-               s += '-';
-            }
-            s += fc::variant(v).get_string();
-
-            context.console_append( s );
-         }
-      }
-
-      void printui128(const unsigned __int128& val) {
-         if ( !ignore ) {
-            fc::uint128_t v(val>>64, static_cast<uint64_t>(val) );
-            context.console_append(fc::variant(v).get_string());
-         }
-      }
-
-      void printsf( float val ) {
-         if ( !ignore ) {
-            // Assumes float representation on native side is the same as on the WASM side
-            std::ostringstream oss;
-            oss.setf( std::ios::scientific, std::ios::floatfield );
-            oss.precision( std::numeric_limits<float>::digits10 );
-            oss << val;
-            context.console_append( oss.str() );
-         }
-      }
-
-      void printdf( double val ) {
-         if ( !ignore ) {
-            // Assumes double representation on native side is the same as on the WASM side
-            std::ostringstream oss;
-            oss.setf( std::ios::scientific, std::ios::floatfield );
-            oss.precision( std::numeric_limits<double>::digits10 );
-            oss << val;
-            context.console_append( oss.str() );
-         }
-      }
-
-      void printqf( const float128_t& val ) {
-         /*
-          * Native-side long double uses an 80-bit extended-precision floating-point number.
-          * The easiest solution for now was to use the Berkeley softfloat library to round the 128-bit
-          * quadruple-precision floating-point number to an 80-bit extended-precision floating-point number
-          * (losing precision) which then allows us to simply cast it into a long double for printing purposes.
-          *
-          * Later we might find a better solution to print the full quadruple-precision floating-point number.
-          * Maybe with some compilation flag that turns long double into a quadruple-precision floating-point number,
-          * or maybe with some library that allows us to print out quadruple-precision floating-point numbers without
-          * having to deal with long doubles at all.
-          */
-
-         if ( !ignore ) {
-            std::ostringstream oss;
-            oss.setf( std::ios::scientific, std::ios::floatfield );
-
-#ifdef __x86_64__
-            oss.precision( std::numeric_limits<long double>::digits10 );
-            extFloat80_t val_approx;
-            f128M_to_extF80M(&val, &val_approx);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-            oss << *(long double*)(&val_approx);
-#pragma GCC diagnostic pop
-#else
-            oss.precision( std::numeric_limits<double>::digits10 );
-            double val_approx = from_softfloat64( f128M_to_f64(&val) );
-            oss << val_approx;
-#endif
-            context.console_append( oss.str() );
-         }
-      }
-
-      void printn(name value) {
-         if ( !ignore ) {
-            context.console_append(value.to_string());
-         }
-      }
-
-      void printhex(array_ptr<const char> data, uint32_t data_len ) {
-         if ( !ignore ) {
-            context.console_append(fc::to_hex(data, data_len));
-         }
-      }
-
-   private:
-      bool ignore;
-};
-
-class compiler_builtins : public context_aware_api {
-   public:
-      compiler_builtins( apply_context& ctx )
-      :context_aware_api(ctx,true){}
+      compiler_builtins( apply_context& ctx ) {}
 
       void __ashlti3(__int128& ret, uint64_t low, uint64_t high, uint32_t shift) {
          fc::uint128_t i(high, low);

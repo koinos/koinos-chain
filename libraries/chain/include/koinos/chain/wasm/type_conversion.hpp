@@ -1,4 +1,7 @@
 #pragma once
+#include <koinos/chain/name.hpp>
+#include <koinos/chain/wasm/common.hpp>
+#include <koinos/chain/exceptions.hpp>
 
 namespace eosio::vm {
    template<>
