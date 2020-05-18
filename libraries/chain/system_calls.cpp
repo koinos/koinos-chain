@@ -46,7 +46,8 @@ void system_call_table::set_system_call( system_call_slot s, system_call_bundle 
 // the given system call it will call the native implement that you define.
 //
 // The native implementation should check whether or not we are in kernel mode and throw if we are not. This
-// will prevent the user mode contract from circumventing the public interface.
+// will prevent the user mode contract from circumventing the public interface. Use the provided macro
+// SYSTEM_CALL_ENFORCE_KERNEL_MODE();
 
 namespace detail {
    struct soft_float
@@ -75,13 +76,13 @@ system_api::system_api( apply_context& _ctx ) : context( _ctx ) {}
 
 SYSTEM_CALL_DEFINE( void, abort )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    KOINOS_ASSERT( false, abort_called, "abort() called");
 }
 
 SYSTEM_CALL_DEFINE( void, eosio_assert, ((bool) condition, (null_terminated_ptr) msg) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    constexpr size_t max_assert_message = 1024;
    if( BOOST_UNLIKELY( !condition ) )
    {
@@ -93,7 +94,7 @@ SYSTEM_CALL_DEFINE( void, eosio_assert, ((bool) condition, (null_terminated_ptr)
 
 SYSTEM_CALL_DEFINE( void, eosio_assert_message, ((bool) condition, (array_ptr<const char>) msg, (uint32_t) len) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    constexpr size_t max_assert_message = 1024;
    if( BOOST_UNLIKELY( !condition ) )
    {
@@ -105,16 +106,16 @@ SYSTEM_CALL_DEFINE( void, eosio_assert_message, ((bool) condition, (array_ptr<co
 
 SYSTEM_CALL_DEFINE( void, eosio_assert_code, ((bool) condition, (uint64_t) error_code) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
 }
 SYSTEM_CALL_DEFINE( void, eosio_exit, ((int32_t) code) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
 }
 
 SYSTEM_CALL_DEFINE( int, read_action_data, ((array_ptr<char>) memory, (uint32_t) buffer_size) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
 //   auto s = ctx.get_action().data.size();
 //   if( buffer_size == 0 ) return s;
 //
@@ -127,32 +128,32 @@ SYSTEM_CALL_DEFINE( int, read_action_data, ((array_ptr<char>) memory, (uint32_t)
 
 SYSTEM_CALL_DEFINE( int, action_data_size )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return 0;
 }
 
 SYSTEM_CALL_DEFINE( name, current_receiver )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.receiver;
 }
 
 SYSTEM_CALL_DEFINE( char*, memcpy, ((array_ptr< char >) dest, (array_ptr< const char >) src, (uint32_t) length) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    KOINOS_ASSERT((size_t)(std::abs((ptrdiff_t)dest.value - (ptrdiff_t)src.value)) >= length, chain_exception, "memcpy can only accept non-aliasing pointers");
    return (char *)::memcpy(dest, src, length);
 }
 
 SYSTEM_CALL_DEFINE( char*, memmove, ((array_ptr< char >) dest, (array_ptr< const char >) src, (uint32_t) length) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return (char *)::memmove(dest, src, length);
 }
 
 SYSTEM_CALL_DEFINE( int, memcmp, ((array_ptr< const char >) dest, (array_ptr< const char >) src, (uint32_t) length) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    int ret = ::memcmp(dest, src, length);
    if(ret < 0)
       return -1;
@@ -163,25 +164,25 @@ SYSTEM_CALL_DEFINE( int, memcmp, ((array_ptr< const char >) dest, (array_ptr< co
 
 SYSTEM_CALL_DEFINE( char*, memset, ((array_ptr< char >) dest, (int) value, (uint32_t) length) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return (char *)::memset( dest, value, length );
 }
 
 SYSTEM_CALL_DEFINE( void, prints, ((null_terminated_ptr) str) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    context.console_append( static_cast< const char* >(str) );
 }
 
 SYSTEM_CALL_DEFINE( void, prints_l, ((array_ptr< const char >) str, (uint32_t) str_len ) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    context.console_append(string(str, str_len));
 }
 
 SYSTEM_CALL_DEFINE( void, printi, ((int64_t) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    std::ostringstream oss;
    oss << val;
    context.console_append( oss.str() );
@@ -189,7 +190,7 @@ SYSTEM_CALL_DEFINE( void, printi, ((int64_t) val) )
 
 SYSTEM_CALL_DEFINE( void, printui, ((uint64_t) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    std::ostringstream oss;
    oss << val;
    context.console_append( oss.str() );
@@ -197,7 +198,7 @@ SYSTEM_CALL_DEFINE( void, printui, ((uint64_t) val) )
 
 SYSTEM_CALL_DEFINE( void, printi128, ((const __int128&) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    bool is_negative = (val < 0);
    unsigned __int128 val_magnitude;
 
@@ -219,14 +220,14 @@ SYSTEM_CALL_DEFINE( void, printi128, ((const __int128&) val) )
 
 SYSTEM_CALL_DEFINE( void, printui128, ((const unsigned __int128&) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    fc::uint128_t v(val>>64, static_cast<uint64_t>(val) );
    context.console_append(fc::variant(v).get_string());
 }
 
 SYSTEM_CALL_DEFINE( void, printsf, ((float) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    // Assumes float representation on native side is the same as on the WASM side
    std::ostringstream oss;
    oss.setf( std::ios::scientific, std::ios::floatfield );
@@ -237,7 +238,7 @@ SYSTEM_CALL_DEFINE( void, printsf, ((float) val) )
 
 SYSTEM_CALL_DEFINE( void, printdf, ((double) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    // Assumes double representation on native side is the same as on the WASM side
    std::ostringstream oss;
    oss.setf( std::ios::scientific, std::ios::floatfield );
@@ -248,7 +249,7 @@ SYSTEM_CALL_DEFINE( void, printdf, ((double) val) )
 
 SYSTEM_CALL_DEFINE( void, printqf, ((const float128_t&) val) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    /*
     * Native-side long double uses an 80-bit extended-precision floating-point number.
     * The easiest solution for now was to use the Berkeley softfloat library to round the 128-bit
@@ -282,73 +283,73 @@ SYSTEM_CALL_DEFINE( void, printqf, ((const float128_t&) val) )
 
 SYSTEM_CALL_DEFINE( void, printn, ((name) value) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    context.console_append(value.to_string());
 }
 
 SYSTEM_CALL_DEFINE( void, printhex, ((array_ptr< const char >) data, (uint32_t) data_len ) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    context.console_append(fc::to_hex(data, data_len));
 }
 
 SYSTEM_CALL_DEFINE( int, db_store_i64, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (array_ptr<const char>) buffer, (uint32_t) buffer_size) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_store_i64( name(scope), name(table), account_name(payer), id, buffer, buffer_size );
 }
 
 SYSTEM_CALL_DEFINE( void, db_update_i64, ((int) itr, (uint64_t) payer, (array_ptr< const char >) buffer, (uint32_t) buffer_size) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    context.db_update_i64( itr, account_name(payer), buffer, buffer_size );
 }
 
 SYSTEM_CALL_DEFINE( void, db_remove_i64, ((int) itr) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    context.db_remove_i64( itr );
 }
 
 SYSTEM_CALL_DEFINE( int, db_get_i64, ((int) itr, (array_ptr< char >) buffer, (uint32_t) buffer_size) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_get_i64( itr, buffer, buffer_size );
 }
 
 SYSTEM_CALL_DEFINE( int, db_next_i64, ((int) itr, (uint64_t&) primary) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_next_i64(itr, primary);
 }
 
 SYSTEM_CALL_DEFINE( int, db_previous_i64, ((int) itr, (uint64_t&) primary) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_previous_i64(itr, primary);
 }
 
 SYSTEM_CALL_DEFINE( int, db_find_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (uint64_t) id) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_find_i64( name(code), name(scope), name(table), id );
 }
 
 SYSTEM_CALL_DEFINE( int, db_lowerbound_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (uint64_t) id) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_lowerbound_i64( name(code), name(scope), name(table), id );
 }
 
 SYSTEM_CALL_DEFINE( int, db_upperbound_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table, (uint64_t) id) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_upperbound_i64( name(code), name(scope), name(table), id );
 }
 
 SYSTEM_CALL_DEFINE( int, db_end_i64, ((uint64_t) code, (uint64_t) scope, (uint64_t) table) )
 {
-   KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, SYSTEM_CALL_INSUFFICENT_PRIVILEGE_MESSAGE );
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return context.db_end_i64( name(code), name(scope), name(table) );
 }
 
@@ -364,24 +365,28 @@ SYSTEM_CALL_DB_WRAPPERS_FLOAT_SECONDARY(idx_long_double, float128_t)
       // float binops
 SYSTEM_CALL_DEFINE( float, _eosio_f32_add, ((float) a, (float) b ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t ret = ::f32_add( to_softfloat32(a), to_softfloat32(b) );
    return *reinterpret_cast<float*>(&ret);
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_sub, ((float) a, (float) b ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t ret = ::f32_sub( to_softfloat32(a), to_softfloat32(b) );
    return *reinterpret_cast<float*>(&ret);
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_div, ((float) a, (float) b ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t ret = ::f32_div( to_softfloat32(a), to_softfloat32(b) );
    return *reinterpret_cast<float*>(&ret);
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_mul, ((float) a, (float) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t ret = ::f32_mul( to_softfloat32(a), to_softfloat32(b) );
    return *reinterpret_cast<float*>(&ret);
 }
@@ -389,6 +394,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_mul, ((float) a, (float) b) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_min, ((float) af, (float) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    float32_t b = to_softfloat32(bf);
    if (detail::soft_float::is_nan(a)) {
@@ -405,6 +411,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_min, ((float) af, (float) bf) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_max, ((float) af, (float) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    float32_t b = to_softfloat32(bf);
    if (detail::soft_float::is_nan(a)) {
@@ -421,6 +428,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_max, ((float) af, (float) bf) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_copysign, ((float) af, (float) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    float32_t b = to_softfloat32(bf);
    uint32_t sign_of_b = b.v >> 31;
@@ -432,6 +440,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_copysign, ((float) af, (float) bf) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_abs, ((float) af ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    a.v &= ~(1 << 31);
    return from_softfloat32(a);
@@ -439,6 +448,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_abs, ((float) af ) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_neg, ((float) af ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    uint32_t sign = a.v >> 31;
    a.v &= ~(1 << 31);
@@ -448,12 +458,14 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_neg, ((float) af ) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_sqrt, ((float) a ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t ret = ::f32_sqrt( to_softfloat32(a) );
    return from_softfloat32(ret);
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_ceil, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    int e = (int)(a.v >> 23 & 0xFF) - 0X7F;
    uint32_t m;
@@ -478,6 +490,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_ceil, ((float) af) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_floor, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    int e = (int)(a.v >> 23 & 0xFF) - 0X7F;
    uint32_t m;
@@ -501,6 +514,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_floor, ((float) af) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_trunc, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    int e = (int)(a.v >> 23 & 0xff) - 0x7f + 9;
    uint32_t m;
@@ -517,6 +531,7 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_trunc, ((float) af) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_f32_nearest, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    int e = a.v>>23 & 0xff;
    int s = a.v>>31;
@@ -534,26 +549,31 @@ SYSTEM_CALL_DEFINE( float, _eosio_f32_nearest, ((float) af) )
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f32_eq, ((float) a, (float) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ::f32_eq( to_softfloat32(a), to_softfloat32(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f32_ne, ((float) a, (float) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return !::f32_eq( to_softfloat32(a), to_softfloat32(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f32_lt, ((float) a, (float) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ::f32_lt( to_softfloat32(a), to_softfloat32(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f32_le, ((float) a, (float) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ::f32_le( to_softfloat32(a), to_softfloat32(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f32_gt, ((float) af, (float) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    float32_t b = to_softfloat32(bf);
    if (detail::soft_float::is_nan(a))
@@ -565,6 +585,7 @@ SYSTEM_CALL_DEFINE( bool, _eosio_f32_gt, ((float) af, (float) bf) )
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f32_ge, ((float) af, (float) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    float32_t b = to_softfloat32(bf);
    if (detail::soft_float::is_nan(a))
@@ -576,30 +597,35 @@ SYSTEM_CALL_DEFINE( bool, _eosio_f32_ge, ((float) af, (float) bf) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_add,((double) a, (double) b ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t ret = ::f64_add( to_softfloat64(a), to_softfloat64(b) );
    return from_softfloat64(ret);
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_sub, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t ret = ::f64_sub( to_softfloat64(a), to_softfloat64(b) );
    return from_softfloat64(ret);
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_div, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t ret = ::f64_div( to_softfloat64(a), to_softfloat64(b) );
    return from_softfloat64(ret);
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_mul, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t ret = ::f64_mul( to_softfloat64(a), to_softfloat64(b) );
    return from_softfloat64(ret);
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_min, ((double) af, (double) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    float64_t b = to_softfloat64(bf);
    if (detail::soft_float::is_nan(a))
@@ -613,6 +639,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_min, ((double) af, (double) bf) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_max, ((double) af, (double) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    float64_t b = to_softfloat64(bf);
    if (detail::soft_float::is_nan(a))
@@ -626,6 +653,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_max, ((double) af, (double) bf) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_copysign, ((double) af, (double) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    float64_t b = to_softfloat64(bf);
    uint64_t sign_of_b = b.v >> 63;
@@ -636,6 +664,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_copysign, ((double) af, (double) bf) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_abs, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    a.v &= ~(uint64_t(1) << 63);
    return from_softfloat64(a);
@@ -643,6 +672,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_abs, ((double) af) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_neg, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    uint64_t sign = a.v >> 63;
    a.v &= ~(uint64_t(1) << 63);
@@ -652,12 +682,14 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_neg, ((double) af) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_sqrt, ((double) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t ret = ::f64_sqrt( to_softfloat64(a) );
    return from_softfloat64(ret);
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_ceil, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64( af );
    float64_t ret;
    int e = a.v >> 52 & 0x7ff;
@@ -683,6 +715,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_ceil, ((double) af) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_floor, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64( af );
    float64_t ret;
    int e = a.v >> 52 & 0x7FF;
@@ -710,6 +743,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_floor, ((double) af) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_trunc, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64( af );
    int e = (int)(a.v >> 52 & 0x7ff) - 0x3ff + 12;
    uint64_t m;
@@ -726,6 +760,7 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_trunc, ((double) af) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f64_nearest, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64( af );
    int e = (a.v >> 52 & 0x7FF);
    int s = a.v >> 63;
@@ -744,26 +779,31 @@ SYSTEM_CALL_DEFINE( double, _eosio_f64_nearest, ((double) af) )
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f64_eq, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ::f64_eq( to_softfloat64(a), to_softfloat64(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f64_ne, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return !::f64_eq( to_softfloat64(a), to_softfloat64(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f64_lt, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ::f64_lt( to_softfloat64(a), to_softfloat64(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f64_le, ((double) a, (double) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ::f64_le( to_softfloat64(a), to_softfloat64(b) );
 }
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f64_gt, ((double) af, (double) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    float64_t b = to_softfloat64(bf);
    if (detail::soft_float::is_nan(a))
@@ -775,6 +815,7 @@ SYSTEM_CALL_DEFINE( bool, _eosio_f64_gt, ((double) af, (double) bf) )
 
 SYSTEM_CALL_DEFINE( bool, _eosio_f64_ge, ((double) af, (double) bf) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    float64_t b = to_softfloat64(bf);
    if (detail::soft_float::is_nan(a))
@@ -786,16 +827,19 @@ SYSTEM_CALL_DEFINE( bool, _eosio_f64_ge, ((double) af, (double) bf) )
 
 SYSTEM_CALL_DEFINE( double, _eosio_f32_promote, ((float) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat64(f32_to_f64( to_softfloat32(a)) );
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_f64_demote, ((double) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat32(f64_to_f32( to_softfloat64(a)) );
 }
 
 SYSTEM_CALL_DEFINE( int32_t, _eosio_f32_trunc_i32s, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    if (_eosio_f32_ge(af, 2147483648.0f) || _eosio_f32_lt(af, -2147483648.0f))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f32.convert_s/i32 overflow" );
@@ -807,6 +851,7 @@ SYSTEM_CALL_DEFINE( int32_t, _eosio_f32_trunc_i32s, ((float) af) )
 
 SYSTEM_CALL_DEFINE( int32_t, _eosio_f64_trunc_i32s, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    if (_eosio_f64_ge(af, 2147483648.0) || _eosio_f64_lt(af, -2147483648.0))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f64.convert_s/i32 overflow");
@@ -817,6 +862,7 @@ SYSTEM_CALL_DEFINE( int32_t, _eosio_f64_trunc_i32s, ((double) af) )
 
 SYSTEM_CALL_DEFINE( uint32_t, _eosio_f32_trunc_i32u, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    if (_eosio_f32_ge(af, 4294967296.0f) || _eosio_f32_le(af, -1.0f))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f32.convert_u/i32 overflow");
@@ -827,6 +873,7 @@ SYSTEM_CALL_DEFINE( uint32_t, _eosio_f32_trunc_i32u, ((float) af) )
 
 SYSTEM_CALL_DEFINE( uint32_t, _eosio_f64_trunc_i32u, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    if (_eosio_f64_ge(af, 4294967296.0) || _eosio_f64_le(af, -1.0))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f64.convert_u/i32 overflow");
@@ -837,6 +884,7 @@ SYSTEM_CALL_DEFINE( uint32_t, _eosio_f64_trunc_i32u, ((double) af) )
 
 SYSTEM_CALL_DEFINE( int64_t, _eosio_f32_trunc_i64s, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    if (_eosio_f32_ge(af, 9223372036854775808.0f) || _eosio_f32_lt(af, -9223372036854775808.0f))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f32.convert_s/i64 overflow");
@@ -845,7 +893,9 @@ SYSTEM_CALL_DEFINE( int64_t, _eosio_f32_trunc_i64s, ((float) af) )
    return f32_to_i64( to_softfloat32(_eosio_f32_trunc( af )), 0, false );
 }
 
-SYSTEM_CALL_DEFINE( int64_t, _eosio_f64_trunc_i64s, ((double) af) ) {
+SYSTEM_CALL_DEFINE( int64_t, _eosio_f64_trunc_i64s, ((double) af) )
+{
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    if (_eosio_f64_ge(af, 9223372036854775808.0) || _eosio_f64_lt(af, -9223372036854775808.0))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f64.convert_s/i64 overflow");
@@ -857,6 +907,7 @@ SYSTEM_CALL_DEFINE( int64_t, _eosio_f64_trunc_i64s, ((double) af) ) {
 
 SYSTEM_CALL_DEFINE( uint64_t, _eosio_f32_trunc_i64u, ((float) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float32_t a = to_softfloat32(af);
    if (_eosio_f32_ge(af, 18446744073709551616.0f) || _eosio_f32_le(af, -1.0f))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f32.convert_u/i64 overflow");
@@ -867,6 +918,7 @@ SYSTEM_CALL_DEFINE( uint64_t, _eosio_f32_trunc_i64u, ((float) af) )
 
 SYSTEM_CALL_DEFINE( uint64_t, _eosio_f64_trunc_i64u, ((double) af) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float64_t a = to_softfloat64(af);
    if (_eosio_f64_ge(af, 18446744073709551616.0) || _eosio_f64_le(af, -1.0))
       KOINOS_THROW( koinos::chain::wasm_execution_error, "Error, f64.convert_u/i64 overflow");
@@ -877,46 +929,55 @@ SYSTEM_CALL_DEFINE( uint64_t, _eosio_f64_trunc_i64u, ((double) af) )
 
 SYSTEM_CALL_DEFINE( float, _eosio_i32_to_f32, ((int32_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat32(i32_to_f32( a ));
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_i64_to_f32, ((int64_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat32(i64_to_f32( a ));
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_ui32_to_f32, ((uint32_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat32(ui32_to_f32( a ));
 }
 
 SYSTEM_CALL_DEFINE( float, _eosio_ui64_to_f32, ((uint64_t) a ) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat32(ui64_to_f32( a ));
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_i32_to_f64, ((int32_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat64(i32_to_f64( a ));
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_i64_to_f64, ((int64_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat64(i64_to_f64( a ));
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_ui32_to_f64, ((uint32_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat64(ui32_to_f64( a ));
 }
 
 SYSTEM_CALL_DEFINE( double, _eosio_ui64_to_f64, ((uint64_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat64(ui64_to_f64( a ));
 }
 
 SYSTEM_CALL_DEFINE( void, __ashlti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    fc::uint128_t i(high, low);
    i <<= shift;
    ret = (unsigned __int128)i;
@@ -924,6 +985,7 @@ SYSTEM_CALL_DEFINE( void, __ashlti3, ((__int128&) ret, (uint64_t) low, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __ashrti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    // retain the signedness
    ret = high;
    ret <<= 64;
@@ -933,6 +995,7 @@ SYSTEM_CALL_DEFINE( void, __ashrti3, ((__int128&) ret, (uint64_t) low, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __lshlti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    fc::uint128_t i(high, low);
    i <<= shift;
    ret = (unsigned __int128)i;
@@ -940,6 +1003,7 @@ SYSTEM_CALL_DEFINE( void, __lshlti3, ((__int128&) ret, (uint64_t) low, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __lshrti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    fc::uint128_t i(high, low);
    i >>= shift;
    ret = (unsigned __int128)i;
@@ -947,6 +1011,7 @@ SYSTEM_CALL_DEFINE( void, __lshrti3, ((__int128&) ret, (uint64_t) low, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __divti3, ((__int128&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    __int128 lhs = ha;
    __int128 rhs = hb;
 
@@ -965,6 +1030,7 @@ SYSTEM_CALL_DEFINE( void, __divti3, ((__int128&) ret, (uint64_t) la, (uint64_t) 
 
 SYSTEM_CALL_DEFINE( void, __udivti3, ((unsigned __int128&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    unsigned __int128 lhs = ha;
    unsigned __int128 rhs = hb;
 
@@ -982,6 +1048,7 @@ SYSTEM_CALL_DEFINE( void, __udivti3, ((unsigned __int128&) ret, (uint64_t) la, (
 
 SYSTEM_CALL_DEFINE( void, __multi3, ((__int128&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    __int128 lhs = ha;
    __int128 rhs = hb;
 
@@ -997,6 +1064,7 @@ SYSTEM_CALL_DEFINE( void, __multi3, ((__int128&) ret, (uint64_t) la, (uint64_t) 
 
 SYSTEM_CALL_DEFINE( void, __modti3, ((__int128&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    __int128 lhs = ha;
    __int128 rhs = hb;
 
@@ -1014,6 +1082,7 @@ SYSTEM_CALL_DEFINE( void, __modti3, ((__int128&) ret, (uint64_t) la, (uint64_t) 
 
 SYSTEM_CALL_DEFINE( void, __umodti3, ((unsigned __int128&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    unsigned __int128 lhs = ha;
    unsigned __int128 rhs = hb;
 
@@ -1031,6 +1100,7 @@ SYSTEM_CALL_DEFINE( void, __umodti3, ((unsigned __int128&) ret, (uint64_t) la, (
 
 SYSTEM_CALL_DEFINE( void, __addtf3, ((float128_t&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t a = {{ la, ha }};
    float128_t b = {{ lb, hb }};
    ret = f128_add( a, b );
@@ -1038,6 +1108,7 @@ SYSTEM_CALL_DEFINE( void, __addtf3, ((float128_t&) ret, (uint64_t) la, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __subtf3, ((float128_t&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t a = {{ la, ha }};
    float128_t b = {{ lb, hb }};
    ret = f128_sub( a, b );
@@ -1045,6 +1116,7 @@ SYSTEM_CALL_DEFINE( void, __subtf3, ((float128_t&) ret, (uint64_t) la, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __multf3, ((float128_t&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t a = {{ la, ha }};
    float128_t b = {{ lb, hb }};
    ret = f128_mul( a, b );
@@ -1052,6 +1124,7 @@ SYSTEM_CALL_DEFINE( void, __multf3, ((float128_t&) ret, (uint64_t) la, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __divtf3, ((float128_t&) ret, (uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t a = {{ la, ha }};
    float128_t b = {{ lb, hb }};
    ret = f128_div( a, b );
@@ -1059,114 +1132,135 @@ SYSTEM_CALL_DEFINE( void, __divtf3, ((float128_t&) ret, (uint64_t) la, (uint64_t
 
 SYSTEM_CALL_DEFINE( void, __negtf2, ((float128_t&) ret, (uint64_t) la, (uint64_t) ha) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = {{ la, (ha ^ (uint64_t)1 << 63) }};
 }
 
 SYSTEM_CALL_DEFINE( void, __extendsftf2, ((float128_t&) ret, (float) f) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = f32_to_f128( to_softfloat32(f) );
 }
 
 SYSTEM_CALL_DEFINE( void, __extenddftf2, ((float128_t&) ret, (double) d) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = f64_to_f128( to_softfloat64(d) );
 }
 
 SYSTEM_CALL_DEFINE( double, __trunctfdf2, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    return from_softfloat64(f128_to_f64( f ));
 }
 
 SYSTEM_CALL_DEFINE( float, __trunctfsf2, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    return from_softfloat32(f128_to_f32( f ));
 }
 
 SYSTEM_CALL_DEFINE( int32_t, __fixtfsi, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    return f128_to_i32( f, 0, false );
 }
 
 SYSTEM_CALL_DEFINE( int64_t, __fixtfdi, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    return f128_to_i64( f, 0, false );
 }
 
 SYSTEM_CALL_DEFINE( void, __fixtfti, ((__int128&) ret, (uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    ret = ___fixtfti( f );
 }
 
 SYSTEM_CALL_DEFINE( uint32_t, __fixunstfsi, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    return f128_to_ui32( f, 0, false );
 }
 
 SYSTEM_CALL_DEFINE( uint64_t, __fixunstfdi, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    return f128_to_ui64( f, 0, false );
 }
 
 SYSTEM_CALL_DEFINE( void, __fixunstfti, ((unsigned __int128&) ret, (uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t f = {{ l, h }};
    ret = ___fixunstfti( f );
 }
 
 SYSTEM_CALL_DEFINE( void, __fixsfti, ((__int128&) ret, (float) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = ___fixsfti( to_softfloat32(a).v );
 }
 
 SYSTEM_CALL_DEFINE( void, __fixdfti, ((__int128&) ret, (double) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = ___fixdfti( to_softfloat64(a).v );
 }
 
 SYSTEM_CALL_DEFINE( void, __fixunssfti, ((unsigned __int128&) ret, (float) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = ___fixunssfti( to_softfloat32(a).v );
 }
 
 SYSTEM_CALL_DEFINE( void, __fixunsdfti, ((unsigned __int128&) ret, (double) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = ___fixunsdfti( to_softfloat64(a).v );
 }
 
 SYSTEM_CALL_DEFINE( double, __floatsidf, ((int32_t) i) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return from_softfloat64(i32_to_f64(i));
 }
 
 SYSTEM_CALL_DEFINE( void, __floatsitf, ((float128_t&) ret, (int32_t) i) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = i32_to_f128(i);
 }
 
 SYSTEM_CALL_DEFINE( void, __floatditf, ((float128_t&) ret, (uint64_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = i64_to_f128( a );
 }
 
 SYSTEM_CALL_DEFINE( void, __floatunsitf, ((float128_t&) ret, (uint32_t) i) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = ui32_to_f128(i);
 }
 
 SYSTEM_CALL_DEFINE( void, __floatunditf, ((float128_t&) ret, (uint64_t) a) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    ret = ui64_to_f128( a );
 }
 
 SYSTEM_CALL_DEFINE( double, __floattidf, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    fc::uint128_t v(h, l);
    unsigned __int128 val = (unsigned __int128)v;
    return ___floattidf( *(__int128*)&val );
@@ -1174,12 +1268,14 @@ SYSTEM_CALL_DEFINE( double, __floattidf, ((uint64_t) l, (uint64_t) h) )
 
 SYSTEM_CALL_DEFINE( double, __floatuntidf, ((uint64_t) l, (uint64_t) h) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    fc::uint128_t v(h, l);
    return ___floatuntidf( (unsigned __int128)v );
 }
 
 SYSTEM_CALL_DEFINE( int, ___cmptf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb, (int) return_value_if_nan) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t a = {{ la, ha }};
    float128_t b = {{ lb, hb }};
    if ( __unordtf2(la, ha, lb, hb) )
@@ -1193,41 +1289,49 @@ SYSTEM_CALL_DEFINE( int, ___cmptf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb
 
 SYSTEM_CALL_DEFINE( int, __eqtf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, 1);
 }
 
 SYSTEM_CALL_DEFINE( int, __netf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, 1);
 }
 
 SYSTEM_CALL_DEFINE( int, __getf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, -1);
 }
 
 SYSTEM_CALL_DEFINE( int, __gttf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, 0);
 }
 
 SYSTEM_CALL_DEFINE( int, __letf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, 1);
 }
 
 SYSTEM_CALL_DEFINE( int, __lttf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, 0);
 }
 
 SYSTEM_CALL_DEFINE( int, __cmptf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return ___cmptf2(la, ha, lb, hb, 1);
 }
 
 SYSTEM_CALL_DEFINE( int, __unordtf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    float128_t a = {{ la, ha }};
    float128_t b = {{ lb, hb }};
    if ( detail::soft_float::is_nan(a) || detail::soft_float::is_nan(b) )

@@ -18,16 +18,12 @@ DECLARE_KOINOS_EXCEPTION( system_call_not_overridable );
 
 // For any given system call, two slots are used. The first definition
 // is considered overridable. The second system call slot is prefixed
-// with an underscore to denote a private unoverridable implementation.
+// with `internal_` to denote a private unoverridable implementation.
 
 // When adding a system call slot, use the provided macro SYSTEM_CALL_SLOTS
 // to declare both a public and private implementation.
 
 SYSTEM_CALL_SLOTS(
-   (register_syscall)
-   (verify_block_header)
-   (call_contract)
-
    (__ashlti3)
    (__ashrti3)
    (__lshlti3)
@@ -242,6 +238,8 @@ class system_call_table final
    private:
       using system_call_override_map = std::map< system_call_slot, system_call_bundle >;
       system_call_override_map system_call_map;
+
+#pragma message("TODO: Replace pending_updates with a state that tracks undo and such from chain operations")
       system_call_override_map pending_updates;
 
       bool overridable( system_call_slot s ) noexcept;
@@ -249,7 +247,7 @@ class system_call_table final
 
 // When defining a new system call, we have essentially two different implementations.
 // One of the implementations is considered upgradeable and can be overridden with
-// VM code. The other implementation is prefixed with an underscore and cannot be
+// VM code. The other implementation is prefixed with `internal_` and cannot be
 // overridden and is the default implement if no override is provided.
 
 // Use the macro SYSTEM_CALL_DECLARE to simultaneously declare both public and private versions.

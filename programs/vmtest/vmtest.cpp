@@ -40,6 +40,7 @@ int main(int argc, char** argv, char** envp)
    using backend_t = eosio::vm::backend< apply_context >;
    using rhf_t     = eosio::vm::registered_host_functions< apply_context >;
 
+#pragma message("TODO: We should do all this boilerplate code automatically in the system header")
    rhf_t::add< system_api, &system_api::__ashlti3, wasm_allocator >( "env", "__ashlti3" );
    rhf_t::add< system_api, &system_api::__ashrti3, wasm_allocator >( "env", "__ashrti3" );
    rhf_t::add< system_api, &system_api::__lshlti3, wasm_allocator >( "env", "__lshlti3" );
