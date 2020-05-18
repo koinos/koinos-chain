@@ -1,9 +1,11 @@
+#include <thread>
+
 #include <appbase/application.hpp>
 #include <koinos/pack/classes.hpp>
-
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
 #define KOINOS_BLOCK_PRODUCER_PLUGIN_NAME "block_producer"
+#define KOINOS_BLOCK_TIME_MS              10000
 
 namespace koinos { namespace block_producer_plugin {
 
@@ -26,6 +28,15 @@ namespace koinos { namespace block_producer_plugin {
          virtual void plugin_initialize( const variables_map& options ) override;
          virtual void plugin_startup() override;
          virtual void plugin_shutdown() override;
+       
+         void start_block_production();
+         void stop_block_production();
+         
+         // Whether or not we should be producing blocks
+         // stop_block_production uses this to shut down the production thread
+         bool producing_blocks = false;
+       
+         std::shared_ptr< std::thread > block_production_thread;
    };
 
    std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
@@ -39,6 +50,41 @@ namespace koinos { namespace block_producer_plugin {
 
    void block_producer_plugin::plugin_initialize( const variables_map& options ) {}
 
-   void block_producer_plugin::plugin_startup() {}
-   void block_producer_plugin::plugin_shutdown() {}
+   void block_producer_plugin::plugin_startup()
+   {
+       start_block_production();
+   }
+
+   void block_producer_plugin::plugin_shutdown()
+   {
+       stop_block_production();
+   }
+
+   void block_producer_plugin::start_block_production()
+   {
+       producing_blocks = true;
+       
+       block_production_thread = std::make_shared< std::thread >( [&]()
+       {
+           while ( producing_blocks )
+           {
+               auto block = produce_block();
+               // TODO: Send to chain plugin
+               
+               // Sleep for the block production time
+               boost::this_thread::sleep_for( boost::chrono::milliseconds( KOINOS_BLOCK_TIME_MS ) );
+           }
+       });
+   }
+
+   void block_producer_plugin::stop_block_production()
+   {
+       producing_blocks = false;
+       
+       if ( block_production_thread )
+           block_production_thread->join();
+       
+       block_production_thread.reset();
+   }
+
 } }
