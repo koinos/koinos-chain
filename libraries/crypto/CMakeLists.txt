@@ -2,9 +2,9 @@ find_package(OpenSSL REQUIRED)
 
 file(GLOB HEADERS "include/koinos/crypto/*.hpp" )
 add_library( koinos_crypto
+             elliptic.cpp
              multihash.cpp
              openssl.cpp
-             public_key.cpp
              ${HEADERS} )
 target_link_libraries( koinos_crypto koinos_exception pack secp256k1 ${OPENSSL_LIBRARIES} )
 target_include_directories( koinos_crypto

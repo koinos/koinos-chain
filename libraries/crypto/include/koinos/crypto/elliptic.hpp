@@ -3,6 +3,8 @@
 
 #include <openssl/ec.h>
 
+#include <secp256k1.h>
+
 namespace koinos::crypto {
 
    using koinos::protocol::multihash_type;
@@ -132,7 +134,7 @@ namespace koinos::crypto {
       private:
          private_key( EC_KEY* k );
          static multihash_type get_secret( const EC_KEY * const k );
-         multihash_type _key;
+         private_key_secret _key;
    };
 
 } // koinos::crypto

@@ -19,7 +19,7 @@
 
  https://github.com/multiformats/multicodec/blob/master/table.csv
 */
-#define CRYPTO_RIPEMD160_ID     uint64_t(0x52)
+#define CRYPTO_RIPEMD160_ID     uint64_t(0x1053)
 
 namespace koinos::crypto {
 
@@ -52,7 +52,20 @@ struct multihash
 
    static inline bool validate_sha256( const multihash_type& mh )    { return validate( mh,  CRYPTO_SHA2_256_ID, 32 ); }
    static inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
-   };
+};
+
+bool operator ==( const multihash_type& mha, const multihash_type& mhb )
+{
+   return ( multihash::validate( mha ) && multihash::validate( mhb ) )
+       && ( multihash::get_id( mha )   == multihash::get_id( mhb ) )
+       && ( multihash::get_size( mha ) == multihash::get_size( mhb ) )
+       && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );
+}
+
+bool operator !=( const multihash_type& mha, const multihash_type& mhb )
+{
+   return !(mha == mhb);
+}
 
 struct encoder
 {
