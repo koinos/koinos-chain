@@ -1,6 +1,8 @@
 #include <appbase/application.hpp>
 #include <koinos/pack/classes.hpp>
 
+#include <koinos/plugins/chain/chain_plugin.hpp>
+
 #define KOINOS_BLOCK_PRODUCER_PLUGIN_NAME "block_producer"
 
 namespace koinos { namespace block_producer_plugin {
@@ -12,6 +14,8 @@ namespace koinos { namespace block_producer_plugin {
       public:
          block_producer_plugin();
          virtual ~block_producer_plugin();
+       
+         APPBASE_PLUGIN_REQUIRES( (plugins::chain::chain_plugin) );
 
          static const std::string& name() { static std::string name = KOINOS_BLOCK_PRODUCER_PLUGIN_NAME; return name; }
 
