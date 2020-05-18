@@ -26,38 +26,38 @@ enum class system_call_slot : uint32_t\
    return_type name(__VA_ARGS__);               \
    return_type BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,name)(__VA_ARGS__)
 
-#define RET_TYPE_void 1)(1
-#define IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(RET_TYPE_,type))),2)
+#define _SYSCALL_RET_TYPE_void 1)(1
+#define _SYSCALL_IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(_SYSCALL_RET_TYPE_,type))),2)
 
-#define REM(...) __VA_ARGS__
-#define EAT(...)
+#define _SYSCALL_REM(...) __VA_ARGS__
+#define _SYSCALL_EAT(...)
 
 // Retrieve the type
-#define TYPEOF(x) DETAIL_TYPEOF(DETAIL_TYPEOF_PROBE x,)
-#define DETAIL_TYPEOF(...) DETAIL_TYPEOF_HEAD(__VA_ARGS__)
-#define DETAIL_TYPEOF_HEAD(x, ...) REM x
-#define DETAIL_TYPEOF_PROBE(...) (__VA_ARGS__),
+#define _SYSCALL_TYPEOF(x) _SYSCALL_DETAIL_TYPEOF(_SYSCALL_DETAIL_TYPEOF_PROBE x,)
+#define _SYSCALL_DETAIL_TYPEOF(...) _SYSCALL_DETAIL_TYPEOF_HEAD(__VA_ARGS__)
+#define _SYSCALL_DETAIL_TYPEOF_HEAD(x, ...) _SYSCALL_REM x
+#define _SYSCALL_DETAIL_TYPEOF_PROBE(...) (__VA_ARGS__),
 // Strip off the type
-#define STRIP(x) EAT x
+#define _SYSCALL_STRIP(x) _SYSCALL_EAT x
 // Show the type without parenthesis
-#define PAIR(x) REM x
+#define _SYSCALL_PAIR(x) _SYSCALL_REM x
 
-#define DETAIL_DEFINE_MEMBERS_EACH(r, data, x) PAIR(x);
-#define DETAIL_DEFINE_ARGS_EACH(r, data, i, x) BOOST_PP_COMMA_IF(i) PAIR(x)
-#define DETAIL_DEFINE_FORWARD_EACH(r, data, i, x) BOOST_PP_COMMA_IF(i) STRIP(x)
+#define _SYSCALL_DETAIL_DEFINE_MEMBERS_EACH(r, data, x) _SYSCALL_PAIR(x);
+#define _SYSCALL_DETAIL_DEFINE_ARGS_EACH(r, data, i, x) BOOST_PP_COMMA_IF(i) _SYSCALL_PAIR(x)
+#define _SYSCALL_DETAIL_DEFINE_FORWARD_EACH(r, data, i, x) BOOST_PP_COMMA_IF(i) _SYSCALL_STRIP(x)
 
-#define DETAIL_DEFINE_MEMBERS(args) BOOST_PP_SEQ_FOR_EACH(DETAIL_DEFINE_MEMBERS_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
-#define DETAIL_DEFINE_ARGS(args) BOOST_PP_SEQ_FOR_EACH_I(DETAIL_DEFINE_ARGS_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
-#define DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
+#define _SYSCALL_DETAIL_DEFINE_MEMBERS(args) BOOST_PP_SEQ_FOR_EACH(_SYSCALL_DETAIL_DEFINE_MEMBERS_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
+#define _SYSCALL_DETAIL_DEFINE_ARGS(args) BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_DETAIL_DEFINE_ARGS_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
+#define _SYSCALL_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
-#define SYSCALL_INTERNAL_CALL(x, ...) BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,x)(DETAIL_DEFINE_FORWARD(__VA_ARGS__));
-#define SYSCALL_INTERNAL_CALL_WITH_RETURN(ret, x, ...) ret = SYSCALL_INTERNAL_CALL(x, __VA_ARGS__);
+#define _SYSCALL_INTERNAL_CALL(x, ...) BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,x)(_SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__));
+#define _SYSCALL_INTERNAL_CALL_WITH_RETURN(ret, x, ...) ret = _SYSCALL_INTERNAL_CALL(x, __VA_ARGS__);
 
 #pragma message( "TODO: Use the syscall_bundle to actually call VM with arguments and retrieve return value" )
 #define SYSTEM_CALL_DEFINE( RETURN_TYPE, SYSCALL, ... )                                       \
-   RETURN_TYPE system_api::SYSCALL( DETAIL_DEFINE_ARGS(__VA_ARGS__) )                         \
+   RETURN_TYPE system_api::SYSCALL( _SYSCALL_DETAIL_DEFINE_ARGS(__VA_ARGS__) )                \
    {                                                                                          \
-      BOOST_PP_IF(IS_VOID(RETURN_TYPE),,RETURN_TYPE retval;)                                  \
+      BOOST_PP_IF(_SYSCALL_IS_VOID(RETURN_TYPE),,RETURN_TYPE retval;)                         \
       auto current_level = context.privilege_level;                                           \
       context.privilege_level = privilege::kernel_mode;                                       \
       try                                                                                     \
@@ -65,13 +65,18 @@ enum class system_call_slot : uint32_t\
          auto call_override = context.syscalls.get_system_call( system_call_slot::SYSCALL );  \
          if ( call_override )                                                                 \
          {                                                                                    \
+            BOOST_PP_IF(                                                                      \
+               _SYSCALL_IS_VOID(RETURN_TYPE),                                                 \
+               _SYSCALL_INTERNAL_CALL(SYSCALL, __VA_ARGS__),                                  \
+               _SYSCALL_INTERNAL_CALL_WITH_RETURN(retval, SYSCALL, __VA_ARGS__)               \
+            )                                                                                 \
          }                                                                                    \
          else                                                                                 \
          {                                                                                    \
             BOOST_PP_IF(                                                                      \
-               IS_VOID(RETURN_TYPE),                                                          \
-               SYSCALL_INTERNAL_CALL(SYSCALL, __VA_ARGS__),                                   \
-               SYSCALL_INTERNAL_CALL_WITH_RETURN(retval, SYSCALL, __VA_ARGS__)                \
+               _SYSCALL_IS_VOID(RETURN_TYPE),                                                 \
+               _SYSCALL_INTERNAL_CALL(SYSCALL, __VA_ARGS__),                                  \
+               _SYSCALL_INTERNAL_CALL_WITH_RETURN(retval, SYSCALL, __VA_ARGS__)               \
             )                                                                                 \
          }                                                                                    \
       }                                                                                       \
@@ -81,9 +86,9 @@ enum class system_call_slot : uint32_t\
          throw;                                                                               \
       }                                                                                       \
       context.privilege_level = current_level;                                                \
-      BOOST_PP_IF(IS_VOID(RETURN_TYPE),,return retval;)                                       \
+      BOOST_PP_IF(_SYSCALL_IS_VOID(RETURN_TYPE),,return retval;)                              \
    }                                                                                          \
-   RETURN_TYPE system_api::BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,SYSCALL)( DETAIL_DEFINE_ARGS(__VA_ARGS__) )
+   RETURN_TYPE system_api::BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,SYSCALL)( _SYSCALL_DETAIL_DEFINE_ARGS(__VA_ARGS__) )
 
 #define SYSTEM_CALL_DB_WRAPPERS_SIMPLE_SECONDARY(IDX, TYPE)\
    SYSTEM_CALL_DEFINE( int, db_##IDX##_store, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (const TYPE&) secondary) ) {\

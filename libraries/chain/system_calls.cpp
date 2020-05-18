@@ -1,10 +1,5 @@
 #include <koinos/chain/system_calls.hpp>
 
-#pragma message("This can possibly be removed when we are able to call out to VM code for a return value")
-#pragma GCC diagnostic push
-#ifndef __clang__
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
 namespace koinos::chain {
 
 // System Call Table API
@@ -1340,4 +1335,3 @@ SYSTEM_CALL_DEFINE( int, __unordtf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) l
 }
 
 } // koinos::chain
-#pragma GCC diagnostic pop
