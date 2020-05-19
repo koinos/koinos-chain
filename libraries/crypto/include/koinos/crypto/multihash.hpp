@@ -54,18 +54,8 @@ struct multihash
    static inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
 };
 
-bool operator ==( const multihash_type& mha, const multihash_type& mhb )
-{
-   return ( multihash::validate( mha ) && multihash::validate( mhb ) )
-       && ( multihash::get_id( mha )   == multihash::get_id( mhb ) )
-       && ( multihash::get_size( mha ) == multihash::get_size( mhb ) )
-       && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );
-}
-
-bool operator !=( const multihash_type& mha, const multihash_type& mhb )
-{
-   return !(mha == mhb);
-}
+bool operator ==( const multihash_type& mha, const multihash_type& mhb );
+bool operator !=( const multihash_type& mha, const multihash_type& mhb );
 
 struct encoder
 {
@@ -100,21 +90,7 @@ multihash_type hash( uint64_t code, T& t, size_t size = 0 )
    return mh;
 };
 
-multihash_type hash( uint64_t code, const char* data, size_t len, size_t size = 0 )
-{
-   encoder e( code );
-   e.write( data, len );
-   multihash_type mh;
-   multihash::set_id( mh, code );
-   size_t hash_size = e.get_result( mh.digest, size );
-
-   if( size )
-      KOINOS_ASSERT( size == hash_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-   KOINOS_ASSERT( hash_size <= std::numeric_limits< uint8_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
-
-   multihash::set_size( mh, hash_size );
-   return mh;
-}
+multihash_type hash( uint64_t code, const char* data, size_t len, size_t size = 0 );
 
 template< typename Iter >
 multihash_vector hash( uint64_t code, Iter first, Iter last, size_t size = 0 )
