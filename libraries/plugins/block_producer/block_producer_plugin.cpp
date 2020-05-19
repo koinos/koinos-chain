@@ -39,9 +39,20 @@ namespace koinos { namespace block_producer_plugin {
          std::shared_ptr< std::thread > block_production_thread;
    };
 
+   static protocol::timestamp_type timestamp_now()
+   {
+       auto duration = std::chrono::system_clock::now().time_since_epoch();
+       auto ticks = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+       
+       protocol::timestamp_type t;
+       t.timestamp = ticks;
+       return t;
+   }
+
    std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    {
        auto block = std::make_shared< protocol::block_header >();
+       block->active.timestamp = timestamp_now();
        return block;
    }
 
@@ -86,5 +97,6 @@ namespace koinos { namespace block_producer_plugin {
        
        block_production_thread.reset();
    }
+}
 
-} }
+}
