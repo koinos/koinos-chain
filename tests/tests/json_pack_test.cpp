@@ -5,9 +5,6 @@
 
 #include <koinos/pack/rt/json.hpp>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wc++11-narrowing"
-
 struct json_pack_fixture {};
 
 BOOST_FIXTURE_TEST_SUITE( json_pack_tests, pack_fixture )
@@ -302,6 +299,14 @@ BOOST_AUTO_TEST_CASE( fl_blob_test )
    }
 }
 
+void hex_to_vector(
+   std::vector<char>& out,
+   std::initializer_list<uint8_t> values)
+{
+   for( auto it=values.begin(); it!=values.end(); ++it )
+      out.push_back( uint8_t( *it ) );
+}
+
 BOOST_AUTO_TEST_CASE( multihash_type_test )
 {
    multihash_type to_j;
@@ -323,12 +328,12 @@ BOOST_AUTO_TEST_CASE( multihash_type_test )
    }
 
    to_j.hash_id = 4640;
-   to_j.digest.data = {
+   hex_to_vector( to_j.digest.data, {
       0xBA, 0x78, 0x16, 0xBF, 0x8F, 0x01, 0xCF, 0xEA,
       0x41, 0x41, 0x40, 0xDE, 0x5D, 0xAE, 0x22, 0x23,
       0xB0, 0x03, 0x61, 0xA3, 0x96, 0x17, 0x7A, 0x9C,
       0xB4, 0x10, 0xFF, 0x61, 0xF2, 0x00, 0x15, 0xAD
-   };
+   } );
 
    to_json( j, to_j );
    expected = "{\"digest\":\"zDYu3G8aGTMBW1WrTw76zxQJQU4DHLw9MLyy7peG4LKkY\",\"hash\":4640}";

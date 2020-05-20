@@ -5,6 +5,7 @@
 #define SIZE_MASK ~HASH_MASK
 
 #include <iostream>
+#include <map>
 
 namespace koinos::crypto {
 
