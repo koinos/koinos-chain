@@ -4,6 +4,8 @@
 
 #include <koinos/crypto/elliptic.hpp>
 
+#include <iostream>
+
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
 
 BOOST_AUTO_TEST_CASE(ripemd160_test)
@@ -65,14 +67,14 @@ BOOST_AUTO_TEST_CASE(sha512_test)
 }
 
 BOOST_AUTO_TEST_CASE(ecc)
-{
+{ try {
    private_key nullkey;
    std::string pass = "foobar";
 
    for( uint32_t i = 0; i < 100; ++ i )
    {
       multihash_type h = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
-      private_key priv = private_key::generate_from_seed( h );
+      private_key priv = private_key::regenerate( h );
       BOOST_CHECK( nullkey != priv );
       public_key pub = priv.get_public_key();
 
@@ -86,9 +88,9 @@ BOOST_AUTO_TEST_CASE(ecc)
       BOOST_CHECK( pub1 == pub2 );
 
       auto sig = priv.sign_compact( h );
-      auto recover = public_key( sig, h );
+      auto recover = public_key::recover( sig, h );
       BOOST_CHECK( recover == pub );
    }
-}
+} catch( koinos::exception::koinos_exception& e ){ BOOST_TEST_MESSAGE( e.to_string() ); } }
 
 BOOST_AUTO_TEST_SUITE_END()
