@@ -60,4 +60,4 @@ namespace koinos::crypto
     void store_configuration_path(const boost::filesystem::path& filePath);
     int init_openssl();
 
-} //  koinos::crypte
+} //  koinos::crypto

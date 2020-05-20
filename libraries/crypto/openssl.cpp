@@ -39,6 +39,8 @@ namespace koinos::crypto
       }
    };
 
+   boost::filesystem::path openssl_scope::_configurationFilePath;
+
    void store_configuration_path(const boost::filesystem::path& filePath)
    {
       openssl_scope::_configurationFilePath = filePath;

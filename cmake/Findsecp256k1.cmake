@@ -7,7 +7,7 @@ set(SECP256K1_SOURCE_DIR "${CMAKE_SOURCE_DIR}/libraries/vendor/secp256k1")
 ExternalProject_Add( project_secp256k1
    PREFIX ${prefix}
    SOURCE_DIR ${SECP256K1_SOURCE_DIR}
-   CONFIGURE_COMMAND ${SECP256K1_SOURCE_DIR}/configure --prefix=${prefix} --with-bignum=no
+   CONFIGURE_COMMAND ${SECP256K1_SOURCE_DIR}/configure --prefix=${prefix} --with-bignum=no --enable-module-recovery
    BUILD_COMMAND make
    INSTALL_COMMAND true
    BUILD_BYPRODUCTS ${SECP256K1_LIBRARY}

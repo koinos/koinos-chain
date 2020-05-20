@@ -2,6 +2,8 @@
 
 #include "../test_fixtures/crypto_fixture.hpp"
 
+#include <koinos/crypto/elliptic.hpp>
+
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
 
 BOOST_AUTO_TEST_CASE(ripemd160_test)
@@ -35,6 +37,7 @@ BOOST_AUTO_TEST_CASE(sha224_test)
    test_big<fc::sha224>( "b5989713ca4fe47a009f8621980b34e6d63ed3063b2a0a2c867d8a85" );
 }
 */
+
 BOOST_AUTO_TEST_CASE(sha256_test)
 {
    test( CRYPTO_SHA2_256_ID,  TEST1, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" );
@@ -43,22 +46,6 @@ BOOST_AUTO_TEST_CASE(sha256_test)
    test( CRYPTO_SHA2_256_ID,  TEST4, "cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1" );
    test( CRYPTO_SHA2_256_ID,  TEST5, "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0" );
    test_big( CRYPTO_SHA2_256_ID,  "50e72a0e26442fe2552dc3938ac58658228c0cbfb1d2ca872ae435266fcd055e" );
-
-    /*std::vector<int> test_object;
-    test_object.push_back( 42 );
-    fc::sha256 digest = fc::digest( test_object );
-    BOOST_CHECK( digest == fc::sha256::hash( test_object ) );
-    fc::sha256 other( digest.data(), digest.data_size() );
-    BOOST_CHECK( digest == other );
-    fc::sha512 yet_another = fc::sha512::hash( TEST1 );
-    try {
-        fc::sha256 fourth( yet_another.data(), yet_another.data_size() );
-        BOOST_FAIL( "Expected exception!" );
-    } catch ( fc::exception& expected ) {}
-
-    fc::sha256 fourth( "445C7A8007A93D8733188288BB320A8FE2DEBD2AE1B47F0F50BC10BAE845C094" );
-    BOOST_CHECK_EQUAL( "d61967f63c7dd183914a4ae452c9f6ad5d462ce3d277798075b107615c1a8a30", (std::string) fc::sha256::hash(fourth) );
-    */
 }
 
 BOOST_AUTO_TEST_CASE(sha512_test)
@@ -75,6 +62,33 @@ BOOST_AUTO_TEST_CASE(sha512_test)
                            "de0ff244877ea60a4cb0432ce577c31beb009c5c2c49aa2e4eadb217ad8cc09b" );
    test_big( CRYPTO_SHA2_512_ID,  "b47c933421ea2db149ad6e10fce6c7f93d0752380180ffd7f4629a712134831d"
                         "77be6091b819ed352c2967a2e2d4fa5050723c9630691f1a05a7281dbe6c1086" );
+}
+
+BOOST_AUTO_TEST_CASE(ecc)
+{
+   private_key nullkey;
+   std::string pass = "foobar";
+
+   for( uint32_t i = 0; i < 100; ++ i )
+   {
+      multihash_type h = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      private_key priv = private_key::generate_from_seed( h );
+      BOOST_CHECK( nullkey != priv );
+      public_key pub = priv.get_public_key();
+
+      pass += "1";
+      multihash_type h2 = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      public_key  pub1  = pub.add( h2 );
+      private_key priv1 = private_key::generate_from_seed(h, h2);
+
+      std::string b58 = pub1.to_base58();
+      public_key pub2 = public_key::from_base58(b58);
+      BOOST_CHECK( pub1 == pub2 );
+
+      auto sig = priv.sign_compact( h );
+      auto recover = public_key( sig, h );
+      BOOST_CHECK( recover == pub );
+   }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
