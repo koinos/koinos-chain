@@ -39,7 +39,7 @@ constexpr inline bool is_space(char c) noexcept
     return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v';
 }
 
-bool decode_base58( const char* psz, std::vector<char>& dest, int max_ret_len = MAX_ARRAY_SIZE )
+bool inline decode_base58( const char* psz, std::vector<char>& dest, int max_ret_len = MAX_ARRAY_SIZE )
 {
    // Skip leading spaces.
    while (*psz && is_space(*psz))
