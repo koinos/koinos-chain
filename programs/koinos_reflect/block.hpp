@@ -23,7 +23,7 @@ enum class header_hash_index
    NUM_HEADER_HASHES = 3
 };
 
-struct block_header_type
+struct active_block_data
 {
    /**
     * Hashes included in the header.
@@ -45,6 +45,20 @@ struct block_header_type
     * A zero byte at the end, reserved for protocol expansion.
     */
    unused_extensions_type         extensions;
+};
+
+struct passive_block_data
+{
+  signature_type block_signature;
+};
+
+struct block_header
+{
+  // Block data that can read and wrie state
+  active_block_data  active;
+
+  // Block data that can only read state
+  passive_block_data passive;
 };
 
 struct reserved_operation
