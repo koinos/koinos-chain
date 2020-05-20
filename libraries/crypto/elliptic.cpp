@@ -13,19 +13,6 @@
 
 namespace koinos::crypto {
 
-template< typename Blob >
-std::string hex_string( const Blob& b )
-{
-   static const char hex[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
-
-   std::stringstream ss;
-
-   for( auto c : b.data )
-      ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
-
-   return ss.str();
-}
-
 using koinos::exception::koinos_exception;
 using namespace boost::multiprecision::literals;
 
@@ -64,8 +51,31 @@ static int extended_nonce_function( unsigned char *nonce32, const unsigned char 
    return secp256k1_nonce_function_default( nonce32, msg32, key32, algo16, nullptr, *extra );
 }
 
-static const public_key_data empty_pub{};
-static const private_key_secret empty_priv{};
+const public_key_data& empty_pub()
+{
+   static const public_key_data empty_pub = {
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
+   };
+   return empty_pub;
+}
+
+const private_key_secret& empty_priv()
+{
+   static const private_key_secret empty_priv = {
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
+   };
+   return empty_priv;
+}
 
 
 public_key::public_key() { _init_lib(); }
@@ -78,7 +88,7 @@ public_key::~public_key() {}
 
 compressed_public_key public_key::serialize()const
 {
-   KOINOS_ASSERT( _key != empty_pub, key_serialization_error, "Cannot serialize an empty public key", () );
+   KOINOS_ASSERT( _key != empty_pub(), key_serialization_error, "Cannot serialize an empty public key", () );
 
    compressed_public_key cpk;
    size_t len = cpk.data.size();
@@ -144,7 +154,7 @@ public_key public_key::recover( const recoverable_signature& sig, const multihas
 public_key public_key::add( const multihash_type& digest )const
 {
    KOINOS_ASSERT( multihash::get_size( digest ), key_manipulation_error, "Digest must be 32 bytes", () );
-   KOINOS_ASSERT( _key != empty_pub, key_manipulation_error, "Cannot add to an empty key", () );
+   KOINOS_ASSERT( _key != empty_pub(), key_manipulation_error, "Cannot add to an empty key", () );
    public_key new_key( *this );
    KOINOS_ASSERT(
       secp256k1_ec_pubkey_tweak_add(
@@ -169,7 +179,7 @@ public_key& public_key::operator=( public_key&& pk )
 
 bool public_key::valid()const
 {
-   return _key != empty_pub;
+   return _key != empty_pub();
 }
 
 unsigned int public_key::fingerprint() const
@@ -194,7 +204,7 @@ bool public_key::is_canonical( const recoverable_signature& c )
 
 std::string public_key::to_base58() const
 {
-   KOINOS_ASSERT( _key != empty_pub, key_serialization_error, "Cannot serialize an empty key", () );
+   KOINOS_ASSERT( _key != empty_pub(), key_serialization_error, "Cannot serialize an empty key", () );
    compressed_public_key cpk = serialize();
    return to_base58( cpk );
 }
@@ -288,7 +298,7 @@ private_key_secret private_key::get_secret()const
 recoverable_signature private_key::sign_compact( const multihash_type& digest )const
 {
    multihash::validate_sha256( digest );
-   KOINOS_ASSERT( _key != empty_priv, signing_error, "Cannot sign with an empty key", () );
+   KOINOS_ASSERT( _key != empty_priv(), signing_error, "Cannot sign with an empty key", () );
    fl_blob<65> internal_sig;
    recoverable_signature sig;
    int32_t rec_id;
@@ -318,7 +328,7 @@ recoverable_signature private_key::sign_compact( const multihash_type& digest )c
 
 public_key private_key::get_public_key()const
 {
-   KOINOS_ASSERT( _key != empty_priv, key_manipulation_error, "Cannot get private key of an empty public key", () );
+   KOINOS_ASSERT( _key != empty_priv(), key_manipulation_error, "Cannot get private key of an empty public key", () );
    public_key pk;
    KOINOS_ASSERT(
       secp256k1_ec_pubkey_create(
