@@ -2,6 +2,8 @@
 
 #include <appbase/application.hpp>
 #include <koinos/pack/classes.hpp>
+#include <koinos/crypto/multihash.hpp>
+#include <koinos/crypto/elliptic.hpp>
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
 #define KOINOS_BLOCK_PRODUCER_PLUGIN_NAME "block_producer"
@@ -35,6 +37,7 @@ namespace koinos { namespace block_producer_plugin {
          // Whether or not we should be producing blocks
          // stop_block_production uses this to shut down the production thread
          bool producing_blocks = false;
+         crypto::private_key block_signing_private_key;
        
          std::shared_ptr< std::thread > block_production_thread;
    };
@@ -53,13 +56,22 @@ namespace koinos { namespace block_producer_plugin {
    {
        auto block = std::make_shared< protocol::block_header >();
        block->active.timestamp = timestamp_now();
+       
+       // Sign the block
+       auto digest = crypto::hash<protocol::active_block_data>(CRYPTO_SHA2_256_ID, block->active);
+       auto signature = block_signing_private_key.sign_compact(digest);
+       block->passive.block_signature = signature;
+       
        return block;
    }
 
    block_producer_plugin::block_producer_plugin() {}
    block_producer_plugin::~block_producer_plugin() {}
 
-   void block_producer_plugin::plugin_initialize( const variables_map& options ) {}
+   void block_producer_plugin::plugin_initialize( const variables_map& options )
+   {
+       block_signing_private_key.generate();
+   }
 
    void block_producer_plugin::plugin_startup()
    {
