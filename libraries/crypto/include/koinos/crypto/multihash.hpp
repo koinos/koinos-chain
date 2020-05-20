@@ -6,20 +6,13 @@
 
 #include <openssl/evp.h>
 
-#define CRYPTO_SHA1_ID     uint64_t(0x11)
-#define CRYPTO_SHA2_256_ID uint64_t(0x12)
-#define CRYPTO_SHA2_512_ID uint64_t(0x13)
-
-/*
- There are not codes for RIPEMD in the multicodec definition but
- 0x52 is currently unassigned as of 05/15/2020.
- 0x52 was chosen as the ASCII value for the character 'R'.
- A PR was made against multiformats:
- https://github.com/multiformats/multicodec/pull/175
-
- https://github.com/multiformats/multicodec/blob/master/table.csv
-*/
-#define CRYPTO_RIPEMD160_ID     uint64_t(0x1053)
+/* Multicodec IDs for hash algorithms
+ * https://github.com/multiformats/multicodec/blob/master/table.csv
+ */
+#define CRYPTO_SHA1_ID        uint64_t(0x11)
+#define CRYPTO_SHA2_256_ID    uint64_t(0x12)
+#define CRYPTO_SHA2_512_ID    uint64_t(0x13)
+#define CRYPTO_RIPEMD160_ID   uint64_t(0x1053)
 
 namespace koinos::crypto {
 
