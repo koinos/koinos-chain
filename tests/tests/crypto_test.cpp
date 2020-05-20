@@ -4,6 +4,8 @@
 
 #include <koinos/crypto/elliptic.hpp>
 
+#include <fc/crypto/base58.hpp>
+
 #include <iostream>
 
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
@@ -67,7 +69,7 @@ BOOST_AUTO_TEST_CASE(sha512_test)
 }
 
 BOOST_AUTO_TEST_CASE(ecc)
-{ try {
+{
    private_key nullkey;
    std::string pass = "foobar";
 
@@ -91,6 +93,6 @@ BOOST_AUTO_TEST_CASE(ecc)
       auto recover = public_key::recover( sig, h );
       BOOST_CHECK( recover == pub );
    }
-} catch( koinos::exception::koinos_exception& e ){ BOOST_TEST_MESSAGE( e.to_string() ); } }
+}
 
 BOOST_AUTO_TEST_SUITE_END()

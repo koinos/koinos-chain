@@ -9,7 +9,22 @@
 
 #include <secp256k1_recovery.h>
 
+#include <iostream>
+
 namespace koinos::crypto {
+
+template< typename Blob >
+std::string hex_string( const Blob& b )
+{
+   static const char hex[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+
+   std::stringstream ss;
+
+   for( auto c : b.data )
+      ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
+
+   return ss.str();
+}
 
 using koinos::exception::koinos_exception;
 using namespace boost::multiprecision::literals;
@@ -199,10 +214,8 @@ std::string public_key::to_base58( const compressed_public_key &key )
 public_key public_key::from_base58( const std::string& b58 )
 {
    fl_blob<37> d;
-   koinos::pack::util::decode_base58( b58, d.data );
-   KOINOS_ASSERT( b58.size() == sizeof(d), key_serialization_error,
-      "Result key is not the correct size. Expected: ${e}, Actual: ${a}", ("e", sizeof(d))("a", b58.size()) );
-
+   KOINOS_ASSERT( koinos::pack::util::decode_base58( b58, d.data ),
+      key_serialization_error, "Base58 string is not the correct size for a 37 byte key", () );
    compressed_public_key key;
    uint32_t check = *((uint32_t*)hash( CRYPTO_SHA2_256_ID, d.data.data(), key.data.size() ).digest.data.data());
    KOINOS_ASSERT( memcmp( (char*)&check, d.data.data() + sizeof(key), sizeof(check) ) == 0,

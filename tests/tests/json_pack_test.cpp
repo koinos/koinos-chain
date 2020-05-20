@@ -304,7 +304,9 @@ void hex_to_vector(
    std::initializer_list<uint8_t> values)
 {
    for( auto it=values.begin(); it!=values.end(); ++it )
+   {
       out.push_back( uint8_t( *it ) );
+   }
 }
 
 BOOST_AUTO_TEST_CASE( multihash_type_test )
@@ -327,6 +329,7 @@ BOOST_AUTO_TEST_CASE( multihash_type_test )
       BOOST_REQUIRE_EQUAL( to_j.digest.data[i], from_j.digest.data[i] );
    }
 
+   to_j.digest.data.clear();
    to_j.hash_id = 4640;
    hex_to_vector( to_j.digest.data, {
       0xBA, 0x78, 0x16, 0xBF, 0x8F, 0x01, 0xCF, 0xEA,

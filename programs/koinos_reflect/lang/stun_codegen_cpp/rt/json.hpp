@@ -407,7 +407,7 @@ inline void from_json( json& j, multihash_type& v, uint32_t depth = 0 )
 inline void to_json( json& j, const multihash_vector& v )
 {
    j[ "hash" ] = v.hash_id;
-   for( const vl_blob& d : v.digests )
+      for( const vl_blob& d : v.digests )
    {
       json tmp;
       to_json( tmp, d );
