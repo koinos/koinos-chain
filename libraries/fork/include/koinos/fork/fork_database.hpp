@@ -48,9 +48,9 @@ class fork_database final
       using fork_multi_index_type = boost::multi_index_container<
          block_state_ptr,
          boost::multi_index::indexed_by<
-            boost::multi_index::hashed_unique<
+            boost::multi_index::ordered_unique<
                boost::multi_index::tag< by_block_id >,
-                  boost::multi_index::const_mem_fun< block_state_type, block_id_type, &block_state_type::id >, std::hash< block_id_type >
+                  boost::multi_index::const_mem_fun< block_state_type, block_id_type, &block_state_type::id >
             >,
             boost::multi_index::ordered_non_unique<
                boost::multi_index::tag< by_previous >,
