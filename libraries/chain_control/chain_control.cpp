@@ -15,6 +15,7 @@
 
 #include <koinos/exception.hpp>
 
+#include <koinos/fork/block_state.hpp>
 #include <koinos/fork/fork_database.hpp>
 
 #include <koinos/pack/classes.hpp>
@@ -66,7 +67,7 @@ struct submit_block_impl
    submit_block             sub;
    block_topology           topo;
 
-   std::shared_ptr< block_topology > topo_ptr;
+   fork_database_type::block_state_ptr topo_ptr;
 
    protocol::block_header   header;
    std::vector< vl_blob >   transactions;
@@ -292,7 +293,7 @@ void decode_block( submit_block_impl& block )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-inline bool multihash_is_zero( const multihash_type& mh )
+inline bool multihash_is_zero( const koinos::protocol::multihash_type& mh )
 {
    return std::all_of( mh.digest.data.begin(), mh.digest.data.end(),
       []( char c ) { return (c != 0); } );
@@ -301,27 +302,29 @@ inline bool multihash_is_zero( const multihash_type& mh )
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {
    decode_block( block );
-   block.topo_ptr = std::make_shared< block_topology >( block.topo );
+   block.topo_ptr = std::make_shared< fork::block_state< block_topology > >( block.topo );
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( multihash_is_zero( block.topo.previous ) )
    {
       // Genesis case
       KOINOS_ASSERT( _fork_db.size() == 0, cannot_switch_root, "Zero previous only allowed for root block", () );
-      KOINOS_ASSERT( block.topo.block_num == 1, root_height_mismatch, "First block must have height of 1", () );
+      KOINOS_ASSERT( block.topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
 
       _fork_db.reset( block.topo_ptr );
       return;
    }
 
-   std::shared_ptr< block_topology > maybe_previous = _fork_db.fetch_block( block.topo.previous );
+   fork_database_type::block_state_ptr maybe_previous = _fork_db.fetch_block( block.topo.previous );
 
    KOINOS_ASSERT( maybe_previous, unknown_previous_block, "Unknown previous block", () );
-   KOINOS_ASSERT( block.topo.block_num == maybe_previous->block_num + 1, block_height_mismatch, "Block height must increase by 1", () );
+   KOINOS_ASSERT( block.topo.block_num.height == maybe_previous->block_num().height + 1, block_height_mismatch, "Block height must increase by 1", () );
    // Following assert should never trigger, as it could only be caused by a serious bug in fork_database or BMIC
-   KOINOS_ASSERT( maybe_previous->id == block.topo.previous, previous_id_mismatch, "Previous block ID does not match", () );
+   KOINOS_ASSERT( maybe_previous->id() == block.topo.previous, previous_id_mismatch, "Previous block ID does not match", () );
 
-   fork_database_type::branch_pair_type path = _fork_db.fetch_branch_from( _fork_db.head(), block.topo.previous );
+#pragma message( "TODO:  Walk statedb to where it needs to be" )
+   /*
+   fork_database_type::branch_pair_type path = _fork_db.fetch_branch_from( _fork_db.head()->id(), block.topo.previous );
 
    for( fork_database_type::block_state_ptr& p : path.first )
    {
@@ -331,14 +334,15 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    {
       // TODO:  Walk statedb down along path to arrive at state
    }
+   */
 
-   // TODO:  Apply block
-   // TODO:  Walk statedb back to forkdb head
+#pragma message( "TODO:  Apply block" )
+#pragma message( "TODO:  Walk statedb back to forkdb head" )
 
    // Add successful block to forkdb
    _fork_db.add( block.topo_ptr );
 
-   // TODO:  Report success/failure to caller
+#pragma message( "TODO:  Report success / failure to caller" )
 }
 
 void chain_controller_impl::process_submit_transaction( submit_return_transaction& ret, submit_transaction_impl& tx )
