@@ -474,6 +474,12 @@ inline void from_binary( Stream& s, multihash_vector& v, uint32_t depth = 0 )
    }
 }
 
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const T& v );
+
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, T& v, uint32_t depth = 0 );
+
 namespace detail
 {
    template< typename Stream, typename Itr >
@@ -578,7 +584,7 @@ inline void to_binary( Stream& s, const T& v )
 }
 
 template< typename Stream, typename T >
-inline void from_binary( Stream& s, T& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, T& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
