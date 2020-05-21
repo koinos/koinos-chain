@@ -26,7 +26,7 @@ enum class header_hash_index
 struct block_topology
 {
    multihash_type                 id;
-   block_height_type              height;
+   block_height_type              block_num;
    multihash_type                 previous;
 };
 
