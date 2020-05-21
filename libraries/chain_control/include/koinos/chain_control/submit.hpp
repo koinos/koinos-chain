@@ -22,5 +22,6 @@ using koinos::protocol::submit_return_reserved;
 using koinos::protocol::submit_return_block;
 using koinos::protocol::submit_return_transaction;
 using koinos::protocol::submit_return_query;
+using koinos::protocol::submit_return_error;
 
 } } // koinos::chain_control
