@@ -1,46 +1,11 @@
 #include <thread>
+#include <boost/interprocess/streams/vectorstream.hpp>
 
-#include <appbase/application.hpp>
-#include <koinos/pack/classes.hpp>
+#include <koinos/plugins/block_producer/block_producer_plugin.hpp>
+#include <koinos/pack/rt/binary.hpp>
 #include <koinos/crypto/multihash.hpp>
-#include <koinos/crypto/elliptic.hpp>
-#include <koinos/plugins/chain/chain_plugin.hpp>
 
-#define KOINOS_BLOCK_PRODUCER_PLUGIN_NAME "block_producer"
-#define KOINOS_BLOCK_TIME_MS              10000
-
-namespace koinos { namespace block_producer_plugin {
-
-   using namespace appbase;
-
-   class block_producer_plugin : public appbase::plugin< block_producer_plugin >
-   {
-      public:
-         block_producer_plugin();
-         virtual ~block_producer_plugin();
-       
-         APPBASE_PLUGIN_REQUIRES( (plugins::chain::chain_plugin) );
-
-         static const std::string& name() { static std::string name = KOINOS_BLOCK_PRODUCER_PLUGIN_NAME; return name; }
-
-         std::shared_ptr<protocol::block_header> produce_block();
-
-         virtual void set_program_options( options_description&, options_description& ) override {}
-
-         virtual void plugin_initialize( const variables_map& options ) override;
-         virtual void plugin_startup() override;
-         virtual void plugin_shutdown() override;
-       
-         void start_block_production();
-         void stop_block_production();
-         
-         // Whether or not we should be producing blocks
-         // stop_block_production uses this to shut down the production thread
-         bool producing_blocks = false;
-         crypto::private_key block_signing_private_key;
-       
-         std::shared_ptr< std::thread > block_production_thread;
-   };
+namespace koinos::plugins::block_producer {
 
    static protocol::timestamp_type timestamp_now()
    {
@@ -56,12 +21,22 @@ namespace koinos { namespace block_producer_plugin {
    {
        auto block = std::make_shared< protocol::block_header >();
        block->active.timestamp = timestamp_now();
+       // TODO: block->active.height = get_height();
        
        // Sign the block
        auto digest = crypto::hash<protocol::active_block_data>(CRYPTO_SHA2_256_ID, block->active);
        auto signature = block_signing_private_key.sign_compact(digest);
        block->passive.block_signature = signature;
-       
+
+       // TODO: Get block height
+       // TODO: get previous
+
+       // Serialize the active data
+       boost::interprocess::basic_vectorstream< std::vector<char> > stream;
+       protocol::to_binary(stream, block->active);
+       crypto::vl_blob active_bytes;
+       active_bytes.data = stream.vector();
+
        return block;
    }
 
@@ -110,6 +85,4 @@ namespace koinos { namespace block_producer_plugin {
        
        block_production_thread.reset();
    }
-}
-
 }
