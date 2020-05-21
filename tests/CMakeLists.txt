@@ -34,7 +34,7 @@ function(parse_unit_tests RESULT)
          string( REGEX MATCHALL "BOOST_AUTO_TEST_CASE\\([A-Za-z0-9_, ]*\\)" cases "${thefile}" )
 
          foreach( test_case ${cases} )
-            string(SUBSTRING "${test_case}" 22 -1 test_case)
+            string(SUBSTRING "${test_case}" 21 -1 test_case)
             string(FIND "${test_case}" ")" paren_loc )
             string(SUBSTRING "${test_case}" 0 ${paren_loc} test_case)
             string(STRIP "${test_case}" test_case)
@@ -54,4 +54,4 @@ add_boost_test( chain_test
    TESTS ${TEST_CASES}
 )
 
-target_link_libraries(chain_test chainbase mira fork fc pack chain ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(chain_test chainbase mira fork fc pack chain koinos_crypto ${PLATFORM_SPECIFIC_LIBS})
