@@ -1,10 +1,8 @@
 #pragma once
-
-#include <koinos/pack/rt/basetypes.hpp>
+#include <koinos/pack/rt/binary_fwd.hpp>
 #include <koinos/pack/rt/exceptions.hpp>
 #include <koinos/pack/rt/reflect.hpp>
 #include <koinos/pack/rt/typename.hpp>
-#include <koinos/pack/rt/varint.hpp>
 #include <koinos/pack/rt/util/variant_helpers.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -13,7 +11,7 @@
 #include <type_traits>
 #include <utility>
 
-#define KOINOS_NATIVE_INT_SERIALIZER( int_type )                      \
+#define KOINOS_DEFINE_NATIVE_INT_SERIALIZER( int_type )               \
 template< typename Stream >                                           \
 inline void to_binary( Stream& s, int_type t )                        \
 {                                                                     \
@@ -21,14 +19,14 @@ inline void to_binary( Stream& s, int_type t )                        \
    s.write( (const char*)&t, sizeof(t) );                             \
 }                                                                     \
 template< typename Stream >                                           \
-inline void from_binary( Stream& s, int_type& t, uint32_t depth = 0 ) \
+inline void from_binary( Stream& s, int_type& t, uint32_t depth )     \
 {                                                                     \
    s.read( (char*)&t, sizeof(t) );                                    \
    KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );\
    boost::endian::big_to_native_inplace( t );                         \
 }
 
-#define KOINOS_BOOST_INT_SERIALIZER( int_type, hi_type, low_type, low_size ) \
+#define KOINOS_DEFINE_BOOST_INT_SERIALIZER( int_type, hi_type, low_type, low_size ) \
 template< typename Stream >                                                  \
 inline void to_binary( Stream& s, const int_type& t )                        \
 {                                                                            \
@@ -36,7 +34,7 @@ inline void to_binary( Stream& s, const int_type& t )                        \
    to_binary( s, static_cast< low_type >( t ) );                             \
 }                                                                            \
 template< typename Stream >                                                  \
-inline void from_binary( Stream& s, int_type& t, uint32_t depth = 0 )        \
+inline void from_binary( Stream& s, int_type& t, uint32_t depth )            \
 {                                                                            \
    hi_type hi;                                                               \
    low_type low;                                                             \
@@ -49,7 +47,47 @@ inline void from_binary( Stream& s, int_type& t, uint32_t depth = 0 )        \
 
 namespace koinos::pack {
 
-using namespace koinos::protocol;
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const std::vector< T >& v );
+
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, std::vector< T >& v, uint32_t depth = 0 );
+
+
+template< typename Stream, typename T, size_t N >
+inline void to_binary( Stream& s, const std::array< T, N >& v );
+
+template< typename Stream, typename T, size_t N >
+inline void from_binary( Stream& s, std::array< T, N >& v, uint32_t depth = 0 );
+
+
+template< typename Stream, size_t N >
+inline void to_binary( Stream& s, const fl_blob< N >& v );
+
+template< typename Stream, size_t N >
+inline void from_binary( Stream& s, fl_blob< N >& v, uint32_t depth );
+
+
+template< typename Stream, typename... T >
+inline void to_binary( Stream& s, const std::variant< T... >& v );
+
+template< typename Stream, typename... T >
+inline void from_binary( Stream& s, std::variant< T... >& v, uint32_t depth = 0 );
+
+
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const std::optional< T >& v );
+
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, std::optional< T >& v, uint32_t depth );
+
+
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const T& v );
+
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, T& v, uint32_t depth = 0 );
+
 
 namespace detail {
    template< typename T >
@@ -66,21 +104,21 @@ namespace detail {
  * Signed/Unsigned types for 8, 16, 32, 64, 128, 160, and 256 bit length integers
  */
 
-KOINOS_NATIVE_INT_SERIALIZER( int8_t )
-KOINOS_NATIVE_INT_SERIALIZER( uint8_t )
-KOINOS_NATIVE_INT_SERIALIZER( int16_t )
-KOINOS_NATIVE_INT_SERIALIZER( uint16_t )
-KOINOS_NATIVE_INT_SERIALIZER( int32_t )
-KOINOS_NATIVE_INT_SERIALIZER( uint32_t )
-KOINOS_NATIVE_INT_SERIALIZER( int64_t )
-KOINOS_NATIVE_INT_SERIALIZER( uint64_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( int8_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( uint8_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( int16_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( uint16_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( int32_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( uint32_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( int64_t )
+KOINOS_DEFINE_NATIVE_INT_SERIALIZER( uint64_t )
 
-KOINOS_BOOST_INT_SERIALIZER( int128_t,  int64_t,   int64_t,   64 );
-KOINOS_BOOST_INT_SERIALIZER( uint128_t, uint64_t,  uint64_t,  64 );
-KOINOS_BOOST_INT_SERIALIZER( int160_t,  int32_t,   int128_t,  128 );
-KOINOS_BOOST_INT_SERIALIZER( uint160_t, uint32_t,  uint128_t, 128 );
-KOINOS_BOOST_INT_SERIALIZER( int256_t,  int128_t,  int128_t,  128 );
-KOINOS_BOOST_INT_SERIALIZER( uint256_t, uint128_t, uint128_t, 128 );
+KOINOS_DEFINE_BOOST_INT_SERIALIZER( int128_t,  int64_t,   int64_t,   64 );
+KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint128_t, uint64_t,  uint64_t,  64 );
+KOINOS_DEFINE_BOOST_INT_SERIALIZER( int160_t,  int32_t,   int128_t,  128 );
+KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint160_t, uint32_t,  uint128_t, 128 );
+KOINOS_DEFINE_BOOST_INT_SERIALIZER( int256_t,  int128_t,  int128_t,  128 );
+KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint256_t, uint128_t, uint128_t, 128 );
 
 /* Bool:
  *
@@ -95,7 +133,7 @@ inline void to_binary( Stream& s, bool b )
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, bool& b, uint32_t depth = 0 )
+inline void from_binary( Stream& s, bool& b, uint32_t depth )
 {
    uint8_t v;
    from_binary( s, v );
@@ -142,7 +180,7 @@ inline void to_binary( Stream& s, const unsigned_int& v )
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, unsigned_int& v,  uint32_t depth = 0 )
+inline void from_binary( Stream& s, unsigned_int& v,  uint32_t depth )
 {
    v.value = 0;
    char chData;
@@ -163,7 +201,7 @@ inline void to_binary( Stream& s, const signed_int& v )
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, signed_int& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, signed_int& v, uint32_t depth )
 {
    unsigned_int val;
    from_binary( s, val, depth );
@@ -185,7 +223,7 @@ inline void to_binary( Stream& s, const std::vector< T >& v )
 }
 
 template< typename Stream, typename T >
-inline void from_binary( Stream& s, std::vector< T >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::vector< T >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -215,7 +253,7 @@ inline void to_binary( Stream& s, const std::set< T, Compare >& v )
 }
 
 template< typename Stream, typename T, typename Compare >
-inline void from_binary( Stream& s, std::set< T, Compare >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::set< T, Compare >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -245,7 +283,7 @@ inline void to_binary( Stream& s, const vl_blob& v )
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, vl_blob& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, vl_blob& v, uint32_t depth )
 {
    unsigned_int size;
    from_binary( s, size );
@@ -271,7 +309,7 @@ inline void to_binary( Stream& s, const std::array< T, N >& v )
 }
 
 template< typename Stream, typename T, size_t N >
-inline void from_binary( Stream& s, std::array< T, N >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::array< T, N >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -292,7 +330,7 @@ inline void to_binary( Stream& s, const fl_blob< N >& v )
 }
 
 template< typename Stream, size_t N >
-inline void from_binary( Stream& s, fl_blob< N >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, fl_blob< N >& v, uint32_t depth )
 {
    s.read( v.data.data(), N );
    KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
@@ -311,7 +349,7 @@ inline void to_binary( Stream& s, const std::pair< K, V >& v )
 }
 
 template< typename Stream, typename K, typename V >
-inline void from_binary( Stream& s, std::pair< K, V >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::pair< K, V >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -327,7 +365,7 @@ inline void to_binary( Stream& s, const std::map< K, V >& v )
 }
 
 template< typename Stream, typename K, typename V >
-inline void from_binary( Stream& s, std::map< K, V >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::map< K, V >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -359,7 +397,7 @@ inline void to_binary( Stream& s, const std::variant< T... >& v )
 }
 
 template< typename Stream, typename... T >
-inline void from_binary( Stream& s, std::variant< T... >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::variant< T... >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -384,7 +422,7 @@ inline void to_binary( Stream& s, const std::optional< T >& v )
 }
 
 template< typename Stream, typename T >
-inline void from_binary( Stream& s, std::optional< T >& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, std::optional< T >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -412,7 +450,7 @@ inline void to_binary( Stream& s, const multihash_type& v )
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, multihash_type& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, multihash_type& v, uint32_t depth )
 {
    unsigned_int id, size;
    from_binary( s, id );
@@ -455,7 +493,7 @@ inline void to_binary( Stream& s, const multihash_vector& v )
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, multihash_vector& v, uint32_t depth = 0 )
+inline void from_binary( Stream& s, multihash_vector& v, uint32_t depth )
 {
    unsigned_int id, digest_size, num_digests;
    from_binary( s, id );
@@ -475,12 +513,6 @@ inline void from_binary( Stream& s, multihash_vector& v, uint32_t depth = 0 )
       KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
    }
 }
-
-template< typename Stream, typename T >
-inline void to_binary( Stream& s, const T& v );
-
-template< typename Stream, typename T >
-inline void from_binary( Stream& s, T& v, uint32_t depth = 0 );
 
 namespace detail
 {
@@ -567,7 +599,7 @@ namespace detail
          }
 
          template< typename Stream, typename T >
-         static inline void from_binary( Stream& s, T& v, uint32_t depth = 0 )
+         static inline void from_binary( Stream& s, T& v, uint32_t depth )
          {
             depth++;
             KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
