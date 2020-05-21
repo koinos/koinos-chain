@@ -17,6 +17,8 @@
 
 #include <koinos/pack/classes.hpp>
 
+#include <koinos/statedb/statedb.hpp>
+
 #include <chrono>
 #include <list>
 #include <mutex>
@@ -32,6 +34,7 @@ using koinos::protocol::block_topology;
 using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
 using fork_database = koinos::fork::fork_database< block_topology >;
+using koinos::statedb::StateDB;
 
 struct submit_item_impl
 {
