@@ -22,51 +22,52 @@ const EVP_MD* get_evp_md( uint64_t code )
    return md_itr != evp_md_map.end() ? md_itr->second : nullptr;
 }
 
-void multihash::set_id( multihash_type& mh, uint64_t code )
+namespace multihash {
+void set_id( multihash_type& mh, uint64_t code )
 {
    mh.hash_id &= SIZE_MASK;
    mh.hash_id |= (code << HASH_OFFSET);
 }
 
-void multihash::set_id( multihash_vector& mhv, uint64_t code )
+void set_id( multihash_vector& mhv, uint64_t code )
 {
    mhv.hash_id &= SIZE_MASK;
    mhv.hash_id |= (code << HASH_OFFSET);
 }
 
-uint64_t multihash::get_id( const multihash_type& mh )
+uint64_t get_id( const multihash_type& mh )
 {
    return (mh.hash_id | HASH_MASK) >> HASH_OFFSET;
 }
 
-uint64_t multihash::get_id( const multihash_vector& mhv )
+uint64_t get_id( const multihash_vector& mhv )
 {
    return (mhv.hash_id | HASH_MASK) >> HASH_OFFSET;
 }
 
-void multihash::set_size( multihash_type& mh, uint64_t size )
+void set_size( multihash_type& mh, uint64_t size )
 {
    mh.hash_id &= HASH_MASK;
    mh.hash_id |= std::min( size, SIZE_MASK );
 }
 
-void multihash::set_size( multihash_vector& mhv, uint64_t size )
+void set_size( multihash_vector& mhv, uint64_t size )
 {
    mhv.hash_id &= HASH_MASK;
    mhv.hash_id |= std::min( size, SIZE_MASK );
 }
 
-uint64_t multihash::get_size( const multihash_type& mh )
+uint64_t get_size( const multihash_type& mh )
 {
    return mh.hash_id & SIZE_MASK;
 }
 
-uint64_t multihash::get_size( const multihash_vector& mhv )
+uint64_t get_size( const multihash_vector& mhv )
 {
    return mhv.hash_id & SIZE_MASK;
 }
 
-bool multihash::validate( const multihash_type& mh, uint64_t code, uint64_t size )
+bool validate( const multihash_type& mh, uint64_t code, uint64_t size )
 {
    if( code && ( get_id( mh ) != code ) ) return false;
    if( size && ( get_size( mh ) != size ) ) return false;
@@ -74,7 +75,7 @@ bool multihash::validate( const multihash_type& mh, uint64_t code, uint64_t size
       && get_size( mh ) == mh.digest.data.size();
 }
 
-bool multihash::validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
+bool validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
 {
    if( code && get_id( mhv ) != code ) return false;
    if( size && get_size( mhv ) != size ) return false;
@@ -92,9 +93,9 @@ bool multihash::validate( const multihash_vector& mhv, uint64_t code, uint64_t s
 
 bool operator ==( const multihash_type& mha, const multihash_type& mhb )
 {
-   return ( multihash::validate( mha ) && multihash::validate( mhb ) )
-       && ( multihash::get_id( mha )   == multihash::get_id( mhb ) )
-       && ( multihash::get_size( mha ) == multihash::get_size( mhb ) )
+   return ( validate( mha ) && validate( mhb ) )
+       && ( get_id( mha )   == get_id( mhb ) )
+       && ( get_size( mha ) == get_size( mhb ) )
        && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );
 }
 
@@ -102,6 +103,8 @@ bool operator !=( const multihash_type& mha, const multihash_type& mhb )
 {
    return !(mha == mhb);
 }
+
+} // multihash
 
 encoder::encoder( uint64_t code )
 {

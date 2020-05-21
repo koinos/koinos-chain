@@ -24,31 +24,29 @@ DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
 DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
 DECLARE_KOINOS_EXCEPTION( multihash_size_limit_exceeded );
 
-struct multihash
+namespace multihash
 {
-   multihash() = delete;
+   void set_id( multihash_type& mh,    uint64_t code );
+   void set_id( multihash_vector& mhv, uint64_t code );
 
-   static void set_id( multihash_type& mh,    uint64_t code );
-   static void set_id( multihash_vector& mhv, uint64_t code );
+   uint64_t get_id( const multihash_type& mh );
+   uint64_t get_id( const multihash_vector& mhv );
 
-   static uint64_t get_id( const multihash_type& mh );
-   static uint64_t get_id( const multihash_vector& mhv );
+   void set_size( multihash_type& mh,    uint64_t size );
+   void set_size( multihash_vector& mhv, uint64_t size );
 
-   static void set_size( multihash_type& mh,    uint64_t size );
-   static void set_size( multihash_vector& mhv, uint64_t size );
+   uint64_t get_size( const multihash_type& mh );
+   uint64_t get_size( const multihash_vector& mhv );
 
-   static uint64_t get_size( const multihash_type& mh );
-   static uint64_t get_size( const multihash_vector& mhv );
+   bool validate( const multihash_type& mh,    uint64_t code = 0, uint64_t size = 0 );
+   bool validate( const multihash_vector& mhv, uint64_t code = 0, uint64_t size = 0 );
 
-   static bool validate( const multihash_type& mh,    uint64_t code = 0, uint64_t size = 0 );
-   static bool validate( const multihash_vector& mhv, uint64_t code = 0, uint64_t size = 0 );
+   inline bool validate_sha256( const multihash_type& mh )    { return validate( mh,  CRYPTO_SHA2_256_ID, 32 ); }
+   inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
 
-   static inline bool validate_sha256( const multihash_type& mh )    { return validate( mh,  CRYPTO_SHA2_256_ID, 32 ); }
-   static inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
-};
-
-bool operator ==( const multihash_type& mha, const multihash_type& mhb );
-bool operator !=( const multihash_type& mha, const multihash_type& mhb );
+   bool operator ==( const multihash_type& mha, const multihash_type& mhb );
+   bool operator !=( const multihash_type& mha, const multihash_type& mhb );
+} // multihash
 
 struct encoder
 {
