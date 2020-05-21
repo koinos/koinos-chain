@@ -16,6 +16,11 @@ using koinos::protocol::submit_block;
 using koinos::protocol::submit_transaction;
 using koinos::protocol::submit_query;
 using koinos::protocol::submit_item;
+
 using koinos::protocol::submit_return;
+using koinos::protocol::submit_return_reserved;
+using koinos::protocol::submit_return_block;
+using koinos::protocol::submit_return_transaction;
+using koinos::protocol::submit_return_query;
 
 } } // koinos::chain_control

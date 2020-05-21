@@ -125,7 +125,7 @@ class chain_controller_impl
       std::chrono::time_point< std::chrono::steady_clock > now()
       {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
 
-      fork_database< block_header_type >                                       _fork_db;
+      fork_database                                                            _fork_db;
       StateDB                                                                  _state_db;
       std::mutex                                                               _state_db_mutex;
 
