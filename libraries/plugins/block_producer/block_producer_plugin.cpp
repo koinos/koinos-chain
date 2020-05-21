@@ -51,7 +51,6 @@ namespace koinos::plugins::block_producer {
 
        //submit_item item;
        //item.q
-
        return block;
    }
 

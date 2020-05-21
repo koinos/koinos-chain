@@ -13,4 +13,5 @@ install( TARGETS
    LIBRARY DESTINATION lib
    ARCHIVE DESTINATION lib
 )
+
 install( FILES ${HEADERS} DESTINATION "include/koinos/plugins/block_producer" )
