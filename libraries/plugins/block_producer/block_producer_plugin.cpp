@@ -70,7 +70,8 @@ namespace koinos { namespace block_producer_plugin {
 
    void block_producer_plugin::plugin_initialize( const variables_map& options )
    {
-       block_signing_private_key.generate();
+       std::string seed = "test seed";
+       block_signing_private_key.generate_from_seed(crypto::hash(CRYPTO_SHA1_ID, seed.c_str(), seed.size()));
    }
 
    void block_producer_plugin::plugin_startup()
