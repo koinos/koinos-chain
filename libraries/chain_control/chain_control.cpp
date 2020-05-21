@@ -11,6 +11,8 @@
 #include <koinos/chain_control/chain_control.hpp>
 #include <koinos/chain_control/submit.hpp>
 
+#include <koinos/crypto/multihash.hpp>
+
 #include <koinos/exception.hpp>
 
 #include <koinos/fork/fork_database.hpp>
@@ -25,7 +27,18 @@
 #include <mutex>
 #include <optional>
 
-namespace koinos { namespace chain_control {
+#pragma message( "Move this somewhere else, please!" )
+
+namespace koinos { namespace protocol {
+
+bool operator >( const block_height_type& a, const block_height_type& b )  { return a.height > b.height;  }
+bool operator >=( const block_height_type& a, const block_height_type& b ) { return a.height >= b.height; }
+bool operator <( const block_height_type& a, const block_height_type& b )  { return a.height < b.height;  }
+bool operator <=( const block_height_type& a, const block_height_type& b ) { return a.height <= b.height; }
+
+} // protocol
+
+namespace chain_control {
 
 /**
  * Represents the block in the fork DB.
@@ -254,7 +267,7 @@ template< typename T > void decode_canonical( const vl_blob& bin, T& target )
    KOINOS_ASSERT( bin.data == tmp, decode_exception, "Data does not reserialize", () );
 }
 
-void decode_block( const submit_block_impl& block )
+void decode_block( submit_block_impl& block )
 {
    KOINOS_ASSERT( block.sub.block_header_bytes.data.size() >= 1, block_header_empty, "Block has empty header", () );
    KOINOS_ASSERT( block.sub.block_header_bytes.data[0] == 1, unknown_block_version, "Unknown block version", () );
@@ -271,7 +284,7 @@ void decode_block( const submit_block_impl& block )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-// The algorithm for computing block ID depends on the bytes of the 
+// The algorithm for computing block ID depends on the bytes of the
 
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {
@@ -302,7 +315,7 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
    {
       result->emplace< submit_return_query >();
       process_submit_query( std::get< submit_return_query >( *result ), *maybe_query );
-      return;
+      return result;
    }
 
    std::shared_ptr< submit_transaction_impl > maybe_transaction = std::dynamic_pointer_cast< submit_transaction_impl >( item );
@@ -310,7 +323,7 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
    {
       result->emplace< submit_return_transaction >();
       process_submit_transaction( std::get< submit_return_transaction >( *result ), *maybe_transaction );
-      return;
+      return result;
    }
 
    std::shared_ptr< submit_block_impl > maybe_block = std::dynamic_pointer_cast< submit_block_impl >( item );
@@ -318,7 +331,7 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
    {
       result->emplace< submit_return_block >();
       process_submit_block( std::get< submit_return_block >( *result ), *maybe_block );
-      return;
+      return result;
    }
 
    return result;
