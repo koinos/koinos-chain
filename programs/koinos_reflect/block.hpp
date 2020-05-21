@@ -23,6 +23,13 @@ enum class header_hash_index
    NUM_HEADER_HASHES = 3
 };
 
+struct block_topology
+{
+   multihash_type                 id;
+   block_height_type              height;
+   multihash_type                 previous;
+};
+
 struct active_block_data
 {
    /**
@@ -52,13 +59,13 @@ struct passive_block_data
   signature_type block_signature;
 };
 
-struct block_header
+struct block_header_v1
 {
-  // Block data that can read and wrie state
-  active_block_data  active;
+   // Block data that can read and write state
+   vl_blob            active_bytes;
 
-  // Block data that can only read state
-  passive_block_data passive;
+   // Block data that can only read state
+   multihash_type     passive_merkle_root;
 };
 
 struct reserved_operation
@@ -93,12 +100,18 @@ typedef std::variant<
    contract_call_operation
    > operation;
 
+struct reserved_block_header
+{
+   unused_extensions_type         extensions;
+};
+
+typedef std::variant<
+   reserved_block_header,
+   block_header_v1 > block_header;
+
 struct transaction_type
 {
    std::vector<operation>         operations;
-
-   uint32                         segwit_size;
-   multihash_type                 segwit_root;
 
    /**
     * A zero byte at the end, reserved for protocol expansion.

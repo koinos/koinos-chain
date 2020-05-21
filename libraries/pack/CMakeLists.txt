@@ -5,7 +5,7 @@ set(KOINOS_PACK_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen")
 #${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/../../programs/koinos_reflect
 execute_process(
    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../programs/koinos_reflect
-   COMMAND python3 -m koinos_reflect.analyze block.bt types.hpp block.hpp -s -o ${CMAKE_CURRENT_BINARY_DIR}/block.schema
+   COMMAND python3 -m koinos_reflect.analyze block.bt types.hpp block.hpp submit.hpp -s -o ${CMAKE_CURRENT_BINARY_DIR}/block.schema
 )
 
 execute_process(

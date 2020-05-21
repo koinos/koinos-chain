@@ -80,13 +80,13 @@ multihash_type hash( uint64_t code, T& t, size_t size = 0 )
    koinos::pack::to_binary( e, t );
    multihash_type mh;
    multihash::set_id( mh, code );
-   size_t hash_size = e.get_result( mh.digest, size );
+   size_t result_size = e.get_result( mh.digest, size );
 
    if( size )
-      KOINOS_ASSERT( size == hash_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-   KOINOS_ASSERT( hash_size <= std::numeric_limits< uint8_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
+      KOINOS_ASSERT( size == result_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
+   KOINOS_ASSERT( result_size <= std::numeric_limits< uint8_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
 
-   multihash::set_size( mh, hash_size );
+   multihash::set_size( mh, result_size );
    return mh;
 };
 
@@ -103,19 +103,19 @@ multihash_vector hash( uint64_t code, Iter first, Iter last, size_t size = 0 )
    {
       koinos::pack::to_binary( e, *first );
       mhv.digests.emplace_back();
-      size_t hash_size = e.get_result( mhv.digests.back(), size );
+      size_t result_size = e.get_result( mhv.digests.back(), size );
 
       if( multihash::get_size( mhv ) == 0 )
       {
          if( size )
-            KOINOS_ASSERT( size == hash_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-         KOINOS_ASSERT( hash_size <= std::numeric_limits< uint16_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
+            KOINOS_ASSERT( size == result_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
+         KOINOS_ASSERT( result_size <= std::numeric_limits< uint16_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
 
-         multihash::set_size( mhv, hash_size );
+         multihash::set_size( mhv, result_size );
       }
       else
       {
-         KOINOS_ASSERT( hash_size == multihash::get_size( mhv ), multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
+         KOINOS_ASSERT( result_size == multihash::get_size( mhv ), multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
       }
    }
 
