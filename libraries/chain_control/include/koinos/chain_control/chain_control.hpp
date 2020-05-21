@@ -7,12 +7,16 @@
 #include <memory>
 
 #pragma message( "Move this somewhere else, please!" )
-bool operator >( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b );
-bool operator >=( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b );
-bool operator <( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b );
-bool operator <=( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b );
+namespace koinos {  }
 
-namespace koinos { namespace chain_control {
+namespace koinos { namespace protocol {
+   bool operator >( const block_height_type& a, const block_height_type& b );
+   bool operator >=( const block_height_type& a, const block_height_type& b );
+   bool operator <( const block_height_type& a, const block_height_type& b );
+   bool operator <=( const block_height_type& a, const block_height_type& b );
+}
+
+namespace chain_control {
 
 DECLARE_KOINOS_EXCEPTION( UnknownSubmitType );
 

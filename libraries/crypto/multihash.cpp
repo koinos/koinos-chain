@@ -7,7 +7,9 @@
 #include <iostream>
 #include <map>
 
-bool operator ==( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb )
+namespace koinos { namespace protocol {
+
+bool operator ==( const multihash_type& mha, const multihash_type& mhb )
 {
    return ( koinos::crypto::multihash::validate( mha ) && koinos::crypto::multihash::validate( mhb ) )
        && ( koinos::crypto::multihash::get_id( mha )   == koinos::crypto::multihash::get_id( mhb ) )
@@ -15,12 +17,12 @@ bool operator ==( const koinos::protocol::multihash_type& mha, const koinos::pro
        && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );
 }
 
-bool operator !=( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb )
+bool operator !=( const multihash_type& mha, const multihash_type& mhb )
 {
    return !(mha == mhb);
 }
 
-bool operator <( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb )
+bool operator <( const multihash_type& mha, const multihash_type& mhb )
 {
    int64_t res = (int64_t)mha.hash_id - (int64_t)mhb.hash_id;
    if( res < 0 ) return true;
@@ -31,7 +33,7 @@ bool operator <( const koinos::protocol::multihash_type& mha, const koinos::prot
    return memcmp( mha.digest.data.data(), mhb.digest.data.data(), mha.digest.data.size() ) < 0;
 }
 
-bool operator <=( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb )
+bool operator <=( const multihash_type& mha, const multihash_type& mhb )
 {
    int64_t res = (int64_t)mha.hash_id - (int64_t)mhb.hash_id;
    if( res < 0 ) return true;
@@ -42,17 +44,19 @@ bool operator <=( const koinos::protocol::multihash_type& mha, const koinos::pro
    return memcmp( mha.digest.data.data(), mhb.digest.data.data(), mha.digest.data.size() ) <= 0;
 }
 
-bool operator >( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb )
+bool operator >( const multihash_type& mha, const multihash_type& mhb )
 {
    return !(mha <= mhb);
 }
 
-bool operator >=( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb )
+bool operator >=( const multihash_type& mha, const multihash_type& mhb )
 {
    return !(mha < mhb);
 }
 
-namespace koinos::crypto {
+} // protocol
+
+namespace crypto {
 
 const EVP_MD* get_evp_md( uint64_t code )
 {
@@ -195,4 +199,4 @@ multihash_type hash( uint64_t code, const char* data, size_t len, size_t size )
    return mh;
 }
 
-} // koinos::crypto
+} } // koinos::crypto

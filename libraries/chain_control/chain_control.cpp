@@ -28,27 +28,17 @@
 #include <optional>
 
 #pragma message( "Move this somewhere else, please!" )
-bool operator >( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
-{
-   return a.height > b.height;
-}
 
-bool operator >=( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
-{
-   return a.height >= b.height;
-}
+namespace koinos { namespace protocol {
 
-bool operator <( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
-{
-   return a.height < b.height;
-}
+bool operator >( const block_height_type& a, const block_height_type& b )  { return a.height > b.height;  }
+bool operator >=( const block_height_type& a, const block_height_type& b ) { return a.height >= b.height; }
+bool operator <( const block_height_type& a, const block_height_type& b )  { return a.height < b.height;  }
+bool operator <=( const block_height_type& a, const block_height_type& b ) { return a.height <= b.height; }
 
-bool operator <=( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
-{
-   return a.height <= b.height;
-}
+} // protocol
 
-namespace koinos { namespace chain_control {
+namespace chain_control {
 
 /**
  * Represents the block in the fork DB.
@@ -325,7 +315,7 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
    {
       result->emplace< submit_return_query >();
       process_submit_query( std::get< submit_return_query >( *result ), *maybe_query );
-      return;
+      return result;
    }
 
    std::shared_ptr< submit_transaction_impl > maybe_transaction = std::dynamic_pointer_cast< submit_transaction_impl >( item );
@@ -333,7 +323,7 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
    {
       result->emplace< submit_return_transaction >();
       process_submit_transaction( std::get< submit_return_transaction >( *result ), *maybe_transaction );
-      return;
+      return result;
    }
 
    std::shared_ptr< submit_block_impl > maybe_block = std::dynamic_pointer_cast< submit_block_impl >( item );
@@ -341,7 +331,7 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
    {
       result->emplace< submit_return_block >();
       process_submit_block( std::get< submit_return_block >( *result ), *maybe_block );
-      return;
+      return result;
    }
 
    return result;

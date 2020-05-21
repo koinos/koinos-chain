@@ -14,14 +14,18 @@
 #define CRYPTO_SHA2_512_ID    uint64_t(0x13)
 #define CRYPTO_RIPEMD160_ID   uint64_t(0x1053)
 
-bool operator ==( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb );
-bool operator !=( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb );
-bool operator <( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb );
-bool operator <=( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb );
-bool operator >( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb );
-bool operator >=( const koinos::protocol::multihash_type& mha, const koinos::protocol::multihash_type& mhb );
+namespace koinos { namespace protocol {
 
-namespace koinos::crypto {
+bool operator ==( const multihash_type& mha, const multihash_type& mhb );
+bool operator !=( const multihash_type& mha, const multihash_type& mhb );
+bool operator <( const multihash_type& mha, const multihash_type& mhb );
+bool operator <=( const multihash_type& mha, const multihash_type& mhb );
+bool operator >( const multihash_type& mha, const multihash_type& mhb );
+bool operator >=( const multihash_type& mha, const multihash_type& mhb );
+
+} // protocol
+
+namespace crypto {
 
 using koinos::protocol::multihash_type;
 using koinos::protocol::multihash_vector;
@@ -131,4 +135,4 @@ bool add_hash( multihash_vector& mhv, T& t )
    return false;
 };
 
-} // koinos::crypto
+} } // koinos::crypto
