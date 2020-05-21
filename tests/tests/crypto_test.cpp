@@ -10,17 +10,17 @@
 
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
 
-BOOST_AUTO_TEST_CASE(ripemd160_test)
+BOOST_AUTO_TEST_CASE( ripemd160_test )
 {
    test( CRYPTO_RIPEMD160_ID,  TEST1, "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc" );
    test( CRYPTO_RIPEMD160_ID,  TEST2, "9c1185a5c5e9fc54612808977ee8f548b2258d31" );
    test( CRYPTO_RIPEMD160_ID,  TEST3, "12a053384a9c0c88e405a06c27dcf49ada62eb2b" );
-//    test( CRYPTO_RIPEMD160_ID,  TEST4, "" );
+   test( CRYPTO_RIPEMD160_ID,  TEST4, "6f3fa39b6b503c384f919a49a7aa5c2c08bdfb45" );
    test( CRYPTO_RIPEMD160_ID,  TEST5, "52783243c1697bdbe16d37f97f68f08325dc1528" );
    test_big( CRYPTO_RIPEMD160_ID,  "29b6df855772aa9a95442bf83b282b495f9f6541" );
 }
 
-BOOST_AUTO_TEST_CASE(sha1_test)
+BOOST_AUTO_TEST_CASE( sha1_test )
 {
    test( CRYPTO_SHA1_ID,  TEST1, "a9993e364706816aba3e25717850c26c9cd0d89d" );
    test( CRYPTO_SHA1_ID,  TEST2, "da39a3ee5e6b4b0d3255bfef95601890afd80709" );
@@ -30,19 +30,7 @@ BOOST_AUTO_TEST_CASE(sha1_test)
    test_big( CRYPTO_SHA1_ID,  "7789f0c9ef7bfc40d93311143dfbe69e2017f592" );
 }
 
-/*
-BOOST_AUTO_TEST_CASE(sha224_test)
-{
-   test<fc::sha224>( TEST1, "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7" );
-   test<fc::sha224>( TEST2, "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f" );
-   test<fc::sha224>( TEST3, "75388b16512776cc5dba5da1fd890150b0c6455cb4f58b1952522525" );
-   test<fc::sha224>( TEST4, "c97ca9a559850ce97a04a96def6d99a9e0e0e2ab14e6b8df265fc0b3" );
-   test<fc::sha224>( TEST5, "20794655980c91d8bbb4c1ea97618a4bf03f42581948b2ee4ee7ad67" );
-   test_big<fc::sha224>( "b5989713ca4fe47a009f8621980b34e6d63ed3063b2a0a2c867d8a85" );
-}
-*/
-
-BOOST_AUTO_TEST_CASE(sha256_test)
+BOOST_AUTO_TEST_CASE( sha256_test )
 {
    test( CRYPTO_SHA2_256_ID,  TEST1, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" );
    test( CRYPTO_SHA2_256_ID,  TEST2, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" );
@@ -52,7 +40,7 @@ BOOST_AUTO_TEST_CASE(sha256_test)
    test_big( CRYPTO_SHA2_256_ID,  "50e72a0e26442fe2552dc3938ac58658228c0cbfb1d2ca872ae435266fcd055e" );
 }
 
-BOOST_AUTO_TEST_CASE(sha512_test)
+BOOST_AUTO_TEST_CASE( sha512_test )
 {
    test( CRYPTO_SHA2_512_ID,  TEST1, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a"
                            "2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f" );
@@ -68,7 +56,7 @@ BOOST_AUTO_TEST_CASE(sha512_test)
                         "77be6091b819ed352c2967a2e2d4fa5050723c9630691f1a05a7281dbe6c1086" );
 }
 
-BOOST_AUTO_TEST_CASE(ecc)
+BOOST_AUTO_TEST_CASE( ecc )
 {
    private_key nullkey;
    std::string pass = "foobar";
