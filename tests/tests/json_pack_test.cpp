@@ -383,8 +383,7 @@ BOOST_AUTO_TEST_CASE( reflect_test )
 
    json j;
    to_json( j, to_j );
-
-   std::string expected = "{\"id\":\"z19rwEskdm1\",\"key\":{\"digest\":\"zt1Zv2yaZ\",\"hash\":1},\"vals\":[108]}";
+   std::string expected = "{\"ext\":null,\"id\":\"z19rwEskdm1\",\"key\":{\"digest\":\"zt1Zv2yaZ\",\"hash\":1},\"vals\":[108]}";
    BOOST_REQUIRE_EQUAL( j.dump(), expected );
 
    test_object from_j;
