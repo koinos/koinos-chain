@@ -5,6 +5,7 @@
 #define BOOST_THREAD_USES_MOVE
 
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread/future.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
@@ -84,6 +85,10 @@ struct work_item
    std::future< std::shared_ptr< submit_return > >     fut_work_done;    // Future corresponding to prom_work_done
    std::promise< std::shared_ptr< submit_return > >    prom_output;      // Promise that was returned to submit() caller
 };
+
+// Helper class for overloading variant visitors
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 // We need to do some additional work, we need to index blocks by all accepted hash algorithms.
 
@@ -271,7 +276,7 @@ void decode_block( const submit_block_impl& block )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-// The algorithm for computing block ID depends on the bytes of the 
+// The algorithm for computing block ID depends on the bytes of the
 
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {
@@ -290,7 +295,26 @@ void chain_controller_impl::process_submit_transaction( submit_return_transactio
 
 void chain_controller_impl::process_submit_query( submit_return_query& ret, submit_query_impl& query )
 {
+   protocol::query_item q_item;
+   boost::interprocess::vectorstream in( query.query.data );
+   from_binary( in, q_item );
+
+   result_item result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
+   std::visit(overloaded {
+      [&]( get_head_info_params& p )
+      {
+         const auto& dso = _db.get< debug_state_object, by_id >( debug_state_object::id_type );
+         get_head_info_return res;
+         res.id = dso.current_block_id;
+         res.height = dso.current_block_height;
+         result = res;
+      }
+   });
+
+   boost::interprocess::vectorstream out;
+   to_binary( out, result );
+   ret.result = out.vector();
 }
 
 std::shared_ptr< submit_return > chain_controller_impl::process_item( std::shared_ptr< submit_item_impl > item )
