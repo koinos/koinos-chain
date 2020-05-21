@@ -1334,4 +1334,9 @@ SYSTEM_CALL_DEFINE( int, __unordtf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) l
    return 0;
 }
 
+SYSTEM_CALL_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
+{
+   return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
+}
+
 } // koinos::chain
