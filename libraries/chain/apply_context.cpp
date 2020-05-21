@@ -4,8 +4,9 @@
 
 namespace koinos::chain {
 
-apply_context::apply_context( chainbase::database& _db ) :
+apply_context::apply_context( chainbase::database& _db, system_call_table& _sct ) :
    db( _db ),
+   syscalls( _sct ),
    idx64( *this ),
    idx128( *this ),
    idx256( *this ),

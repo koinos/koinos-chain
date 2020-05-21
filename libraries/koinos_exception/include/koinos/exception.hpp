@@ -49,8 +49,8 @@ class koinos_exception
       koinos_exception( const strpolate::strpol& strpol );
       virtual ~koinos_exception();
 
-      void to_string(std::string& result)const;
-      std::string to_string()const;
+      virtual void to_string(std::string& result)const;
+      virtual std::string to_string()const;
 
       strpolate::strpol _strpol;
 };
