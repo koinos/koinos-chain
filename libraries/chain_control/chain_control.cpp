@@ -391,7 +391,7 @@ void chain_controller_impl::work_thread_main()
          std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text ) );
       }
 
-      work->prom_work_done.set_value( maybe_result );
+      work->prom_work_done.set_value( result );
    }
 }
 
