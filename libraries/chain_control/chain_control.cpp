@@ -38,6 +38,10 @@ using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
 using fork_database_type = koinos::fork::fork_database< block_topology >;
 using koinos::statedb::StateDB;
+using namespace std::string_literals;
+
+using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+std::vector< char > to_vlblob( std::string&& s ){ return std::vector< char >( s.begin(), s.end() ); }
 
 struct submit_item_impl
 {
@@ -295,26 +299,33 @@ void chain_controller_impl::process_submit_transaction( submit_return_transactio
 
 void chain_controller_impl::process_submit_query( submit_return_query& ret, submit_query_impl& query )
 {
-   protocol::query_item q_item;
-   boost::interprocess::vectorstream in( query.query.data );
-   from_binary( in, q_item );
+   query_param_item params;
+   vectorstream in( query.sub.query.data );
+   pack::from_binary( in, params );
 
-   result_item result;
+   query_result_item result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    std::visit(overloaded {
       [&]( get_head_info_params& p )
       {
-         const auto& dso = _db.get< debug_state_object, by_id >( debug_state_object::id_type );
-         get_head_info_return res;
-         res.id = dso.current_block_id;
-         res.height = dso.current_block_height;
-         result = res;
+         auto head = _fork_db.head();
+         if( head )
+         {
+            get_head_info_return res;
+            res.id = head->id();
+            res.height = head->block_num();
+            result = res;
+         }
+         else
+         {
+            result = query_error{ to_vlblob( "Could not find head block"s ) };
+         }
       }
-   });
+   }, params);
 
-   boost::interprocess::vectorstream out;
-   to_binary( out, result );
-   ret.result = out.vector();
+   vectorstream out;
+   pack::to_binary( out, result );
+   ret.result.data = out.vector();
 }
 
 std::shared_ptr< submit_return > chain_controller_impl::process_item( std::shared_ptr< submit_item_impl > item )

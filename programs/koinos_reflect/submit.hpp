@@ -33,8 +33,8 @@ typedef std::variant<
 
 struct get_head_info_params {};
 
-struct std::variant<
-   get_head_info_params > query_item;
+typedef std::variant<
+   get_head_info_params > query_param_item;
 
 struct submit_return_reserved {};
 
@@ -59,13 +59,16 @@ typedef std::variant<
    submit_return_query,
    submit_return_error > submit_return;
 
+typedef submit_return_query query_error;
+
 struct get_head_info_return
 {
    multihash_type    id;
    block_height_type height;
-}
+};
 
 typedef std::variant<
-   get_head_info_return > result_item;
+   query_error,
+   get_head_info_return > query_result_item;
 
 } } // koinos::protocol
