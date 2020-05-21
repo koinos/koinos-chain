@@ -4,5 +4,5 @@ add_library( chain
              name.cpp
              system_calls.cpp
              ${HEADERS} )
-target_link_libraries( chain chainbase fc mira softfloat koinos_exception builtins )
+target_link_libraries( chain chainbase fc mira softfloat koinos_exception koinos_crypto builtins )
 target_include_directories( chain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

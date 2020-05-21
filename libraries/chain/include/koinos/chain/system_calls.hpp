@@ -11,6 +11,8 @@
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/system_call_utils.hpp>
 #include <koinos/chain/wasm/common.hpp>
+#include <koinos/crypto/elliptic.hpp>
+#include <koinos/crypto/multihash.hpp>
 
 namespace koinos::chain {
 
@@ -220,6 +222,8 @@ SYSTEM_CALL_SLOTS(
    (db_idx_long_double_lowerbound)
    (db_idx_long_double_upperbound)
    (db_idx_long_double_end)
+
+   (verify_block_header)
 );
 
 struct system_call_bundle
@@ -456,6 +460,8 @@ struct system_api final
    SYSTEM_CALL_DECLARE( int, db_idx_long_double_end, uint64_t code, uint64_t scope, uint64_t table );
    SYSTEM_CALL_DECLARE( int, db_idx_long_double_next, int iterator, uint64_t& primary );
    SYSTEM_CALL_DECLARE( int, db_idx_long_double_previous, int iterator, uint64_t& primary );
+
+   SYSTEM_CALL_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
 };
 
 } // koinos::chain
