@@ -7,6 +7,8 @@
 
 namespace koinos::plugins::block_producer {
 
+   typedef boost::interprocess::basic_vectorstream< std::vector<char> > vectorstream;
+
    static protocol::timestamp_type timestamp_now()
    {
        auto duration = std::chrono::system_clock::now().time_since_epoch();
@@ -28,14 +30,27 @@ namespace koinos::plugins::block_producer {
        auto signature = block_signing_private_key.sign_compact(digest);
        block->passive.block_signature = signature;
 
-       // TODO: Get block height
-       // TODO: get previous
+       // TODO: Make the block_topology thinger
+       // TODO: get previous and set the field
 
        // Serialize the active data
-       boost::interprocess::basic_vectorstream< std::vector<char> > stream;
+       vectorstream stream;
        protocol::to_binary(stream, block->active);
-       crypto::vl_blob active_bytes;
-       active_bytes.data = stream.vector();
+       crypto::vl_blob active_bytes{stream.vector()};
+
+       //get_head_info_params p;
+       //vectorstream ostream;
+       //to_binary(stream, p);
+       //crypto::vl_blob query_bytes{stream.vector()};
+       //submit_query query{query_bytes};
+       //auto r = chain_control::submit(submit_item(query));
+       //vectorstream istream(r->get<submit_return_query>.result.data):
+       //get_head_info_return head_info;
+       //from_binary(istream, head_info)
+       //head_info.height!!!
+
+       //submit_item item;
+       //item.q
 
        return block;
    }
