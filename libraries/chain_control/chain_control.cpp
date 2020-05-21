@@ -11,6 +11,8 @@
 #include <koinos/chain_control/chain_control.hpp>
 #include <koinos/chain_control/submit.hpp>
 
+#include <koinos/crypto/multihash.hpp>
+
 #include <koinos/exception.hpp>
 
 #include <koinos/fork/fork_database.hpp>
@@ -24,6 +26,27 @@
 #include <list>
 #include <mutex>
 #include <optional>
+
+#pragma message( "Move this somewhere else, please!" )
+bool operator >( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
+{
+   return a.height > b.height;
+}
+
+bool operator >=( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
+{
+   return a.height >= b.height;
+}
+
+bool operator <( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
+{
+   return a.height < b.height;
+}
+
+bool operator <=( const koinos::protocol::block_height_type& a, const koinos::protocol::block_height_type& b )
+{
+   return a.height <= b.height;
+}
 
 namespace koinos { namespace chain_control {
 
@@ -254,7 +277,7 @@ template< typename T > void decode_canonical( const vl_blob& bin, T& target )
    KOINOS_ASSERT( bin.data == tmp, decode_exception, "Data does not reserialize", () );
 }
 
-void decode_block( const submit_block_impl& block )
+void decode_block( submit_block_impl& block )
 {
    KOINOS_ASSERT( block.sub.block_header_bytes.data.size() >= 1, block_header_empty, "Block has empty header", () );
    KOINOS_ASSERT( block.sub.block_header_bytes.data[0] == 1, unknown_block_version, "Unknown block version", () );
@@ -271,7 +294,7 @@ void decode_block( const submit_block_impl& block )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-// The algorithm for computing block ID depends on the bytes of the 
+// The algorithm for computing block ID depends on the bytes of the
 
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {

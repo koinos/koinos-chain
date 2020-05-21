@@ -45,4 +45,34 @@ KOINOS_DECLARE_BASE_SERIALIZER( multihash_vector )
 
 KOINOS_DECLARE_BASE_SERIALIZER( vl_blob )
 
+template< typename Stream, size_t N >
+inline void to_binary( Stream& s, const fl_blob< N >& v );
+template< typename Stream, size_t N >
+inline void from_binary( Stream& s, fl_blob< N >& v, uint32_t depth = 0 );
+
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const std::vector< T >& v );
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, std::vector< T >& v, uint32_t depth = 0 );
+
+template< typename Stream, typename T, size_t N >
+inline void to_binary( Stream& s, const std::array< T, N >& v );
+template< typename Stream, typename T, size_t N >
+inline void from_binary( Stream& s, std::array< T, N >& v, uint32_t depth = 0 );
+
+template< typename Stream, typename... T >
+inline void to_binary( Stream& s, const std::variant< T... >& v );
+template< typename Stream, typename... T >
+inline void from_binary( Stream& s, std::variant< T... >& v, uint32_t depth = 0 );
+
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const std::optional< T >& v );
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, std::optional< T >& v, uint32_t depth = 0 );
+
+template< typename Stream, typename T >
+inline void to_binary( Stream& s, const T& v );
+template< typename Stream, typename T >
+inline void from_binary( Stream& s, T& v, uint32_t depth = 0 );
+
 } // koinos::pack
