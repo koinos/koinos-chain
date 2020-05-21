@@ -16,6 +16,7 @@
 #include <koinos/fork/fork_database.hpp>
 
 #include <koinos/pack/classes.hpp>
+#include <koinos/pack/rt/binary.hpp>
 
 #include <koinos/statedb/statedb.hpp>
 
@@ -29,11 +30,12 @@ namespace koinos { namespace chain_control {
 /**
  * Represents the block in the fork DB.
  */
+constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
 using koinos::protocol::block_topology;
 using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
-using fork_database = koinos::fork::fork_database< block_topology >;
+using fork_database_type = koinos::fork::fork_database< block_topology >;
 using koinos::statedb::StateDB;
 
 struct submit_item_impl
@@ -122,13 +124,14 @@ class chain_controller_impl
       void start_threads();
       void stop_threads();
 
+      void feed_thread_main();
       void work_thread_main();
       void output_thread_main();
 
       std::chrono::time_point< std::chrono::steady_clock > now()
       {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
 
-      fork_database                                                            _fork_db;
+      fork_database_type                                                       _fork_db;
       StateDB                                                                  _state_db;
       std::mutex                                                               _state_db_mutex;
 
@@ -143,8 +146,8 @@ class chain_controller_impl
       // Feed thread contains scheduler logic, moves items that can be worked on concurrently from input queue to work queue.
       // Work threads consume the work queue and move completed work to the output queue.
 
-      boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _input_queue;
-      boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _work_queue;
+      boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _input_queue{ MAX_QUEUE_SIZE };
+      boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _work_queue{ MAX_QUEUE_SIZE };
 
       size_t                                                                   _thread_stack_size = 4096*1024;
       std::shared_ptr< boost::thread >                                         _feed_thread;
@@ -191,7 +194,7 @@ struct create_impl_item_visitor
 {
    template< typename T >
    std::shared_ptr< submit_item_impl > operator()( const T& sub ) const
-   {   KOINOS_THROW( UnknownSubmitType, "Unimplemented submission type" );
+   {   KOINOS_THROW( UnknownSubmitType, "Unimplemented submission type" ); }
 
    std::shared_ptr< submit_item_impl > operator()( const submit_block& sub ) const
    {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_block_impl >( sub ) ); }
@@ -199,7 +202,7 @@ struct create_impl_item_visitor
    std::shared_ptr< submit_item_impl > operator()( const submit_transaction& sub ) const
    {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_transaction_impl >( sub ) ); }
 
-   std::shared_ptr< submit_item_impl > operator()( const submit_block& sub ) const
+   std::shared_ptr< submit_item_impl > operator()( const submit_query_impl& sub ) const
    {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_query_impl >( sub ) ); }
 };
 
@@ -209,12 +212,12 @@ std::future< std::shared_ptr< submit_return > > chain_controller_impl::submit( c
    std::shared_ptr< submit_item_impl > impl_item = std::visit( vtor, item );
    std::shared_ptr< work_item > work = std::make_shared< work_item >();
    work->item = impl_item;
-   work->submit_time = now();
+   work->submit_time = std::chrono::duration_cast< std::chrono::nanoseconds >( std::chrono::system_clock::now().time_since_epoch() );
    work->fut_work_done = work->prom_work_done.get_future();
    std::future< std::shared_ptr< submit_return > > fut_output = work->prom_output.get_future();
    try
    {
-      _input_queue.push_front( work );
+      _input_queue.push_back( work );
    }
    catch( const boost::concurrent::sync_queue_is_closed& e )
    {
@@ -226,19 +229,6 @@ std::future< std::shared_ptr< submit_return > > chain_controller_impl::submit( c
    return fut_output;
 }
 
-struct submit_block
-{
-   vl_blob                             block_header_bytes;
-   std::vector< vl_blob >              block_transactions_bytes;
-   std::vector< vl_blob >              block_passives_bytes;
-};
-
-struct submit_transaction
-{
-   vl_blob                             transaction_active_bytes;
-   vl_blob                             transaction_passive_bytes;
-};
-
 DECLARE_KOINOS_EXCEPTION( decode_exception );
 DECLARE_KOINOS_EXCEPTION( block_header_empty );
 DECLARE_KOINOS_EXCEPTION( unknown_block_version );
@@ -246,18 +236,18 @@ DECLARE_KOINOS_EXCEPTION( unknown_block_version );
 template< typename T > void decode_canonical( const vl_blob& bin, T& target )
 {
    boost::interprocess::ibufferstream s( bin.data.data(), bin.data.size() );
-   from_binary( s, target );
+   pack::from_binary( s, target );
    // No-padding check:  Enforce that bin doesn't have extra bytes that were unread
-   KOINOS_ASSERT( size_t( s.tellp() ) == bin.data.size(), decode_exception, "Data does not deserialize (extra padding)", () );
+   KOINOS_ASSERT( size_t( s.tellg() ) == bin.data.size(), decode_exception, "Data does not deserialize (extra padding)", () );
 
    // Canonicity check:
    // Re-serialize the data and ensure it is the same as the input
    // The binary serialization format is intended to have a canonical serialization,
    // so if this check ever fails, there is a bug in the serialization spec / code.
    std::vector< char > tmp( bin.data.size() );
-   boost::interprocess::bufferstream s2( tmp.data.data(), tmp.data.size() );
+   boost::interprocess::bufferstream s2( tmp.data(), tmp.size() );
 
-   to_binary( s2, target );
+   pack::to_binary( s2, target );
 
    KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)", () );
    KOINOS_ASSERT( size_t( s2.tellp() ) == bin.data.size(), decode_exception, "Data does not reserialize (size mismatch)", () );
@@ -269,30 +259,26 @@ void decode_block( const submit_block_impl& block )
    KOINOS_ASSERT( block.sub.block_header_bytes.data.size() >= 1, block_header_empty, "Block has empty header", () );
    KOINOS_ASSERT( block.sub.block_header_bytes.data[0] == 1, unknown_block_version, "Unknown block version", () );
 
-   decode_canonical( block.sub.block_header_bytes, sub.header );
+   decode_canonical( block.sub.block_header_bytes, block.header );
 
    // Deserialize submitted transactions
-   size_t n_transactions = block.block_transactions_bytes.size();
-   block.transactions.resize( n_transactions );
-   for( size_t i=0; i<n_transactions; i++ )
-      decode_canonical( block.block_transactions_bytes[i], block.transactions[i] );
+   size_t n_transactions = block.transactions.size();
+   for( size_t i=0; i < n_transactions; i++ )
+      decode_canonical( block.transactions[i], block.transactions[i] );
 
-   size_t n_passives = block.block_passives_bytes.size();
-   block.passives.resize( n_passives );
-   for( size_t i=0; i<n_passives; i++ )
-      decode_canonical( block.block_passives_bytes[i], block.passives[i] );
+   size_t n_passives = block.passives.size();
+   for( size_t i=0; i < n_passives; i++ )
+      decode_canonical( block.passives[i], block.passives[i] );
 }
 
 // The algorithm for computing block ID depends on the bytes of the 
 
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {
-   decode_block( sub );
-
-   block.fork_node.id = multihash::crypto::
+   decode_block( block );
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   _fork_db.add( block, false );
+   _fork_db.add( std::make_shared< fork_database_type::block_state_type >( block.topo ) );
 
    // TODO finish method
 }
@@ -311,27 +297,27 @@ std::shared_ptr< submit_return > chain_controller_impl::process_item( std::share
 {
    std::shared_ptr< submit_return > result = std::make_shared< submit_return >();
 
-   std::shared_ptr< submit_query_impl > maybe_query = dynamic_pointer_cast< submit_query_impl >( item );
+   std::shared_ptr< submit_query_impl > maybe_query = std::dynamic_pointer_cast< submit_query_impl >( item );
    if( maybe_query )
    {
       result->emplace< submit_return_query >();
-      process_submit_query( std::get< submit_return_query >( result ), *maybe_query );
+      process_submit_query( std::get< submit_return_query >( *result ), *maybe_query );
       return;
    }
 
-   std::shared_ptr< submit_transaction_impl > maybe_transaction = dynamic_pointer_cast< submit_transaction_impl >( item );
+   std::shared_ptr< submit_transaction_impl > maybe_transaction = std::dynamic_pointer_cast< submit_transaction_impl >( item );
    if( maybe_transaction )
    {
       result->emplace< submit_return_transaction >();
-      process_submit_transaction( std::get< submit_return_transaction >( result ), *maybe_transaction );
+      process_submit_transaction( std::get< submit_return_transaction >( *result ), *maybe_transaction );
       return;
    }
 
-   std::shared_ptr< submit_block_impl > maybe_block = dynamic_pointer_cast< submit_block_impl >( item );
+   std::shared_ptr< submit_block_impl > maybe_block = std::dynamic_pointer_cast< submit_block_impl >( item );
    if( maybe_block )
    {
       result->emplace< submit_return_block >();
-      process_submit_block( std::get< submit_return_block >( result ), *maybe_block );
+      process_submit_block( std::get< submit_return_block >( *result ), *maybe_block );
       return;
    }
 
@@ -385,7 +371,7 @@ void chain_controller_impl::work_thread_main()
       {
          result = process_item( work->item );
       }
-      catch( const koinos_exception& e )
+      catch( const exception::koinos_exception& e )
       {
          maybe_err = e.to_string();
       }
