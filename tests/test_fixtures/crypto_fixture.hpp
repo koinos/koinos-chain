@@ -28,13 +28,14 @@ struct crypto_fixture
       init_5();
    }
 
-   std::string hex_string( const vl_blob& v )
+   template< typename Blob >
+   std::string hex_string( const Blob& b )
    {
       static const char hex[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 
       std::stringstream ss;
 
-      for( auto c : v.data )
+      for( auto c : b.data )
          ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
 
       return ss.str();

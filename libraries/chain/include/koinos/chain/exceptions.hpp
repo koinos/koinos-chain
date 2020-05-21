@@ -1,3 +1,4 @@
+#pragma once
 #include <koinos/exception.hpp>
 
 namespace koinos::chain {

@@ -42,7 +42,7 @@ static const secp256k1_fe_t secp256k1_ecdsa_const_order_as_fe = SECP256K1_FE_CON
  *  sage: '%x' % (p - EllipticCurve ([F (a), F (b)]).order())
  *   '14551231950b75fc4402da1722fc9baee'
  */
-static const secp256k1_fe_t secp256k1_ecdsa_const_p_minus_order = SECP256K1_FE_CONST(
+static const secp256k1_fe_t  = SECP256K1_FE_CONST(
     0, 0, 0, 1, 0x45512319UL, 0x50B75FC4UL, 0x402DA172UL, 0x2FC9BAEEUL
 );
 

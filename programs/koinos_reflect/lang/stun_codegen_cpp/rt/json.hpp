@@ -407,7 +407,7 @@ inline void from_json( json& j, multihash_type& v, uint32_t depth = 0 )
 inline void to_json( json& j, const multihash_vector& v )
 {
    j[ "hash" ] = v.hash_id;
-   for( const vl_blob& d : v.digests )
+      for( const vl_blob& d : v.digests )
    {
       json tmp;
       to_json( tmp, d );
@@ -434,6 +434,12 @@ inline void from_json( json& j, multihash_vector& v, uint32_t depth = 0 )
 
    v.hash_id = j[ "hash" ].get< uint64_t >();
 }
+
+template< typename T >
+void to_json( json& j, const T& v );
+
+template< typename T >
+void from_json( json& j, T& v, uint32_t depth = 0 );
 
 namespace detail::json {
 
@@ -555,7 +561,7 @@ void to_json( json& j, const T& v )
 }
 
 template< typename T >
-void from_json( json& j, T& v, uint32_t depth = 0 )
+void from_json( json& j, T& v, uint32_t depth )
 {
    detail::json::if_enum< typename reflector< T >::is_enum >::from_json( j, v );
 }
