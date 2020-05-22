@@ -26,12 +26,12 @@ namespace fc {
     using UInt = number<cpp_int_backend<Size, Size, unsigned_magnitude, unchecked, void> >;
     template<size_t Size>
     using Int = number<cpp_int_backend<Size, Size, signed_magnitude, unchecked, void> >;
-    template<typename Stream> void pack( Stream& s, const UInt<256>& n );
-    template<typename Stream> void unpack( Stream& s,  UInt<256>& n );
-    template<typename Stream> void pack( Stream& s, const Int<256>& n );
-    template<typename Stream> void unpack( Stream& s,  Int<256>& n );
+    //template<typename Stream> void pack( Stream& s, const UInt<256>& n );
+    //template<typename Stream> void unpack( Stream& s,  UInt<256>& n );
+    //template<typename Stream> void pack( Stream& s, const Int<256>& n );
+    //template<typename Stream> void unpack( Stream& s,  Int<256>& n );
     template<typename Stream, typename T> void pack( Stream& s, const boost::multiprecision::number<T>& n );
-    template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n );
+    template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n, uint32_t depth = 0 );
 
     template<typename Stream, typename Arg0, typename... Args>
     inline void pack( Stream& s, const Arg0& a0, Args... args ) {
@@ -862,12 +862,13 @@ namespace fc {
       s.write( (const char*)&n, sizeof(n) );
     }
 
-    template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n, uint32_t depth = 0 )
+    template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n, uint32_t depth )
     {
       #pragma message "TODO: We are not planning on using these serializers, but they are currently not good"
       //static_assert( sizeof( n ) == (std::numeric_limits<boost::multiprecision::number<T>>::digits+1)/8, "unexpected padding" );
       s.read( (char*)&n, sizeof(n) );
     }
+
 /*
     template<typename Stream> void pack( Stream& s, const UInt<256>& n )
     {
