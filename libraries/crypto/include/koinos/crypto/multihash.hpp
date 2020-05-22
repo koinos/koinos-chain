@@ -14,7 +14,18 @@
 #define CRYPTO_SHA2_512_ID    uint64_t(0x13)
 #define CRYPTO_RIPEMD160_ID   uint64_t(0x1053)
 
-namespace koinos::crypto {
+namespace koinos { namespace protocol {
+
+bool operator ==( const multihash_type& mha, const multihash_type& mhb );
+bool operator !=( const multihash_type& mha, const multihash_type& mhb );
+bool operator <( const multihash_type& mha, const multihash_type& mhb );
+bool operator <=( const multihash_type& mha, const multihash_type& mhb );
+bool operator >( const multihash_type& mha, const multihash_type& mhb );
+bool operator >=( const multihash_type& mha, const multihash_type& mhb );
+
+} // protocol
+
+namespace crypto {
 
 using koinos::protocol::multihash_type;
 using koinos::protocol::multihash_vector;
@@ -43,9 +54,6 @@ namespace multihash
 
    inline bool validate_sha256( const multihash_type& mh )    { return validate( mh,  CRYPTO_SHA2_256_ID, 32 ); }
    inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
-
-   bool operator ==( const multihash_type& mha, const multihash_type& mhb );
-   bool operator !=( const multihash_type& mha, const multihash_type& mhb );
 } // multihash
 
 struct encoder
@@ -127,4 +135,4 @@ bool add_hash( multihash_vector& mhv, T& t )
    return false;
 };
 
-} // koinos::crypto
+} } // koinos::crypto
