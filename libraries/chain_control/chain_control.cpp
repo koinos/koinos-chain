@@ -8,6 +8,13 @@
 #include <boost/thread/future.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
+#pragma message( "Move this somewhere else, please!" )
+#include <string>
+namespace koinos::protocol { struct multihash_type; }
+namespace strpolate {
+inline void to_string( std::string& result, const koinos::protocol::multihash_type& val );
+} // strpolate
+
 #include <koinos/chain_control/chain_control.hpp>
 #include <koinos/chain_control/submit.hpp>
 
@@ -20,6 +27,7 @@
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
+#include <koinos/pack/rt/json.hpp>
 
 #include <koinos/statedb/statedb.hpp>
 
@@ -30,7 +38,18 @@
 #include <optional>
 
 #pragma message( "Move this somewhere else, please!" )
+namespace strpolate {
 
+inline void to_string( std::string& result, const koinos::protocol::multihash_type& val )
+{
+   nlohmann::json j;
+   koinos::pack::to_json( j, val );
+   result = j.dump();
+}
+
+} // strpolate
+
+#pragma message( "Move this somewhere else, please!" )
 namespace koinos { namespace protocol {
 
 bool operator >( const block_height_type& a, const block_height_type& b )  { return a.height > b.height;  }
