@@ -4,6 +4,7 @@
 #define BOOST_THREAD_PROVIDES_FUTURE_CONTINUATION
 #define BOOST_THREAD_USES_MOVE
 
+#include <boost/filesystem.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread/future.hpp>
@@ -15,6 +16,8 @@ namespace koinos::protocol { struct multihash_type; }
 namespace strpolate {
 inline void to_string( std::string& result, const koinos::protocol::multihash_type& val );
 } // strpolate
+
+#include <koinos/chain/system_calls.hpp>
 
 #include <koinos/chain_control/chain_control.hpp>
 #include <koinos/chain_control/submit.hpp>
@@ -32,9 +35,14 @@ inline void to_string( std::string& result, const koinos::protocol::multihash_ty
 
 #include <koinos/statedb/statedb.hpp>
 
+#include <chainbase/chainbase.hpp>
+
+#include <mira/database_configuration.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <optional>
 
@@ -177,6 +185,10 @@ class chain_controller_impl
       fork_database_type                                                       _fork_db;
       StateDB                                                                  _state_db;
       std::mutex                                                               _state_db_mutex;
+      chain::system_call_table                                                 _syscall_table;
+      std::unique_ptr< chain::system_api >                                     _sys_api;
+      std::unique_ptr< chain::apply_context >                                  _ctx;
+      chainbase::database                                                      _db;
 
       // Item lifetime:
       //
@@ -211,7 +223,22 @@ chain_controller::~chain_controller()
 {}
 
 chain_controller_impl::chain_controller_impl()
-{}
+{
+   auto tmp = boost::filesystem::current_path() / boost::filesystem::unique_path();
+
+   _db.open( tmp, 0, mira::utilities::default_database_configuration() );
+   _db.add_index< chain::table_id_multi_index >();
+   _db.add_index< chain::key_value_index >();
+   _db.add_index< chain::index64_index >();
+   _db.add_index< chain::index128_index >();
+   _db.add_index< chain::index256_index >();
+   _db.add_index< chain::index_double_index >();
+   _db.add_index< chain::index_long_double_index >();
+
+   _ctx = std::make_unique< chain::apply_context >( _db, _syscall_table );
+   _ctx->privilege_level = chain::privilege::kernel_mode;
+   _sys_api = std::make_unique< chain::system_api >( *_ctx );
+}
 
 chain_controller_impl::~chain_controller_impl()
 {}
@@ -278,6 +305,7 @@ DECLARE_KOINOS_EXCEPTION( root_height_mismatch );
 DECLARE_KOINOS_EXCEPTION( unknown_previous_block );
 DECLARE_KOINOS_EXCEPTION( block_height_mismatch );
 DECLARE_KOINOS_EXCEPTION( previous_id_mismatch );
+DECLARE_KOINOS_EXCEPTION( invalid_signature );
 
 template< typename T > void decode_canonical( const vl_blob& bin, T& target )
 {
@@ -344,6 +372,15 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    KOINOS_ASSERT( block.topo.block_num.height == maybe_previous->block_num().height + 1, block_height_mismatch, "Block height must increase by 1", () );
    // Following assert should never trigger, as it could only be caused by a serious bug in fork_database or BMIC
    KOINOS_ASSERT( maybe_previous->id() == block.topo.previous, previous_id_mismatch, "Previous block ID does not match", () );
+
+   crypto::recoverable_signature sig;
+   vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
+   pack::from_binary( in_sig, sig );
+
+   crypto::multihash_type digest;
+   vectorstream in_digest( block.header.active_bytes.data );
+   pack::from_binary( in_digest, digest );
+   KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 #pragma message( "TODO:  Walk statedb to where it needs to be" )
    /*
