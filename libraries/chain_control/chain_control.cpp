@@ -5,6 +5,7 @@
 #define BOOST_THREAD_USES_MOVE
 
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread/future.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
@@ -71,6 +72,10 @@ using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
 using fork_database_type = koinos::fork::fork_database< block_topology >;
 using koinos::statedb::StateDB;
+using namespace std::string_literals;
+
+using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+std::vector< char > to_vlblob( std::string&& s ){ return std::vector< char >( s.begin(), s.end() ); }
 
 struct submit_item_impl
 {
@@ -119,6 +124,10 @@ struct work_item
    std::future< std::shared_ptr< submit_return > >     fut_work_done;    // Future corresponding to prom_work_done
    std::promise< std::shared_ptr< submit_return > >    prom_output;      // Promise that was returned to submit() caller
 };
+
+// Helper class for overloading variant visitors
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 // We need to do some additional work, we need to index blocks by all accepted hash algorithms.
 
@@ -369,7 +378,33 @@ void chain_controller_impl::process_submit_transaction( submit_return_transactio
 
 void chain_controller_impl::process_submit_query( submit_return_query& ret, submit_query_impl& query )
 {
+   query_param_item params;
+   vectorstream in( query.sub.query.data );
+   pack::from_binary( in, params );
+
+   query_result_item result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
+   std::visit(overloaded {
+      [&]( get_head_info_params& p )
+      {
+         auto head = _fork_db.head();
+         if( head )
+         {
+            get_head_info_return res;
+            res.id = head->id();
+            res.height = head->block_num();
+            result = res;
+         }
+         else
+         {
+            result = query_error{ to_vlblob( "Could not find head block"s ) };
+         }
+      }
+   }, params);
+
+   vectorstream out;
+   pack::to_binary( out, result );
+   ret.result.data = out.vector();
 }
 
 std::shared_ptr< submit_return > chain_controller_impl::process_item( std::shared_ptr< submit_item_impl > item )

@@ -24,4 +24,10 @@ using koinos::protocol::submit_return_transaction;
 using koinos::protocol::submit_return_query;
 using koinos::protocol::submit_return_error;
 
+using koinos::protocol::query_param_item;
+using koinos::protocol::query_result_item;
+using koinos::protocol::get_head_info_params;
+using koinos::protocol::get_head_info_return;
+using koinos::protocol::query_error;
+
 } } // koinos::chain_control
