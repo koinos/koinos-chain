@@ -1,6 +1,7 @@
 #include <thread>
 #include <boost/interprocess/streams/vectorstream.hpp>
 
+#include <koinos/chain_control/submit.hpp>
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -38,16 +39,8 @@ namespace koinos::plugins::block_producer {
        passive_data.block_signature = signature;
 
        auto passive_hash = crypto::hash(CRYPTO_SHA2_256_ID, passive_data);
-       block->passive_merkle_rootr = passive_hash;
-       //vectorstream passive_stream;
-       //protocol::to_binary(passive_stream, passive_data);
-       //crypto::vl_blob passive_data_bytes{passive_stream.vector()};
-       block->active_bytes = passive_data_bytes;
-
-       // Sign the block
-       //auto digest = crypto::hash<protocol::active_block_data>(CRYPTO_SHA2_256_ID, block->active);
-       //auto signature = block_signing_private_key.sign_compact(digest);
-       //block->passive.block_signature = signature;
+       block->passive_merkle_root = passive_hash;
+       block->active_bytes = active_data_bytes;
 
        // TODO: Make the block_topology thinger
        // TODO: get previous and set the field
@@ -58,12 +51,14 @@ namespace koinos::plugins::block_producer {
        //crypto::vl_blob active_bytes{stream.vector()};
 
        //protocol::
-       //protocol::get_head_info_params p;
-       //vectorstream ostream;
-       //to_binary(stream, p);
-       //crypto::vl_blob query_bytes{stream.vector()};
-       //submit_query query{query_bytes};
-       //auto r = chain_control::submit(submit_item(query));
+       protocol::get_head_info_params p;
+       vectorstream ostream;
+       pack::to_binary(ostream, p);
+       crypto::vl_blob query_bytes{ostream.vector()};
+       pack::submit_query query{query_bytes};
+       //appbase::app().get_plugin< chain::chain_plugin >().controller();
+       //auto r = chain_control::submit(pack::submit_item(query));
+       //appbase::pl
        //vectorstream istream(r->get<submit_return_query>.result.data):
        //get_head_info_return head_info;
        //from_binary(istream, head_info)
