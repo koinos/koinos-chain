@@ -467,10 +467,10 @@ void chain_controller_impl::work_thread_main()
       {
          result = std::make_shared< submit_return >();
          result->emplace< submit_return_error >();
-         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text ) );
+         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text.data ) );
       }
 
-      work->prom_work_done.set_value( maybe_result );
+      work->prom_work_done.set_value( result );
    }
 }
 
