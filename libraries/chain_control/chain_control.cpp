@@ -534,6 +534,7 @@ void chain_controller_impl::work_thread_main()
 
       if( maybe_err )
       {
+         std::cout << "err in work_thread: " << (*maybe_err) << std::endl;
          result = std::make_shared< submit_return >();
          result->emplace< submit_return_error >();
          std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text.data ) );
@@ -580,6 +581,7 @@ void chain_controller_impl::stop_threads()
        t.join();
    _work_threads.clear();
 
+   _input_queue.close();
    _feed_thread->join();
    _feed_thread.reset();
 }
