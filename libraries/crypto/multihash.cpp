@@ -86,12 +86,12 @@ void set_id( multihash_vector& mhv, uint64_t code )
 
 uint64_t get_id( const multihash_type& mh )
 {
-   return (mh.hash_id | HASH_MASK) >> HASH_OFFSET;
+   return mh.hash_id >> HASH_OFFSET;
 }
 
 uint64_t get_id( const multihash_vector& mhv )
 {
-   return (mhv.hash_id | HASH_MASK) >> HASH_OFFSET;
+   return mhv.hash_id >> HASH_OFFSET;
 }
 
 void set_size( multihash_type& mh, uint64_t size )
