@@ -29,27 +29,11 @@ namespace koinos::plugins::block_producer {
    {
        auto block = std::make_shared< protocol::block_header >();
 
-       // Get active bytes
        protocol::active_block_data active_data;
        active_data.timestamp = timestamp_now();
-       // TODO: block->active.height = get_height();
-       vectorstream active_stream;
-       protocol::to_binary(active_stream, active_data);
-       crypto::vl_blob active_data_bytes{active_stream.vector()};
-       block->active_bytes = active_data_bytes;
 
-       protocol::passive_block_data passive_data;
-       auto digest = crypto::hash(CRYPTO_SHA2_256_ID, active_data);
-       auto signature = block_signing_private_key.sign_compact(digest);
-       passive_data.block_signature = signature;
-
-       auto passive_hash = crypto::hash(CRYPTO_SHA2_256_ID, passive_data);
-       block->passive_merkle_root = passive_hash;
-       block->active_bytes = active_data_bytes;
-
+       // Get previous block data
        pack::block_topology topology;
-
-       // Get height
        protocol::get_head_info_params p;
        vectorstream ostream;
        pack::to_binary(ostream, p);
@@ -57,9 +41,6 @@ namespace koinos::plugins::block_producer {
        pack::submit_query query{query_bytes};
        auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
        auto r = controller.submit(pack::submit_item(query));
-       //block_height_type height;
-       //multihash_type id;
-
        protocol::query_result_item q;
        try {
            auto w = std::get<chain_control::submit_return_query>(*(r.get()));
@@ -78,8 +59,38 @@ namespace koinos::plugins::block_producer {
            std::cout << "no";
        }
 
+       vectorstream active_stream;
+       protocol::to_binary(active_stream, active_data);
+       crypto::vl_blob active_data_bytes{active_stream.vector()};
+       block->active_bytes = active_data_bytes;
+
+       protocol::passive_block_data passive_data;
+       auto digest = crypto::hash(CRYPTO_SHA2_256_ID, active_data);
+       auto signature = block_signing_private_key.sign_compact(digest);
+       passive_data.block_signature = signature;
+
+       auto passive_hash = crypto::hash(CRYPTO_SHA2_256_ID, passive_data);
+       block->passive_merkle_root = passive_hash;
+       block->active_bytes = active_data_bytes;
+
+       vectorstream header_stream;
+       protocol::to_binary(header_stream, *block);
+       crypto::vl_blob block_header_bytes{header_stream.vector()};
+
+       vectorstream passive_stream;
+       protocol::to_binary(passive_stream, passive_data);
+       crypto::vl_blob passive_data_bytes{passive_stream.vector()};
+
+       chain_control::submit_block block_submission;
+       block_submission.block_topo = topology;
+       block_submission.block_header_bytes = block_header_bytes;
+       block_submission.block_passives_bytes.push_back(passive_data_bytes);
+
+       r = controller.submit(pack::submit_item(query));
+
        return block;
    }
+
 
    block_producer_plugin::block_producer_plugin() {}
    block_producer_plugin::~block_producer_plugin() {}
