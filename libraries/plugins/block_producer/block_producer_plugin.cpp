@@ -29,7 +29,7 @@ namespace koinos::plugins::block_producer {
    {
        auto duration = std::chrono::system_clock::now().time_since_epoch();
        auto ticks = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-       
+
        protocol::timestamp_type t;
        t.timestamp = ticks;
        return t;
@@ -64,6 +64,7 @@ namespace koinos::plugins::block_producer {
                    active_data.height.height = head_info.height.height+1;
                    topology.previous = head_info.id;
                    topology.block_num = active_data.height;
+                   std::cout << "prev h: " << head_info.height.height << std::endl;
                },
                []( auto& ){}
            },q);
@@ -149,13 +150,15 @@ namespace koinos::plugins::block_producer {
    void block_producer_plugin::start_block_production()
    {
        producing_blocks = true;
-       
+
        block_production_thread = std::make_shared< std::thread >( [&]()
        {
+          std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
+
            while ( producing_blocks )
            {
                auto block = produce_block();
-               
+
                // Sleep for the block production time
                std::this_thread::sleep_for( std::chrono::milliseconds( KOINOS_BLOCK_TIME_MS ) );
            }
@@ -165,10 +168,10 @@ namespace koinos::plugins::block_producer {
    void block_producer_plugin::stop_block_production()
    {
        producing_blocks = false;
-       
+
        if ( block_production_thread )
            block_production_thread->join();
-       
+
        block_production_thread.reset();
    }
 }
