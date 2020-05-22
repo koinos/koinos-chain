@@ -40,6 +40,8 @@ class fork_database final
       const block_state_ptr& head() const;
       const block_state_ptr& root() const;
 
+      size_t                 size() const;
+
    private:
       struct by_block_id;
       struct by_block_num;
@@ -260,6 +262,12 @@ void fork_database< BlockType >::advance_root( const block_id_type& id )
       remove( block_id );
 
    _root = new_root;
+}
+
+template< typename BlockType >
+size_t fork_database< BlockType >::size() const
+{
+   return _index.size();
 }
 
 } // koinos::fork
