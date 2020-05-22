@@ -5,6 +5,8 @@
 #include <fc/io/json.hpp>
 #include <fc/exception/exception.hpp>
 
+#include <chainbase/chainbase.hpp>
+
 namespace koinos::plugins::chain {
 
 namespace detail {
@@ -21,7 +23,7 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-      chainbase::database  db;
+      chain_control::chain_controller controller;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
@@ -36,8 +38,8 @@ void chain_plugin_impl::write_default_database_config( bfs::path &p )
 chain_plugin::chain_plugin() : my( new detail::chain_plugin_impl() ) {}
 chain_plugin::~chain_plugin(){}
 
-chainbase::database& chain_plugin::db() { return my->db; }
-const chainbase::database& chain_plugin::db() const { return my->db; }
+chain_control::chain_controller& chain_plugin::controller() { return my->controller; }
+const chain_control::chain_controller& chain_plugin::controller() const { return my->controller; }
 
 bfs::path chain_plugin::state_dir() const
 {
@@ -117,7 +119,7 @@ void chain_plugin::plugin_startup()
 void chain_plugin::plugin_shutdown()
 {
    ilog("closing chain database");
-   my->db.close();
+   //my->db.close();
    ilog("database closed successfully");
 }
 

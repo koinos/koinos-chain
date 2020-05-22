@@ -1,5 +1,5 @@
 add_executable( koinosd main.cpp )
-target_link_libraries( koinosd koinos_exception appbase )
+target_link_libraries( koinosd koinos_exception appbase koinos_plugins )
 install( TARGETS
    koinosd
    RUNTIME DESTINATION bin
