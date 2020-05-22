@@ -299,7 +299,6 @@ std::future< std::shared_ptr< submit_return > > chain_controller_impl::submit( c
 
 DECLARE_KOINOS_EXCEPTION( decode_exception );
 DECLARE_KOINOS_EXCEPTION( block_header_empty );
-DECLARE_KOINOS_EXCEPTION( unknown_block_version );
 DECLARE_KOINOS_EXCEPTION( cannot_switch_root );
 DECLARE_KOINOS_EXCEPTION( root_height_mismatch );
 DECLARE_KOINOS_EXCEPTION( unknown_previous_block );
@@ -331,7 +330,6 @@ template< typename T > void decode_canonical( const vl_blob& bin, T& target )
 void decode_block( submit_block_impl& block )
 {
    KOINOS_ASSERT( block.sub.block_header_bytes.data.size() >= 1, block_header_empty, "Block has empty header", () );
-   KOINOS_ASSERT( block.sub.block_header_bytes.data[0] == 1, unknown_block_version, "Unknown block version", () );
 
    decode_canonical( block.sub.block_header_bytes, block.header );
 
