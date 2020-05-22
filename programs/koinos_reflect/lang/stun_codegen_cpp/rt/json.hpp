@@ -10,9 +10,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/mpl/size.hpp>
 
-template< typename T >
-
-
 #define JSON_MAX_SAFE_INTEGER ((1ll<<53)-1)  // 2^53-1
 #define JSON_MIN_SAFE_INTEGER (-((1ll<<53)-1)) // -(2^53-1)
 
