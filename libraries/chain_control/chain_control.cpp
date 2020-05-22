@@ -307,7 +307,6 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    if( multihash_is_zero( block.topo.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.topo.block_num == 1, root_height_mismatch, "First block must have height of 1", () );
       KOINOS_ASSERT( block.topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
 
       _fork_db.reset( block.topo_ptr );

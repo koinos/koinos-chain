@@ -31,11 +31,23 @@ namespace koinos::plugins::block_producer {
        protocol::to_binary(active_stream, active_data);
        crypto::vl_blob active_data_bytes{active_stream.vector()};
        block->active_bytes = active_data_bytes;
-       
-       // Sign the block
-       auto digest = crypto::hash<protocol::active_block_data>(CRYPTO_SHA2_256_ID, block->active);
+
+       protocol::passive_block_data passive_data;
+       auto digest = crypto::hash(CRYPTO_SHA2_256_ID, active_data);
        auto signature = block_signing_private_key.sign_compact(digest);
-       block->passive.block_signature = signature;
+       passive_data.block_signature = signature;
+
+       auto passive_hash = crypto::hash(CRYPTO_SHA2_256_ID, passive_data);
+       block->passive_merkle_rootr = passive_hash;
+       //vectorstream passive_stream;
+       //protocol::to_binary(passive_stream, passive_data);
+       //crypto::vl_blob passive_data_bytes{passive_stream.vector()};
+       block->active_bytes = passive_data_bytes;
+
+       // Sign the block
+       //auto digest = crypto::hash<protocol::active_block_data>(CRYPTO_SHA2_256_ID, block->active);
+       //auto signature = block_signing_private_key.sign_compact(digest);
+       //block->passive.block_signature = signature;
 
        // TODO: Make the block_topology thinger
        // TODO: get previous and set the field
