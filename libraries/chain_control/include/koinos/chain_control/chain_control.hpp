@@ -7,8 +7,6 @@
 #include <memory>
 
 #pragma message( "Move this somewhere else, please!" )
-namespace koinos {  }
-
 namespace koinos { namespace protocol {
    bool operator >( const block_height_type& a, const block_height_type& b );
    bool operator >=( const block_height_type& a, const block_height_type& b );
