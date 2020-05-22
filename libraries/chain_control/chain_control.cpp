@@ -270,7 +270,7 @@ struct create_impl_item_visitor
    std::shared_ptr< submit_item_impl > operator()( const submit_transaction& sub ) const
    {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_transaction_impl >( sub ) ); }
 
-   std::shared_ptr< submit_item_impl > operator()( const submit_query_impl& sub ) const
+   std::shared_ptr< submit_item_impl > operator()( const submit_query& sub ) const
    {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_query_impl >( sub ) ); }
 };
 
