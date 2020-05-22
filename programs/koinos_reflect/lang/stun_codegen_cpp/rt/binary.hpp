@@ -8,6 +8,7 @@
 #include <koinos/pack/rt/util/variant_helpers.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/interprocess/streams/vectorstream.hpp>
 
 #include <iostream>
 #include <type_traits>
@@ -484,6 +485,8 @@ inline void from_binary( Stream& s, T& v, uint32_t depth = 0 );
 
 namespace detail
 {
+   using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+
    template< typename Stream, typename Itr >
    inline void pack_itr( Stream& s, Itr start, Itr end )
    {
@@ -591,6 +594,48 @@ inline void from_binary( Stream& s, T& v, uint32_t depth )
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
    detail::binary::if_enum< typename reflector< T >::is_enum >::from_binary( s, v, depth );
+}
+
+inline void to_vlblob( vl_blob& v, std::string& s )
+{
+   v.data.insert( v.data.end(), s.begin(), s.end() );
+}
+
+inline vl_blob to_vlblob( std::string&& s )
+{
+   vl_blob v;
+   v.data.insert( v.data.end(), s.begin(), s.end() );
+   return v;
+}
+
+template< typename T >
+inline void to_vl_blob( vl_blob& v, const T& t )
+{
+   detail::vectorstream vs( v.data );
+   to_binary( vs, t );
+}
+
+template< typename T >
+inline vl_blob to_vl_blob( const T& t )
+{
+   vl_blob v;
+   to_vlob( v, t );
+   return v;
+}
+
+template< typename T >
+inline void from_vl_blob( vl_blob& v, T& t )
+{
+   detail::vectorstream vs( v.data );
+   from_binary( v, t );
+}
+
+template< typename T >
+inline T from_vl_blob( vl_blob& v )
+{
+   T t;
+   from_vl_blob( v, t );
+   return t;
 }
 
 } // koinos::raw
