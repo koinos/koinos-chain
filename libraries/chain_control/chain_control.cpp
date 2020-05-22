@@ -216,7 +216,7 @@ submit_item_impl::~submit_item_impl()
 {}
 
 chain_controller::chain_controller()
-   : _my()
+   : _my( std::make_unique< chain_controller_impl >() )
 {}
 
 chain_controller::~chain_controller()

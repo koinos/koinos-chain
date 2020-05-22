@@ -73,7 +73,7 @@ void chain_plugin::plugin_initialize(const variables_map& options)
 
    my->chainbase_flags |= options.at( "force-open" ).as< bool >() ? chainbase::skip_env_check : chainbase::skip_nothing;
 
-   my->database_cfg = options.at( "database-cfg" ).as< bfs::path >();
+   my->database_cfg = options.at( "database-config" ).as< bfs::path >();
 
    if( my->database_cfg.is_relative() )
       my->database_cfg = app().data_dir() / my->database_cfg;
