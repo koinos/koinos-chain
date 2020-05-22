@@ -68,9 +68,9 @@ namespace koinos::plugins::block_producer {
                []( auto& ){}
            },q);
        }
-       catch (...)
+       catch (const std::exception &e)
        {
-           std::cout << "no.";
+           std::cout << e.what();
        }
 
        // Serialize active data, store it in block header
@@ -95,6 +95,9 @@ namespace koinos::plugins::block_producer {
        protocol::to_binary(header_stream, *block);
        crypto::vl_blob block_header_bytes{header_stream.vector()};
 
+       // Store hash of header as ID
+       topology.id = crypto::hash(CRYPTO_SHA2_256_ID, *block);
+
        // Serialize the passive data
        vectorstream passive_stream;
        protocol::to_binary(passive_stream, passive_data);
@@ -112,9 +115,9 @@ namespace koinos::plugins::block_producer {
        {
            r.get(); // TODO: Probably should do something better here, rather than discarding the result...
        }
-       catch (...)
+       catch (const std::exception &e)
        {
-           std::cout << "wrong.";
+           std::cout << e.what();
        }
 
        // Yay
@@ -122,7 +125,6 @@ namespace koinos::plugins::block_producer {
 
        return block;
    }
-
 
    block_producer_plugin::block_producer_plugin() {}
    block_producer_plugin::~block_producer_plugin() {}
