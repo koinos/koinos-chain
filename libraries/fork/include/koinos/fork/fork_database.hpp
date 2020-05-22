@@ -127,6 +127,8 @@ typename fork_database< BlockType >::block_state_ptr fork_database< BlockType >:
    if ( itr != index.end() )
       return *itr;
 
+   if( id == _root->id() ) return _root;
+
    return block_state_ptr();
 }
 
@@ -153,8 +155,8 @@ template< typename BlockType >
 typename fork_database< BlockType >::branch_pair_type fork_database< BlockType >::fetch_branch_from( const block_id_type& first, const block_id_type& second ) const
 {
    branch_pair_type result;
-   auto first_branch = ( first == _root->id() ) ? _root : fetch_block( first );
-   auto second_branch = ( second == _root->id() ) ? _root : fetch_block( second );
+   auto first_branch = fetch_block( first );
+   auto second_branch = fetch_block( second );
 
    KOINOS_ASSERT( first_branch, block_not_found_exception, "block ${id} does not exist", ("id", first) );
    KOINOS_ASSERT( second_branch, block_not_found_exception, "block ${id} does not exist", ("id", second) );
@@ -163,7 +165,7 @@ typename fork_database< BlockType >::branch_pair_type fork_database< BlockType >
    {
       result.first.push_back( first_branch );
       const auto& prev = first_branch->previous_id();
-      first_branch = ( prev == _root->id() ) ? _root : fetch_block( prev );
+      first_branch = fetch_block( prev );
       KOINOS_ASSERT( first_branch, block_not_found_exception, "block ${id} does not exist", ("id", prev) );
    }
 
@@ -171,7 +173,7 @@ typename fork_database< BlockType >::branch_pair_type fork_database< BlockType >
    {
       result.second.push_back( second_branch );
       const auto& prev = second_branch->previous_id();
-      second_branch = ( prev == _root->id() ) ? _root : fetch_block( prev );
+      second_branch = fetch_block( prev );
       KOINOS_ASSERT( second_branch, block_not_found_exception, "block ${id} does not exist", ("id", prev) );
    }
 

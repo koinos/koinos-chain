@@ -345,7 +345,7 @@ void decode_block( submit_block_impl& block )
 inline bool multihash_is_zero( const koinos::protocol::multihash_type& mh )
 {
    return std::all_of( mh.digest.data.begin(), mh.digest.data.end(),
-      []( char c ) { return (c != 0); } );
+      []( char c ) { return (c == 0); } );
 }
 
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
