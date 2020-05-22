@@ -97,7 +97,6 @@ struct submit_block_impl
    submit_block_impl( const submit_block& s ) : sub(s) {}
 
    submit_block             sub;
-   block_topology           topo;
 
    fork_database_type::block_state_ptr topo_ptr;
    protocol::block_header   header;
@@ -352,24 +351,24 @@ inline bool multihash_is_zero( const koinos::protocol::multihash_type& mh )
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {
    decode_block( block );
-   block.topo_ptr = std::make_shared< fork::block_state< block_topology > >( block.topo );
+   block.topo_ptr = std::make_shared< fork::block_state< block_topology > >( block.sub.block_topo );
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   if( multihash_is_zero( block.topo.previous ) )
+   if( multihash_is_zero( block.sub.block_topo.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
+      KOINOS_ASSERT( block.sub.block_topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
 
       _fork_db.reset( block.topo_ptr );
       return;
    }
 
-   fork_database_type::block_state_ptr maybe_previous = _fork_db.fetch_block( block.topo.previous );
+   fork_database_type::block_state_ptr maybe_previous = _fork_db.fetch_block( block.sub.block_topo.previous );
 
    KOINOS_ASSERT( maybe_previous, unknown_previous_block, "Unknown previous block", () );
-   KOINOS_ASSERT( block.topo.block_num.height == maybe_previous->block_num().height + 1, block_height_mismatch, "Block height must increase by 1", () );
+   KOINOS_ASSERT( block.sub.block_topo.block_num.height == maybe_previous->block_num().height + 1, block_height_mismatch, "Block height must increase by 1", () );
    // Following assert should never trigger, as it could only be caused by a serious bug in fork_database or BMIC
-   KOINOS_ASSERT( maybe_previous->id() == block.topo.previous, previous_id_mismatch, "Previous block ID does not match", () );
+   KOINOS_ASSERT( maybe_previous->id() == block.sub.block_topo.previous, previous_id_mismatch, "Previous block ID does not match", () );
 
    crypto::recoverable_signature sig;
    vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
