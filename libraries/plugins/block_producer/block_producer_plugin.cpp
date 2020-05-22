@@ -29,10 +29,39 @@ namespace koinos::plugins::block_producer {
    {
        auto block = std::make_shared< protocol::block_header >();
 
-       // Get active bytes
        protocol::active_block_data active_data;
        active_data.timestamp = timestamp_now();
-       // TODO: block->active.height = get_height();
+
+       // Get previous block data
+       pack::block_topology topology;
+       protocol::get_head_info_params p;
+       vectorstream ostream;
+       pack::to_binary(ostream, p);
+       crypto::vl_blob query_bytes{ostream.vector()};
+       pack::submit_query query{query_bytes};
+       auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
+       auto r = controller.submit(pack::submit_item(query));
+       protocol::query_result_item q;
+       try
+       {
+           auto w = std::get<chain_control::submit_return_query>(*(r.get()));
+           vectorstream istream(w.result.data);
+           pack::from_binary(istream, q);
+           std::visit(overloaded{
+               [&](protocol::get_head_info_return& head_info) {
+                   active_data.height.height = head_info.height.height+1;
+                   topology.previous = head_info.id;
+                   topology.block_num = active_data.height;
+               },
+               []( auto& ){}
+           },q);
+
+       }
+       catch (...)
+       {
+           std::cout << "no.";
+       }
+
        vectorstream active_stream;
        protocol::to_binary(active_stream, active_data);
        crypto::vl_blob active_data_bytes{active_stream.vector()};
@@ -47,39 +76,32 @@ namespace koinos::plugins::block_producer {
        block->passive_merkle_root = passive_hash;
        block->active_bytes = active_data_bytes;
 
-       pack::block_topology topology;
+       vectorstream header_stream;
+       protocol::to_binary(header_stream, *block);
+       crypto::vl_blob block_header_bytes{header_stream.vector()};
 
-       // Get height
-       protocol::get_head_info_params p;
-       vectorstream ostream;
-       pack::to_binary(ostream, p);
-       crypto::vl_blob query_bytes{ostream.vector()};
-       pack::submit_query query{query_bytes};
-       auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
-       auto r = controller.submit(pack::submit_item(query));
-       //block_height_type height;
-       //multihash_type id;
+       vectorstream passive_stream;
+       protocol::to_binary(passive_stream, passive_data);
+       crypto::vl_blob passive_data_bytes{passive_stream.vector()};
 
-       protocol::query_result_item q;
-       try {
-           auto w = std::get<chain_control::submit_return_query>(*(r.get()));
-           vectorstream istream(w.result.data);
-           pack::from_binary(istream, q);
-           std::visit(overloaded{
-               [&](protocol::get_head_info_return& head_info) {
-                   active_data.height.height = head_info.height.height+1;
-                   topology.previous = head_info.id;
-                   topology.block_num = active_data.height;
-               },
-               []( auto& ){}
-           },q);
+       chain_control::submit_block block_submission;
+       block_submission.block_topo = topology;
+       block_submission.block_header_bytes = block_header_bytes;
+       block_submission.block_passives_bytes.push_back(passive_data_bytes);
 
-       } catch (...) {
-           std::cout << "no";
+       r = controller.submit(pack::submit_item(query));
+       try
+       {
+           r.get();
+       }
+       catch (...)
+       {
+           std::cout << "wrong.";
        }
 
        return block;
    }
+
 
    block_producer_plugin::block_producer_plugin() {}
    block_producer_plugin::~block_producer_plugin() {}

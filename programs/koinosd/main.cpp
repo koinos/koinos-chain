@@ -9,6 +9,8 @@
 
 #include <koinos/manifest/plugins.hpp>
 
+#include <koinos/plugins/chain/chain_plugin.hpp>
+#include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 
 const std::string& version_string()
 {
@@ -49,7 +51,13 @@ int main( int argc, char** argv )
 
       appbase::app().set_default_plugins<
          koinos::plugins::chain::chain_plugin,
-         koinos::plugins::block_producer::block_producer >();
+         koinos::plugins::block_producer::block_producer_plugin >();
+
+      bool initialized = appbase::app().initialize<
+         koinos::plugins::chain::chain_plugin >
+         ( argc, argv );
+
+      if( !initialized ) return EXIT_SUCCESS;
 
       appbase::app().startup();
       appbase::app().exec();
