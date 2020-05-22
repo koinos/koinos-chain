@@ -1,5 +1,7 @@
 #include <thread>
+#include <chrono>
 #include <boost/interprocess/streams/vectorstream.hpp>
+#include <boost/thread.hpp>
 
 #include <koinos/chain_control/submit.hpp>
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
@@ -46,12 +48,6 @@ namespace koinos::plugins::block_producer {
        block->active_bytes = active_data_bytes;
 
        pack::block_topology topology;
-       // TODO: get previous and set the field
-
-       // Serialize the active data
-       //vectorstream stream;
-       //protocol::to_binary(stream, block->active);
-       //crypto::vl_blob active_bytes{stream.vector()};
 
        // Get height
        protocol::get_head_info_params p;
@@ -74,18 +70,14 @@ namespace koinos::plugins::block_producer {
                    active_data.height.height = head_info.height.height+1;
                    topology.previous = head_info.id;
                    topology.block_num = active_data.height;
-               }
+               },
+               []( auto& ){}
            },q);
 
        } catch (...) {
            std::cout << "no";
        }
 
-       //pack::from_binary(istream, head_info);
-       //head_info.height!!!
-
-       //submit_item item;
-       //item.q
        return block;
    }
 
@@ -120,7 +112,7 @@ namespace koinos::plugins::block_producer {
                // TODO: Send to chain plugin
                
                // Sleep for the block production time
-               boost::this_thread::sleep_for( boost::chrono::milliseconds( KOINOS_BLOCK_TIME_MS ) );
+               std::this_thread::sleep_for( std::chrono::milliseconds( KOINOS_BLOCK_TIME_MS ) );
            }
        });
    }
