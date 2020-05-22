@@ -58,17 +58,9 @@ struct passive_block_data
 {
   signature_type block_signature;
 };
-
-struct block_header
-{
-  // Block data that can read and wrie state
-  active_block_data  active;
-
-  // Block data that can only read state
-  passive_block_data passive;
-
+  
 // TODO: Do we need this?
-struct block_header_v1
+struct block_header
 {
    // Block data that can read and write state
    vl_blob            active_bytes;
@@ -113,10 +105,6 @@ struct reserved_block_header
 {
    unused_extensions_type         extensions;
 };
-
-typedef std::variant<
-   reserved_block_header,
-   block_header_v1 > block_header;
 
 struct transaction_type
 {

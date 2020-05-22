@@ -22,8 +22,15 @@ namespace koinos::plugins::block_producer {
    std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    {
        auto block = std::make_shared< protocol::block_header >();
-       block->active.timestamp = timestamp_now();
+
+       // Get active bytes
+       protocol::active_block_data active_data;
+       active_data.timestamp = timestamp_now();
        // TODO: block->active.height = get_height();
+       vectorstream active_stream;
+       protocol::to_binary(active_stream, active_data);
+       crypto::vl_blob active_data_bytes{active_stream.vector()};
+       block->active_bytes = active_data_bytes;
        
        // Sign the block
        auto digest = crypto::hash<protocol::active_block_data>(CRYPTO_SHA2_256_ID, block->active);
@@ -34,11 +41,12 @@ namespace koinos::plugins::block_producer {
        // TODO: get previous and set the field
 
        // Serialize the active data
-       vectorstream stream;
-       protocol::to_binary(stream, block->active);
-       crypto::vl_blob active_bytes{stream.vector()};
+       //vectorstream stream;
+       //protocol::to_binary(stream, block->active);
+       //crypto::vl_blob active_bytes{stream.vector()};
 
-       //get_head_info_params p;
+       //protocol::
+       //protocol::get_head_info_params p;
        //vectorstream ostream;
        //to_binary(stream, p);
        //crypto::vl_blob query_bytes{stream.vector()};
