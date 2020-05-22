@@ -581,6 +581,7 @@ void chain_controller_impl::stop_threads()
        t.join();
    _work_threads.clear();
 
+   _input_queue.close();
    _feed_thread->join();
    _feed_thread.reset();
 }
