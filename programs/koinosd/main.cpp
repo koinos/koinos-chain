@@ -46,6 +46,9 @@ int main( int argc, char** argv )
    {
       boost::program_options::options_description options;
       appbase::app().add_program_options( boost::program_options::options_description(), options );
+
+      koinos::plugins::register_plugins();
+
       appbase::app().set_version_string( version_string() );
       appbase::app().set_app_name( "koinosd" );
 
