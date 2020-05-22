@@ -6,6 +6,9 @@
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/crypto/multihash.hpp>
 
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
 namespace koinos::plugins::block_producer {
 
    typedef boost::interprocess::basic_vectorstream< std::vector<char> > vectorstream;
@@ -42,7 +45,7 @@ namespace koinos::plugins::block_producer {
        block->passive_merkle_root = passive_hash;
        block->active_bytes = active_data_bytes;
 
-       // TODO: Make the block_topology thinger
+       pack::block_topology topology;
        // TODO: get previous and set the field
 
        // Serialize the active data
@@ -50,18 +53,35 @@ namespace koinos::plugins::block_producer {
        //protocol::to_binary(stream, block->active);
        //crypto::vl_blob active_bytes{stream.vector()};
 
-       //protocol::
+       // Get height
        protocol::get_head_info_params p;
        vectorstream ostream;
        pack::to_binary(ostream, p);
        crypto::vl_blob query_bytes{ostream.vector()};
        pack::submit_query query{query_bytes};
-       //appbase::app().get_plugin< chain::chain_plugin >().controller();
-       //auto r = chain_control::submit(pack::submit_item(query));
-       //appbase::pl
-       //vectorstream istream(r->get<submit_return_query>.result.data):
-       //get_head_info_return head_info;
-       //from_binary(istream, head_info)
+       auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
+       auto r = controller.submit(pack::submit_item(query));
+       //block_height_type height;
+       //multihash_type id;
+
+       protocol::query_result_item q;
+       try {
+           auto w = std::get<chain_control::submit_return_query>(*(r.get()));
+           vectorstream istream(w.result.data);
+           pack::from_binary(istream, q);
+           std::visit(overloaded{
+               [&](protocol::get_head_info_return& head_info) {
+                   active_data.height.height = head_info.height.height+1;
+                   topology.previous = head_info.id;
+                   topology.block_num = active_data.height;
+               }
+           },q);
+
+       } catch (...) {
+           std::cout << "no";
+       }
+
+       //pack::from_binary(istream, head_info);
        //head_info.height!!!
 
        //submit_item item;
