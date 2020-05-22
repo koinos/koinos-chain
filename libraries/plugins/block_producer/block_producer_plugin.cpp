@@ -64,7 +64,6 @@ namespace koinos::plugins::block_producer {
                    active_data.height.height = head_info.height.height+1;
                    topology.previous = head_info.id;
                    topology.block_num = active_data.height;
-                   std::cout << "prev h: " << head_info.height.height << std::endl;
                },
                []( auto& ){}
            },q);
@@ -124,7 +123,7 @@ namespace koinos::plugins::block_producer {
        }
 
        // Yay
-       std::cout << "Block " << active_data.height.height << " with ID " << hex_string(topology.id.digest) << " produced in block_producer_plugin." << std::endl;
+       std::cout << "Block " << active_data.height.height << " with ID " << hex_string(topology.id.digest) << " produced in block_producer_plugin." << std::endl << std::endl;
 
        return block;
    }

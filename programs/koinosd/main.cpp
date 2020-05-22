@@ -28,7 +28,7 @@ void info()
 //      std::cout << "initminer public key: " << KOINOS_INIT_PUBLIC_KEY_STR << "\n";
 //      std::cout << "initminer private key: " << initminer_private_key << "\n";
 //      std::cout << "blockchain version: " << std::string( KOINOS_BLOCKCHAIN_VERSION ) << "\n";
-      std::cout << "------------------------------------------------------\n";
+//      std::cout << "------------------------------------------------------\n";
 #else
       std::cout << "------------------------------------------------------\n\n";
       std::cout << "            starting koinos network\n\n";
@@ -36,7 +36,7 @@ void info()
 //      std::cout << "initminer public key: " << KOINOS_INIT_PUBLIC_KEY_STR << "\n";
 //      std::cout << "chain id: " << std::string( KOINOS_CHAIN_ID ) << "\n";
 //      std::cout << "blockchain version: " << std::string( KOINOS_BLOCKCHAIN_VERSION ) << "\n";
-      std::cout << "------------------------------------------------------\n";
+//      std::cout << "------------------------------------------------------\n";
 #endif
 }
 

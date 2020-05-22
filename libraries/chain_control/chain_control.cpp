@@ -226,13 +226,13 @@ chain_controller_impl::chain_controller_impl()
    auto tmp = boost::filesystem::current_path() / boost::filesystem::unique_path();
 
    _db.open( tmp, 0, mira::utilities::default_database_configuration() );
-   _db.add_index< chain::table_id_multi_index >();
-   _db.add_index< chain::key_value_index >();
-   _db.add_index< chain::index64_index >();
-   _db.add_index< chain::index128_index >();
-   _db.add_index< chain::index256_index >();
-   _db.add_index< chain::index_double_index >();
-   _db.add_index< chain::index_long_double_index >();
+//   _db.add_index< chain::table_id_multi_index >();
+//   _db.add_index< chain::key_value_index >();
+//   _db.add_index< chain::index64_index >();
+//   _db.add_index< chain::index128_index >();
+//   _db.add_index< chain::index256_index >();
+//   _db.add_index< chain::index_double_index >();
+//   _db.add_index< chain::index_long_double_index >();
 
    _ctx = std::make_unique< chain::apply_context >( _db, _syscall_table );
    _ctx->privilege_level = chain::privilege::kernel_mode;
