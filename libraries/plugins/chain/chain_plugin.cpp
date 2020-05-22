@@ -114,12 +114,16 @@ void chain_plugin::plugin_startup()
       wlog( " Error: ${e}", ("e", e) );
       exit( EXIT_FAILURE );
    }
+
+   my->controller.start_threads();
 }
 
 void chain_plugin::plugin_shutdown()
 {
    ilog("closing chain database");
+#pragma message( "TODO We eventually need to call close() from somewhere" )
    //my->db.close();
+   my->controller.stop_threads();
    ilog("database closed successfully");
 }
 
