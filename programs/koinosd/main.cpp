@@ -7,6 +7,8 @@
 #include <appbase/application.hpp>
 #include <koinos/exception.hpp>
 
+#include <koinos/manifest/plugins.hpp>
+
 
 const std::string& version_string()
 {
@@ -44,6 +46,10 @@ int main( int argc, char** argv )
       appbase::app().add_program_options( boost::program_options::options_description(), options );
       appbase::app().set_version_string( version_string() );
       appbase::app().set_app_name( "koinosd" );
+
+      appbase::app().set_default_plugins<
+         koinos::plugins::chain::chain_plugin,
+         koinos::plugins::block_producer::block_producer >();
 
       appbase::app().startup();
       appbase::app().exec();

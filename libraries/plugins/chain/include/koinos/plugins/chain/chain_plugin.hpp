@@ -1,6 +1,6 @@
 #pragma once
 #include <appbase/application.hpp>
-#include <chainbase/chainbase.hpp>
+#include <koinos/chain_control/chain_control.hpp>
 
 #define KOINOS_CHAIN_PLUGIN_NAME "chain"
 
@@ -29,8 +29,8 @@ public:
    virtual void plugin_startup() override;
    virtual void plugin_shutdown() override;
 
-   chainbase::database& db();
-   const chainbase::database& db() const;
+   chain_control::chain_controller& controller();
+   const chain_control::chain_controller& controller() const;
 
 private:
    std::unique_ptr< detail::chain_plugin_impl > my;
