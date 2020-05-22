@@ -46,7 +46,7 @@ namespace koinos::plugins::block_producer {
 
        // Get previous block data
        pack::block_topology topology;
-       protocol::get_head_info_params p;
+       protocol::query_param_item p = protocol::get_head_info_params();
        vectorstream ostream;
        pack::to_binary(ostream, p);
        crypto::vl_blob query_bytes{ostream.vector()};
