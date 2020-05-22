@@ -155,6 +155,9 @@ class chain_controller_impl
       chain_controller_impl();
       virtual ~chain_controller_impl();
 
+      void start_threads();
+      void stop_threads();
+
       std::future< std::shared_ptr< submit_return > > submit( const submit_item& item );
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
@@ -165,12 +168,8 @@ class chain_controller_impl
       void process_submit_transaction( submit_return_transaction& ret, submit_transaction_impl& tx );
       void process_submit_query( submit_return_query& ret, submit_query_impl& query );
 
-      void start_threads();
-      void stop_threads();
-
       void feed_thread_main();
       void work_thread_main();
-      void output_thread_main();
 
       std::chrono::time_point< std::chrono::steady_clock > now()
       {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
@@ -181,10 +180,9 @@ class chain_controller_impl
 
       // Item lifetime:
       //
-      // (submit) ---> input_queue ---> (feed_thread) ---> prep_queue ---> (prep_thread) ---> work_queue ---> (work_thread) ---> promise finished
+      // (submit) ---> input_queue ---> (feed_thread) ---> work_queue ---> (work_thread) ---> promise finished
       //
       // Items start in input queue.
-      // Stateless preprocessing is done by prep_thread (CPU-bound, fully parallel).
       // Stateful processing is done by work_thread (IO-bound, not parallel).
       //
       // Feed thread contains scheduler logic, moves items that can be worked on concurrently from input queue to work queue.
@@ -194,8 +192,7 @@ class chain_controller_impl
       boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _work_queue{ MAX_QUEUE_SIZE };
 
       size_t                                                                   _thread_stack_size = 4096*1024;
-      std::shared_ptr< boost::thread >                                         _feed_thread;
-      std::vector< boost::thread >                                             _prep_threads;
+      std::optional< boost::thread >                                           _feed_thread;
       std::vector< boost::thread >                                             _work_threads;
       std::optional< std::chrono::time_point< std::chrono::steady_clock > >    _now;
 };
@@ -509,22 +506,45 @@ void chain_controller_impl::work_thread_main()
    }
 }
 
+void chain_controller::start_threads()
+{
+   _my->start_threads();
+}
+
+void chain_controller::stop_threads()
+{
+   _my->stop_threads();
+}
+
 void chain_controller_impl::start_threads()
 {
-   // TODO
+   boost::thread::attributes attrs;
+   attrs.set_stack_size( _thread_stack_size );
+
+   size_t num_threads = boost::thread::hardware_concurrency()+1;
+   for( size_t i=0; i<num_threads; i++ )
+   {
+      _work_threads.emplace_back( attrs, [this]() { work_thread_main(); } );
+   }
+
+   _feed_thread.emplace( attrs, [this]() { feed_thread_main(); } );
 }
 
 void chain_controller_impl::stop_threads()
 {
-   // TODO
+   //
+   // We must close the queues in order from last to first:  A later queue may be waiting on
+   // a future supplied by an earlier queue.
+   // If the earlier threads are still alive, these futures will eventually complete.
+   // Then the later thread will wait on its queue and see close() has been called.
+   //
+   _work_queue.close();
+   for( boost::thread& t : _work_threads )
+       t.join();
+   _work_threads.clear();
+
+   _feed_thread->join();
+   _feed_thread.reset();
 }
-
-/*
-      void start_threads();
-      void stop_threads();
-
-      void work_thread_main();
-      void output_thread_main();
-*/
 
 } }

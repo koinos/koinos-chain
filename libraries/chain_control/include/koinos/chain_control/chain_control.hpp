@@ -28,6 +28,9 @@ class chain_controller
 
       std::future< std::shared_ptr< submit_return > > submit( const submit_item& item );
 
+      void start_threads();
+      void stop_threads();
+
       // Mock the clock for debugging
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
