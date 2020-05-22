@@ -42,7 +42,8 @@ namespace koinos::plugins::block_producer {
        auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
        auto r = controller.submit(pack::submit_item(query));
        protocol::query_result_item q;
-       try {
+       try
+       {
            auto w = std::get<chain_control::submit_return_query>(*(r.get()));
            vectorstream istream(w.result.data);
            pack::from_binary(istream, q);
@@ -55,8 +56,10 @@ namespace koinos::plugins::block_producer {
                []( auto& ){}
            },q);
 
-       } catch (...) {
-           std::cout << "no";
+       }
+       catch (...)
+       {
+           std::cout << "no.";
        }
 
        vectorstream active_stream;
@@ -87,6 +90,14 @@ namespace koinos::plugins::block_producer {
        block_submission.block_passives_bytes.push_back(passive_data_bytes);
 
        r = controller.submit(pack::submit_item(query));
+       try
+       {
+           r.get();
+       }
+       catch (...)
+       {
+           std::cout << "wrong.";
+       }
 
        return block;
    }
