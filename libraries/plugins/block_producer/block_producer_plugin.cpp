@@ -13,6 +13,16 @@ template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 namespace koinos::plugins::block_producer {
 
+   template< typename Blob >
+   std::string hex_string( const Blob& b )
+   {
+      static const char hex[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+      std::stringstream ss;
+      for( auto c : b.data )
+         ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
+      return ss.str();
+   }
+
    typedef boost::interprocess::basic_vectorstream< std::vector<char> > vectorstream;
 
    static protocol::timestamp_type timestamp_now()
@@ -27,8 +37,10 @@ namespace koinos::plugins::block_producer {
 
    std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    {
+       // Make block header
        auto block = std::make_shared< protocol::block_header >();
 
+       // Make active data, fetch timestamp
        protocol::active_block_data active_data;
        active_data.timestamp = timestamp_now();
 
@@ -55,49 +67,58 @@ namespace koinos::plugins::block_producer {
                },
                []( auto& ){}
            },q);
-
        }
        catch (...)
        {
            std::cout << "no.";
        }
 
+       // Serialize active data, store it in block header
        vectorstream active_stream;
        protocol::to_binary(active_stream, active_data);
        crypto::vl_blob active_data_bytes{active_stream.vector()};
        block->active_bytes = active_data_bytes;
 
+       // Hash active data and use it to sign block
        protocol::passive_block_data passive_data;
        auto digest = crypto::hash(CRYPTO_SHA2_256_ID, active_data);
        auto signature = block_signing_private_key.sign_compact(digest);
        passive_data.block_signature = signature;
 
+       // Hash passive data
        auto passive_hash = crypto::hash(CRYPTO_SHA2_256_ID, passive_data);
        block->passive_merkle_root = passive_hash;
        block->active_bytes = active_data_bytes;
 
+       // Serialize the header
        vectorstream header_stream;
        protocol::to_binary(header_stream, *block);
        crypto::vl_blob block_header_bytes{header_stream.vector()};
 
+       // Serialize the passive data
        vectorstream passive_stream;
        protocol::to_binary(passive_stream, passive_data);
        crypto::vl_blob passive_data_bytes{passive_stream.vector()};
 
+       // Create the submit block object
        chain_control::submit_block block_submission;
        block_submission.block_topo = topology;
        block_submission.block_header_bytes = block_header_bytes;
        block_submission.block_passives_bytes.push_back(passive_data_bytes);
 
+       // Submit the block
        r = controller.submit(pack::submit_item(query));
        try
        {
-           r.get();
+           r.get(); // TODO: Probably should do something better here, rather than discarding the result...
        }
        catch (...)
        {
            std::cout << "wrong.";
        }
+
+       // Yay
+       std::cout << "Block " << active_data.height.height << " with ID " << hex_string(topology.id) << " produced in block_producer_plugin." << std::endl;
 
        return block;
    }
@@ -131,7 +152,6 @@ namespace koinos::plugins::block_producer {
            while ( producing_blocks )
            {
                auto block = produce_block();
-               // TODO: Send to chain plugin
                
                // Sleep for the block production time
                std::this_thread::sleep_for( std::chrono::milliseconds( KOINOS_BLOCK_TIME_MS ) );
