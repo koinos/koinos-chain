@@ -110,8 +110,10 @@ namespace koinos::plugins::block_producer {
        block_submission.block_header_bytes = block_header_bytes;
        block_submission.block_passives_bytes.push_back(passive_data_bytes);
 
+
        // Submit the block
-       r = controller.submit(pack::submit_item(query));
+       protocol::submit_item si = block_submission;
+       r = controller.submit(si);
        try
        {
            r.get(); // TODO: Probably should do something better here, rather than discarding the result...
