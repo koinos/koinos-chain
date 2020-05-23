@@ -5,7 +5,9 @@
 #include <boost/program_options.hpp>
 
 #include <appbase/application.hpp>
+
 #include <koinos/exception.hpp>
+#include <koinos/log/log.hpp>
 
 
 const std::string& version_string()
@@ -14,26 +16,31 @@ const std::string& version_string()
    return v_str;
 }
 
-void info()
+void splash()
 {
+const char* BANNER = R"BANNER(
+   ▄█   ▄█▄  ▄██████▄   ▄█  ███▄▄▄▄    ▄██████▄     ▄████████
+  ███ ▄███▀ ███    ███ ███  ███▀▀▀██▄ ███    ███   ███    ███
+  ███▐██▀   ███    ███ ███▌ ███   ███ ███    ███   ███    █▀
+ ▄█████▀    ███    ███ ███▌ ███   ███ ███    ███   ███
+▀▀█████▄    ███    ███ ███▌ ███   ███ ███    ███ ▀███████████
+  ███▐██▄   ███    ███ ███  ███   ███ ███    ███          ███
+  ███ ▀███▄ ███    ███ ███  ███   ███ ███    ███    ▄█    ███
+  ███   ▀█▀  ▀██████▀  █▀    ▀█   █▀   ▀██████▀   ▄████████▀
+  ▀)BANNER";
+const char* LINE_BREAK = R"LINE_BREAK(
+-------------------------------------------------------------)LINE_BREAK";
+const char* TESTNET = R"TESTNET(
+                                    ...launching test network)TESTNET";
+const char* MAINNET = R"MAINNET(
+                                    ...launching main network)MAINNET";
+   std::cout << BANNER;
 #ifdef IS_TEST_NET
-      std::cout << "------------------------------------------------------\n\n";
-      std::cout << "            starting test network\n\n";
-      std::cout << "------------------------------------------------------\n";
-//      auto initminer_private_key = koinos::utilities::key_to_wif( KOINOS_INIT_PRIVATE_KEY );
-//      std::cout << "initminer public key: " << KOINOS_INIT_PUBLIC_KEY_STR << "\n";
-//      std::cout << "initminer private key: " << initminer_private_key << "\n";
-//      std::cout << "blockchain version: " << std::string( KOINOS_BLOCKCHAIN_VERSION ) << "\n";
-      std::cout << "------------------------------------------------------\n";
+   std::cout << TESTNET;
 #else
-      std::cout << "------------------------------------------------------\n\n";
-      std::cout << "            starting koinos network\n\n";
-      std::cout << "------------------------------------------------------\n";
-//      std::cout << "initminer public key: " << KOINOS_INIT_PUBLIC_KEY_STR << "\n";
-//      std::cout << "chain id: " << std::string( KOINOS_CHAIN_ID ) << "\n";
-//      std::cout << "blockchain version: " << std::string( KOINOS_BLOCKCHAIN_VERSION ) << "\n";
-      std::cout << "------------------------------------------------------\n";
+   std::cout << MAINNET;
 #endif
+   std::cout << std::endl;
 }
 
 int main( int argc, char** argv )
@@ -44,28 +51,29 @@ int main( int argc, char** argv )
       appbase::app().add_program_options( boost::program_options::options_description(), options );
       appbase::app().set_version_string( version_string() );
       appbase::app().set_app_name( "koinosd" );
-
+      splash();
       appbase::app().startup();
+      koinos::log::initialize( appbase::app().data_dir(), "koinosd_%3N.log" );
       appbase::app().exec();
-      std::cout << "exited cleanly\n";
+      LOG(info) << "exited cleanly";
 
       return EXIT_SUCCESS;
    }
    catch ( const koinos::exception::koinos_exception& e )
    {
-      std::cerr << e.to_string() << std::endl;
+      LOG(fatal) << e.to_string() << std::endl;
    }
    catch ( const boost::exception& e )
    {
-      std::cerr << boost::diagnostic_information( e ) << std::endl;
+      LOG(fatal) << boost::diagnostic_information( e ) << std::endl;
    }
    catch ( const std::exception& e )
    {
-      std::cerr << e.what() << std::endl;
+      LOG(fatal) << e.what() << std::endl;
    }
    catch ( ... )
    {
-      std::cerr << "unknown exception" << std::endl;
+      LOG(fatal) << "unknown exception" << std::endl;
    }
 
    return EXIT_FAILURE;
