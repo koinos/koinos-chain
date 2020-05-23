@@ -23,28 +23,35 @@ const std::string& version_string()
 void splash()
 {
 const char* BANNER = R"BANNER(
-   ▄█   ▄█▄  ▄██████▄   ▄█  ███▄▄▄▄    ▄██████▄     ▄████████
-  ███ ▄███▀ ███    ███ ███  ███▀▀▀██▄ ███    ███   ███    ███
-  ███▐██▀   ███    ███ ███▌ ███   ███ ███    ███   ███    █▀
- ▄█████▀    ███    ███ ███▌ ███   ███ ███    ███   ███
-▀▀█████▄    ███    ███ ███▌ ███   ███ ███    ███ ▀███████████
-  ███▐██▄   ███    ███ ███  ███   ███ ███    ███          ███
-  ███ ▀███▄ ███    ███ ███  ███   ███ ███    ███    ▄█    ███
-  ███   ▀█▀  ▀██████▀  █▀    ▀█   █▀   ▀██████▀   ▄████████▀
-  ▀)BANNER";
+  _  __     _        ___  ____
+ | |/ /___ (_)_ __  / _ \/ ___|
+ | ' // _ \| | '_ \| | | \___ \
+ | . \ (_) | | | | | |_| |___) |
+ |_|\_\___/|_|_| |_|\___/|____/)BANNER";
+
+//const char* BANNER = R"BANNER(
+//   ▄█   ▄█▄  ▄██████▄   ▄█  ███▄▄▄▄    ▄██████▄     ▄████████
+//  ███ ▄███▀ ███    ███ ███  ███▀▀▀██▄ ███    ███   ███    ███
+//  ███▐██▀   ███    ███ ███▌ ███   ███ ███    ███   ███    █▀
+// ▄█████▀    ███    ███ ███▌ ███   ███ ███    ███   ███
+//▀▀█████▄    ███    ███ ███▌ ███   ███ ███    ███ ▀███████████
+//  ███▐██▄   ███    ███ ███  ███   ███ ███    ███          ███
+//  ███ ▀███▄ ███    ███ ███  ███   ███ ███    ███    ▄█    ███
+//  ███   ▀█▀  ▀██████▀  █▀    ▀█   █▀   ▀██████▀   ▄████████▀
+//  ▀)BANNER";
 const char* LINE_BREAK = R"LINE_BREAK(
--------------------------------------------------------------)LINE_BREAK";
+--------------------------------)LINE_BREAK";
 const char* TESTNET = R"TESTNET(
-                                    ...launching test network)TESTNET";
+       ...launching test network)TESTNET";
 const char* MAINNET = R"MAINNET(
-                                    ...launching main network)MAINNET";
+       ...launching main network)MAINNET";
    std::cout << BANNER;
 #ifdef IS_TEST_NET
    std::cout << TESTNET;
 #else
    std::cout << MAINNET;
 #endif
-   std::cout << std::endl;
+   std::cout << std::endl << std::endl;
 }
 
 int main( int argc, char** argv )
@@ -71,8 +78,12 @@ int main( int argc, char** argv )
 
       if( !initialized ) return EXIT_SUCCESS;
 
-      appbase::app().startup();
       koinos::log::initialize( appbase::app().data_dir(), "koinosd_%3N.log" );
+      appbase::app().set_writer( []( const std::string& msg )
+      {
+         LOG(info) << msg;
+      });
+      appbase::app().startup();
       appbase::app().exec();
       LOG(info) << "exited cleanly";
 

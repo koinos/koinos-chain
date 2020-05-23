@@ -124,7 +124,7 @@ namespace koinos::plugins::block_producer {
        }
 
        // Yay
-       LOG(info) << "Block " << active_data.height.height << " with ID " << hex_string(topology.id.digest) << " produced in block_producer_plugin.";
+       LOG(info) << "produced block [height: " << active_data.height.height << ", id: " << hex_string(topology.id.digest) << "]";
 
        return block;
    }
