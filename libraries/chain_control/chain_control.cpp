@@ -29,6 +29,8 @@ inline void to_string( std::string& result, const koinos::protocol::multihash_ty
 #include <koinos/fork/block_state.hpp>
 #include <koinos/fork/fork_database.hpp>
 
+#include <koinos/log/log.hpp>
+
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
@@ -540,7 +542,7 @@ void chain_controller_impl::work_thread_main()
 
       if( maybe_err )
       {
-         std::cout << "err in work_thread: " << (*maybe_err) << std::endl;
+         LOG(error) << "err in work_thread: " << (*maybe_err) << std::endl;
          result = std::make_shared< submit_return >();
          result->emplace< submit_return_error >();
          std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text.data ) );
