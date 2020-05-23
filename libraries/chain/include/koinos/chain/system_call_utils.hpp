@@ -57,7 +57,6 @@ enum class system_call_slot : uint32_t\
 #define SYSTEM_CALL_DEFINE( RETURN_TYPE, SYSCALL, ... )                                       \
    RETURN_TYPE system_api::SYSCALL( _SYSCALL_DETAIL_DEFINE_ARGS(__VA_ARGS__) )                \
    {                                                                                          \
-      LOG(trace) << "syscall: " << BOOST_PP_STRINGIZE(SYSCALL);                               \
       BOOST_PP_IF(_SYSCALL_IS_VOID(RETURN_TYPE),,RETURN_TYPE retval;)                         \
       auto current_level = context.privilege_level;                                           \
       context.privilege_level = privilege::kernel_mode;                                       \

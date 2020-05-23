@@ -108,8 +108,7 @@ void initialize( const boost::filesystem::path& p, const std::string& file_patte
    else
       boost::log::core::get()->add_sink( boost::make_shared< console_sink >() );
 
-//   p += "koinosd_%3N.log";
-   auto file_name = p.string() + file_pattern;
+   auto file_name = p.string() + "/" + file_pattern;
 
    // Output message to file, rotates when file reached 1mb or at midnight every day. Each log file
    // is capped at 1mb and total is 20mb
@@ -124,7 +123,7 @@ void initialize( const boost::filesystem::path& p, const std::string& file_patte
 
    boost::log::add_common_attributes();
 
-#ifndef NDEBUG
+#ifdef NDEBUG
    boost::log::core::get()->set_filter( boost::log::trivial::severity >= boost::log::trivial::info );
 #endif
 }
