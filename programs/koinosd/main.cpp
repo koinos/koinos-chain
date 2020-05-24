@@ -29,17 +29,13 @@ const char* BANNER = R"BANNER(
  | . \ (_) | | | | | |_| |___) |
  |_|\_\___/|_|_| |_|\___/|____/)BANNER";
 
-const char* TESTNET = R"TESTNET(
-       ...launching test network)TESTNET";
-const char* MAINNET = R"MAINNET(
-       ...launching main network)MAINNET";
-   std::cout << BANNER;
+   std::cout << BANNER << std::endl;
 #ifdef IS_TEST_NET
-   std::cout << TESTNET;
+   std::cout << "       ...launching test network" << std::endl;
 #else
-   std::cout << MAINNET;
+   std::cout << "       ...launching main network" << std::endl;
 #endif
-   std::cout << std::endl << std::endl;
+   std::cout << std::endl;
 }
 
 int main( int argc, char** argv )
