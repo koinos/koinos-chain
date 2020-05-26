@@ -10,14 +10,14 @@
 #include <boost/thread/future.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
-#pragma message( "Move this somewhere else, please!" )
-#include <string>
-namespace koinos::protocol { struct multihash_type; }
-namespace strpolate {
-inline void to_string( std::string& result, const koinos::protocol::multihash_type& val );
-} // strpolate
+#include <koinos/pack/rt/string_fwd.hpp>
 
 #include <koinos/chain/system_calls.hpp>
+
+#include <koinos/pack/classes.hpp>
+#include <koinos/pack/rt/binary.hpp>
+#include <koinos/pack/rt/json.hpp>
+#include <koinos/pack/rt/string.hpp>
 
 #include <koinos/chain_control/chain_control.hpp>
 #include <koinos/chain_control/submit.hpp>
@@ -28,10 +28,6 @@ inline void to_string( std::string& result, const koinos::protocol::multihash_ty
 
 #include <koinos/fork/block_state.hpp>
 #include <koinos/fork/fork_database.hpp>
-
-#include <koinos/pack/classes.hpp>
-#include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/json.hpp>
 
 #include <koinos/statedb/statedb.hpp>
 
@@ -45,18 +41,6 @@ inline void to_string( std::string& result, const koinos::protocol::multihash_ty
 #include <memory>
 #include <mutex>
 #include <optional>
-
-#pragma message( "Move this somewhere else, please!" )
-namespace strpolate {
-
-inline void to_string( std::string& result, const koinos::protocol::multihash_type& val )
-{
-   nlohmann::json j;
-   koinos::pack::to_json( j, val );
-   result = j.dump();
-}
-
-} // strpolate
 
 #pragma message( "Move this somewhere else, please!" )
 namespace koinos { namespace protocol {
