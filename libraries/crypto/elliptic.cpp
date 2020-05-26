@@ -162,9 +162,6 @@ public_key public_key::recover( const recoverable_signature& sig, const multihas
          (unsigned char*) digest.digest.data.data() ),
       key_recovery_error, "Unknown error recovering public key from signature", () );
 
-   std::cout << "Attempting recovery from signature " << hex_string( sig ) << " of digest " << hex_string( digest.digest ) << std::endl;
-   std::cout << "Recovered key " << pk.to_base58() << std::endl;
-
    return pk;
 }
 
@@ -340,9 +337,6 @@ recoverable_signature private_key::sign_compact( const multihash_type& digest )c
          signing_error, "Unknown error when serialzing recoverable signature", () );
       sig.data[0] = (char)rec_id + 31;
    } while( !public_key::is_canonical( sig ) );
-
-   std::cout << "Signing " << hex_string( digest.digest ) << " with key " << get_public_key().to_base58() << std::endl;
-   std::cout << "Signature: " << hex_string( sig ) << std::endl;
 
    return sig;
 }

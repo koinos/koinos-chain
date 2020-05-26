@@ -6,6 +6,7 @@
 #include <boost/throw_exception.hpp>
 
 #include <iostream>
+#include <functional>
 
 #define APPBASE_VERSION_STRING ("appbase 1.0")
 
@@ -94,6 +95,8 @@ namespace appbase {
 
          void for_each_plugin( std::function< void(const abstract_plugin&) > cb ) const;
 
+         void set_writer( std::function< void( const std::string& ) > f ) { writer = f; }
+
       protected:
          template< typename Impl >
          friend class plugin;
@@ -120,6 +123,7 @@ namespace appbase {
          std::string                                        version_info;
          std::string                                        app_name = "appbase";
          std::vector< std::string >                         default_plugins;
+         std::function< void( const std::string& )>         writer = []( const std::string& s ){ std::cout << s << std::endl; };
 
          void set_program_options();
          void write_default_config( const bfs::path& cfg_file );

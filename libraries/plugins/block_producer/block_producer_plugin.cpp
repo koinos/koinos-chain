@@ -7,6 +7,7 @@
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/log/log.hpp>
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
@@ -70,7 +71,7 @@ namespace koinos::plugins::block_producer {
        }
        catch (const std::exception &e)
        {
-           std::cout << e.what();
+           LOG(error) << e.what();
        }
 
        // Serialize active data, store it in block header
@@ -119,11 +120,11 @@ namespace koinos::plugins::block_producer {
        }
        catch (const std::exception &e)
        {
-           std::cout << e.what();
+           LOG(error) << e.what();
        }
 
        // Yay
-       std::cout << "Block " << active_data.height.height << " with ID " << hex_string(topology.id.digest) << " produced in block_producer_plugin." << std::endl << std::endl;
+       LOG(info) << "produced block [height: " << active_data.height.height << ", id: " << hex_string(topology.id.digest) << "]";
 
        return block;
    }

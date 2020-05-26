@@ -1,5 +1,7 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
+#include <koinos/log/log.hpp>
+
 #include <mira/database_configuration.hpp>
 
 #include <fc/io/json.hpp>
@@ -28,7 +30,7 @@ class chain_plugin_impl
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
 {
-   ilog( "writing database configuration: ${p}", ("p", p.string()) );
+   LOG(info) << "writing database configuration: " << p.string();
    fc::json::save_to_file( mira::utilities::default_database_configuration(), p );
 }
 
@@ -94,12 +96,12 @@ void chain_plugin::plugin_startup()
    }
    catch ( const std::exception& e )
    {
-      elog( "Error while parsing database configuration: ${e}", ("e", e.what()) );
+      LOG(error) << "error while parsing database configuration: " << e.what();
       exit( EXIT_FAILURE );
    }
    catch ( const fc::exception& e )
    {
-      elog( "Error while parsing database configuration: ${e}", ("e", e.what()) );
+      LOG(error) << "error while parsing database configuration: " << e.what();
       exit( EXIT_FAILURE );
    }
 
@@ -110,8 +112,8 @@ void chain_plugin::plugin_startup()
    }
    catch( fc::exception& e )
    {
-      wlog( "Error opening database.");
-      wlog( " Error: ${e}", ("e", e) );
+      LOG(error) << "error opening database";
+      LOG(error) << "error: " << e.to_string();
       exit( EXIT_FAILURE );
    }
 
@@ -120,11 +122,11 @@ void chain_plugin::plugin_startup()
 
 void chain_plugin::plugin_shutdown()
 {
-   ilog("closing chain database");
+   LOG(info) << "closing chain database";
 #pragma message( "TODO We eventually need to call close() from somewhere" )
    //my->db.close();
    my->controller.stop_threads();
-   ilog("database closed successfully");
+   LOG(info) << "database closed successfully";
 }
 
 } // namespace koinos::plugis::chain
