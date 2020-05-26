@@ -1,4 +1,4 @@
 #!/bin/bash
 
-cd build/tests
-ctest -j8 --output-on-failure
+cd $(dirname "$0")/../build/tests
+exec ctest -j8 --output-on-failure
