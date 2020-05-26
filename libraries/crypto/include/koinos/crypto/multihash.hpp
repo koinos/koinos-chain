@@ -133,6 +133,25 @@ bool add_hash( multihash_vector& mhv, T& t )
 
    mhv.digests.pop_back();
    return false;
-};
+}
+
+void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
+
+inline constexpr uint64_t get_standard_size( uint64_t code )
+{
+   switch( code )
+   {
+      case CRYPTO_SHA1_ID:
+         return 20;
+      case CRYPTO_SHA2_256_ID:
+         return 32;
+      case CRYPTO_SHA2_512_ID:
+         return 64;
+      case CRYPTO_RIPEMD160_ID:
+         return 20;
+      default:
+         KOINOS_ASSERT( false, unknown_hash_algorithm, "Unknown hash id ${i}", ("i", code) );
+   }
+}
 
 } } // koinos::crypto

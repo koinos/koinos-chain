@@ -199,4 +199,14 @@ multihash_type hash( uint64_t code, const char* data, size_t len, size_t size )
    return mh;
 }
 
+void zero_hash( multihash_type& mh, uint64_t code, uint64_t size )
+{
+   multihash::set_id( mh, code );
+   if( size == 0 )
+      size = get_standard_size( code );
+   multihash::set_size( mh, size );
+   mh.digest.data.resize( size );
+   std::memset( mh.digest.data.data(), 0, size );
+}
+
 } } // koinos::crypto
