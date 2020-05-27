@@ -34,6 +34,7 @@ using koinos::protocol::vl_blob;
 DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
 DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
 DECLARE_KOINOS_EXCEPTION( multihash_size_limit_exceeded );
+DECLARE_KOINOS_EXCEPTION( multihash_vector_mismatch );
 
 namespace multihash
 {
@@ -94,6 +95,9 @@ multihash_type hash( uint64_t code, T& t, size_t size = 0 )
 multihash_type hash( uint64_t code, const char* data, size_t len, size_t size = 0 );
 
 void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
+
+void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in );
+void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in );
 
 inline constexpr uint64_t get_standard_size( uint64_t code )
 {

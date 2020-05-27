@@ -217,4 +217,33 @@ void zero_hash( multihash_type& mh, uint64_t code, uint64_t size )
    std::memset( mh.digest.data.data(), 0, size );
 }
 
+void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in )
+{
+   const size_t n = mh_in.size();
+   KOINOS_ASSERT( n > 0, multihash_size_mismatch, "Input vector cannot be empty" );
+
+   mhv_out.digests.resize( n );
+   mhv_out.hash_id = mh_in[0].hash_id;
+
+   for( size_t i=0; i<n; i++ )
+   {
+      mhv_out.digests[i] = mh_in[i].digest;
+      KOINOS_ASSERT( mh_in[i].hash_id == mhv_out.hash_id,
+         multihash_vector_mismatch,
+         "Heterogenous multihash_vector, expected hash_id == ${h_out}, got hash_id == ${h_in}",
+         ("h_out", mhv_out.hash_id)("h_in", mh_in[i].hash_id) );
+   }
+}
+
+void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in )
+{
+   const size_t n = mhv_in.digests.size();
+   mh_out.resize( n );
+   for( size_t i=0; i<n; i++ )
+   {
+      mh_out[i].hash_id = mhv_in.hash_id;
+      mh_out[i].digest = mhv_in.digests[i];
+   }
+}
+
 } } // koinos::crypto
