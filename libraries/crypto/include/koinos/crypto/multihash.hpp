@@ -93,50 +93,6 @@ multihash_type hash( uint64_t code, T& t, size_t size = 0 )
 
 multihash_type hash( uint64_t code, const char* data, size_t len, size_t size = 0 );
 
-template< typename Iter >
-multihash_vector hash( uint64_t code, Iter first, Iter last, size_t size = 0 )
-{
-   encoder e( code );
-   multihash_vector mhv;
-   multihash::set_id( mhv, code );
-
-   for(; first != last; ++first )
-   {
-      koinos::pack::to_binary( e, *first );
-      mhv.digests.emplace_back();
-      size_t result_size = e.get_result( mhv.digests.back(), size );
-
-      if( multihash::get_size( mhv ) == 0 )
-      {
-         if( size )
-            KOINOS_ASSERT( size == result_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-         KOINOS_ASSERT( result_size <= std::numeric_limits< uint16_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
-
-         multihash::set_size( mhv, result_size );
-      }
-      else
-      {
-         KOINOS_ASSERT( result_size == multihash::get_size( mhv ), multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-      }
-   }
-
-   return mhv;
-};
-
-template< typename T >
-bool add_hash( multihash_vector& mhv, T& t )
-{
-   encoder e( multihash::get_id( mhv ) );
-   koinos::pack::to_binary( e, t );
-   mhv.digests.emplace_back();
-   size_t hash_size = e.get_result( mhv.digests.back() );
-   if( hash_size == multihash::get_size( mhv ) )
-      return true;
-
-   mhv.digests.pop_back();
-   return false;
-}
-
 void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
 
 inline constexpr uint64_t get_standard_size( uint64_t code )
