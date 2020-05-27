@@ -73,5 +73,23 @@ inline void from_json( json& s, T& v, uint32_t depth = 0 );
 
 } // koinos::pack
 
+namespace koinos::protocol {
+
+template< typename = void, typename T = void > struct jsonifiable : std::false_type {};
+
+template< typename T > struct jsonifiable< T, std::void_t< decltype( koinos::pack::to_json( std::declval< koinos::pack::json& >(), std::declval<T>() ) ) > > : std::true_type {};
+
+template < typename T >
+typename std::enable_if_t< jsonifiable< T >::value, std::ostream >&
+operator<<( std::ostream& o, T& t )
+{
+   koinos::pack::json j;
+   koinos::pack::to_json( j, t );
+   o << j.dump();
+   return o;
+}
+
+}
+
 #undef KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER
 #undef KOINOS_DECLARE_BASE_JSON_SERIALIZER
