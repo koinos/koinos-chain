@@ -10,32 +10,32 @@
 #include <memory>
 #include <vector>
 
-#define STATEDB_MAX_OBJECT_SIZE 208896
+#define STATE_DB_MAX_OBJECT_SIZE 208896
 
 namespace koinos { namespace statedb {
 
-DECLARE_KOINOS_EXCEPTION( DatabaseNotOpen );
+DECLARE_KOINOS_EXCEPTION( database_not_open );
 /**
  * The caller attempts to maintain live references to multiple nodes.
  *
  * Due to limitations of chainbase backing, the current implementation
- * only allows one StateNode to exist at a time.  The caller must discard
- * its current StateNode before calling a method that could create a new
- * StateNode.
+ * only allows one state_node to exist at a time.  The caller must discard
+ * its current state_node before calling a method that could create a new
+ * state_node.
  */
-DECLARE_KOINOS_EXCEPTION( NodeNotExpired );
+DECLARE_KOINOS_EXCEPTION( node_not_expired );
 /**
  * An argument is out of range or otherwise invalid.
  *
  * If IllegalArgument is thrown, it likely indicates a programming error
  * in the caller.
  */
-DECLARE_KOINOS_EXCEPTION( IllegalArgument );
+DECLARE_KOINOS_EXCEPTION( illegal_argument );
 
 /**
  * No node with the given NodeId exists.
  */
-DECLARE_KOINOS_EXCEPTION( UnknownNode );
+DECLARE_KOINOS_EXCEPTION( unknown_node );
 
 /**
  * The given NodeId cannot be discarded.
@@ -46,7 +46,7 @@ DECLARE_KOINOS_EXCEPTION( UnknownNode );
  *
  * Furthermore the last node cannot be discarded.
  */
-DECLARE_KOINOS_EXCEPTION( CannotDiscard );
+DECLARE_KOINOS_EXCEPTION( cannot_discard );
 
 /**
  * The given tree manipulation cannot be performed due to node position.
@@ -54,53 +54,53 @@ DECLARE_KOINOS_EXCEPTION( CannotDiscard );
  * Due to the limitations of chainbase, only certain nodes may be discarded,
  * read, or written.
  */
-DECLARE_KOINOS_EXCEPTION( BadNodePosition );
+DECLARE_KOINOS_EXCEPTION( bad_node_position );
 
 /**
  * An internal invariant has been violated.
  *
- * This is most likely caused by a programming error in StateDB.
+ * This is most likely caused by a programming error in state_db.
  */
-DECLARE_KOINOS_EXCEPTION( InternalError );
+DECLARE_KOINOS_EXCEPTION( internal_error );
 
 namespace detail {
-class StateDB_Impl;
-class StateNode_Impl;
+class state_db_impl;
+class state_node_impl;
 }
 
-// ObjectSpace / ObjectKey don't actually use any of the cryptography features of fc::sha256
+// object_space / object_key don't actually use any of the cryptography features of fc::sha256
 // They just use sha256 as an FC serializable 256-bit integer type
 
 using boost::multiprecision::uint256_t;
 
-typedef int64_t                    StateNodeId;
-typedef uint256_t                  ObjectSpace;
-typedef uint256_t                  ObjectKey;
-typedef std::string                ObjectValue;
+typedef int64_t                    state_node_id;
+typedef uint256_t                  object_space;
+typedef uint256_t                  object_key;
+typedef std::string                object_value;
 
-struct GetObjectArgs
+struct get_object_args
 {
-   ObjectSpace     space;
-   ObjectKey       key;
+   object_space    space;
+   object_key      key;
    char*           buf = nullptr;
    uint64_t        buf_size = 0;
 };
 
-struct GetObjectResult
+struct get_object_result
 {
-   ObjectKey       key;
+   object_key      key;
    int64_t         size = 0;
 };
 
-struct PutObjectArgs
+struct put_object_args
 {
-   ObjectSpace     space;
-   ObjectKey       key;
+   object_space    space;
+   object_key      key;
    char*           buf = nullptr;    // null -> delete object
    uint64_t        object_size = 0;
 };
 
-struct PutObjectResult
+struct put_object_result
 {
    bool            object_existed = false;
 };
@@ -108,11 +108,11 @@ struct PutObjectResult
 /**
  * Allows querying the database at a particular checkpoint.
  */
-class StateNode final
+class state_node final
 {
    public:
-      StateNode();
-      ~StateNode();
+      state_node();
+      ~state_node();
 
       /**
        * Fetch an object if one exists.
@@ -122,7 +122,7 @@ class StateNode final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      void get_object( GetObjectResult& result, const GetObjectArgs& args );
+      void get_object( get_object_result& result, const get_object_args& args );
 
       /**
        * Get the next object.
@@ -132,7 +132,7 @@ class StateNode final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_next_object( GetObjectResult& result, const GetObjectArgs& args );
+      void get_next_object( get_object_result& result, const get_object_args& args );
 
       /**
        * Get the previous object.
@@ -142,28 +142,28 @@ class StateNode final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_prev_object( GetObjectResult& result, const GetObjectArgs& args );
+      void get_prev_object( get_object_result& result, const get_object_args& args );
 
       /**
-       * Write an object into the StateNode.
+       * Write an object into the state_node.
        *
        * - Fail if node is not writable.
        * - If object exists, object is overwritten.
        * - If buf == nullptr, object is deleted.
        */
-      void put_object( PutObjectResult& result, const PutObjectArgs& args );
+      void put_object( put_object_result& result, const put_object_args& args );
 
       /**
        * Return true if the node is writable.
        */
       bool is_writable();
 
-      StateNodeId node_id();
+      state_node_id node_id();
 
-      friend class detail::StateDB_Impl;
+      friend class detail::state_db_impl;
 
    private:
-      std::unique_ptr< detail::StateNode_Impl > impl;
+      std::unique_ptr< detail::state_node_impl > impl;
 };
 
 /**
@@ -179,11 +179,11 @@ class StateNode final
  * The caller (bcfork) should be written to obey these restrictions.
  * Replacing chainbase with a less restrictive backing store will allow many caller optimizations.
  */
-class StateDB final
+class state_db final
 {
    public:
-      StateDB();
-      ~StateDB();
+      state_db();
+      ~state_db();
 
       /**
        * Open the database.
@@ -200,28 +200,28 @@ class StateDB final
        *
        * WARNING:  The chainbase implementation of this method will wipe() the database!
        */
-      std::shared_ptr< StateNode > get_empty_node();
+      std::shared_ptr< state_node > get_empty_node();
 
       /**
        * Get the state node ID of some recent state nodes.
        *
        * This method is useful for finding state in an existing database.
        */
-      void get_recent_states(std::vector<StateNodeId>& node_id_list, int limit);
+      void get_recent_states(std::vector<state_node_id>& node_id_list, int limit);
 
       /**
-       * Get the StateNode for the given StateNodeId.
+       * Get the state_node for the given state_node_id.
        */
-      std::shared_ptr< StateNode > get_node( StateNodeId node_id );
+      std::shared_ptr< state_node > get_node( state_node_id node_id );
 
       /**
-       * Create a writable StateNode.
+       * Create a writable state_node.
        *
        * - If parent_id refers to a writable node, fail.
        * - Otherwise, return a new writable node.
        * - Writing to the returned node will not modify the parent node.
        *
-       * If the parent is subsequently discarded, StateDB preserves
+       * If the parent is subsequently discarded, state_db preserves
        * as much of the parent's state storage as necessary to continue
        * to serve queries on any (non-discarded) children.  A discarded
        * parent node's state may internally be merged into a child's
@@ -229,20 +229,20 @@ class StateDB final
        * to be freed.  This merge may occur immediately, or it may be
        * deferred or parallelized.
        */
-      std::shared_ptr< StateNode > create_writable_node( StateNodeId parent_id );
+      std::shared_ptr< state_node > create_writable_node( state_node_id parent_id );
 
       /**
        * Finalize a node.  The node will no longer be writable.
        */
-      void finalize_node( StateNodeId node_id );
+      void finalize_node( state_node_id node_id );
 
       /**
        * Discard the node, it can no longer be used.
        */
-      void discard_node( StateNodeId node_id );
+      void discard_node( state_node_id node_id );
 
    private:
-      std::unique_ptr< detail::StateDB_Impl > impl;
+      std::unique_ptr< detail::state_db_impl > impl;
 };
 
 
