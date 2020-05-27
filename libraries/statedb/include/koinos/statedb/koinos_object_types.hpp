@@ -17,9 +17,9 @@
 
 namespace koinos { namespace statedb {
 
-enum ObjectType
+enum object_type
 {
-   StateObjectType
+   state_object_type
 };
 
 } } // koinos::statedb

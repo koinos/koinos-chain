@@ -5,13 +5,13 @@
 
 namespace koinos { namespace statedb {
 
-class StateObject : public chainbase::object< StateObjectType, StateObject >
+class state_object : public chainbase::object< state_object_type, state_object >
 {
-   KOINOS_STD_ALLOCATOR_CONSTRUCTOR( StateObject )
+   KOINOS_STD_ALLOCATOR_CONSTRUCTOR( state_object )
 
    public:
       template< typename Constructor, typename Allocator >
-      StateObject( Constructor&& c, Allocator&& a )
+      state_object( Constructor&& c, Allocator&& a )
          : value( a )
       {
          c( *this );
@@ -19,32 +19,32 @@ class StateObject : public chainbase::object< StateObjectType, StateObject >
 
       id_type           id;
 
-      ObjectSpace       space;
-      ObjectKey         key;
-      ObjectValue       value;
+      object_space      space;
+      object_key        key;
+      object_value      value;
 };
 
 struct ById;
 struct ByKey;
 
 typedef multi_index_container<
-   StateObject,
+   state_object,
    indexed_by<
-      ordered_unique< tag< ById >, member< StateObject, StateObject::id_type, &StateObject::id > >,
+      ordered_unique< tag< ById >, member< state_object, state_object::id_type, &state_object::id > >,
       ordered_unique< tag< ByKey >,
-         composite_key< StateObject,
-            member< StateObject, ObjectSpace, &StateObject::space >,
-            member< StateObject, ObjectKey, &StateObject::key >
+         composite_key< state_object,
+            member< state_object, object_space, &state_object::space >,
+            member< state_object, object_key, &state_object::key >
          >
       >
    >
-> StateObjectIndex;
+> state_object_index;
 
 } }
 
-FC_REFLECT_ENUM( koinos::statedb::ObjectType,
-   (StateObjectType)
+FC_REFLECT_ENUM( koinos::statedb::object_type,
+   (state_object_type)
    )
-FC_REFLECT( koinos::statedb::StateObject,
+FC_REFLECT( koinos::statedb::state_object,
              (id)(space)(key)(value) )
-CHAINBASE_SET_INDEX_TYPE( koinos::statedb::StateObject, koinos::statedb::StateObjectIndex )
+CHAINBASE_SET_INDEX_TYPE( koinos::statedb::state_object, koinos::statedb::state_object_index )

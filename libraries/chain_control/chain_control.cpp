@@ -69,7 +69,7 @@ using koinos::protocol::block_topology;
 using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
 using fork_database_type = koinos::fork::fork_database< block_topology >;
-using koinos::statedb::StateDB;
+using koinos::statedb::state_db;
 using namespace std::string_literals;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
@@ -172,7 +172,7 @@ class chain_controller_impl
       {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
 
       fork_database_type                                                       _fork_db;
-      StateDB                                                                  _state_db;
+      state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
       chain::system_call_table                                                 _syscall_table;
       std::unique_ptr< chain::system_api >                                     _sys_api;
