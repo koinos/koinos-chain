@@ -80,15 +80,18 @@ struct encoder
 };
 
 template< typename T >
-multihash_type hash( uint64_t code, T& t, size_t size = 0 )
+inline void hash( multihash_type& result, uint64_t code, const T& t, size_t size = 0 )
 {
-   encoder e( code, size );
+   encoder e(code, size);
    koinos::pack::to_binary( e, t );
-   multihash_type mh;
-   multihash::set_id( mh, code );
-   e.get_result( mh.digest );
+   e.get_result( result );
+}
 
-   multihash::set_size( mh, result_size );
+template< typename T >
+inline multihash_type hash( uint64_t code, const T& t, size_t size = 0 )
+{
+   multihash_type mh;
+   hash( mh, code, t, size );
    return mh;
 };
 
