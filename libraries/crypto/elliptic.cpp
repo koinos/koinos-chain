@@ -16,6 +16,19 @@ namespace koinos::crypto {
 using koinos::exception::koinos_exception;
 using namespace boost::multiprecision::literals;
 
+template< typename Blob >
+std::string hex_string( const Blob& b )
+{
+   static const char hex[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+
+   std::stringstream ss;
+
+   for( auto c : b.data )
+      ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
+
+   return ss.str();
+}
+
 // TODO: Move this to a more general purpose header
 template< size_t N >
 bool operator ==( const fl_blob< N >& a, const fl_blob< N >& b )
@@ -148,6 +161,7 @@ public_key public_key::recover( const recoverable_signature& sig, const multihas
          (const secp256k1_ecdsa_recoverable_signature*) internal_sig.data.data(),
          (unsigned char*) digest.digest.data.data() ),
       key_recovery_error, "Unknown error recovering public key from signature", () );
+
    return pk;
 }
 
@@ -323,6 +337,7 @@ recoverable_signature private_key::sign_compact( const multihash_type& digest )c
          signing_error, "Unknown error when serialzing recoverable signature", () );
       sig.data[0] = (char)rec_id + 31;
    } while( !public_key::is_canonical( sig ) );
+
    return sig;
 }
 

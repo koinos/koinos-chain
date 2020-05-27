@@ -13,7 +13,7 @@ void koinos_exception::to_string( std::string& result )const
 {
    std::string rhs;
    _strpol.to_string(rhs);
-   result = strpolate::strpol("${exc_name} at ${file}:${line}:  ", _strpol._items).to_string() + rhs;
+   result = strpolate::strpol("${exc} at ${file}:${line}:  ", _strpol._items).to_string() + rhs;
    return;
 }
 

@@ -1,11 +1,13 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
-#include <koinos/chain/debug_state.hpp>
+#include <koinos/log/log.hpp>
 
 #include <mira/database_configuration.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/exception/exception.hpp>
+
+#include <chainbase/chainbase.hpp>
 
 namespace koinos::plugins::chain {
 
@@ -23,12 +25,12 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-      chainbase::database  db;
+      chain_control::chain_controller controller;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
 {
-   ilog( "writing database configuration: ${p}", ("p", p.string()) );
+   LOG(info) << "writing database configuration: " << p.string();
    fc::json::save_to_file( mira::utilities::default_database_configuration(), p );
 }
 
@@ -38,8 +40,8 @@ void chain_plugin_impl::write_default_database_config( bfs::path &p )
 chain_plugin::chain_plugin() : my( new detail::chain_plugin_impl() ) {}
 chain_plugin::~chain_plugin(){}
 
-chainbase::database& chain_plugin::db() { return my->db; }
-const chainbase::database& chain_plugin::db() const { return my->db; }
+chain_control::chain_controller& chain_plugin::controller() { return my->controller; }
+const chain_control::chain_controller& chain_plugin::controller() const { return my->controller; }
 
 bfs::path chain_plugin::state_dir() const
 {
@@ -73,7 +75,7 @@ void chain_plugin::plugin_initialize(const variables_map& options)
 
    my->chainbase_flags |= options.at( "force-open" ).as< bool >() ? chainbase::skip_env_check : chainbase::skip_nothing;
 
-   my->database_cfg = options.at( "database-cfg" ).as< bfs::path >();
+   my->database_cfg = options.at( "database-config" ).as< bfs::path >();
 
    if( my->database_cfg.is_relative() )
       my->database_cfg = app().data_dir() / my->database_cfg;
@@ -94,33 +96,37 @@ void chain_plugin::plugin_startup()
    }
    catch ( const std::exception& e )
    {
-      elog( "Error while parsing database configuration: ${e}", ("e", e.what()) );
+      LOG(error) << "error while parsing database configuration: " << e.what();
       exit( EXIT_FAILURE );
    }
    catch ( const fc::exception& e )
    {
-      elog( "Error while parsing database configuration: ${e}", ("e", e.what()) );
+      LOG(error) << "error while parsing database configuration: " << e.what();
       exit( EXIT_FAILURE );
    }
 
    try
    {
-      my->db.open( my->state_dir, my->chainbase_flags, database_config );
-      my->db.add_index< koinos::chain::debug_state_index >();
+      // Don't open the db, we are using state db. Dummy
+      //my->db.open( my->state_dir, my->chainbase_flags, database_config );
    }
    catch( fc::exception& e )
    {
-      wlog( "Error opening database.");
-      wlog( " Error: ${e}", ("e", e) );
+      LOG(error) << "error opening database";
+      LOG(error) << "error: " << e.to_string();
       exit( EXIT_FAILURE );
    }
+
+   my->controller.start_threads();
 }
 
 void chain_plugin::plugin_shutdown()
 {
-   ilog("closing chain database");
-   my->db.close();
-   ilog("database closed successfully");
+   LOG(info) << "closing chain database";
+#pragma message( "TODO We eventually need to call close() from somewhere" )
+   //my->db.close();
+   my->controller.stop_threads();
+   LOG(info) << "database closed successfully";
 }
 
 } // namespace koinos::plugis::chain

@@ -40,7 +40,11 @@ class fork_database final
       const block_state_ptr& head() const;
       const block_state_ptr& root() const;
 
+      size_t                 size() const;
+
    private:
+      block_state_ptr        _fetch_block( const block_id_type& id ) const;
+
       struct by_block_id;
       struct by_block_num;
       struct by_previous;
@@ -48,9 +52,9 @@ class fork_database final
       using fork_multi_index_type = boost::multi_index_container<
          block_state_ptr,
          boost::multi_index::indexed_by<
-            boost::multi_index::hashed_unique<
+            boost::multi_index::ordered_unique<
                boost::multi_index::tag< by_block_id >,
-                  boost::multi_index::const_mem_fun< block_state_type, block_id_type, &block_state_type::id >, std::hash< block_id_type >
+                  boost::multi_index::const_mem_fun< block_state_type, block_id_type, &block_state_type::id >
             >,
             boost::multi_index::ordered_non_unique<
                boost::multi_index::tag< by_previous >,
@@ -96,12 +100,11 @@ void fork_database< BlockType >::add( const block_state_ptr& b, bool ignore_dupl
 
    block_state_ptr prev_block;
 
-   if ( b->previous_id() == _root->id() )
-      prev_block = _root;
-   else
-      prev_block = fetch_block( b->previous_id() );
+   prev_block = fetch_block( b->previous_id() );
 
    KOINOS_ASSERT( prev_block, unlinkable_block_exception, "block id: ${id}", ("id", b->id()) );
+   KOINOS_ASSERT( prev_block->block_num() < b->block_num(), unlinkable_block_exception,
+      "block height is not greater than previous block height" );
 
    auto inserted = _index.insert( b );
    if ( !inserted.second )
@@ -120,6 +123,15 @@ void fork_database< BlockType >::add( const block_state_ptr& b, bool ignore_dupl
 template< typename BlockType >
 typename fork_database< BlockType >::block_state_ptr fork_database< BlockType >::fetch_block( const block_id_type& id ) const
 {
+   if( id == _root->id() )
+      return _root;
+
+   return _fetch_block( id );
+}
+
+template< typename BlockType >
+typename fork_database< BlockType >::block_state_ptr fork_database< BlockType >::_fetch_block( const block_id_type& id ) const
+{
    auto& index = _index.template get< by_block_id >();
    auto itr = index.find( id );
    if ( itr != index.end() )
@@ -132,6 +144,13 @@ template< typename BlockType >
 typename fork_database< BlockType >::block_list_type fork_database< BlockType >::fetch_block_by_number( block_num_type num ) const
 {
    block_list_type result;
+
+   if ( _root->block_num() == num )
+   {
+      result.push_back( _root );
+      return result;
+   }
+
    auto const& block_num_idx = _index.template get< by_block_num >();
    auto itr = block_num_idx.lower_bound( num );
 
@@ -151,8 +170,8 @@ template< typename BlockType >
 typename fork_database< BlockType >::branch_pair_type fork_database< BlockType >::fetch_branch_from( const block_id_type& first, const block_id_type& second ) const
 {
    branch_pair_type result;
-   auto first_branch = ( first == _root->id() ) ? _root : fetch_block( first );
-   auto second_branch = ( second == _root->id() ) ? _root : fetch_block( second );
+   auto first_branch = fetch_block( first );
+   auto second_branch = fetch_block( second );
 
    KOINOS_ASSERT( first_branch, block_not_found_exception, "block ${id} does not exist", ("id", first) );
    KOINOS_ASSERT( second_branch, block_not_found_exception, "block ${id} does not exist", ("id", second) );
@@ -161,7 +180,7 @@ typename fork_database< BlockType >::branch_pair_type fork_database< BlockType >
    {
       result.first.push_back( first_branch );
       const auto& prev = first_branch->previous_id();
-      first_branch = ( prev == _root->id() ) ? _root : fetch_block( prev );
+      first_branch = fetch_block( prev );
       KOINOS_ASSERT( first_branch, block_not_found_exception, "block ${id} does not exist", ("id", prev) );
    }
 
@@ -169,7 +188,7 @@ typename fork_database< BlockType >::branch_pair_type fork_database< BlockType >
    {
       result.second.push_back( second_branch );
       const auto& prev = second_branch->previous_id();
-      second_branch = ( prev == _root->id() ) ? _root : fetch_block( prev );
+      second_branch = fetch_block( prev );
       KOINOS_ASSERT( second_branch, block_not_found_exception, "block ${id} does not exist", ("id", prev) );
    }
 
@@ -240,14 +259,14 @@ void fork_database< BlockType >::advance_root( const block_id_type& id )
 {
    KOINOS_ASSERT( _root, invalid_state_exception, "root not yet set" );
 
-   auto new_root = fetch_block( id );
+   auto new_root = _fetch_block( id );
    KOINOS_ASSERT( new_root, invalid_state_exception, "cannot advance root to a block that does not exist in the fork database" );
 
    std::vector< block_id_type > block_removal_queue;
    for ( auto b = new_root; b; )
    {
       block_removal_queue.push_back( b->previous_id() );
-      b = fetch_block( block_removal_queue.back() );
+      b = _fetch_block( block_removal_queue.back() );
       KOINOS_ASSERT( b || block_removal_queue.back() == _root->id(), invalid_state_exception, "orphaned branch was present in forked database" );
    }
 
@@ -260,6 +279,12 @@ void fork_database< BlockType >::advance_root( const block_id_type& id )
       remove( block_id );
 
    _root = new_root;
+}
+
+template< typename BlockType >
+size_t fork_database< BlockType >::size() const
+{
+   return _index.size();
 }
 
 } // koinos::fork

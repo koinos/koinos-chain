@@ -1,4 +1,5 @@
 #pragma once
+#include <koinos/pack/rt/json_fwd.hpp>
 
 #include <koinos/pack/rt/exceptions.hpp>
 #include <koinos/pack/rt/reflect.hpp>
@@ -9,8 +10,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/mpl/size.hpp>
 
-#include <nlohmann/json.hpp>
-
 #define JSON_MAX_SAFE_INTEGER ((1ll<<53)-1)  // 2^53-1
 #define JSON_MIN_SAFE_INTEGER (-((1ll<<53)-1)) // -(2^53-1)
 
@@ -19,10 +18,10 @@ inline void to_json( json& j, int_type v )                                      
 {                                                                                         \
    j = int64_t( v );                                                                      \
 }                                                                                         \
-inline void from_json( json& j, int_type& v, uint32_t depth = 0 )                         \
+inline void from_json( json& j, int_type& v, uint32_t depth )                             \
 {                                                                                         \
    int64_t tmp = j.template get< int64_t >();                                             \
-   KOINOS_ASSERT( tmp <= static_cast< int64_t >( std::numeric_limits< int_type >::max() )   \
+   KOINOS_ASSERT( tmp <= static_cast< int64_t >( std::numeric_limits< int_type >::max() ) \
       && tmp >= static_cast< int64_t >( std::numeric_limits< int_type >::min() ),         \
       json_int_out_of_bounds, "Over/underflow when parsing " #int_type " from JSON",      \
       () );                                                                               \
@@ -34,7 +33,7 @@ inline void to_json( json& j, int_type v )                                      
 {                                                                                         \
    j = uint64_t( v );                                                                     \
 }                                                                                         \
-inline void from_json( json& j, int_type& v, uint32_t depth = 0 )                         \
+inline void from_json( json& j, int_type& v, uint32_t depth )                             \
 {                                                                                         \
    uint64_t tmp = j.template get< uint64_t >();                                           \
    KOINOS_ASSERT( tmp <= static_cast< uint64_t >( std::numeric_limits< int_type >::max() ), \
@@ -55,7 +54,7 @@ inline void to_json( json& j, const int_type& v )                 \
       j = v.template convert_to< int64_t >();                     \
    }                                                              \
 }                                                                 \
-inline void from_json( json& j, int_type& v )                     \
+inline void from_json( json& j, int_type& v, uint32_t depth )     \
 {                                                                 \
    if( j.is_string() )                                            \
    {                                                              \
@@ -79,7 +78,7 @@ inline void to_json( json& j, const int_type& v )                 \
       j = v.template convert_to< uint64_t >();                    \
    }                                                              \
 }                                                                 \
-inline void from_json( json& j, int_type& v )                     \
+inline void from_json( json& j, int_type& v, uint32_t depth )     \
 {                                                                 \
    if( j.is_string() )                                            \
    {                                                              \
@@ -94,9 +93,6 @@ inline void from_json( json& j, int_type& v )                     \
 namespace koinos::pack
 {
 
-using namespace koinos::protocol;
-
-using json = nlohmann::json;
 using std::string;
 
 // int types
@@ -120,7 +116,7 @@ inline void to_json( json& j, int64_t v )
    }
 }
 
-inline void from_json( json& j, int64_t& v, uint32_t depth = 0 )
+inline void from_json( json& j, int64_t& v, uint32_t depth )
 {
    if( j.is_string() )
    {
@@ -144,7 +140,7 @@ inline void to_json( json& j, uint64_t v )
    }
 }
 
-inline void from_json( json& j, uint64_t& v, uint32_t depth = 0 )
+inline void from_json( json& j, uint64_t& v, uint32_t depth )
 {
    if( j.is_string() )
    {
@@ -166,7 +162,7 @@ JSON_UNSIGNED_BOOST_INT_SERIALIZER( uint256_t )
 // bool
 
 inline void to_json( json& j, bool v ) { j = v; }
-inline void from_json( json& j, bool& v, uint32_t depth = 0 ) { v = j.template get< bool >(); }
+inline void from_json( json& j, bool& v, uint32_t depth ) { v = j.template get< bool >(); }
 
 // vector< T >
 template< typename T >
@@ -181,7 +177,7 @@ inline void to_json( json& j, const vector< T >& v )
 }
 
 template< typename T >
-inline void from_json( json& j, vector< T >& v, uint32_t depth = 0 )
+inline void from_json( json& j, vector< T >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -203,7 +199,7 @@ inline void to_json( json& j, const vl_blob& v )
    j = std::move( 'z' + base58 );
 }
 
-inline void from_json( json& j, vl_blob& v, uint32_t depth = 0 )
+inline void from_json( json& j, vl_blob& v, uint32_t depth )
 {
    KOINOS_ASSERT( j.is_string(), json_type_mismatch, "Unexpected JSON type: String Expected", () );
    v.data.clear();
@@ -235,7 +231,7 @@ inline void to_json( json& j, const set< T >& v )
 }
 
 template< typename T >
-inline void from_json( json& j, set< T >& v, uint32_t depth = 0 )
+inline void from_json( json& j, set< T >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -263,7 +259,7 @@ inline void to_json( json& j, const array< T, N >& v )
 }
 
 template< typename T, size_t N >
-inline void from_json( json& j, array< T, N >& v, uint32_t depth = 0 )
+inline void from_json( json& j, array< T, N >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -285,7 +281,7 @@ inline void to_json( json& j, const fl_blob< N >& v )
 }
 
 template< size_t N >
-inline void from_json( json& j, fl_blob< N >& v, uint32_t depth = 0 )
+inline void from_json( json& j, fl_blob< N >& v, uint32_t depth )
 {
    KOINOS_ASSERT( j.is_string(), json_type_mismatch, "Unexpected JSON type: String Expected", () );
 
@@ -316,7 +312,7 @@ inline void to_json( json& j, const variant< Ts... >& v )
 }
 
 template< typename... Ts >
-inline void from_json( json& j, variant< Ts... >& v, uint32_t depth = 0 )
+inline void from_json( json& j, variant< Ts... >& v, uint32_t depth )
 {
    static std::map< string, int64_t > to_tag = []()
    {
@@ -367,7 +363,7 @@ inline void to_json( json& j, const optional< T >& v )
 }
 
 template< typename T >
-inline void from_json( json& j, optional< T >& v, uint32_t depth = 0 )
+inline void from_json( json& j, optional< T >& v, uint32_t depth )
 {
    depth++;
    KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -392,7 +388,7 @@ inline void to_json( json& j, const multihash_type& v )
    j[ "digest" ] = std::move( tmp );
 }
 
-inline void from_json( json& j, multihash_type& v, uint32_t depth = 0 )
+inline void from_json( json& j, multihash_type& v, uint32_t depth )
 {
    KOINOS_ASSERT( j.is_object(), json_type_mismatch, "Unexpected JSON type: object exptected", () );
    KOINOS_ASSERT( j.size() == 2, json_type_mismatch, "Multihash JSON type must only contain two fields", () );
@@ -415,7 +411,7 @@ inline void to_json( json& j, const multihash_vector& v )
    }
 }
 
-inline void from_json( json& j, multihash_vector& v, uint32_t depth = 0 )
+inline void from_json( json& j, multihash_vector& v, uint32_t depth )
 {
    KOINOS_ASSERT( j.is_object(), json_type_mismatch, "Unexpected JSON type: object exptected", () );
    KOINOS_ASSERT( j.size() == 2, json_type_mismatch, "MultihashVector JSON type must only contain two fields", () );
@@ -434,12 +430,6 @@ inline void from_json( json& j, multihash_vector& v, uint32_t depth = 0 )
 
    v.hash_id = j[ "hash" ].get< uint64_t >();
 }
-
-template< typename T >
-void to_json( json& j, const T& v );
-
-template< typename T >
-void from_json( json& j, T& v, uint32_t depth = 0 );
 
 namespace detail::json {
 
@@ -496,7 +486,7 @@ namespace detail::json {
       template< typename Json, typename T >
       static inline void to_json( Json& j, const T& v ) { j = v; }
       template< typename Json, typename T >
-      static inline void from_json( Json& j, T& v, uint32_t depth = 0 ) { v = j.template get< T >(); }
+      static inline void from_json( Json& j, T& v, uint32_t depth ) { v = j.template get< T >(); }
    };
 
    template<>
@@ -526,7 +516,7 @@ namespace detail::json {
       }
 
       template< typename Json, typename T >
-      static inline void from_json( Json& j, T& v, uint32_t depth = 0 )
+      static inline void from_json( Json& j, T& v, uint32_t depth )
       {
          reflector< T >::visit( from_json_object_visitor< Json, T >( v, j ) );
       }
@@ -542,7 +532,7 @@ namespace detail::json {
       }
 
       template< typename Json, typename T >
-      static inline void from_json( Json& j, T& v, uint32_t depth = 0 )
+      static inline void from_json( Json& j, T& v, uint32_t depth )
       {
          depth++;
          KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
@@ -563,7 +553,7 @@ void to_json( json& j, const T& v )
 template< typename T >
 void from_json( json& j, T& v, uint32_t depth )
 {
-   detail::json::if_enum< typename reflector< T >::is_enum >::from_json( j, v );
+   detail::json::if_enum< typename reflector< T >::is_enum >::from_json( j, v, depth );
 }
 
 } // koinos::json

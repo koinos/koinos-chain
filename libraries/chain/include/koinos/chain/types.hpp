@@ -61,7 +61,6 @@ namespace koinos { namespace chain {
       index256_object_type,
       index_double_object_type,
       index_long_double_object_type,
-      debug_state_object_type,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
@@ -228,6 +227,5 @@ FC_REFLECT_ENUM( koinos::chain::object_type,
                  (index256_object_type)
                  (index_double_object_type)
                  (index_long_double_object_type)
-                 (debug_state_object_type)
                  (OBJECT_TYPE_COUNT)
                )
