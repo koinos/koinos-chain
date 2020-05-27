@@ -63,13 +63,13 @@ BOOST_AUTO_TEST_CASE( ecc )
 
    for( uint32_t i = 0; i < 100; ++ i )
    {
-      multihash_type h = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      multihash_type h = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
       private_key priv = private_key::regenerate( h );
       BOOST_CHECK( nullkey != priv );
       public_key pub = priv.get_public_key();
 
       pass += "1";
-      multihash_type h2 = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      multihash_type h2 = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
       public_key  pub1  = pub.add( h2 );
       private_key priv1 = private_key::generate_from_seed(h, h2);
 
@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE( private_wif )
 {
    std::string secret = "foobar";
    std::string wif = "5KJTiKfLEzvFuowRMJqDZnSExxxwspVni1G4RcggoPtDqP5XgM1";
-   private_key key1 = private_key::regenerate( hash( CRYPTO_SHA2_256_ID, secret.c_str(), secret.size() ) );
+   private_key key1 = private_key::regenerate( hash_str( CRYPTO_SHA2_256_ID, secret.c_str(), secret.size() ) );
    BOOST_CHECK_EQUAL( key1.to_wif(), wif );
 
    private_key key2 = private_key::from_wif( wif );

@@ -95,7 +95,7 @@ inline multihash_type hash( uint64_t code, const T& t, size_t size = 0 )
    return mh;
 };
 
-multihash_type hash( uint64_t code, const char* data, size_t len, size_t size = 0 );
+multihash_type hash_str( uint64_t code, const char* data, size_t len, size_t size = 0 );
 
 void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
 

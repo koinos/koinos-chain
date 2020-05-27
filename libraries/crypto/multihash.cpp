@@ -198,7 +198,7 @@ void encoder::get_result( vl_blob& v )
       ("size", size)("_size", _size) );
 }
 
-multihash_type hash( uint64_t code, const char* data, size_t len, size_t size )
+multihash_type hash_str( uint64_t code, const char* data, size_t len, size_t size )
 {
    encoder e( code );
    e.write( data, len );
