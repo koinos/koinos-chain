@@ -58,32 +58,34 @@ namespace multihash
 
 struct encoder
 {
-   encoder( uint64_t code );
+   encoder( uint64_t code, uint64_t size = 0 );
    ~encoder();
 
    void write( const char* d, size_t len );
    void put( char c ) { write( &c, 1 ); }
    void reset();
-   size_t get_result( vl_blob& v, size_t size = 0 );
-   inline size_t get_result( multihash_type& mh ) { return get_result( mh.digest ); }
+   void get_result( vl_blob& v );
+   inline void get_result( multihash_type& mh )
+   {
+      get_result( mh.digest );
+      multihash::set_id( mh, _code );
+      multihash::set_size( mh, _size );
+   }
 
    private:
       const EVP_MD* md = nullptr;
       EVP_MD_CTX* mdctx = nullptr;
+      uint64_t _code, _size;
 };
 
 template< typename T >
 multihash_type hash( uint64_t code, T& t, size_t size = 0 )
 {
-   encoder e( code );
+   encoder e( code, size );
    koinos::pack::to_binary( e, t );
    multihash_type mh;
    multihash::set_id( mh, code );
-   size_t result_size = e.get_result( mh.digest, size );
-
-   if( size )
-      KOINOS_ASSERT( size == result_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-   KOINOS_ASSERT( result_size <= std::numeric_limits< uint8_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
+   e.get_result( mh.digest );
 
    multihash::set_size( mh, result_size );
    return mh;
