@@ -1,7 +1,6 @@
 
 #pragma once
-
-#include <koinos/exception.hpp>
+#include <koinos/statedb/statedb_types.hpp>
 
 #include <boost/any.hpp>
 #include <boost/filesystem.hpp>
@@ -14,69 +13,10 @@
 
 namespace koinos { namespace statedb {
 
-DECLARE_KOINOS_EXCEPTION( database_not_open );
-/**
- * The caller attempts to maintain live references to multiple nodes.
- *
- * Due to limitations of chainbase backing, the current implementation
- * only allows one state_node to exist at a time.  The caller must discard
- * its current state_node before calling a method that could create a new
- * state_node.
- */
-DECLARE_KOINOS_EXCEPTION( node_not_expired );
-/**
- * An argument is out of range or otherwise invalid.
- *
- * If IllegalArgument is thrown, it likely indicates a programming error
- * in the caller.
- */
-DECLARE_KOINOS_EXCEPTION( illegal_argument );
-
-/**
- * No node with the given NodeId exists.
- */
-DECLARE_KOINOS_EXCEPTION( unknown_node );
-
-/**
- * The given NodeId cannot be discarded.
- *
- * Due to limitations of chainbase, the only sessions that can be discarded are:
- * - The oldest session.
- * - The session before the newest session.
- *
- * Furthermore the last node cannot be discarded.
- */
-DECLARE_KOINOS_EXCEPTION( cannot_discard );
-
-/**
- * The given tree manipulation cannot be performed due to node position.
- *
- * Due to the limitations of chainbase, only certain nodes may be discarded,
- * read, or written.
- */
-DECLARE_KOINOS_EXCEPTION( bad_node_position );
-
-/**
- * An internal invariant has been violated.
- *
- * This is most likely caused by a programming error in state_db.
- */
-DECLARE_KOINOS_EXCEPTION( internal_error );
-
 namespace detail {
 class state_db_impl;
 class state_node_impl;
 }
-
-// object_space / object_key don't actually use any of the cryptography features of fc::sha256
-// They just use sha256 as an FC serializable 256-bit integer type
-
-using boost::multiprecision::uint256_t;
-
-typedef int64_t                    state_node_id;
-typedef uint256_t                  object_space;
-typedef uint256_t                  object_key;
-typedef std::string                object_value;
 
 struct get_object_args
 {
@@ -229,7 +169,7 @@ class state_db final
        * to be freed.  This merge may occur immediately, or it may be
        * deferred or parallelized.
        */
-      std::shared_ptr< state_node > create_writable_node( state_node_id parent_id );
+      std::shared_ptr< state_node > create_writable_node( state_node_id parent_id, state_node_id new_id );
 
       /**
        * Finalize a node.  The node will no longer be writable.
@@ -240,6 +180,12 @@ class state_db final
        * Discard the node, it can no longer be used.
        */
       void discard_node( state_node_id node_id );
+
+      /**
+       * Squash the node in to the root state, committing it.
+       * Branching state between this node and its ancestor will be discarded.
+       */
+      void commit_node( state_node_id node_id );
 
    private:
       std::unique_ptr< detail::state_db_impl > impl;

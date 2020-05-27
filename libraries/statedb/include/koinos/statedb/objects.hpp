@@ -24,14 +24,14 @@ class state_object : public chainbase::object< state_object_type, state_object >
       object_value      value;
 };
 
-struct ById;
-struct ByKey;
+struct by_id;
+struct by_key;
 
 typedef multi_index_container<
    state_object,
    indexed_by<
-      ordered_unique< tag< ById >, member< state_object, state_object::id_type, &state_object::id > >,
-      ordered_unique< tag< ByKey >,
+      ordered_unique< tag< by_id >, member< state_object, state_object::id_type, &state_object::id > >,
+      ordered_unique< tag< by_key >,
          composite_key< state_object,
             member< state_object, object_space, &state_object::space >,
             member< state_object, object_key, &state_object::key >
