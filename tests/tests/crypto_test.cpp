@@ -110,4 +110,16 @@ BOOST_AUTO_TEST_CASE( private_wif )
    BOOST_REQUIRE_THROW( private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
 }
 
+BOOST_AUTO_TEST_CASE( zerohash )
+{
+   multihash_type mh;
+   zero_hash( mh, CRYPTO_SHA2_256_ID );
+   BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_SHA2_256_ID );
+   BOOST_CHECK( multihash::get_size( mh ) == 256/8 );
+
+   zero_hash( mh, CRYPTO_RIPEMD160_ID );
+   BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_RIPEMD160_ID );
+   BOOST_CHECK( multihash::get_size( mh ) == 160/8 );
+}
+
 BOOST_AUTO_TEST_SUITE_END()
