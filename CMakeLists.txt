@@ -30,6 +30,16 @@ if( CHAINBASE_CHECK_LOCKING )
   SET( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCHAINBASE_CHECK_LOCKING" )
 endif()
 
+if (ENABLE_COVERAGE)
+  include(CodeCoverage)
+  append_coverage_compiler_flags()
+  setup_target_for_coverage_lcov(
+     NAME coverage
+     LCOV_ARGS "--no-external"
+     EXECUTABLE chain_test
+     EXCLUDE "libraries/vendor/*")
+endif()
+
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
