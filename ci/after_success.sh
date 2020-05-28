@@ -1,6 +1,6 @@
 #!/bin/bash
 
 if [ "$RUN_TYPE" = "coverage" ]; then
-   coveralls --gcov coverage.info
+   coveralls -n -t $COVERALLS_REPO_TOKEN --gcov ./build/coverage.info
 fi
 

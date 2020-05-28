@@ -25,4 +25,4 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       lcov
 fi
 
-pip3 install dataclasses-json Jinja2 importlib_resources pluginbase cpp-coveralls
+pip3 install dataclasses-json Jinja2 importlib_resources pluginbase cpp-coveralls pyyaml
