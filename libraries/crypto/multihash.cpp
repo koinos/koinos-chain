@@ -142,8 +142,21 @@ bool validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
 
 } // multihash
 
-encoder::encoder( uint64_t code )
+encoder::encoder( uint64_t code, uint64_t size )
 {
+   static const uint64_t MAX_HASH_SIZE = std::min< uint64_t >(
+      {std::numeric_limits< uint8_t >::max(),              // We potentially store the size in uint8_t value
+       std::numeric_limits< unsigned int >::max(),         // We cast the size to unsigned int for openssl call
+       EVP_MAX_MD_SIZE                                     // Max size supported by OpenSSL library
+      });
+
+   _code = code;
+   if( size == 0 )
+      size = get_standard_size( code );
+   KOINOS_ASSERT( size <= MAX_HASH_SIZE, multihash_size_limit_exceeded,
+      "Requested hash size ${size} is larger than max size ${max}", ("size", size)("max", MAX_HASH_SIZE) );
+
+   _size = size;
    OpenSSL_add_all_digests();
    md = get_evp_md( code );
    KOINOS_ASSERT( md, unknown_hash_algorithm, "Unknown hash id ${i}", ("i", code) );
@@ -171,32 +184,66 @@ void encoder::reset()
    }
 }
 
-size_t encoder::get_result( vl_blob& v, size_t size )
+void encoder::get_result( vl_blob& v )
 {
-   if( !size ) size = EVP_MAX_MD_SIZE;
-   v.data.resize( size );
+   unsigned int size = (unsigned int) _size;
+   v.data.resize( _size );
    KOINOS_ASSERT(
       EVP_DigestFinal_ex(
-         mdctx, (unsigned char*)( v.data.data() ), (unsigned int*)&size ),
-      koinos::exception::koinos_exception, "", () );
-   v.data.resize( size );
-   return size;
+         mdctx, (unsigned char*)( v.data.data() ), &size ),
+      koinos::exception::koinos_exception, "EVP_DigestFinal_ex returned failure", () );
+   KOINOS_ASSERT( size == _size,
+      multihash_size_mismatch,
+      "OpenSSL EVP_DigestFinal_ex returned hash size ${size}, does not match expected hash size ${_size}",
+      ("size", size)("_size", _size) );
 }
 
-multihash_type hash( uint64_t code, const char* data, size_t len, size_t size )
+multihash_type hash_str( uint64_t code, const char* data, size_t len, size_t size )
 {
    encoder e( code );
    e.write( data, len );
    multihash_type mh;
-   multihash::set_id( mh, code );
-   size_t hash_size = e.get_result( mh.digest, size );
-
-   if( size )
-      KOINOS_ASSERT( size == hash_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-   KOINOS_ASSERT( hash_size <= std::numeric_limits< uint8_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
-
-   multihash::set_size( mh, hash_size );
+   e.get_result( mh );
    return mh;
+}
+
+void zero_hash( multihash_type& mh, uint64_t code, uint64_t size )
+{
+   multihash::set_id( mh, code );
+   if( size == 0 )
+      size = get_standard_size( code );
+   multihash::set_size( mh, size );
+   mh.digest.data.resize( size );
+   std::memset( mh.digest.data.data(), 0, size );
+}
+
+void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in )
+{
+   const size_t n = mh_in.size();
+   KOINOS_ASSERT( n > 0, multihash_size_mismatch, "Input vector cannot be empty" );
+
+   mhv_out.digests.resize( n );
+   mhv_out.hash_id = mh_in[0].hash_id;
+
+   for( size_t i=0; i<n; i++ )
+   {
+      mhv_out.digests[i] = mh_in[i].digest;
+      KOINOS_ASSERT( mh_in[i].hash_id == mhv_out.hash_id,
+         multihash_vector_mismatch,
+         "Heterogenous multihash_vector, expected hash_id == ${h_out}, got hash_id == ${h_in}",
+         ("h_out", mhv_out.hash_id)("h_in", mh_in[i].hash_id) );
+   }
+}
+
+void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in )
+{
+   const size_t n = mhv_in.digests.size();
+   mh_out.resize( n );
+   for( size_t i=0; i<n; i++ )
+   {
+      mh_out[i].hash_id = mhv_in.hash_id;
+      mh_out[i].digest = mhv_in.digests[i];
+   }
 }
 
 } } // koinos::crypto
