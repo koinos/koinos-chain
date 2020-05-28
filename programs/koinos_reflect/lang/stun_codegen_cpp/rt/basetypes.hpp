@@ -69,14 +69,6 @@ namespace koinos::protocol {
       fl_blob()
       { data.fill(0); }
 
-      fl_blob( std::initializer_list<char> il )
-      {
-         KOINOS_ASSERT( il.size() <= N, koinos::exception::koinos_exception, "Got ${k} initializers in fl_blob, expecting at most ${N}",
-             ("k", il.size())("N", N) );
-         auto it = std::copy( il.begin(), il.end(), data.begin() );
-         std::memset( &(*it), char(0), data.end() - it );
-      }
-
       array< char, N > data;
    };
 
