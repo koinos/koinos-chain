@@ -13,7 +13,7 @@ void check_uniqueness( MultiIndexType& i, const typename MultiIndexType::value_t
 
    auto itr = idx.find( v );
    if( itr != idx.end() )
-      ids.insert( itr->id._id );
+      ids.insert( itr->id );
 }
 
 template< int N >

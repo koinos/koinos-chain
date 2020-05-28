@@ -15,6 +15,8 @@ namespace koinos::statedb {
 
    using boost::container::flat_set;
 
+   static const state_node_id                      null_id;
+
    template< typename MultiIndexType >
    class state_delta
    {
@@ -31,17 +33,16 @@ namespace koinos::statedb {
          flat_set< id_type >                       _modified_objects;
          id_type                                   _next_object_id = 0;
 
-         state_node_id                             _state_id;
-         uint64_t                                  _state_revision = 0;
-         bool                                      _is_writable = true;
+         state_node_id                             _id;
+         uint64_t                                  _revision = 0;
 
       public:
-         state_delta( std::shared_ptr< state_delta > parent, state_node_id& id ) :
-            _parent( parent ), _state_id( id )
+         state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id ) :
+            _parent( parent ), _id( id )
          {
             if( _parent != nullptr )
             {
-               _state_revision = _parent->_state_revision + 1;
+               _revision = _parent->_revision + 1;
                _next_object_id = _parent->_next_object_id;
             }
 
@@ -53,14 +54,13 @@ namespace koinos::statedb {
             _indices = std::make_shared< index_type >( index_type::type_enum::mira );
             _indices->open( p, o );
             _next_object_id = _indices->next_id();
-            _state_revision = _indices->revision();
-            _indices->get_metadata( STATE_ID_KEY, _state_id );
+            _revision = _indices->revision();
+            _indices->get_metadata( STATE_ID_KEY, _id );
          }
 
          template< typename Constructor >
          const std::pair< iter_type, bool > emplace( Constructor&& c )
          {
-            KOINOS_ASSERT( _is_writable, node_finalized, "Cannot modify a finalized node", () );
             auto constructor = [&]( value_type& v )
             {
                v.id = _next_object_id;
@@ -92,7 +92,6 @@ namespace koinos::statedb {
          template< typename Modifier >
          bool modify( const value_type& obj, Modifier&& m )
          {
-            KOINOS_ASSERT( _is_writable, node_finalized, "Cannot modify a finalized node", () );
             if( is_root() )
                return _indices->modify( _indices->iterator_to( obj ), m );
 
@@ -123,7 +122,6 @@ namespace koinos::statedb {
 
          void erase( const value_type& obj )
          {
-            KOINOS_ASSERT( _is_writable, node_finalized, "Cannot modify a finalized node", () );
             auto itr = _indices->find( obj.id );
 
             if( itr != _indices->end() )
@@ -209,9 +207,9 @@ namespace koinos::statedb {
             }
          }
 
-         void squash( int64_t revision )
+         void squash( uint64_t revision )
          {
-            if( revision < _state_revision && !is_root() )
+            if( revision < _revision && !is_root() )
             {
                squash();
                _parent->squash( revision );
@@ -225,8 +223,8 @@ namespace koinos::statedb {
 
             _indices = std::move( root->_indices );
             _indices->set_next_id( _next_object_id );
-            _indices->set_revision( _state_revision );
-            _indices->put_metadata( STATE_ID_KEY, _state_id );
+            _indices->set_revision( _revision );
+            _indices->put_metadata( STATE_ID_KEY, _id );
             _modified_objects.clear();
             _removed_objects.clear();
             _parent.reset();
@@ -234,11 +232,11 @@ namespace koinos::statedb {
 
          void commit( int64_t revision )
          {
-            if( revision > _state_revision && !is_root() )
+            if( revision > _revision && !is_root() )
             {
                _parent->commit( revision );
             }
-            else if( revision == _state_revision )
+            else if( revision == _revision )
             {
                commit();
             }
@@ -316,24 +314,14 @@ namespace koinos::statedb {
 
          uint64_t revision() const
          {
-            return _state_revision;
+            return _revision;
          }
 
-         void set_state_revision( int64_t revision )
+         void set_revision( uint64_t revision )
          {
-            _state_revision = revision;
+            _revision = revision;
             if( is_root() )
                _indices->set_revision( revision );
-         }
-
-         void finalize()
-         {
-            _is_writable = false;
-         }
-
-         bool is_writable()
-         {
-            return _is_writable;
          }
 
          const std::shared_ptr< index_type > indices()const
@@ -351,14 +339,14 @@ namespace koinos::statedb {
             return s;
          }
 
-         state_node_id state_id() const
+         const state_node_id& state_id() const
          {
-            return _state_id;
+            return _id;
          }
 
-         state_node_id parent_id() const
+         const state_node_id& parent_id() const
          {
-            return _parent ? _parent->_state_id : protocol::multihash_type();
+            return _parent ? _parent->_id : null_id;
          }
 
          std::shared_ptr< state_delta > parent() const

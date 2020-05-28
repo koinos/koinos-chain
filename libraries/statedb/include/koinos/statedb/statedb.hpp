@@ -62,7 +62,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      void get_object( get_object_result& result, const get_object_args& args );
+      void get_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the next object.
@@ -72,7 +72,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_next_object( get_object_result& result, const get_object_args& args );
+      void get_next_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the previous object.
@@ -82,7 +82,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_prev_object( get_object_result& result, const get_object_args& args );
+      void get_prev_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Write an object into the state_node.
@@ -96,16 +96,19 @@ class state_node final
       /**
        * Return true if the node is writable.
        */
-      bool is_writable();
+      bool is_writable()const;
 
-      state_node_id node_id();
-      uint64_t      revision();
+      const state_node_id& id()const;
+      const state_node_id& parent_id()const;
+      uint64_t             revision()const;
 
       friend class detail::state_db_impl;
 
    private:
       std::unique_ptr< detail::state_node_impl > impl;
 };
+
+using state_node_ptr = std::shared_ptr< state_node >;
 
 /**
  * Database interface with discardable checkpoints.
@@ -141,19 +144,21 @@ class state_db final
        *
        * WARNING:  The chainbase implementation of this method will wipe() the database!
        */
-      std::shared_ptr< state_node > get_empty_node();
+      state_node_ptr get_empty_node();
 
       /**
        * Get the state node ID of some recent state nodes.
        *
        * This method is useful for finding state in an existing database.
        */
-      void get_recent_states(std::vector<state_node_id>& node_id_list, int limit);
+      void get_recent_states(std::vector< state_node_ptr >& node_id_list, int limit);
 
       /**
        * Get the state_node for the given state_node_id.
+       *
+       * Return an empty pointer if no node for the given id exists.
        */
-      std::shared_ptr< state_node > get_node( state_node_id node_id );
+      state_node_ptr get_node( const state_node_id& node_id )const;
 
       /**
        * Create a writable state_node.
@@ -170,31 +175,35 @@ class state_db final
        * to be freed.  This merge may occur immediately, or it may be
        * deferred or parallelized.
        */
-      std::shared_ptr< state_node > create_writable_node( state_node_id parent_id, state_node_id new_id );
+      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
 
       /**
        * Finalize a node.  The node will no longer be writable.
        */
-      void finalize_node( state_node_id node_id );
+      void finalize_node( state_node_ptr node );
+      void finalize_node( const state_node_id& node_id );
 
       /**
        * Discard the node, it can no longer be used.
        */
-      void discard_node( state_node_id node_id );
+      void discard_node( state_node_ptr node );
+      void discard_node( const state_node_id& node_id );
 
       /**
        * Squash the node in to the root state, committing it.
        * Branching state between this node and its ancestor will be discarded.
        */
-      void commit_node( state_node_id node_id );
+      void commit_node( state_node_ptr node );
+      void commit_node( const state_node_id& node_id );
 
       /**
        * Get and return the current "head" node.
        *
        * Head is determined by longest chain. Oldest
-       * chain wins in a tie of length.
+       * chain wins in a tie of length. Only finalized
+       * nodes are eligible to become head.
        */
-      std::shared_ptr< state_node > get_head();
+      state_node_ptr get_head()const;
 
    private:
       std::unique_ptr< detail::state_db_impl > impl;

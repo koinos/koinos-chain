@@ -369,7 +369,7 @@ namespace koinos::statedb {
    };
 
    template< typename MultiIndexType, typename IndexedByType >
-   class index_wrapper
+   class merge_index
    {
       public:
          typedef MultiIndexType                                                        index_type;
@@ -378,7 +378,14 @@ namespace koinos::statedb {
          typedef typename index_type::value_type                                       value_type;
          typedef merge_iterator< index_type, IndexedByType >                           iterator_type;
 
-         index_wrapper( const boost::container::deque< std::shared_ptr< state_delta_type > >& d ) : _deque( d ) {}
+         merge_index( const boost::container::deque< std::weak_ptr< state_delta_type > >& d )
+         {
+            for( auto& w : d )
+            {
+               auto maybe_state = w.lock();
+               if( maybe_state ) _deque.push_back( maybe_state );
+            }
+         }
 
          template< typename CompatibleKey >
          iterator_type lower_bound( CompatibleKey&& key ) const
@@ -439,7 +446,7 @@ namespace koinos::statedb {
             });
          }
 
-         const boost::container::deque< std::shared_ptr< state_delta_type > >& _deque;
+         boost::container::deque< std::shared_ptr< state_delta_type > > _deque;
    };
 
 } // koinos::statedb

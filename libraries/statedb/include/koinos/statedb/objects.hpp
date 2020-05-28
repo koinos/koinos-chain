@@ -5,11 +5,12 @@
 
 namespace koinos { namespace statedb {
 
-class state_object : public chainbase::object< state_object_type, state_object >
+struct state_object
 {
-   KOINOS_STD_ALLOCATOR_CONSTRUCTOR( state_object )
+      typedef uint64_t id_type;
 
-   public:
+      state_object() {}
+
       template< typename Constructor, typename Allocator >
       state_object( Constructor&& c, Allocator&& a )
          : value( a )
@@ -42,9 +43,5 @@ typedef multi_index_container<
 
 } }
 
-FC_REFLECT_ENUM( koinos::statedb::object_type,
-   (state_object_type)
-   )
 FC_REFLECT( koinos::statedb::state_object,
              (id)(space)(key)(value) )
-CHAINBASE_SET_INDEX_TYPE( koinos::statedb::state_object, koinos::statedb::state_object_index )
