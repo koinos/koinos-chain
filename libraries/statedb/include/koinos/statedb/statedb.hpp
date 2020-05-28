@@ -108,6 +108,8 @@ class state_node final
       std::unique_ptr< detail::state_node_impl > impl;
 };
 
+using state_node_ptr = std::shared_ptr< state_node >;
+
 /**
  * StateDB is designed to provide parallel access to the database across
  * different states.

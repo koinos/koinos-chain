@@ -40,8 +40,6 @@ DECLARE_KOINOS_EXCEPTION( cannot_discard );
  */
 DECLARE_KOINOS_EXCEPTION( internal_error );
 
-using state_node_ptr = std::shared_ptr< state_node >;
-
 // object_space / object_key don't actually use any of the cryptography features of fc::sha256
 // They just use sha256 as an FC serializable 256-bit integer type
 
