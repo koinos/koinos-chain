@@ -58,8 +58,8 @@ class state_node_impl final
       void get_prev_object( get_object_result& result, const get_object_args& args )const;
       void put_object( put_object_result& result, const put_object_args& args );
 
-      state_delta_ptr                                                _state;
-      bool                                                           _is_writable;
+      state_delta_ptr   _state;
+      bool              _is_writable;
 
       // This dequeue contains pointers to all state deltas between the current
       // state and this state for use in merge queries. However, when state is
@@ -91,7 +91,7 @@ class state_db_impl final
       void close();
 
       state_node_ptr get_empty_node();
-      void get_recent_states(std::vector< state_node_ptr >& get_recent_nodes, int limit);
+      void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, int limit );
       state_node_ptr get_node( const state_node_id& node_id )const;
       state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
       void finalize_node( state_node_ptr node );
@@ -147,15 +147,20 @@ void state_db_impl::close()
    _index.clear();
 }
 
-void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_id_list, int limit )
+void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list, int limit )
 {
-   /*
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   int n = _state_nodes.size();
-   limit = std::min( limit, n );
-   for( int i=0; i<limit; i++ )
-      node_id_list.push_back( _state_nodes[(n-1)-i]->node_id() );
-   */
+   node_list.clear();
+   node_list.reserve( limit );
+   auto node_itr = _index.find( _head->id() );
+
+   while( node_list.size() < limit && node_itr != _index.end() )
+   {
+      node_list.emplace_back( *node_itr );
+      if( *node_itr == _root ) return;
+
+      node_itr = _index.find( (*node_itr)->parent_id() );
+   }
 }
 
 state_node_ptr state_db_impl::get_node( const state_node_id& node_id )const
@@ -344,6 +349,7 @@ void state_node_impl::get_prev_object( get_object_result& result, const get_obje
 
 void state_node_impl::put_object( put_object_result& result, const put_object_args& args )
 {
+   KOINOS_ASSERT( _is_writable, node_finalized, "Cannot write to a finalized node", () );
    auto idx = merge_index< state_object_index, by_key >( _delta_deque );
    auto  pobj = idx.find( boost::make_tuple( args.space, args.key ) );
    if( pobj != idx.end() )
@@ -448,9 +454,9 @@ state_node_ptr state_db::get_empty_node()
    return impl->get_empty_node();
 }
 
-void state_db::get_recent_states(std::vector<state_node_ptr>& node_id_list, int limit)
+void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, int limit )
 {
-   impl->get_recent_states( node_id_list, limit );
+   impl->get_recent_states( node_list, limit );
 }
 
 state_node_ptr state_db::get_node( const state_node_id& node_id )const

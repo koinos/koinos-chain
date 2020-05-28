@@ -9,13 +9,11 @@
 
 #include <string>
 
+#pragma message "TODO: Delete this file after #53 is implemented"
+
 namespace koinos { namespace statedb {
 
 } } // koinos::statedb
-
-//namespace mira {
-//template< typename T > struct is_static_length< chainbase::oid< T > > : public boost::true_type {};
-//} // mira
 
 namespace fc
 {

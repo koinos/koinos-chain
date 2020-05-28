@@ -25,7 +25,6 @@ namespace koinos::statedb {
       public:
          typedef typename MultiIndexType::value_type                                      value_type;
       private:
-         typedef typename value_type::id_type                                             id_type;
          typedef decltype( ((MultiIndexType*)nullptr)->template get< IndexedByType >() )  by_index_type;
          typedef typename by_index_type::iter_type                                        iter_type;
          typedef typename by_index_type::bmic_type::key_type                              key_type;

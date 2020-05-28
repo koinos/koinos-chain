@@ -15,8 +15,6 @@ namespace koinos::statedb {
 
    using boost::container::flat_set;
 
-   static const state_node_id                      null_id;
-
    template< typename MultiIndexType >
    class state_delta
    {
@@ -346,6 +344,7 @@ namespace koinos::statedb {
 
          const state_node_id& parent_id() const
          {
+            static const state_node_id null_id;
             return _parent ? _parent->_id : null_id;
          }
 
@@ -404,6 +403,3 @@ namespace koinos::statedb {
 } // koinos::statedb
 
 #undef STATE_ID_KEY
-
-//candidate function [with MultiIndexType = mira::multi_index_adapter<koinos::statedb::state_object, boost::multi_index::indexed_by<mira::multi_index::ordered_unique<boost::multi_index::tag<koinos::statedb::by_id, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na>, mira::multi_index::member<koinos::statedb::state_object, chainbase::oid<koinos::statedb::state_object>, &koinos::statedb::state_object::id>, mpl_::na>, mira::multi_index::ordered_unique<boost::multi_index::tag<koinos::statedb::by_key, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na>, mira::multi_index::composite_key<koinos::statedb::state_object, mira::multi_index::member<koinos::statedb::state_object, boost::multiprecision::number<boost::multiprecision::backends::cpp_int_backend<256, 256, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>, boost::multiprecision::et_off>, &koinos::statedb::state_object::space>, mira::multi_index::member<koinos::statedb::state_object, boost::multiprecision::number<boost::multiprecision::backends::cpp_int_backend<256, 256, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>, boost::multiprecision::et_off>, &koinos::statedb::state_object::key>, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type>, mpl_::na>, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na>, std::__1::allocator<koinos::statedb::state_object> >]
-//candidate function [with MultiIndexType = mira::multi_index_adapter<koinos::statedb::state_object, boost::multi_index::indexed_by<mira::multi_index::ordered_unique<boost::multi_index::tag<koinos::statedb::by_id, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na>, mira::multi_index::member<koinos::statedb::state_object, chainbase::oid<koinos::statedb::state_object>, &koinos::statedb::state_object::id>, mpl_::na>, mira::multi_index::ordered_unique<boost::multi_index::tag<koinos::statedb::by_key, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na>, mira::multi_index::composite_key<koinos::statedb::state_object, mira::multi_index::member<koinos::statedb::state_object, boost::multiprecision::number<boost::multiprecision::backends::cpp_int_backend<256, 256, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>, boost::multiprecision::et_off>, &koinos::statedb::state_object::space>, mira::multi_index::member<koinos::statedb::state_object, boost::multiprecision::number<boost::multiprecision::backends::cpp_int_backend<256, 256, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>, boost::multiprecision::et_off>, &koinos::statedb::state_object::key>, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type, boost::tuples::null_type>, mpl_::na>, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na, mpl_::na>, std::__1::allocator<koinos::statedb::state_object> >]

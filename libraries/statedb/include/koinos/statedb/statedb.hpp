@@ -108,20 +108,38 @@ class state_node final
       std::unique_ptr< detail::state_node_impl > impl;
 };
 
-using state_node_ptr = std::shared_ptr< state_node >;
-
 /**
- * Database interface with discardable checkpoints.
+ * StateDB is designed to provide parallel access to the database across
+ * different states.
  *
- * Currently this is backed by Chainbase, so there are some heavy restrictions on usage:
+ * It does by tracking positive state deltas, which can be merged on the fly
+ * at read time to return the correct state of the database. A database
+ * checkpoint is represented by the state_node class. Reads and writes happen
+ * against a state_node.
  *
- * - Checkpoints form a queue internally.
- * - Can discard the second-most-recent checkpoint, this is squash().
- * - Can discard the most-recent checkpoint and revert to the previous checkpoint, this is undo().
- * - Can discard the oldest checkpoint, this is commit().
+ * States are organized as a tree with the assumption that one path wins out
+ * over time and cousin paths are discarded as the root is advanced.
  *
- * The caller (bcfork) should be written to obey these restrictions.
- * Replacing chainbase with a less restrictive backing store will allow many caller optimizations.
+ * Currently, state_db is not thread safe. That is, calls directly on state_db
+ * are not thread safe. (i.e. deleting a node concurrently to creating a new
+ * node can leave statedb in an undefined state)
+ *
+ * Conccurrency across state nodes is supported native to the implementation
+ * without locks. Writes on a single state node need to be serialized, but
+ * reads are implicitly parallel.
+ *
+ * TODO: Either extend the design of statedb to support concurrent access
+ * or implement a some locking mechanism for access to the fork multi
+ * index container.
+ *
+ * There is an additional corner case that is difficult to address.
+ *
+ * Upon squashing a state node, readers may be reading from the node that
+ * is being squashed or an intermediate node between root and that node.
+ * Relatively speaking, this should happen infrequently (on the order of once
+ * per some number of seconds). As such, whatever guarantees concurrency
+ * should heavily favor readers. Writing can happen lazily, preferably when
+ * there is no contention from readers at all.
  */
 class state_db final
 {
@@ -147,11 +165,9 @@ class state_db final
       state_node_ptr get_empty_node();
 
       /**
-       * Get the state node ID of some recent state nodes.
-       *
-       * This method is useful for finding state in an existing database.
+       * Get a list of recent state nodes.
        */
-      void get_recent_states(std::vector< state_node_ptr >& node_id_list, int limit);
+      void get_recent_states(std::vector< state_node_ptr >& node_list, int limit);
 
       /**
        * Get the state_node for the given state_node_id.
