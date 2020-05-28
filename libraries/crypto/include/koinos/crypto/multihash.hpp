@@ -99,6 +99,8 @@ multihash_type hash_str( uint64_t code, const char* data, size_t len, size_t siz
 
 void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
 
+multihash_type zero_hash( uint64_t code, uint64_t size = 0 );
+
 void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in );
 void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in );
 

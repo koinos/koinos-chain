@@ -361,9 +361,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
       KOINOS_ASSERT( block.sub.block_topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
    }
 
-   auto writable_node = _state_db.create_writable_node(
-      statedb::u256_from_mh( block.sub.block_topo.previous),
-      statedb::u256_from_mh( block.sub.block_topo.id ) );
+   auto writable_node = _state_db.create_writable_node( block.sub.block_topo.previous, block.sub.block_topo.id );
    KOINOS_ASSERT( writable_node, unknown_previous_block, "Unknown previous block", () );
 
    crypto::recoverable_signature sig;
@@ -375,9 +373,8 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
 
 
 #pragma message( "TODO:  Apply block" )
-#pragma message( "TODO:  Walk statedb back to forkdb head" )
 
-   _state_db.finalize_node( statedb::u256_from_mh( block.sub.block_topo.id ) );
+   _state_db.finalize_node( block.sub.block_topo.id );
 
 #pragma message( "TODO:  Report success / failure to caller" )
 }
@@ -402,7 +399,7 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
          if( head )
          {
             get_head_info_return res;
-            res.id = statedb::mh_from_u256( head->node_id() );
+            res.id = head->node_id();
             res.height.height = head->revision();
             result = res;
          }

@@ -9,6 +9,8 @@
 //#include <fc/variant.hpp>
 //#include <fc/io/raw.hpp>
 
+#include <koinos/pack/rt/binary.hpp>
+
 #include <string>
 
 #define KOINOS_STD_ALLOCATOR_CONSTRUCTOR( object_type )    \
@@ -53,6 +55,16 @@ struct get_typename< chainbase::oid< T > >
    }
 };
 
+template<>
+struct get_typename< koinos::protocol::multihash_type >
+{
+   static const char* name()
+   {
+      static std::string n = "koinos::protocol::multihash_type";
+      return n.c_str();
+   }
+};
+
 namespace raw
 {
 
@@ -66,6 +78,18 @@ template<typename Stream, typename T>
 void unpack( Stream& s, chainbase::oid<T>& id, uint32_t depth = 0 )
 {
    s.read( (char*)&id._id, sizeof(id._id));
+}
+
+template< typename Stream >
+void pack( Stream& s, const koinos::protocol::multihash_type& mh )
+{
+   koinos::pack::to_binary( s, mh );
+}
+
+template< typename Stream >
+void unpack( Stream& s, koinos::protocol::multihash_type& mh, uint32_t depth = 0 )
+{
+   koinos::pack::from_binary( s, mh );
 }
 
 } } // fc::raw

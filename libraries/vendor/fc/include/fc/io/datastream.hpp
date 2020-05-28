@@ -72,6 +72,7 @@ class datastream {
       inline bool     seekp(size_t p) { _pos = _start + p; return _pos <= _end; }
       inline size_t   tellp()const      { return _pos - _start;                     }
       inline size_t   remaining()const  { return _end - _pos;                       }
+      inline bool good() { return true; }
     private:
       T _start;
       T _pos;

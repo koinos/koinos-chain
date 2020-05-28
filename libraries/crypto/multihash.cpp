@@ -217,6 +217,13 @@ void zero_hash( multihash_type& mh, uint64_t code, uint64_t size )
    std::memset( mh.digest.data.data(), 0, size );
 }
 
+multihash_type zero_hash( uint64_t code, uint64_t size )
+{
+   multihash_type mh;
+   zero_hash( mh, code, size );
+   return mh;
+}
+
 void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in )
 {
    const size_t n = mh_in.size();

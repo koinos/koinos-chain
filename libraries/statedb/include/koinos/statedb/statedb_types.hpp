@@ -1,7 +1,7 @@
 #pragma once
 #include <koinos/exception.hpp>
 
-#include <koinos/crypto/multihash.hpp>
+#include <koinos/pack/rt/basetypes.hpp>
 
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -68,27 +68,9 @@ DECLARE_KOINOS_EXCEPTION( internal_error );
 
 using boost::multiprecision::uint256_t;
 
-typedef uint256_t                  state_node_id;
+typedef protocol::multihash_type   state_node_id;
 typedef uint256_t                  object_space;
 typedef uint256_t                  object_key;
 typedef std::string                object_value;
-
-inline uint256_t u256_from_mh( koinos::protocol::multihash_type& mh )
-{
-   assert( sizeof( uint256_t ) == mh.digest.data.size() );
-   uint256_t res;
-   memcpy( (char*)&res, mh.digest.data.data(), mh.digest.data.size() );
-   return res;
-}
-
-inline koinos::protocol::multihash_type mh_from_u256( uint256_t u256 )
-{
-   koinos::protocol::multihash_type mh;
-   mh.digest.data.resize( sizeof( uint256_t ) );
-   memcpy( mh.digest.data.data(), (char*)&u256, sizeof( uint256_t ) );
-   koinos::crypto::multihash::set_id( mh, CRYPTO_SHA2_256_ID );
-   koinos::crypto::multihash::set_size( mh, sizeof( uint256_t ) );
-   return mh;
-}
 
 } // koinos::statedb

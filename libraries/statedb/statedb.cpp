@@ -26,11 +26,11 @@ using state_multi_index_type = boost::multi_index_container<
    boost::multi_index::indexed_by<
       boost::multi_index::ordered_unique<
          boost::multi_index::tag< by_id >,
-            boost::multi_index::const_mem_fun< state_delta_type, uint256_t, &state_delta_type::state_id >
+            boost::multi_index::const_mem_fun< state_delta_type, state_node_id, &state_delta_type::state_id >
       >,
       boost::multi_index::ordered_non_unique<
          boost::multi_index::tag< by_parent >,
-            boost::multi_index::const_mem_fun< state_delta_type, uint256_t, &state_delta_type::parent_id >
+            boost::multi_index::const_mem_fun< state_delta_type, state_node_id, &state_delta_type::parent_id >
       >,
       boost::multi_index::ordered_non_unique<
          boost::multi_index::tag< by_revision >,
@@ -170,7 +170,6 @@ void state_db_impl::get_recent_states(std::vector<state_node_id>& node_id_list, 
 std::shared_ptr< state_node > state_db_impl::get_node( state_node_id node_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
 
    auto state_itr = _index.find( node_id );
    if( state_itr != _index.end() )
@@ -187,7 +186,6 @@ std::shared_ptr< state_node > state_db_impl::get_node( state_node_id node_id )
 std::shared_ptr< state_node > state_db_impl::create_writable_node( state_node_id parent_id, state_node_id new_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( parent_id >= 0, illegal_argument, "parent_id is negative", () );
 
    auto parent_state = _index.find( parent_id );
    if( parent_state != _index.end() && !(*parent_state)->is_writable() )
@@ -208,7 +206,6 @@ std::shared_ptr< state_node > state_db_impl::create_writable_node( state_node_id
 void state_db_impl::finalize_node( state_node_id node_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
 
    auto state_itr = _index.find( node_id );
    if( state_itr != _index.end() )
@@ -223,7 +220,6 @@ void state_db_impl::finalize_node( state_node_id node_id )
 void state_db_impl::discard_node( state_node_id node_id, flat_set< state_node_id >& whitelist )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
    KOINOS_ASSERT( node_id != _root->state_id(), illegal_argument, "Cannot discard root node" );
 
    auto state_itr = _index.find( node_id );
@@ -269,7 +265,6 @@ void state_db_impl::discard_node( state_node_id node_id, flat_set< state_node_id
 void state_db_impl::commit_node( state_node_id node_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
 
    auto state_itr = _index.find( node_id );
    KOINOS_ASSERT( state_itr != _index.end(), internal_error, "Node does not exist" );

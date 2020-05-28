@@ -2,6 +2,8 @@
 #include <koinos/statedb/statedb_types.hpp>
 #include <koinos/statedb/uniqueness_validator.hpp>
 
+#include <koinos/crypto/multihash.hpp>
+
 #include <boost/any.hpp>
 #include <boost/filesystem.hpp>
 
@@ -29,13 +31,13 @@ namespace koinos::statedb {
          flat_set< id_type >                       _modified_objects;
          id_type                                   _next_object_id = 0;
 
-         state_node_id                             _state_id = 0;
+         state_node_id                             _state_id;
          uint64_t                                  _state_revision = 0;
          bool                                      _is_writable = true;
 
       public:
          state_delta( std::shared_ptr< state_delta > parent, state_node_id& id ) :
-            _parent( parent )
+            _parent( parent ), _state_id( id )
          {
             if( _parent != nullptr )
             {
@@ -356,7 +358,7 @@ namespace koinos::statedb {
 
          state_node_id parent_id() const
          {
-            return _parent ? _parent->_state_id : 0;
+            return _parent ? _parent->_state_id : protocol::multihash_type();
          }
 
          std::shared_ptr< state_delta > parent() const
