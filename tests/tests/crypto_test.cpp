@@ -63,13 +63,13 @@ BOOST_AUTO_TEST_CASE( ecc )
 
    for( uint32_t i = 0; i < 100; ++ i )
    {
-      multihash_type h = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      multihash_type h = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
       private_key priv = private_key::regenerate( h );
       BOOST_CHECK( nullkey != priv );
       public_key pub = priv.get_public_key();
 
       pass += "1";
-      multihash_type h2 = hash( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      multihash_type h2 = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
       public_key  pub1  = pub.add( h2 );
       private_key priv1 = private_key::generate_from_seed(h, h2);
 
@@ -81,6 +81,45 @@ BOOST_AUTO_TEST_CASE( ecc )
       auto recover = public_key::recover( sig, h );
       BOOST_CHECK( recover == pub );
    }
+}
+
+BOOST_AUTO_TEST_CASE( private_wif )
+{
+   std::string secret = "foobar";
+   std::string wif = "5KJTiKfLEzvFuowRMJqDZnSExxxwspVni1G4RcggoPtDqP5XgM1";
+   private_key key1 = private_key::regenerate( hash_str( CRYPTO_SHA2_256_ID, secret.c_str(), secret.size() ) );
+   BOOST_CHECK_EQUAL( key1.to_wif(), wif );
+
+   private_key key2 = private_key::from_wif( wif );
+   BOOST_CHECK( key1 == key2 );
+
+   // Encoding:
+   // Prefix Secret                                                           Checksum
+   // 80     C3AB8FF13720E8AD9047DD39466B3C8974E592C2FA383D4A3960714CAEF0C4F2 C957BEB4
+
+   // Wrong checksum, change last octal (4->3)
+   wif = "5KJTiKfLEzvFuowRMJqDZnSExxxwspVni1G4RcggoPtDqP5XgLz";
+   BOOST_REQUIRE_THROW( private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
+
+   // Wrong seed, change first octal of secret (C->D)
+   wif = "5KRWQqW5riLTcB39nLw6K7iv2HWBMYvbP7Ch4kUgRd8kEvLH5jH";
+   BOOST_REQUIRE_THROW( private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
+
+   // Wrong prefix, change first octal of prefix (8->7)
+   wif = "4nCYtcUpcC6dkge8r2uEJeqrK97TUZ1n7n8LXDgLtun1wRyxU2P";
+   BOOST_REQUIRE_THROW( private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
+}
+
+BOOST_AUTO_TEST_CASE( zerohash )
+{
+   multihash_type mh;
+   zero_hash( mh, CRYPTO_SHA2_256_ID );
+   BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_SHA2_256_ID );
+   BOOST_CHECK( multihash::get_size( mh ) == 256/8 );
+
+   zero_hash( mh, CRYPTO_RIPEMD160_ID );
+   BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_RIPEMD160_ID );
+   BOOST_CHECK( multihash::get_size( mh ) == 160/8 );
 }
 
 BOOST_AUTO_TEST_SUITE_END()

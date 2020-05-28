@@ -139,6 +139,9 @@ namespace koinos::crypto {
 
          unsigned int fingerprint() const { return get_public_key().fingerprint(); }
 
+         std::string to_wif( uint8_t prefix = 0x80 );
+         static private_key from_wif( const std::string& b58, uint8_t prefix = 0x80 );
+
       private:
          private_key_secret _key;
    };

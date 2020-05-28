@@ -370,7 +370,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
    pack::from_binary( in_sig, sig );
 
-   crypto::multihash_type digest = crypto::hash( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
+   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 

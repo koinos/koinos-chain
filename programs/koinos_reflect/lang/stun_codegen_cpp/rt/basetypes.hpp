@@ -62,18 +62,49 @@ namespace koinos::protocol {
    template< size_t N >
    struct fl_blob
    {
+      fl_blob()
+      { data.fill(0); }
+
+      fl_blob( std::initializer_list<char> il )
+      {
+         // Copy very awkwardly using iterators, since IL does not support indexing
+         size_t i = 0;
+         auto it = il.begin();
+         while( it != il.end() )
+         {
+            if( i >= N )
+            {
+               // Ignore additional elements if initializer_list is too big
+               // Perhaps we should throw an exception instead?
+               break;
+            }
+            data[i] = *it;
+            ++i;
+            ++it;
+         }
+
+         // Zero additional elements if initializer_list is too small
+         // Perhaps we should throw an exception instead?
+         size_t n = il.size();
+         while( i < n )
+         {
+            data[i] = 0;
+            ++i;
+         }
+      }
+
       array< char, N > data;
    };
 
    struct multihash_type
    {
-      uint64_t hash_id;
+      uint64_t hash_id = 0;
       vl_blob  digest;
    };
 
    struct multihash_vector
    {
-      uint64_t               hash_id;
+      uint64_t               hash_id = 0;
       std::vector< vl_blob > digests;
    };
 

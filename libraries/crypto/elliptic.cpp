@@ -9,8 +9,6 @@
 
 #include <secp256k1_recovery.h>
 
-#include <iostream>
-
 namespace koinos::crypto {
 
 using koinos::exception::koinos_exception;
@@ -198,8 +196,8 @@ bool public_key::valid()const
 
 unsigned int public_key::fingerprint() const
 {
-   multihash_type sha256 = hash( CRYPTO_SHA2_256_ID, _key.data.data(), _key.data.size() );
-   multihash_type ripemd160 = hash( CRYPTO_RIPEMD160_ID, sha256.digest.data.data(), sha256.digest.data.size() );
+   multihash_type sha256 = hash_str( CRYPTO_SHA2_256_ID, _key.data.data(), _key.data.size() );
+   multihash_type ripemd160 = hash_str( CRYPTO_RIPEMD160_ID, sha256.digest.data.data(), sha256.digest.data.size() );
    unsigned char* fp = (unsigned char*) ripemd160.digest.data.data();
    return (fp[0] << 24) | (fp[1] << 16) | (fp[2] << 8) | fp[3];
 }
@@ -225,7 +223,7 @@ std::string public_key::to_base58() const
 
 std::string public_key::to_base58( const compressed_public_key &key )
 {
-   uint32_t check = *((uint32_t*)hash( CRYPTO_SHA2_256_ID, key.data.data(), key.data.size() ).digest.data.data());
+   uint32_t check = *((uint32_t*)hash_str( CRYPTO_SHA2_256_ID, key.data.data(), key.data.size() ).digest.data.data());
    assert( key.data.size() + sizeof(check) == 37 );
    fl_blob<37> d;
    memcpy( d.data.data(), key.data.data(), key.data.size() );
@@ -241,7 +239,7 @@ public_key public_key::from_base58( const std::string& b58 )
    KOINOS_ASSERT( koinos::pack::util::decode_base58( b58, d.data ),
       key_serialization_error, "Base58 string is not the correct size for a 37 byte key", () );
    compressed_public_key key;
-   uint32_t check = *((uint32_t*)hash( CRYPTO_SHA2_256_ID, d.data.data(), key.data.size() ).digest.data.data());
+   uint32_t check = *((uint32_t*)hash_str( CRYPTO_SHA2_256_ID, d.data.data(), key.data.size() ).digest.data.data());
    KOINOS_ASSERT( memcmp( (char*)&check, d.data.data() + sizeof(key), sizeof(check) ) == 0,
       key_serialization_error, "Invlaid checksum", () );
    memcpy( (char*)key.data.data(), d.data.data(), sizeof(key) );
@@ -352,6 +350,36 @@ public_key private_key::get_public_key()const
          (unsigned char*) _key.data.data() ),
       key_manipulation_error, "Unknown error creating public key from a private key", () );
    return pk;
+}
+
+std::string private_key::to_wif( uint8_t prefix )
+{
+   fl_blob<37> d;
+   uint32_t check;
+   assert( _key.data.size() + sizeof(check) + 1 == d.data.size() );
+   d.data[0] = prefix;
+   memcpy( d.data.data() + 1, _key.data.data(), _key.data.size() );
+   auto extended_hash = hash_str( CRYPTO_SHA2_256_ID, d.data.data(), _key.data.size() + 1 );
+   check = *((uint32_t*)hash_str( CRYPTO_SHA2_256_ID, extended_hash.digest.data.data(), extended_hash.digest.data.size() ).digest.data.data());
+   memcpy( d.data.data() + _key.data.size() + 1, (const char*)&check, sizeof(check)  );
+   std::string b58;
+   koinos::pack::util::encode_base58( b58, d.data );
+   return b58;
+}
+
+private_key private_key::from_wif( const std::string& b58, uint8_t prefix )
+{
+   fl_blob<37> d;
+   KOINOS_ASSERT( koinos::pack::util::decode_base58( b58, d.data ),
+      key_serialization_error, "Base58 string is not the correct size for a private key WIF", () );
+   KOINOS_ASSERT( (uint8_t)d.data[0] == prefix, key_serialization_error, "Incorrect WIF prefix", () );
+   private_key key;
+   auto extended_hash = hash_str( CRYPTO_SHA2_256_ID, d.data.data(), key._key.data.size() + 1 );
+   uint32_t check = *((uint32_t*)hash_str( CRYPTO_SHA2_256_ID, extended_hash.digest.data.data(), extended_hash.digest.data.size() ).digest.data.data());
+   KOINOS_ASSERT( memcmp( (char*)&check, d.data.data() + key._key.data.size() + 1, sizeof(check) ) == 0,
+      key_serialization_error, "Invlaid checksum", () );
+   memcpy( key._key.data.data(), d.data.data() + 1, key._key.data.size() );
+   return key;
 }
 
 } // koinos::crypto
