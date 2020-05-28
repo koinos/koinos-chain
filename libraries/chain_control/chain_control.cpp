@@ -364,7 +364,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
    pack::from_binary( in_sig, sig );
 
-   crypto::multihash_type digest = crypto::hash( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
+   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 #pragma message( "TODO:  Walk statedb to where it needs to be" )
@@ -417,11 +417,7 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
          else if( _fork_db.size() == 0 )
          {
             get_head_info_return res;
-            #pragma message "TODO: Replace with zero hash"
-            crypto::multihash::set_id( res.id, CRYPTO_SHA2_256_ID );
-            crypto::multihash::set_size( res.id, 32 );
-            res.id.digest.data.resize( 32 );
-            memset( res.id.digest.data.data(), 0, 32 );
+            crypto::zero_hash( res.id, CRYPTO_SHA2_256_ID, 32 );
             res.height.height = 0;
             result = res;
          }

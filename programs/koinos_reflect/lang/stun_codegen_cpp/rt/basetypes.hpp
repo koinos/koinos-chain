@@ -2,7 +2,11 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <koinos/exception.hpp>
+
+#include <algorithm>
 #include <array>
+#include <cstring>
 #include <optional>
 #include <set>
 #include <variant>
@@ -62,18 +66,21 @@ namespace koinos::protocol {
    template< size_t N >
    struct fl_blob
    {
+      fl_blob()
+      { data.fill(0); }
+
       array< char, N > data;
    };
 
    struct multihash_type
    {
-      uint64_t hash_id;
+      uint64_t hash_id = 0;
       vl_blob  digest;
    };
 
    struct multihash_vector
    {
-      uint64_t               hash_id;
+      uint64_t               hash_id = 0;
       std::vector< vl_blob > digests;
    };
 

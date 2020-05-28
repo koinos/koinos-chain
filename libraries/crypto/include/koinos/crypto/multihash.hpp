@@ -34,6 +34,7 @@ using koinos::protocol::vl_blob;
 DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
 DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
 DECLARE_KOINOS_EXCEPTION( multihash_size_limit_exceeded );
+DECLARE_KOINOS_EXCEPTION( multihash_vector_mismatch );
 
 namespace multihash
 {
@@ -58,81 +59,64 @@ namespace multihash
 
 struct encoder
 {
-   encoder( uint64_t code );
+   encoder( uint64_t code, uint64_t size = 0 );
    ~encoder();
 
    void write( const char* d, size_t len );
    void put( char c ) { write( &c, 1 ); }
    void reset();
-   size_t get_result( vl_blob& v, size_t size = 0 );
-   inline size_t get_result( multihash_type& mh ) { return get_result( mh.digest ); }
+   void get_result( vl_blob& v );
+   inline void get_result( multihash_type& mh )
+   {
+      get_result( mh.digest );
+      multihash::set_id( mh, _code );
+      multihash::set_size( mh, _size );
+   }
 
    private:
       const EVP_MD* md = nullptr;
       EVP_MD_CTX* mdctx = nullptr;
+      uint64_t _code, _size;
 };
 
 template< typename T >
-multihash_type hash( uint64_t code, T& t, size_t size = 0 )
+inline void hash( multihash_type& result, uint64_t code, const T& t, size_t size = 0 )
 {
-   encoder e( code );
+   encoder e(code, size);
    koinos::pack::to_binary( e, t );
+   e.get_result( result );
+}
+
+template< typename T >
+inline multihash_type hash( uint64_t code, const T& t, size_t size = 0 )
+{
    multihash_type mh;
-   multihash::set_id( mh, code );
-   size_t result_size = e.get_result( mh.digest, size );
-
-   if( size )
-      KOINOS_ASSERT( size == result_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-   KOINOS_ASSERT( result_size <= std::numeric_limits< uint8_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
-
-   multihash::set_size( mh, result_size );
+   hash( mh, code, t, size );
    return mh;
 };
 
-multihash_type hash( uint64_t code, const char* data, size_t len, size_t size = 0 );
+multihash_type hash_str( uint64_t code, const char* data, size_t len, size_t size = 0 );
 
-template< typename Iter >
-multihash_vector hash( uint64_t code, Iter first, Iter last, size_t size = 0 )
+void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
+
+void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in );
+void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in );
+
+inline constexpr uint64_t get_standard_size( uint64_t code )
 {
-   encoder e( code );
-   multihash_vector mhv;
-   multihash::set_id( mhv, code );
-
-   for(; first != last; ++first )
+   switch( code )
    {
-      koinos::pack::to_binary( e, *first );
-      mhv.digests.emplace_back();
-      size_t result_size = e.get_result( mhv.digests.back(), size );
-
-      if( multihash::get_size( mhv ) == 0 )
-      {
-         if( size )
-            KOINOS_ASSERT( size == result_size, multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-         KOINOS_ASSERT( result_size <= std::numeric_limits< uint16_t >::max(), multihash_size_limit_exceeded, "Multihash size exceeds max", () );
-
-         multihash::set_size( mhv, result_size );
-      }
-      else
-      {
-         KOINOS_ASSERT( result_size == multihash::get_size( mhv ), multihash_size_mismatch, "OpenSSL Hash size does not match expected multihash size", () );
-      }
+      case CRYPTO_SHA1_ID:
+         return 20;
+      case CRYPTO_SHA2_256_ID:
+         return 32;
+      case CRYPTO_SHA2_512_ID:
+         return 64;
+      case CRYPTO_RIPEMD160_ID:
+         return 20;
+      default:
+         KOINOS_ASSERT( false, unknown_hash_algorithm, "Unknown hash id ${i}", ("i", code) );
    }
-
-   return mhv;
-};
-
-template< typename T >
-bool add_hash( multihash_vector& mhv, T& t )
-{
-   encoder e( multihash::get_id( mhv ) );
-   koinos::pack::to_binary( e, t );
-   mhv.digests.emplace_back();
-   size_t hash_size = e.get_result( mhv.digests.back() );
-   if( hash_size == multihash::get_size( mhv ) )
-      return true;
-
-   mhv.digests.pop_back();
-   return false;
-};
+}
 
 } } // koinos::crypto
