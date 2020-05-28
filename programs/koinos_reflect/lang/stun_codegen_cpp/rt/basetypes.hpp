@@ -2,7 +2,11 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <koinos/exception.hpp>
+
+#include <algorithm>
 #include <array>
+#include <cstring>
 #include <optional>
 #include <set>
 #include <variant>
@@ -67,30 +71,10 @@ namespace koinos::protocol {
 
       fl_blob( std::initializer_list<char> il )
       {
-         // Copy very awkwardly using iterators, since IL does not support indexing
-         size_t i = 0;
-         auto it = il.begin();
-         while( it != il.end() )
-         {
-            if( i >= N )
-            {
-               // Ignore additional elements if initializer_list is too big
-               // Perhaps we should throw an exception instead?
-               break;
-            }
-            data[i] = *it;
-            ++i;
-            ++it;
-         }
-
-         // Zero additional elements if initializer_list is too small
-         // Perhaps we should throw an exception instead?
-         size_t n = il.size();
-         while( i < n )
-         {
-            data[i] = 0;
-            ++i;
-         }
+         KOINOS_ASSERT( il.size() <= N, koinos::exception::koinos_exception, "Got ${k} initializers in fl_blob, expecting at most ${N}",
+             ("k", il.size())("N", N) );
+         auto it = std::copy( il.begin(), il.end(), data.begin() );
+         std::memset( &(*it), char(0), data.end() - it );
       }
 
       array< char, N > data;
