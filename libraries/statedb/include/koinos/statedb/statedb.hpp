@@ -99,6 +99,7 @@ class state_node final
       bool is_writable();
 
       state_node_id node_id();
+      uint64_t      revision();
 
       friend class detail::state_db_impl;
 
@@ -186,6 +187,14 @@ class state_db final
        * Branching state between this node and its ancestor will be discarded.
        */
       void commit_node( state_node_id node_id );
+
+      /**
+       * Get and return the current "head" node.
+       *
+       * Head is determined by longest chain. Oldest
+       * chain wins in a tie of length.
+       */
+      std::shared_ptr< state_node > get_head();
 
    private:
       std::unique_ptr< detail::state_db_impl > impl;

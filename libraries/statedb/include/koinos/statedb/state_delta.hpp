@@ -29,12 +29,12 @@ namespace koinos::statedb {
          flat_set< id_type >                       _modified_objects;
          id_type                                   _next_object_id = 0;
 
-         uint256_t                                 _state_id = 0;
+         state_node_id                             _state_id = 0;
          uint64_t                                  _state_revision = 0;
          bool                                      _is_writable = true;
 
       public:
-         state_delta( std::shared_ptr< state_delta > parent, uint256_t& id ) :
+         state_delta( std::shared_ptr< state_delta > parent, state_node_id& id ) :
             _parent( parent )
          {
             if( _parent != nullptr )
@@ -349,12 +349,12 @@ namespace koinos::statedb {
             return s;
          }
 
-         uint256_t state_id() const
+         state_node_id state_id() const
          {
             return _state_id;
          }
 
-         uint256_t parent_id() const
+         state_node_id parent_id() const
          {
             return _parent ? _parent->_state_id : 0;
          }

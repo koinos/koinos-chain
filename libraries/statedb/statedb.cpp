@@ -78,7 +78,7 @@ class state_db_impl final
 {
    public:
       state_db_impl() {}
-      ~state_db_impl() {}
+      ~state_db_impl() { close(); }
 
       void open( const boost::filesystem::path& p, const boost::any& o );
       void close();
@@ -91,24 +91,14 @@ class state_db_impl final
       void discard_node( state_node_id node_id, flat_set< state_node_id >& whitelist );
       void commit_node( state_node_id node_id );
 
+      std::shared_ptr< state_node > get_head();
+
       /**
        * Create a new state_node and add it to the tip.
        */
-      std::shared_ptr< state_node > make_node( std::shared_ptr< state_node > parent, state_node_id new_id );
-
-      /**
-       * Get the tip node.  If the node ID refers to a node other than
-       * the tip node, throw bad_node_position.
-       */
-      std::shared_ptr< state_node > get_tip( state_node_id node_id );
+      std::shared_ptr< state_node > make_node( state_ptr parent, state_node_id new_id );
 
       bool is_open()const;
-
-      /**
-       * Require the tip node to have the given node_id.
-       * If the node ID refers to a node other than the tip node, throw bad_node_position.
-       */
-      void require_tip( state_node_id node_id );
 
       boost::filesystem::path      _path;
       boost::any                   _options;
@@ -118,10 +108,10 @@ class state_db_impl final
       state_ptr                    _root;
 };
 
-std::shared_ptr< state_node > state_db_impl::make_node( std::shared_ptr< state_node > parent, state_node_id new_id )
+std::shared_ptr< state_node > state_db_impl::make_node( state_ptr parent, state_node_id new_id )
 {
    auto node = std::make_shared< state_node >();
-   node->impl->init( this, std::make_shared< state_delta_type >( parent->impl->_state, new_id ) );
+   node->impl->init( this, std::make_shared< state_delta_type >( parent, new_id ) );
 
    _index.insert( node->impl->_state );
 
@@ -199,10 +189,20 @@ std::shared_ptr< state_node > state_db_impl::create_writable_node( state_node_id
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
    KOINOS_ASSERT( parent_id >= 0, illegal_argument, "parent_id is negative", () );
 
-   std::shared_ptr< state_node > parent_node = get_tip( parent_id );
-   KOINOS_ASSERT( !parent_node->is_writable(), bad_node_position, "Parent is writable", () );
+   auto parent_state = _index.find( parent_id );
+   if( parent_state != _index.end() && !(*parent_state)->is_writable() )
+   {
+      auto node = make_node( *parent_state, new_id );
 
-   return make_node( parent_node, new_id );
+      if( node->impl->_state->revision() > _head->revision() )
+      {
+         _head = node->impl->_state;
+      }
+
+      return node;
+   }
+
+   return std::shared_ptr< state_node >();
 }
 
 void state_db_impl::finalize_node( state_node_id node_id )
@@ -224,6 +224,7 @@ void state_db_impl::discard_node( state_node_id node_id, flat_set< state_node_id
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
    KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
+   KOINOS_ASSERT( node_id != _root->state_id(), illegal_argument, "Cannot discard root node" );
 
    auto state_itr = _index.find( node_id );
    if( state_itr == _index.end() ) return;
@@ -232,9 +233,11 @@ void state_db_impl::discard_node( state_node_id node_id, flat_set< state_node_id
    const auto& previdx = _index.template get< by_parent >();
    const auto head_id = _head->state_id();
 
+   bool head_removed = false;
+
    for( uint32_t i = 0; i < remove_queue.size(); ++i )
    {
-      KOINOS_ASSERT( remove_queue[ i ] != head_id, internal_error, "removing the block and its descendants would remove the current head block" );
+      if( remove_queue[ i ] == head_id ) head_removed = true;
 
       auto previtr = previdx.lower_bound( remove_queue[ i ] );
       while ( previtr != previdx.end() && (*previtr)->parent_id() == remove_queue[ i ] )
@@ -255,6 +258,12 @@ void state_db_impl::discard_node( state_node_id node_id, flat_set< state_node_id
       if ( itr != _index.end() )
          _index.erase( itr );
    }
+
+   if( head_removed )
+   {
+      // We do not allow removing root, so the index has size >= 1
+      _head = *(_index.template get< by_revision >().rbegin());
+   }
 }
 
 void state_db_impl::commit_node( state_node_id node_id )
@@ -271,6 +280,13 @@ void state_db_impl::commit_node( state_node_id node_id )
    discard_node( old_root->state_id(), whitelist );
    (*state_itr)->commit();
    _root = *state_itr;
+}
+
+std::shared_ptr< state_node > state_db_impl::get_head()
+{
+   auto node = std::make_shared< state_node >();
+   node->impl->init( this, _head );
+   return node;
 }
 
 bool state_db_impl::is_open()const
@@ -446,6 +462,11 @@ state_node_id state_node::node_id()
    return impl->_state->state_id();
 }
 
+uint64_t state_node::revision()
+{
+   return impl->_state->revision();
+}
+
 state_db::state_db() : impl( new detail::state_db_impl() ) {}
 state_db::~state_db() {}
 
@@ -493,6 +514,11 @@ void state_db::discard_node( state_node_id node_id )
 void state_db::commit_node( state_node_id node_id )
 {
    impl->commit_node( node_id );
+}
+
+std::shared_ptr< state_node > state_db::get_head()
+{
+   return impl->get_head();
 }
 
 } } // koinos::state_db

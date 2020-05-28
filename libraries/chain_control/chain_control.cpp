@@ -141,7 +141,7 @@ template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
  *
  * However, the state of C++ support for CSP style multithreading is rather unfortunate.
  * There is no thread-safe queue in the standard library, and the Boost sync_bounded_queue
- * class is marked as experimental.  Some quick Googling suggests that if you want a
+ * class is marked as experimental.  Some quick Googling suggests that if you want avoid open( const boost::filesystem::path& p, const boost::any& o );
  * thread-safe queue class in C++, the accepted practice is to "roll your own" -- ugh.
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
@@ -156,6 +156,7 @@ class chain_controller_impl
       void stop_threads();
 
       std::future< std::shared_ptr< submit_return > > submit( const submit_item& item );
+      void open( const boost::filesystem::path& p, const boost::any& o );
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
    private:
@@ -171,7 +172,7 @@ class chain_controller_impl
       std::chrono::time_point< std::chrono::steady_clock > now()
       {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
 
-      fork_database_type                                                       _fork_db;
+      //fork_database_type                                                       _fork_db;
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
       chain::system_call_table                                                 _syscall_table;
@@ -237,6 +238,11 @@ std::future< std::shared_ptr< submit_return > > chain_controller::submit( const 
    return _my->submit( item );
 }
 
+void chain_controller::open( const boost::filesystem::path& p, const boost::any& o )
+{
+   _my->open( p, o );
+}
+
 void chain_controller::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
 {
    _my->set_time( t );
@@ -284,6 +290,11 @@ std::future< std::shared_ptr< submit_return > > chain_controller_impl::submit( c
       // enqueued at the time of shutdown.)
    }
    return fut_output;
+}
+
+void chain_controller_impl::open( const boost::filesystem::path& p, const boost::any& o )
+{
+   _state_db.open( p, o );
 }
 
 DECLARE_KOINOS_EXCEPTION( decode_exception );
@@ -348,17 +359,12 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    {
       // Genesis case
       KOINOS_ASSERT( block.sub.block_topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
-
-      _fork_db.reset( block.topo_ptr );
-      return;
    }
 
-   fork_database_type::block_state_ptr maybe_previous = _fork_db.fetch_block( block.sub.block_topo.previous );
-
-   KOINOS_ASSERT( maybe_previous, unknown_previous_block, "Unknown previous block", () );
-   KOINOS_ASSERT( block.sub.block_topo.block_num.height == maybe_previous->block_num().height + 1, block_height_mismatch, "Block height must increase by 1", () );
-   // Following assert should never trigger, as it could only be caused by a serious bug in fork_database or BMIC
-   KOINOS_ASSERT( maybe_previous->id() == block.sub.block_topo.previous, previous_id_mismatch, "Previous block ID does not match", () );
+   auto writable_node = _state_db.create_writable_node(
+      statedb::u256_from_mh( block.sub.block_topo.previous),
+      statedb::u256_from_mh( block.sub.block_topo.id ) );
+   KOINOS_ASSERT( writable_node, unknown_previous_block, "Unknown previous block", () );
 
    crypto::recoverable_signature sig;
    vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
@@ -367,25 +373,11 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    crypto::multihash_type digest = crypto::hash( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
-#pragma message( "TODO:  Walk statedb to where it needs to be" )
-   /*
-   fork_database_type::branch_pair_type path = _fork_db.fetch_branch_from( _fork_db.head()->id(), block.topo.previous );
-
-   for( fork_database_type::block_state_ptr& p : path.first )
-   {
-      // TODO:  Walk statedb up along path to arrive at MRCA
-   }
-   for( fork_database_type::block_state_ptr& p : path.second )
-   {
-      // TODO:  Walk statedb down along path to arrive at state
-   }
-   */
 
 #pragma message( "TODO:  Apply block" )
 #pragma message( "TODO:  Walk statedb back to forkdb head" )
 
-   // Add successful block to forkdb
-   _fork_db.add( block.topo_ptr );
+   _state_db.finalize_node( statedb::u256_from_mh( block.sub.block_topo.id ) );
 
 #pragma message( "TODO:  Report success / failure to caller" )
 }
@@ -406,23 +398,12 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
    std::visit(overloaded {
       [&]( get_head_info_params& p )
       {
-         auto head = _fork_db.head();
+         auto head = _state_db.get_head();
          if( head )
          {
             get_head_info_return res;
-            res.id = head->id();
-            res.height = head->block_num();
-            result = res;
-         }
-         else if( _fork_db.size() == 0 )
-         {
-            get_head_info_return res;
-            #pragma message "TODO: Replace with zero hash"
-            crypto::multihash::set_id( res.id, CRYPTO_SHA2_256_ID );
-            crypto::multihash::set_size( res.id, 32 );
-            res.id.digest.data.resize( 32 );
-            memset( res.id.digest.data.data(), 0, 32 );
-            res.height.height = 0;
+            res.id = statedb::mh_from_u256( head->node_id() );
+            res.height.height = head->revision();
             result = res;
          }
          else
