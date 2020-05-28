@@ -15,7 +15,8 @@ compiler:
   - gcc
 
 env:
-  - CMAKE_BUILD_TYPE=RELEASE
+  - RUN_TYPE=coverage
+  - RUN_TYPE=test
 
 matrix:
   exclude:
@@ -23,6 +24,7 @@ matrix:
       compiler: gcc
     - os: linux
       compiler: clang
+      env: RUN_TYPE=coverage
 
 before_install:
   - ci/before_install.sh
@@ -32,3 +34,6 @@ install:
 
 script:
   - ci/build.sh && ci/test.sh
+
+after_success:
+  - ci/after_success.sh

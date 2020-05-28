@@ -21,7 +21,8 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       zlib \
       snappy \
       bzip2 \
-      gflags
+      gflags \
+      lcov
 fi
 
-pip3 install dataclasses-json Jinja2 importlib_resources pluginbase
+pip3 install dataclasses-json Jinja2 importlib_resources pluginbase cpp-coveralls
