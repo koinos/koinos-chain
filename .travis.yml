@@ -1,28 +1,17 @@
 language: c++
 
-os:
-  - linux
-  - osx
-
-dist:
-  - bionic
-
-osx_image:
-  - xcode11.3
-
-compiler:
-  - clang
-  - gcc
-
-env:
-  - RUN_TYPE=coverage
-  - RUN_TYPE=test
-
-matrix:
-  exclude:
-    - os: osx
-      compiler: gcc
+jobs:
+  include:
     - os: linux
+      dist: bionic
+      compiler: gcc
+      env: RUN_TYPE=test
+    - os: osx
+      osx_image: xcode11.3
+      compiler: clang
+      env: RUN_TYPE=test
+    - os: osx
+      osx_image: xcode11.3
       compiler: clang
       env: RUN_TYPE=coverage
 

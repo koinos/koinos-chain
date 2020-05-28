@@ -14,6 +14,6 @@ if [ "$RUN_TYPE" = "test" ]; then
    cmake -DCMAKE_BUILD_TYPE=Release ..
    make -j3
 elif [ "$RUN_TYPE" = "coverage" ]; then
-   cmake -DCMAKE_BUILD_TYPE=Debug ..
+   cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON ..
    make -j3 coverage
 fi
