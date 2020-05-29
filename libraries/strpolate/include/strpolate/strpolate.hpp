@@ -36,13 +36,6 @@ inline void to_string( std::string& result, long double val )
 {   result = std::to_string(val); }
 inline void to_string( std::string& result, const char* val )
 {   result = val;                 }
-template< typename T >
-inline void to_string( std::string& result, const T& t )
-{
-   std::stringstream ss;
-   ss << t;
-   result = ss.str();
-}
 
 template< typename T >
 std::string to_string( T t )
