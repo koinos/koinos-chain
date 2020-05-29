@@ -2,10 +2,10 @@
 
 #include <fc/exception/exception.hpp>
 
-#include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 
 #include <koinos/pack/rt/binary.hpp>
+#include <koinos/pack/rt/json.hpp>
 
 #include <string>
 
@@ -17,6 +17,20 @@ namespace koinos { namespace statedb {
 
 namespace fc
 {
+struct variant;
+
+void to_variant( const koinos::protocol::multihash_type& mh, variant& v )
+{
+   nlohmann::json j;
+   koinos::pack::to_json( j, mh );
+   v = j.dump();
+}
+
+void from_variant( const variant& v, koinos::protocol::multihash_type& mh )
+{
+   nlohmann::json j = v.as_string();
+   koinos::pack::from_json( j, mh );
+}
 
 template<>
 struct get_typename< koinos::protocol::multihash_type >

@@ -169,7 +169,13 @@ class state_db final
       /**
        * Get a list of recent state nodes.
        */
-      void get_recent_states(std::vector< state_node_ptr >& node_list, int limit);
+      void get_recent_states(std::vector< state_node_ptr >& node_list, uint64_t limit);
+
+      /**
+       * Get an ancestor of a node at a particular revision
+       */
+      state_node_ptr get_node_at_revision( uint64_t revision, state_node_id& child_id )const;
+      state_node_ptr get_node_at_revision( uint64_t revision )const;
 
       /**
        * Get the state_node for the given state_node_id.
@@ -198,20 +204,17 @@ class state_db final
       /**
        * Finalize a node.  The node will no longer be writable.
        */
-      void finalize_node( state_node_ptr node );
       void finalize_node( const state_node_id& node_id );
 
       /**
        * Discard the node, it can no longer be used.
        */
-      void discard_node( state_node_ptr node );
       void discard_node( const state_node_id& node_id );
 
       /**
        * Squash the node in to the root state, committing it.
        * Branching state between this node and its ancestor will be discarded.
        */
-      void commit_node( state_node_ptr node );
       void commit_node( const state_node_id& node_id );
 
       /**
@@ -222,6 +225,13 @@ class state_db final
        * nodes are eligible to become head.
        */
       state_node_ptr get_head()const;
+
+      /**
+       * Get and return the current "root" node.
+       *
+       * All state nodes are guaranteed to a descendant of root.
+       */
+      state_node_ptr get_root()const;
 
    private:
       std::unique_ptr< detail::state_db_impl > impl;

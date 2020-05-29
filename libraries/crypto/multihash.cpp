@@ -11,7 +11,7 @@ namespace koinos { namespace protocol {
 
 bool operator ==( const multihash_type& mha, const multihash_type& mhb )
 {
-   return ( koinos::crypto::multihash::validate( mha ) && koinos::crypto::multihash::validate( mhb ) )
+   return ( koinos::crypto::multihash::validate( mha ) == koinos::crypto::multihash::validate( mhb ) )
        && ( koinos::crypto::multihash::get_id( mha )   == koinos::crypto::multihash::get_id( mhb ) )
        && ( koinos::crypto::multihash::get_size( mha ) == koinos::crypto::multihash::get_size( mhb ) )
        && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );

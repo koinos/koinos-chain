@@ -91,14 +91,16 @@ class state_db_impl final
       void close();
 
       state_node_ptr get_empty_node();
-      void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, int limit );
+      void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, uint64_t limit );
+      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child )const;
       state_node_ptr get_node( const state_node_id& node_id )const;
       state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
-      void finalize_node( state_node_ptr node );
-      void discard_node( state_node_ptr node, flat_set< state_node_id >& whitelist );
-      void commit_node( state_node_ptr node );
+      void finalize_node( const state_node_id& node );
+      void discard_node( const state_node_id& node, const flat_set< state_node_id >& whitelist );
+      void commit_node( const state_node_id& node );
 
       state_node_ptr get_head()const;
+      state_node_ptr get_root()const;
 
       bool is_open()const;
 
@@ -147,7 +149,7 @@ void state_db_impl::close()
    _index.clear();
 }
 
-void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list, int limit )
+void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list, uint64_t limit )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
    node_list.clear();
@@ -161,6 +163,31 @@ void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list,
 
       node_itr = _index.find( (*node_itr)->parent_id() );
    }
+}
+
+state_node_ptr state_db_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( revision >= _root->revision(), illegal_argument,
+      "Cannot ask for node with revision less than root. root rev: ${root}, requested: ${req}",
+      ("root", _root->revision())("req", revision) );
+
+   if( revision == _root->revision() ) return _root;
+
+   auto child = get_node( child_id );
+   if( !child ) child = _head;
+
+   state_delta_ptr delta = child->impl->_state;
+
+   while( delta->revision() > revision )
+   {
+      delta = delta->parent();
+   }
+
+   auto node_itr = _index.find( delta->id() );
+   KOINOS_ASSERT( node_itr != _index.end(), internal_error,
+      "Could not find state node associated with linked state_delta ${id}", ("id", delta->id()) );
+   return *node_itr;
 }
 
 state_node_ptr state_db_impl::get_node( const state_node_id& node_id )const
@@ -180,42 +207,39 @@ state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_
    {
       auto node = std::make_shared< state_node >();
       node->impl->init( std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id ) );
-      _index.insert( node );
-
-      return node;
+      if( _index.insert( node ).second )
+         return node;
    }
 
    return state_node_ptr();
 }
 
-void state_db_impl::finalize_node( state_node_ptr node )
+void state_db_impl::finalize_node( const state_node_id& node_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   auto node = get_node( node_id );
+   KOINOS_ASSERT( node, illegal_argument, "Node ${n} not found.", ("n", node_id) );
 
-   if( node )
+   node->impl->_is_writable = false;
+
+   if( node->revision() > _head->revision() )
    {
-      node->impl->_is_writable = false;
-
-      if( node->revision() > _head->revision() )
-      {
-         _head = node;
-      }
+      _head = node;
    }
 }
 
-void state_db_impl::discard_node( state_node_ptr node, flat_set< state_node_id >& whitelist )
+void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< state_node_id >& whitelist )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   auto node = get_node( node_id );
 
    if( !node ) return;
 
-   KOINOS_ASSERT( node->id() != _root->id(), illegal_argument, "Cannot discard root node" );
+   KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "Cannot discard root node" );
 
-   std::vector< state_node_id > remove_queue{ node->id() };
+   std::vector< state_node_id > remove_queue{ node_id };
    const auto& previdx = _index.template get< by_parent >();
    const auto head_id = _head->id();
-
-   bool head_removed = false;
 
    for( uint32_t i = 0; i < remove_queue.size(); ++i )
    {
@@ -234,32 +258,39 @@ void state_db_impl::discard_node( state_node_ptr node, flat_set< state_node_id >
       }
    }
 
-   for( const auto& node_id : remove_queue )
+   for( const auto& id : remove_queue )
    {
-      auto itr = _index.find( node_id );
+      auto itr = _index.find( id );
       if ( itr != _index.end() )
          _index.erase( itr );
    }
 }
 
-void state_db_impl::commit_node( state_node_ptr node )
+void state_db_impl::commit_node( const state_node_id& node_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node, illegal_argument, "Cannot commit a non-existent node", () );
-   KOINOS_ASSERT( node->id() != _root->id(), illegal_argument, "Cannot commit root node. Root node already committed." );
+   KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "Cannot commit root node. Root node already committed." );
+   auto node = get_node( node_id );
+   KOINOS_ASSERT( node, illegal_argument, "Node ${n} not found.", ("n", node_id) );
 
    flat_set< state_node_id > whitelist{ node->id() };
 
    auto old_root = _root;
-   discard_node( old_root, whitelist );
-   node->impl->_state->commit();
    _root = node;
+   _index.modify( _index.find( node->id() ), []( state_node_ptr& n ){ n->impl->_state->commit(); } );
+   discard_node( old_root->id(), whitelist );
 }
 
 state_node_ptr state_db_impl::get_head()const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
    return _head;
+}
+
+state_node_ptr state_db_impl::get_root()const
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   return _root;
 }
 
 bool state_db_impl::is_open()const
@@ -423,7 +454,7 @@ bool state_node::is_writable()const
 
 const state_node_id& state_node::id()const
 {
-   return impl->_state->state_id();
+   return impl->_state->id();
 }
 
 const state_node_id& state_node::parent_id()const
@@ -454,9 +485,20 @@ state_node_ptr state_db::get_empty_node()
    return impl->get_empty_node();
 }
 
-void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, int limit )
+void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, uint64_t limit )
 {
    impl->get_recent_states( node_list, limit );
+}
+
+state_node_ptr state_db::get_node_at_revision( uint64_t revision, state_node_id& child_id )const
+{
+   return impl->get_node_at_revision( revision, child_id );
+}
+
+state_node_ptr state_db::get_node_at_revision( uint64_t revision )const
+{
+   static const state_node_id null_id;
+   return impl->get_node_at_revision( revision, null_id );
 }
 
 state_node_ptr state_db::get_node( const state_node_id& node_id )const
@@ -469,40 +511,30 @@ state_node_ptr state_db::create_writable_node( const state_node_id& parent_id, c
    return impl->create_writable_node( parent_id, new_id );
 }
 
-void state_db::finalize_node( state_node_ptr node )
-{
-   impl->finalize_node( node );
-}
-
 void state_db::finalize_node( const state_node_id& node_id )
 {
-   finalize_node( get_node( node_id ) );
-}
-
-void state_db::discard_node( state_node_ptr node )
-{
-   flat_set< state_node_id > whitelist;
-   impl->discard_node( node, whitelist );
+   impl->finalize_node( node_id );
 }
 
 void state_db::discard_node( const state_node_id& node_id )
 {
-   discard_node( get_node( node_id ) );
-}
-
-void state_db::commit_node( state_node_ptr node )
-{
-   impl->commit_node( node );
+   static const flat_set< state_node_id > whitelist;
+   impl->discard_node( node_id, whitelist );
 }
 
 void state_db::commit_node( const state_node_id& node_id )
 {
-   commit_node( get_node( node_id ) );
+   impl->commit_node( node_id );
 }
 
 state_node_ptr state_db::get_head()const
 {
    return impl->get_head();
+}
+
+state_node_ptr state_db::get_root()const
+{
+   return impl->get_root();
 }
 
 } } // koinos::state_db

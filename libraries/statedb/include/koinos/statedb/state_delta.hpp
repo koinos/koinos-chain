@@ -9,7 +9,7 @@
 
 #include <memory>
 
-#define STATE_ID_KEY "state_id"
+#define ID_KEY "id"
 
 namespace koinos::statedb {
 
@@ -53,7 +53,11 @@ namespace koinos::statedb {
             _indices->open( p, o );
             _next_object_id = _indices->next_id();
             _revision = _indices->revision();
-            _indices->get_metadata( STATE_ID_KEY, _id );
+            if( !_indices->get_metadata( ID_KEY, _id ) )
+            {
+               crypto::zero_hash( _id, CRYPTO_SHA2_256_ID );
+               _indices->put_metadata( ID_KEY, _id );
+            }
          }
 
          template< typename Constructor >
@@ -222,7 +226,7 @@ namespace koinos::statedb {
             _indices = std::move( root->_indices );
             _indices->set_next_id( _next_object_id );
             _indices->set_revision( _revision );
-            _indices->put_metadata( STATE_ID_KEY, _id );
+            _indices->put_metadata( ID_KEY, _id );
             _modified_objects.clear();
             _removed_objects.clear();
             _parent.reset();
@@ -337,7 +341,7 @@ namespace koinos::statedb {
             return s;
          }
 
-         const state_node_id& state_id() const
+         const state_node_id& id() const
          {
             return _id;
          }
@@ -402,4 +406,4 @@ namespace koinos::statedb {
 
 } // koinos::statedb
 
-#undef STATE_ID_KEY
+#undef ID_KEY
