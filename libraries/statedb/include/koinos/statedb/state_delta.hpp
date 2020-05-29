@@ -147,6 +147,12 @@ namespace koinos::statedb {
             return ptr;
          }
 
+         template< typename IndexedByType, typename CompatibleKey >
+         const value_type* find( CompatibleKey&& key )
+         {
+            return find< IndexedByType >( key );
+         }
+
          const value_type* find( id_type& key )
          {
             auto itr = _indices->find( key );
@@ -230,18 +236,6 @@ namespace koinos::statedb {
             _modified_objects.clear();
             _removed_objects.clear();
             _parent.reset();
-         }
-
-         void commit( int64_t revision )
-         {
-            if( revision > _revision && !is_root() )
-            {
-               _parent->commit( revision );
-            }
-            else if( revision == _revision )
-            {
-               commit();
-            }
          }
 
          void clear()

@@ -386,6 +386,10 @@ namespace koinos::statedb {
             }
          }
 
+         merge_index( const boost::container::deque< std::shared_ptr< state_delta_type > >& d ) :
+            _deque( d )
+         {}
+
          template< typename CompatibleKey >
          iterator_type lower_bound( CompatibleKey&& key ) const
          {
