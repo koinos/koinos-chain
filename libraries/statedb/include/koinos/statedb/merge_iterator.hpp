@@ -36,7 +36,7 @@ namespace koinos::statedb {
 
          struct iterator_wrapper
          {
-            iterator_wrapper( iter_type&& i, int64_t r, const std::shared_ptr< MultiIndexType > idx ) :
+            iterator_wrapper( iter_type&& i, uint64_t r, const std::shared_ptr< MultiIndexType > idx ) :
                iter( std::move( i ) ),
                revision( r ),
                index( idx )
@@ -55,7 +55,7 @@ namespace koinos::statedb {
             {}
 
             iter_type                                 iter;
-            int64_t                                   revision;
+            uint64_t                                  revision;
             const std::shared_ptr< MultiIndexType >   index;
 
             const iterator_wrapper& self() const { return *this; }
@@ -112,24 +112,24 @@ namespace koinos::statedb {
                ordered_unique< tag< by_order_revision >,
                   composite_key< iterator_wrapper,
                      const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
-                     member< iterator_wrapper, int64_t, &iterator_wrapper::revision >
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
                   >,
-                  composite_key_compare< iterator_compare_less, std::greater< int64_t > >
+                  composite_key_compare< iterator_compare_less, std::greater< uint64_t > >
                >,
                ordered_unique< tag< by_reverse_order_revision >,
                   composite_key< iterator_wrapper,
                      const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
-                     member< iterator_wrapper, int64_t, &iterator_wrapper::revision >
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
                   >,
-                  composite_key_compare< iterator_compare_greater, std::greater< int64_t > >
+                  composite_key_compare< iterator_compare_greater, std::greater< uint64_t > >
                >,
-               ordered_unique< tag< by_revision >, member< iterator_wrapper, int64_t, &iterator_wrapper::revision > >
+               ordered_unique< tag< by_revision >, member< iterator_wrapper, uint64_t, &iterator_wrapper::revision > >
             >
          > iter_revision_index_type;
 
          iter_revision_index_type                           iter_revision_index;
          const boost::container::deque< state_delta_ptr >&  undo_deque;
-         int64_t                                            base_revision = 0;
+         uint64_t                                           base_revision = 0;
 
       public:
          template< typename Initializer >
