@@ -128,7 +128,7 @@ namespace koinos::statedb {
          > iter_revision_index_type;
 
          iter_revision_index_type                           iter_revision_index;
-         const boost::container::deque< state_delta_ptr >&   undo_deque;
+         const boost::container::deque< state_delta_ptr >&  undo_deque;
          int64_t                                            base_revision = 0;
 
       public:
@@ -340,7 +340,7 @@ namespace koinos::statedb {
          {
             bool dirty = false;
 
-            for( size_t i = undo_deque.size() - 1; itr->revision < undo_deque[i]->revision() && !dirty; --i )
+            for( int i = undo_deque.size() - 1; itr->revision < undo_deque[i]->revision() && !dirty; --i )
             {
                dirty = undo_deque[i]->is_modified( itr->iter->id );
             }
