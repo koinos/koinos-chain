@@ -168,8 +168,6 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_1->put_object( put_res, put_args );
    BOOST_REQUIRE( put_res.object_existed );
 
-   //other_buf.clear();
-   //other_buf.resize( 1024 );
    vs.swap_vector( other_buf );
    get_args.buf = const_cast< char* >( vs.vector().data() );
 
