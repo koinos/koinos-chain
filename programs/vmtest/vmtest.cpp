@@ -213,14 +213,17 @@ int main(int argc, char** argv, char** envp)
    catch( const eosio::vm::exception& e )
    {
       std::cerr << e.what() << ": " << e.detail() << std::endl;
+      return 1;
    }
    catch( const koinos::exception::koinos_exception& e )
    {
       std::cerr << e.to_string() << std::endl;
+      return 1;
    }
    catch (...)
    {
       std::cerr << "unknown error" << std::endl;
+      return 1;
    }
 
    return 0;
