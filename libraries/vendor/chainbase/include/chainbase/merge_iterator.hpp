@@ -343,7 +343,7 @@ namespace chainbase {
          {
             bool dirty = false;
 
-            for( size_t i = undo_deque.size() - 1; itr->revision < undo_deque[i]->revision() && !dirty; --i )
+            for( size_t i = undo_deque.size() - 1; itr->revision < uint64_t(undo_deque[i]->revision()) && !dirty; --i )
             {
                dirty = undo_deque[i]->is_modified( itr->iter->id );
             }

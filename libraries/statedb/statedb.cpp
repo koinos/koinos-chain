@@ -1,4 +1,6 @@
 
+#include <koinos/pack/rt/string.hpp>
+
 #include <koinos/statedb/koinos_object_types.hpp>
 #include <koinos/statedb/merge_iterator.hpp>
 #include <koinos/statedb/state_delta.hpp>
