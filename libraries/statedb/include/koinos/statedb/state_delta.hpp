@@ -83,10 +83,18 @@ namespace koinos::statedb {
             });
 
             if( emplace_result.second )
+            {
                ++_next_object_id;
 
-            if( is_root() )
-               _indices->set_next_id( _next_object_id );
+               if( is_root() )
+               {
+                  _indices->set_next_id( _next_object_id );
+               }
+               else
+               {
+                  _modified_objects.insert( new_obj.id );
+               }
+            }
 
             return emplace_result;
          }

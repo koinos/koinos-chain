@@ -2,6 +2,7 @@
 
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log/log.hpp>
+#include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
 #include <koinos/statedb/koinos_object_types.hpp>
 #include <koinos/statedb/merge_iterator.hpp>
@@ -12,11 +13,14 @@
 #include <mira/database_configuration.hpp>
 
 #include <boost/container/deque.hpp>
+#include <boost/interprocess/streams/vectorstream.hpp>
 
 #include <iostream>
 
 using namespace koinos::crypto;
 using namespace koinos::statedb;
+
+using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
 struct test_block
 {
@@ -70,6 +74,7 @@ typedef koinos::statedb::multi_index_container<
 > book_index;
 
 FC_REFLECT( book, (id)(a)(b) )
+KOINOS_REFLECT( book, (id)(a)(b) )
 
 void test_block::get_id( multihash_type& mh )const
 {
@@ -98,6 +103,152 @@ struct statedb_fixture
 };
 
 BOOST_FIXTURE_TEST_SUITE( statedb_tests, statedb_fixture )
+
+BOOST_AUTO_TEST_CASE( basic_test )
+{ try {
+   BOOST_TEST_MESSAGE( "Creating book" );
+   object_space space = 0;
+   object_key key = 0;
+   book book_a;
+   book_a.id = 1;
+   book_a.a = 3;
+   book_a.b = 4;
+   book get_book;
+
+   multihash_type state_id;
+   hash( state_id, CRYPTO_SHA2_256_ID, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+
+   put_object_args put_args;
+   put_object_result put_res;
+   vectorstream vs;
+   koinos::pack::to_binary( vs, book_a );
+   put_args.space = space;
+   put_args.key = book_a.id;
+   put_args.buf = const_cast< char* >( vs.vector().data() );
+   put_args.object_size = vs.vector().size();
+
+   state_1->put_object( put_res, put_args );
+   BOOST_REQUIRE( !put_res.object_existed );
+
+   std::vector< char > other_buf;
+   // More than enough space...
+   other_buf.resize( 1024 );
+   vs.swap_vector( other_buf );
+   get_object_args get_args;
+   get_object_result get_res;
+   get_args.space = space;
+   get_args.key = book_a.id;
+   get_args.buf = const_cast< char* >( vs.vector().data() );
+   get_args.buf_size = vs.vector().size();
+
+   // Book should not exist on older state node
+   db.get_root()->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == object_key() );
+   BOOST_REQUIRE_EQUAL( get_res.size, -1 );
+
+   state_1->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   koinos::pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+   BOOST_TEST_MESSAGE( "Modifying book" );
+
+   book_a.a = 5;
+   book_a.b = 6;
+   vs.swap_vector( other_buf );
+   koinos::pack::to_binary( vs, book_a );
+   put_args.buf = const_cast< char* >( vs.vector().data() );
+   put_args.object_size = vs.vector().size();
+
+   state_1->put_object( put_res, put_args );
+   BOOST_REQUIRE( put_res.object_existed );
+
+   //other_buf.clear();
+   //other_buf.resize( 1024 );
+   vs.swap_vector( other_buf );
+   get_args.buf = const_cast< char* >( vs.vector().data() );
+
+   state_1->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   koinos::pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+   hash( state_id, CRYPTO_SHA2_256_ID, 2 );
+   auto state_2 = db.create_writable_node( state_1->id(), state_id );
+   BOOST_REQUIRE( !state_2 );
+
+   db.finalize_node( state_1->id() );
+
+   vs.swap_vector( other_buf );
+   put_args.buf = const_cast< char* >( vs.vector().data() );
+   BOOST_REQUIRE_THROW( state_1->put_object( put_res, put_args ), node_finalized );
+
+   state_2 = db.create_writable_node( state_1->id(), state_id );
+   book_a.a = 7;
+   book_a.b = 8;
+   koinos::pack::to_binary( vs, book_a );
+   put_args.buf = const_cast< char* >( vs.vector().data() );
+   state_2->put_object( put_res, put_args );
+   BOOST_REQUIRE( put_res.object_existed );
+
+   vs.swap_vector( other_buf );
+   get_args.buf = const_cast< char* >( vs.vector().data() );
+
+   state_2->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   koinos::pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+   vs.seekp( 0 );
+   vs.seekg( 0 );
+   state_1->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   koinos::pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, 5 );
+   BOOST_REQUIRE_EQUAL( get_book.b, 6 );
+
+   BOOST_TEST_MESSAGE( "Erasing book" );
+   put_args.buf = nullptr;
+   put_args.object_size = 0;
+   state_2->put_object( put_res, put_args );
+   BOOST_REQUIRE( put_res.object_existed );
+
+   state_2->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == object_key() );
+   BOOST_REQUIRE( get_res.size == -1 );
+
+   db.discard_node( state_2->id() );
+   state_2 = db.get_node( state_2->id() );
+   BOOST_REQUIRE( !state_2 );
+
+   vs.seekp( 0 );
+   vs.seekg( 0 );
+   state_1->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == other_buf.size() );
+   koinos::pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, 5 );
+   BOOST_REQUIRE_EQUAL( get_book.b, 6 );
+
+} catch( const koinos::exception::koinos_exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
@@ -1230,6 +1381,6 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
       BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
    }
-} FC_LOG_AND_RETHROW() }
+} catch( const koinos::exception::koinos_exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_SUITE_END()

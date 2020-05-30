@@ -59,7 +59,7 @@ class state_node_impl final
       void put_object( put_object_result& result, const put_object_args& args );
 
       state_delta_ptr   _state;
-      bool              _is_writable;
+      bool              _is_writable = true;
 
       // This dequeue contains pointers to all state deltas between the current
       // state and this state for use in merge queries. However, when state is
@@ -207,6 +207,7 @@ state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_
    {
       auto node = std::make_shared< state_node >();
       node->impl->init( std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id ) );
+      node->impl->_is_writable = true;
       if( _index.insert( node ).second )
          return node;
    }
