@@ -108,7 +108,6 @@ BOOST_AUTO_TEST_CASE( basic_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
    object_space space = 0;
-   object_key key = 0;
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -149,7 +148,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
    koinos::pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
@@ -173,7 +172,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
    koinos::pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
@@ -203,7 +202,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    state_2->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
    koinos::pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
@@ -214,7 +213,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    vs.seekg( 0 );
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == put_args.object_size );
+   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
    koinos::pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
@@ -239,7 +238,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    vs.seekg( 0 );
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == other_buf.size() );
+   BOOST_REQUIRE( get_res.size == (int64_t)other_buf.size() );
    koinos::pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
