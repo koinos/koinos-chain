@@ -30,7 +30,7 @@ if( CHAINBASE_CHECK_LOCKING )
   SET( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCHAINBASE_CHECK_LOCKING" )
 endif()
 
-if (ENABLE_COVERAGE)
+if (COVERAGE)
   include(CodeCoverage)
   append_coverage_compiler_flags()
   setup_target_for_coverage_lcov(
