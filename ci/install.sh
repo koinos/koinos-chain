@@ -23,6 +23,7 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       bzip2 \
       gflags \
       lcov
+   sudo gem install coveralls-lcov
 fi
 
-pip3 install dataclasses-json Jinja2 importlib_resources pluginbase cpp-coveralls pyyaml
+pip3 install dataclasses-json Jinja2 importlib_resources pluginbase
