@@ -21,9 +21,12 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       zlib \
       snappy \
       bzip2 \
-      gflags \
-      lcov
-   sudo gem install coveralls-lcov
+      gflags
+
+   if [ "$RUN_TYPE" = "coverage" ]; then
+      brew install lcov
+      sudo gem install coveralls-lcov
+   fi
 fi
 
 pip3 install dataclasses-json Jinja2 importlib_resources pluginbase
