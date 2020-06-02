@@ -31,6 +31,7 @@ namespace multi_index{
 
 template<
   typename Value,
+  typename Serializer,
   typename IndexSpecifierList=indexed_by<ordered_unique<identity<Value> > >,
   typename Allocator=std::allocator<Value> >
 class multi_index_container;

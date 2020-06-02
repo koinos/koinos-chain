@@ -72,19 +72,19 @@ namespace multi_index{
 #pragma warning(disable:4522) /* spurious warning on multiple operator=()'s */
 #endif
 
-template<typename Value,typename IndexSpecifierList,typename Allocator>
+template<typename Value,typename IndexSpecifierList,typename Allocator,typename Serializer>
 class multi_index_container:
   public detail::multi_index_base_type<
-    Value,IndexSpecifierList,Allocator>::type
+    Value,IndexSpecifierList,Allocator,Serializer>::type
 {
 
 private:
   BOOST_COPYABLE_AND_MOVABLE(multi_index_container)
 
-  template <typename,typename,typename> friend class  detail::index_base;
+  template <typename,typename,typename,typename> friend class  detail::index_base;
 
   typedef typename detail::multi_index_base_type<
-      Value,IndexSpecifierList,Allocator>::type   super;
+      Value,IndexSpecifierList,Allocator,Serializer>::type   super;
 
    int64_t                                         _revision = -1;
 
