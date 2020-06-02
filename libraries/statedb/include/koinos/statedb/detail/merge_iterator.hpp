@@ -1,5 +1,5 @@
 #pragma once
-#include <koinos/statedb/state_delta.hpp>
+#include <koinos/statedb/detail/state_delta.hpp>
 
 #include <boost/container/deque.hpp>
 
@@ -9,7 +9,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-namespace koinos::statedb {
+namespace koinos::statedb::detail {
 
    using namespace boost::multi_index;
 
@@ -129,7 +129,6 @@ namespace koinos::statedb {
 
          iter_revision_index_type                           iter_revision_index;
          const boost::container::deque< state_delta_ptr >&  undo_deque;
-         uint64_t                                           base_revision = 0;
 
       public:
          template< typename Initializer >
@@ -156,14 +155,12 @@ namespace koinos::statedb {
 
          merge_iterator( const merge_iterator& other ) :
             iter_revision_index( other.iter_revision_index ),
-            undo_deque( other.undo_deque ),
-            base_revision( other.base_revision )
+            undo_deque( other.undo_deque )
          {}
 
          merge_iterator( merge_iterator&& other ) :
             iter_revision_index( std::move( other.iter_revision_index ) ),
-            undo_deque( other.undo_deque ),
-            base_revision( other.base_revision )
+            undo_deque( other.undo_deque )
          {}
 
          bool operator ==( const merge_iterator& other )const
@@ -318,18 +315,16 @@ namespace koinos::statedb {
 
          merge_iterator& operator =( const merge_iterator& other )
          {
-            assert( &undo_deque == &(other.undo_deque) );
+            KOINOS_ASSERT( &undo_deque == &(other.undo_deque), internal_error, "Cannot assign iterators from different undo deques.", () );
             iter_revision_index = other.iter_revision_index;
-            base_revision = other.base_revision;
 
             return *this;
          }
 
          merge_iterator& operator =( merge_iterator&& other )
          {
-            assert( &undo_deque == &(other.undo_deque) );
+            KOINOS_ASSERT( &undo_deque == &(other.undo_deque), internal_error, "Cannot assign iterators from different undo deques.", () );
             iter_revision_index = std::move( other.iter_revision_index );
-            base_revision = other.base_revision;
 
             return *this;
          }
@@ -448,4 +443,4 @@ namespace koinos::statedb {
          boost::container::deque< std::shared_ptr< state_delta_type > > _deque;
    };
 
-} // koinos::statedb
+} // koinos::statedb::detail

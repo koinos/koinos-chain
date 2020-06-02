@@ -12,7 +12,7 @@
 #include <optional>
 #include <utility>
 
-namespace koinos { namespace statedb {
+namespace koinos::statedb {
 
 namespace detail {
 
@@ -539,4 +539,4 @@ state_node_ptr state_db::get_root()const
    return impl->get_root();
 }
 
-} } // koinos::state_db
+} // koinos::state_db

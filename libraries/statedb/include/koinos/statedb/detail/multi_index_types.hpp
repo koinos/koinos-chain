@@ -9,7 +9,7 @@
 #include <mira/composite_key.hpp>
 #include <mira/mem_fun.hpp>
 
-namespace koinos { namespace statedb {
+namespace koinos::statedb::detail {
 
 template< typename... Args >
 using multi_index_container = mira::multi_index_adapter< Args... >;
@@ -21,4 +21,4 @@ using mira::multi_index::composite_key;
 using mira::multi_index::composite_key_compare;
 using mira::multi_index::const_mem_fun;
 
-} } // koinos::statedb
+} // koinos::statedb::detail

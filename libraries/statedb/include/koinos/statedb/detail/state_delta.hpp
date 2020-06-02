@@ -1,6 +1,6 @@
 #pragma once
 #include <koinos/statedb/statedb_types.hpp>
-#include <koinos/statedb/uniqueness_validator.hpp>
+#include <koinos/statedb/detail/uniqueness_validator.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 
@@ -11,7 +11,7 @@
 
 #define ID_KEY "id"
 
-namespace koinos::statedb {
+namespace koinos::statedb::detail {
 
    using boost::container::flat_set;
 
@@ -386,8 +386,7 @@ namespace koinos::statedb {
                }
             }
 
-            #pragma message "TODO: Remove namespacing once chainbase is not included"
-            koinos::statedb::find_uniqueness_conflicts( *_indices, v, ids );
+            find_uniqueness_conflicts( *_indices, v, ids );
          }
 
          std::shared_ptr< state_delta > get_root()
@@ -404,6 +403,6 @@ namespace koinos::statedb {
          }
    };
 
-} // koinos::statedb
+} // koinos::statedb::detail
 
 #undef ID_KEY

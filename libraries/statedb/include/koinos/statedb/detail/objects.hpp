@@ -1,9 +1,9 @@
 #pragma once
 
 #include <koinos/statedb/koinos_object_types.hpp>
-#include <koinos/statedb/multi_index_types.hpp>
+#include <koinos/statedb/detail/multi_index_types.hpp>
 
-namespace koinos { namespace statedb {
+namespace koinos::statedb::detail {
 
 struct state_object
 {
@@ -18,7 +18,7 @@ struct state_object
          c( *this );
       }
 
-      id_type           id;
+      id_type           id = 0;
 
       object_space      space;
       object_key        key;
@@ -41,7 +41,7 @@ typedef multi_index_container<
    >
 > state_object_index;
 
-} }
+} // koinos::statedb::detail
 
-FC_REFLECT( koinos::statedb::state_object,
+FC_REFLECT( koinos::statedb::detail::state_object,
              (id)(space)(key)(value) )

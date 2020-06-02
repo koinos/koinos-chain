@@ -2,7 +2,7 @@
 #include <boost/container/flat_set.hpp>
 #include <boost/mpl/size.hpp>
 
-namespace koinos::statedb { namespace detail {
+namespace koinos::statedb::detail {
 
 // This could probably be condensed in to a single function using boost::mpl
 
@@ -37,12 +37,10 @@ struct find_uniqueness_conflicts_impl< 0 >
    }
 };
 
-} // detail
-
 template< typename MultiIndexType >
 void find_uniqueness_conflicts( MultiIndexType& i, const typename MultiIndexType::value_type& v, boost::container::flat_set< typename MultiIndexType::value_type::id_type >& ids )
 {
    return detail::find_uniqueness_conflicts_impl< boost::mpl::size< typename MultiIndexType::mira_type::index_type_list >::type::value - 1 >::find( i, v, ids );
 }
 
-} // koinos::statedb
+} // koinos::statedb::detail
