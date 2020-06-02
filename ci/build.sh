@@ -12,5 +12,11 @@ fi
 
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} ..
-make -j3
+
+if [ "$RUN_TYPE" = "test" ]; then
+   cmake -DCMAKE_BUILD_TYPE=Release ..
+   make -j3
+elif [ "$RUN_TYPE" = "coverage" ]; then
+   cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=ON ..
+   make -j3 coverage
+fi
