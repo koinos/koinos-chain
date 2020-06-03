@@ -3,6 +3,7 @@
 #include <koinos/chain/types_fwd.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/multi_index_types.hpp>
+#include <koinos/pack/rt/reflect.hpp>
 
 namespace koinos { namespace chain {
 
@@ -248,8 +249,12 @@ CHAINBASE_SET_INDEX_TYPE(koinos::chain::index_long_double_object, koinos::chain:
 FC_REFLECT(koinos::chain::table_id_object, (code)(scope)(table)(payer)(count) )
 FC_REFLECT(koinos::chain::key_value_object, (primary_key)(payer)(value) )
 
+KOINOS_REFLECT(koinos::chain::table_id_object, (code)(scope)(table)(payer)(count) )
+KOINOS_REFLECT(koinos::chain::key_value_object, (primary_key)(payer)(value) )
+
 #define REFLECT_SECONDARY(type)\
-  FC_REFLECT(type, (primary_key)(payer)(secondary_key) )
+  FC_REFLECT(type, (primary_key)(payer)(secondary_key) )\
+  KOINOS_REFLECT(type, (primary_key)(payer)(secondary_key) )
 
 REFLECT_SECONDARY(koinos::chain::index64_object)
 REFLECT_SECONDARY(koinos::chain::index128_object)
