@@ -30,6 +30,10 @@ if( CHAINBASE_CHECK_LOCKING )
   SET( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCHAINBASE_CHECK_LOCKING" )
 endif()
 
+if(${CMAKE_GENERATOR} MATCHES "Xcode")
+  set(CMAKE_XCODE_GENERATE_SCHEME YES)
+endif()
+
 if (COVERAGE)
   include(CodeCoverage)
   append_coverage_compiler_flags()
