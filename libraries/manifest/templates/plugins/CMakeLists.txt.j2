@@ -4,7 +4,7 @@ add_library( koinos_plugins
    ${CMAKE_CURRENT_SOURCE_DIR}/include/koinos/manifest/plugins.hpp
 )
 
-target_link_libraries( koinos_plugins appbase fc
+target_link_libraries( koinos_plugins koinos_appbase fc
 {% for plugin in plugins %}
    {{ plugin["plugin_project"] }}
 {% endfor %}

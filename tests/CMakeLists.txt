@@ -54,4 +54,4 @@ add_boost_test( koinos_tests
    TESTS ${TEST_CASES}
 )
 
-target_link_libraries(koinos_tests chainbase mira koinos_fork fc koinos_pack koinos_chain koinos_crypto strpolate ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(koinos_tests chainbase mira koinos_fork fc koinos_pack koinos_chain koinos_crypto koinos_strpolate ${PLATFORM_SPECIFIC_LIBS})

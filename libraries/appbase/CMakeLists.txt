@@ -38,18 +38,18 @@ if(ENABLE_COVERAGE_TESTING)
     SET(CMAKE_CXX_FLAGS "--coverage ${CMAKE_CXX_FLAGS}")
 endif()
 
-add_library( appbase
+add_library( koinos_appbase
              application.cpp
              ${HEADERS}
            )
 
-target_link_libraries( appbase ${Boost_LIBRARIES})
+target_link_libraries( koinos_appbase ${Boost_LIBRARIES})
 
-target_include_directories( appbase
+target_include_directories( koinos_appbase
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" ${Boost_INCLUDE_DIR})
 
 INSTALL( TARGETS
-   appbase
+   koinos_appbase
 
    RUNTIME DESTINATION bin
    LIBRARY DESTINATION lib
