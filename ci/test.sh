@@ -10,10 +10,10 @@ if [ "$RUN_TYPE" = "test" ]; then
 
    # In CI, vmtest is guaranteed to exist if we've gotten to this point (compilation failure bails in build.sh)
    # So the existence check is only applicable when running this script manually
-   if [ -e "$BUILD_DIR/programs/vmtest/vmtest" ]
+   if [ -e "$BUILD_DIR/programs/koinos-vm/koinos-vm" ]
    then
-      cd "$SRC_DIR/programs/vmtest"
-      "$BUILD_DIR/programs/vmtest/vmtest"
+      cd "$SRC_DIR/programs/koinos-vm"
+      "$BUILD_DIR/programs/koinos-vm/koinos-vm"
    fi
 
    cd "$BUILD_DIR/tests"
