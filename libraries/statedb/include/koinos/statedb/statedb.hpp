@@ -208,12 +208,25 @@ class state_db final
 
       /**
        * Discard the node, it can no longer be used.
+       *
+       * If the node has any children, they too will be deleted because
+       * there will no longer exist a path from root to those nodes.
+       *
+       * This will fail if the node you are deleting would cause the
+       * current head node to be delted.
        */
       void discard_node( const state_node_id& node_id );
 
       /**
        * Squash the node in to the root state, committing it.
-       * Branching state between this node and its ancestor will be discarded.
+       * Branching state between this node and its ancestor will be discarded
+       * and no longer accesible.
+       *
+       * It is the responsiblity of the caller to ensure no readers or writers
+       * are accessing affected nodes by this call.
+       *
+       * TODO: Implement thread safety within commit node to make
+       * statedb thread safe for all callers.
        */
       void commit_node( const state_node_id& node_id );
 

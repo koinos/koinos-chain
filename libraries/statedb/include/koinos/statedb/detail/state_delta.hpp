@@ -147,18 +147,6 @@ namespace koinos::statedb::detail {
             return ptr;
          }
 
-         const value_type* find( id_type& key )
-         {
-            auto itr = _indices->find( key );
-            if( itr != _indices->end() ) return &*itr;
-
-            const auto* ptr = is_root() ? nullptr : _parent->find( key );
-
-            if( ptr != nullptr && is_removed( ptr->id ) ) return nullptr;
-
-            return ptr;
-         }
-
          void squash()
          {
             if( is_root() ) return;
@@ -220,8 +208,11 @@ namespace koinos::statedb::detail {
 
          void commit()
          {
-            squash( 0 );
+            KOINOS_ASSERT( !is_root(), internal_error, "Cannot commit root.", () );
             auto root = get_root();
+            KOINOS_ASSERT( root, internal_error, "Could not get root", () );
+
+            squash( 0 );
 
             _indices = std::move( root->_indices );
             _indices->set_next_id( _next_object_id );
@@ -230,18 +221,6 @@ namespace koinos::statedb::detail {
             _modified_objects.clear();
             _removed_objects.clear();
             _parent.reset();
-         }
-
-         void commit( int64_t revision )
-         {
-            if( revision > _revision && !is_root() )
-            {
-               _parent->commit( revision );
-            }
-            else if( revision == _revision )
-            {
-               commit();
-            }
          }
 
          void clear()
@@ -331,16 +310,6 @@ namespace koinos::statedb::detail {
             return _indices;
          }
 
-         size_t size() const
-         {
-            size_t s = 0;
-            if( !is_root() )
-               s = _parent->size();
-
-            s += indices()->size() - _modified_objects.size();
-            return s;
-         }
-
          const state_node_id& id() const
          {
             return _id;
@@ -360,33 +329,59 @@ namespace koinos::statedb::detail {
       private:
          bool is_unique( const value_type& v ) const
          {
-            flat_set< id_type > ids;
-            check_uniqueness( v, ids );
+            flat_set< id_type > conflict_set;
+            check_uniqueness( v, conflict_set );
 
-            if( ids.size() == 0 ) return true;
-            if( ids.size() > 1 ) return false;
+            if( conflict_set.size() == 0 ) return true;
+            if( conflict_set.size() > 1 ) return false;
 
             // If there are conflicts other than the current object then it is not unique
-            return ids.find( v.id ) != ids.end();
+            return conflict_set.find( v.id ) != conflict_set.end();
          }
 
-         void check_uniqueness( const value_type& v, flat_set< id_type >& ids ) const
+         /*
+          * This method is a little tricky.
+          *
+          * Boost Multi Index Containers enforce uniqueness by trying to insert
+          * an object and failing. That technique does not work here for two
+          * reasons.
+          *
+          * 1. We are inserting on the head delta, which may or may not contain
+          * the objects that the new value would conflict with. So a succesful
+          * insertion tells us nothing of previous states.
+          *
+          * 2. We do not want to write to old deltas. This violates the
+          * finality of the state and destroys all semblence of thread safety.
+          *
+          * We use forward recursion to iterate on all deltas, oldest to newest.
+          *
+          * At each delta we apply the following rules:
+          * - If an id from the conflict set was modified in the current delta,
+          *   remove it from the conflict set.
+          * - Check against all updated values, adding them to the conflict set
+          *   if a conflict is found.
+          *
+          * The expected result at the end of the recursion is a set containing
+          * a single conflict ID, matching the ID of the value. This is not a
+          * problem as a value cannot conflict against itself.
+          */
+         void check_uniqueness( const value_type& v, flat_set< id_type >& conflict_set ) const
          {
             if( !is_root() )
             {
-               _parent->check_uniqueness( v, ids );
+               _parent->check_uniqueness( v, conflict_set );
 
-               for( auto itr = ids.begin(); itr != ids.end(); ++itr )
+               for( auto itr = conflict_set.begin(); itr != conflict_set.end(); ++itr )
                {
                   if( is_modified( *itr ) )
                   {
-                     itr = ids.erase( itr );
-                     if( itr == ids.end() ) break;
+                     itr = conflict_set.erase( itr );
+                     if( itr == conflict_set.end() ) break;
                   }
                }
             }
 
-            find_uniqueness_conflicts( *_indices, v, ids );
+            find_uniqueness_conflicts( *_indices, v, conflict_set );
          }
 
          std::shared_ptr< state_delta > get_root()

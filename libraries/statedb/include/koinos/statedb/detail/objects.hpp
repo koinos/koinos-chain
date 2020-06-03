@@ -1,7 +1,14 @@
 #pragma once
 
 #include <koinos/statedb/koinos_object_types.hpp>
-#include <koinos/statedb/detail/multi_index_types.hpp>
+#include <koinos/statedb/statedb_types.hpp>
+
+#include <mira/index_adapter.hpp>
+#include <mira/ordered_index.hpp>
+#include <mira/tag.hpp>
+#include <mira/member.hpp>
+#include <mira/indexed_by.hpp>
+#include <mira/composite_key.hpp>
 
 namespace koinos::statedb::detail {
 
@@ -28,14 +35,15 @@ struct state_object
 struct by_id;
 struct by_key;
 
-typedef multi_index_container<
+typedef mira::multi_index_adapter<
    state_object,
-   indexed_by<
-      ordered_unique< tag< by_id >, member< state_object, state_object::id_type, &state_object::id > >,
-      ordered_unique< tag< by_key >,
-         composite_key< state_object,
-            member< state_object, object_space, &state_object::space >,
-            member< state_object, object_key, &state_object::key >
+   mira::multi_index::indexed_by<
+      mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >,
+         mira::multi_index::member< state_object, state_object::id_type, &state_object::id > >,
+      mira::multi_index::ordered_unique< mira::multi_index::tag< by_key >,
+         mira::multi_index::composite_key< state_object,
+            mira::multi_index::member< state_object, object_space, &state_object::space >,
+            mira::multi_index::member< state_object, object_key, &state_object::key >
          >
       >
    >

@@ -1,11 +1,12 @@
 
 #include <koinos/pack/rt/string.hpp>
 
-#include <koinos/statedb/koinos_object_types.hpp>
-#include <koinos/statedb/merge_iterator.hpp>
-#include <koinos/statedb/state_delta.hpp>
+#include <koinos/statedb/detail/objects.hpp>
+#include <koinos/statedb/detail/merge_iterator.hpp>
+#include <koinos/statedb/detail/state_delta.hpp>
+
 #include <koinos/statedb/statedb.hpp>
-#include <koinos/statedb/objects.hpp>
+
 
 #include <cstring>
 #include <deque>
@@ -13,6 +14,8 @@
 #include <utility>
 
 namespace koinos::statedb {
+
+using boost::container::flat_set;
 
 namespace detail {
 
@@ -53,8 +56,6 @@ class state_node_impl final
       state_node_impl();
       ~state_node_impl();
 
-      void init( state_delta_ptr _state );
-
       void get_object( get_object_result& result, const get_object_args& args )const;
       void get_next_object( get_object_result& result, const get_object_args& args )const;
       void get_prev_object( get_object_result& result, const get_object_args& args )const;
@@ -62,14 +63,6 @@ class state_node_impl final
 
       state_delta_ptr   _state;
       bool              _is_writable;
-
-      // This dequeue contains pointers to all state deltas between the current
-      // state and this state for use in merge queries. However, when state is
-      // squashed, these pointers become invalidated. Storing as weak pointers
-      // lets them be locked when a read is occurring, guaranteeing the
-      // resource is not released prematurely and ensuring the correct merge
-      // query is always calculated.
-      boost::container::deque< std::weak_ptr< state_delta_type > >   _delta_deque;
 };
 
 state_node_impl::state_node_impl() {}
@@ -134,7 +127,7 @@ state_node_ptr state_db_impl::get_empty_node()
 void state_db_impl::open( const boost::filesystem::path& p, const boost::any& o )
 {
    auto root = std::make_shared< state_node >();
-   root->impl->init( std::make_shared< state_delta_type >( p, o ) );
+   root->impl->_state = std::make_shared< state_delta_type >( p, o );
    root->impl->_is_writable = false;
    _index.insert( root );
    _root = root;
@@ -208,7 +201,7 @@ state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_
    if( parent_state != _index.end() && !(*parent_state)->is_writable() )
    {
       auto node = std::make_shared< state_node >();
-      node->impl->init( std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id ) );
+      node->impl->_state = std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id );
       if( _index.insert( node ).second )
          return node;
    }
@@ -300,26 +293,11 @@ bool state_db_impl::is_open()const
    return (bool)_root && (bool)_head;
 }
 
-void state_node_impl::init( state_delta_ptr state )
-{
-   _state = state;
-
-   auto state_delta_ptr = _state;
-
-   while( !state_delta_ptr->is_root() )
-   {
-      _delta_deque.emplace_front( state_delta_ptr );
-      state_delta_ptr = state_delta_ptr->parent();
-   }
-
-   _delta_deque.emplace_front( state_delta_ptr );
-}
-
 void state_node_impl::get_object( get_object_result& result, const get_object_args& args )const
 {
-   auto idx = merge_index< state_object_index, by_key >( _delta_deque );
+   auto idx = merge_index< state_object_index, by_key >( _state );
    auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
-   if( pobj != idx.end() )
+   if( pobj != nullptr )
    {
       result.key = pobj->key;
       result.size = pobj->value.size();
@@ -338,7 +316,7 @@ void state_node_impl::get_object( get_object_result& result, const get_object_ar
 
 void state_node_impl::get_next_object( get_object_result& result, const get_object_args& args )const
 {
-   auto idx = merge_index< state_object_index, by_key >( _delta_deque );
+   auto idx = merge_index< state_object_index, by_key >( _state );
    auto it = idx.upper_bound( boost::make_tuple( args.space, args.key ) );
    if( (it != idx.end()) && (it->space == args.space) )
    {
@@ -359,7 +337,7 @@ void state_node_impl::get_next_object( get_object_result& result, const get_obje
 
 void state_node_impl::get_prev_object( get_object_result& result, const get_object_args& args )const
 {
-   auto idx = merge_index< state_object_index, by_key >( _delta_deque );
+   auto idx = merge_index< state_object_index, by_key >( _state );
    auto it = idx.lower_bound( boost::make_tuple( args.space, args.key ) );
    if( it != idx.begin() )
    {
@@ -383,9 +361,9 @@ void state_node_impl::get_prev_object( get_object_result& result, const get_obje
 void state_node_impl::put_object( put_object_result& result, const put_object_args& args )
 {
    KOINOS_ASSERT( _is_writable, node_finalized, "Cannot write to a finalized node", () );
-   auto idx = merge_index< state_object_index, by_key >( _delta_deque );
-   auto  pobj = idx.find( boost::make_tuple( args.space, args.key ) );
-   if( pobj != idx.end() )
+   auto idx = merge_index< state_object_index, by_key >( _state );
+   auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
+   if( pobj != nullptr )
    {
       result.object_existed = true;
       if( args.buf != nullptr )
