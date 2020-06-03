@@ -1,13 +1,13 @@
 file(GLOB HEADERS "include/koinos/plugins/block_producer/*.hpp")
-add_library( block_producer_plugin
+add_library( koinos_block_producer_plugin
              block_producer_plugin.cpp
 	     ${HEADERS} )
 
-target_link_libraries( block_producer_plugin chain_control chain chainbase appbase pack chain_plugin koinos_crypto log )
-target_include_directories( block_producer_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
+target_link_libraries( koinos_block_producer_plugin koinos_chain_control koinos_chain chainbase appbase koinos_pack koinos_chain_plugin koinos_crypto koinos_log )
+target_include_directories( koinos_block_producer_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 
 install( TARGETS
-   block_producer_plugin
+   koinos_block_producer_plugin
 
    RUNTIME DESTINATION bin
    LIBRARY DESTINATION lib

@@ -1,5 +1,5 @@
 {
    "plugin_name": "block_producer",
    "plugin_namespace": "block_producer",
-   "plugin_project": "block_producer_plugin"
+   "plugin_project": "koinos_block_producer_plugin"
 }

@@ -1,5 +1,5 @@
 # Defines builtins library
-project (builtins C)
+project (koinos_builtins C)
 
 # generate compile command database for external tools
 set (CMAKE_EXPORT_COMPILE_COMMANDS "ON")
@@ -20,12 +20,12 @@ set ( builtins_sources
 
 file ( GLOB builtins_headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp" )
 list( APPEND builtins_sources ${builtins_headers} )
-add_library ( builtins STATIC ${builtins_sources} )
-target_include_directories( builtins PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+add_library ( koinos_builtins STATIC ${builtins_sources} )
+target_include_directories( koinos_builtins PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
                                             "${CMAKE_CURRENT_SOURCE_DIR}../softfloat/source/include" )
 
 install ( TARGETS
-   builtins 
+   koinos_builtins 
 
    RUNTIME DESTINATION bin
    LIBRARY DESTINATION lib
