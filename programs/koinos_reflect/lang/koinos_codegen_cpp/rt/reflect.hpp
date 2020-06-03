@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <koinos/pack/rt/exceptions.hpp>
@@ -162,15 +161,6 @@ template<> struct reflector<ENUM> { \
     static const char* to_string(int64_t i) { \
       return to_string(ENUM(i)); \
     } \
-    static std::string to_string(ENUM elem) { \
-      switch( elem ) { \
-        BOOST_PP_SEQ_FOR_EACH( KOINOS_REFLECT_ENUM_TO_KOINOS_STRING, ENUM, FIELDS ) \
-      } \
-      return std::to_string(int64_t(elem)); \
-    } \
-    static std::string to_KOINOS_string(int64_t i) { \
-      return to_string(ENUM(i)); \
-    } \
     static ENUM from_int(int64_t i) { \
       ENUM e = ENUM(i); \
       switch( e ) \
@@ -203,3 +193,4 @@ template<> struct reflector<ENUM> { \
 };  \
 template<> struct get_typename<ENUM>  { static const char* name()  { return BOOST_PP_STRINGIZE(ENUM);  } }; \
 }
+
