@@ -49,9 +49,9 @@ endfunction()
 
 parse_unit_tests(TEST_CASES ${UNIT_TESTS})
 
-add_boost_test( chain_test
+add_boost_test( koinos_tests
    SOURCES ${UNIT_TESTS}
    TESTS ${TEST_CASES}
 )
 
-target_link_libraries(chain_test chainbase mira koinos_fork fc koinos_pack koinos_chain koinos_crypto strpolate ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(koinos_tests chainbase mira koinos_fork fc koinos_pack koinos_chain koinos_crypto strpolate ${PLATFORM_SPECIFIC_LIBS})

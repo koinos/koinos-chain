@@ -40,7 +40,7 @@ if (COVERAGE)
   setup_target_for_coverage_lcov(
      NAME coverage
      LCOV_ARGS "--no-external"
-     EXECUTABLE chain_test
+     EXECUTABLE koinos_tests
      EXCLUDE "libraries/vendor/*")
 endif()
 
