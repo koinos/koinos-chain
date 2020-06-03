@@ -59,57 +59,57 @@ struct index_const_iterator;
  */
 
 template<
-  typename Value1,typename IndexSpecifierList1,typename Allocator1,
-  typename Value2,typename IndexSpecifierList2,typename Allocator2
+  typename Value1,typename IndexSpecifierList1,typename Allocator1,typename Serializer1,
+  typename Value2,typename IndexSpecifierList2,typename Allocator2,typename Serializer2
 >
 bool operator==(
-  const multi_index_container<Value1,IndexSpecifierList1,Allocator1>& x,
-  const multi_index_container<Value2,IndexSpecifierList2,Allocator2>& y);
+  const multi_index_container<Value1,IndexSpecifierList1,Allocator1,Serializer1>& x,
+  const multi_index_container<Value2,IndexSpecifierList2,Allocator2,Serializer2>& y);
 
 template<
-  typename Value1,typename IndexSpecifierList1,typename Allocator1,
-  typename Value2,typename IndexSpecifierList2,typename Allocator2
+  typename Value1,typename IndexSpecifierList1,typename Allocator1,typename Serializer1,
+  typename Value2,typename IndexSpecifierList2,typename Allocator2,typename Serializer2
 >
 bool operator<(
-  const multi_index_container<Value1,IndexSpecifierList1,Allocator1>& x,
-  const multi_index_container<Value2,IndexSpecifierList2,Allocator2>& y);
+  const multi_index_container<Value1,IndexSpecifierList1,Allocator1,Serializer1>& x,
+  const multi_index_container<Value2,IndexSpecifierList2,Allocator2,Serializer2>& y);
 
 template<
-  typename Value1,typename IndexSpecifierList1,typename Allocator1,
-  typename Value2,typename IndexSpecifierList2,typename Allocator2
+  typename Value1,typename IndexSpecifierList1,typename Allocator1,typename Serializer1,
+  typename Value2,typename IndexSpecifierList2,typename Allocator2,typename Serializer2
 >
 bool operator!=(
-  const multi_index_container<Value1,IndexSpecifierList1,Allocator1>& x,
-  const multi_index_container<Value2,IndexSpecifierList2,Allocator2>& y);
+  const multi_index_container<Value1,IndexSpecifierList1,Allocator1,Serializer1>& x,
+  const multi_index_container<Value2,IndexSpecifierList2,Allocator2,Serializer2>& y);
 
 template<
-  typename Value1,typename IndexSpecifierList1,typename Allocator1,
-  typename Value2,typename IndexSpecifierList2,typename Allocator2
+  typename Value1,typename IndexSpecifierList1,typename Allocator1,typename Serializer1,
+  typename Value2,typename IndexSpecifierList2,typename Allocator2,typename Serializer2
 >
 bool operator>(
-  const multi_index_container<Value1,IndexSpecifierList1,Allocator1>& x,
-  const multi_index_container<Value2,IndexSpecifierList2,Allocator2>& y);
+  const multi_index_container<Value1,IndexSpecifierList1,Allocator1,Serializer1>& x,
+  const multi_index_container<Value2,IndexSpecifierList2,Allocator2,Serializer2>& y);
 
 template<
-  typename Value1,typename IndexSpecifierList1,typename Allocator1,
-  typename Value2,typename IndexSpecifierList2,typename Allocator2
+  typename Value1,typename IndexSpecifierList1,typename Allocator1,typename Serializer1,
+  typename Value2,typename IndexSpecifierList2,typename Allocator2,typename Serializer2
 >
 bool operator>=(
-  const multi_index_container<Value1,IndexSpecifierList1,Allocator1>& x,
-  const multi_index_container<Value2,IndexSpecifierList2,Allocator2>& y);
+  const multi_index_container<Value1,IndexSpecifierList1,Allocator1,Serializer1>& x,
+  const multi_index_container<Value2,IndexSpecifierList2,Allocator2,Serializer2>& y);
 
 template<
-  typename Value1,typename IndexSpecifierList1,typename Allocator1,
-  typename Value2,typename IndexSpecifierList2,typename Allocator2
+  typename Value1,typename IndexSpecifierList1,typename Allocator1,typename Serializer1,
+  typename Value2,typename IndexSpecifierList2,typename Allocator2,typename Serializer2
 >
 bool operator<=(
-  const multi_index_container<Value1,IndexSpecifierList1,Allocator1>& x,
-  const multi_index_container<Value2,IndexSpecifierList2,Allocator2>& y);
+  const multi_index_container<Value1,IndexSpecifierList1,Allocator1,Serializer1>& x,
+  const multi_index_container<Value2,IndexSpecifierList2,Allocator2,Serializer2>& y);
 
-template<typename Value,typename IndexSpecifierList,typename Allocator>
+template<typename Value,typename IndexSpecifierList,typename Allocator,typename Serializer>
 void swap(
-  multi_index_container<Value,IndexSpecifierList,Allocator>& x,
-  multi_index_container<Value,IndexSpecifierList,Allocator>& y);
+  multi_index_container<Value,IndexSpecifierList,Allocator,Serializer>& x,
+  multi_index_container<Value,IndexSpecifierList,Allocator,Serializer>& y);
 
 typedef std::shared_ptr< ::rocksdb::DB >                 db_ptr;
 typedef std::vector< ::rocksdb::ColumnFamilyDescriptor > column_definitions;
