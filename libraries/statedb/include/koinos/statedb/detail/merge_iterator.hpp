@@ -65,13 +65,11 @@ namespace koinos::statedb::detail {
             bool valid() const { return iter != index->template get< IndexedByType >().end(); }
          };
 
-         /*
-          * itertator_compare_less implements the composite key compare for iterator_wrapper
-          * that would sort by iterator first, then by revision (greatest). Because we are
-          * doing a comparision on the entire contained type, we can bypass the need for a
-          * composite key altogether.
-          */
-         struct iterator_less_revision_greater_comparator
+         // Uses revision as a tiebreaker only for when both iterators are invalid
+         // to enforce a total ordering on this comparator. The composite key on
+         // revision is still needed for the case when iterators are valid and equal.
+         // (i.e. lhs < rhs == false && rhs < lhs == false )
+         struct iterator_compare_less
          {
             bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const
             {
@@ -80,7 +78,7 @@ namespace koinos::statedb::detail {
 
                if( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
                if( !lh_valid ) return false;
-               if( rh_valid ) return true;
+               if( !rh_valid ) return true;
 
                // Indirection is normally a const method. However, because the rocksdb_iterator may
                // need to go to cache, internal state is updated and the operator is not const.
@@ -90,7 +88,7 @@ namespace koinos::statedb::detail {
             }
          };
 
-         struct iterator_greater_revision_greater_comparator
+         struct iterator_compare_greater
          {
             bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const
             {
@@ -99,7 +97,7 @@ namespace koinos::statedb::detail {
 
                if( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
                if( !lh_valid ) return false;
-               if( rh_valid ) return true;
+               if( !rh_valid ) return true;
 
                return value_compare_type()( *const_cast< iter_type& >(rhs.iter),
                                        *const_cast< iter_type& >(lhs.iter) );
@@ -116,15 +114,17 @@ namespace koinos::statedb::detail {
             indexed_by<
                ordered_unique< tag< by_order_revision >,
                   composite_key< iterator_wrapper,
-                     const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >
+                     const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
                   >,
-                  composite_key_compare< iterator_less_revision_greater_comparator >
+                  composite_key_compare< iterator_compare_less, std::greater< uint64_t > >
                >,
                ordered_unique< tag< by_reverse_order_revision >,
                   composite_key< iterator_wrapper,
-                     const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >
+                     const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
                   >,
-                  composite_key_compare< iterator_greater_revision_greater_comparator >
+                  composite_key_compare< iterator_compare_greater, std::greater< uint64_t > >
                >,
                ordered_unique< tag< by_revision >, member< iterator_wrapper, uint64_t, &iterator_wrapper::revision > >
             >
@@ -180,8 +180,8 @@ namespace koinos::statedb::detail {
             // But we use empty merge iterators as an optimization for an end itertor.
             // So if one is empty, and the other is all end iterators, they are also equal.
             if( _iter_rev_index.size() == 0 && other._iter_rev_index.size() == 0 ) return true;
-            else if( _iter_rev_index.size() ) return other.is_end();
-            else if( other._iter_rev_index.size() ) return is_end();
+            else if( _iter_rev_index.size() == 0 ) return other.is_end();
+            else if( other._iter_rev_index.size() == 0 ) return is_end();
 
             auto my_begin = _iter_rev_index.begin();
             auto other_begin = other._iter_rev_index.begin();
@@ -445,6 +445,12 @@ namespace koinos::statedb::detail {
          iterator_type end() const
          {
             return iterator_type();
+         }
+
+         template< typename CompatibleKey >
+         const value_type* find( CompatibleKey& key ) const
+         {
+            return _head->template find< IndexedByType >( key );
          }
 
          template< typename CompatibleKey >

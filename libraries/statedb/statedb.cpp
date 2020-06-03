@@ -62,7 +62,7 @@ class state_node_impl final
       void put_object( put_object_result& result, const put_object_args& args );
 
       state_delta_ptr   _state;
-      bool              _is_writable;
+      bool              _is_writable = true;
 };
 
 state_node_impl::state_node_impl() {}
@@ -202,6 +202,7 @@ state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_
    {
       auto node = std::make_shared< state_node >();
       node->impl->_state = std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id );
+      node->impl->_is_writable = true;
       if( _index.insert( node ).second )
          return node;
    }
