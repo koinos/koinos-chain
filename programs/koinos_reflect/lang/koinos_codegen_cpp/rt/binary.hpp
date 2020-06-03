@@ -475,7 +475,74 @@ inline void from_binary( Stream& s, multihash_vector& v, uint32_t depth )
 
 namespace detail
 {
-   using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+   // Minimal vectorstream implementations for internal serialization to a vl_blob
+   // Boost vectorstream has to own the underlying vector. This implementation utilizes
+   // a reference for efficiency.
+   class output_vectorstream
+   {
+      private:
+         vl_blob& _data;
+         size_t   _write_pos = 0;
+
+      public:
+         output_vectorstream( vl_blob& d ) : _data(d) {}
+
+         output_vectorstream& write( const char* s, size_t n )
+         {
+            _data.data.resize( _write_pos + n );
+
+            memcpy( _data.data.data() + _write_pos, s, n );
+            _write_pos += n;
+
+            return *this;
+         }
+   };
+
+   class input_vectorstream
+   {
+      private:
+         const vl_blob& _data;
+         bool           _error;
+         size_t         _read_pos = 0;
+
+      public:
+         input_vectorstream( const vl_blob& d ) : _data(d) {}
+
+         input_vectorstream& read( char* s, size_t n )
+         {
+            _error = false;
+
+            size_t to_read = std::min( n, _data.data.size() - _read_pos );
+            if( to_read < n ) _error = true;
+
+            memcpy( s, _data.data.data() + _read_pos, to_read );
+            _read_pos += to_read;
+
+            return *this;
+         }
+
+         input_vectorstream& get( char& c )
+         {
+            _error = false;
+
+            if( _read_pos < _data.data.size() )
+            {
+               c = _data.data[ _read_pos ];
+               _read_pos++;
+            }
+            else
+            {
+               _error = true;
+            }
+
+            return *this;
+         }
+
+         bool good() const
+         {
+            return !_error;
+         }
+   };
 
    template< typename Stream, typename Itr >
    inline void pack_itr( Stream& s, Itr start, Itr end )
@@ -586,22 +653,36 @@ inline void from_binary( Stream& s, T& v, uint32_t depth )
    detail::binary::if_enum< typename reflector< T >::is_enum >::from_binary( s, v, depth );
 }
 
-inline void to_vlblob( vl_blob& v, std::string& s )
+inline void to_vl_blob( vl_blob& v, const std::string& s )
 {
+   v.data.clear();
    v.data.insert( v.data.end(), s.begin(), s.end() );
 }
 
-inline vl_blob to_vlblob( std::string&& s )
+inline void to_vl_blob( vl_blob& v, const std::string&& s )
+{
+   to_vl_blob( v, s );
+}
+
+inline vl_blob to_vl_blob( const std::string& s )
 {
    vl_blob v;
-   v.data.insert( v.data.end(), s.begin(), s.end() );
+   to_vl_blob( v, s );
+   return v;
+}
+
+inline vl_blob to_vl_blob( const std::string&& s )
+{
+   vl_blob v;
+   to_vl_blob( v, s );
    return v;
 }
 
 template< typename T >
 inline void to_vl_blob( vl_blob& v, const T& t )
 {
-   detail::vectorstream vs( v.data );
+   v.data.clear();
+   detail::output_vectorstream vs( v );
    to_binary( vs, t );
 }
 
@@ -613,19 +694,32 @@ inline vl_blob to_vl_blob( const T& t )
    return v;
 }
 
-template< typename T >
-inline void from_vl_blob( vl_blob& v, T& t )
+inline void from_vl_blob( const vl_blob& v, std::string& s )
 {
-   detail::vectorstream vs( v.data );
-   from_binary( v, t );
+   s = std::string( v.data.data(), v.data.size() );
 }
 
 template< typename T >
-inline T from_vl_blob( vl_blob& v )
+inline void from_vl_blob( const vl_blob& v, T& t )
+{
+   detail::input_vectorstream vs( v );
+   from_binary( vs, t );
+}
+
+template< typename T >
+inline T from_vl_blob( const vl_blob& v )
 {
    T t;
    from_vl_blob( v, t );
    return t;
+}
+
+template<>
+inline std::string from_vl_blob< std::string >( const vl_blob& v )
+{
+   std::string s;
+   from_vl_blob( v, s );
+   return s;
 }
 
 } // koinos::raw
