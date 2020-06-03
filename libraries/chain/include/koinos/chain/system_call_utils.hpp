@@ -13,8 +13,14 @@
 #define _SYSCALL_PRIVATE_PREFIX internal_
 
 #define _SYSCALL_SLOT(r, data, i, elem) BOOST_PP_COMMA_IF(i) elem, BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,elem)
+#define _SYSCALL_SLOT_REGISTRATION(r, data, i, elem) rhf_t::add< system_api, &system_api::elem, koinos::chain::wasm_allocator_type >( "env", BOOST_PP_STRINGIZE(elem) );
 
 #define SYSTEM_CALL_SLOTS( args ) \
+inline void register_syscalls()\
+{\
+   using rhf_t = eosio::vm::registered_host_functions< apply_context >;\
+   BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT_REGISTRATION, =>, args )\
+}\
 enum class system_call_slot : uint32_t\
 {\
    BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT, =>, args )\

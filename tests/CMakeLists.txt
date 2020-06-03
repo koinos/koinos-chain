@@ -9,6 +9,7 @@ INCLUDE(CTest)
 ENABLE_TESTING()
 
 file(GLOB UNIT_TESTS "tests/*.cpp")
+file(GLOB TEST_FIXTURES "test_fixtures/*.hpp")
 
 include(BoostTestTargets.cmake)
 
@@ -50,7 +51,7 @@ endfunction()
 parse_unit_tests(TEST_CASES ${UNIT_TESTS})
 
 add_boost_test( koinos_tests
-   SOURCES ${UNIT_TESTS}
+   SOURCES ${UNIT_TESTS} ${TEST_FIXTURES}
    TESTS ${TEST_CASES}
 )
 
