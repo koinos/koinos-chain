@@ -1,4 +1,4 @@
-file(GLOB HEADERS "include/koinos/log/*.hpp")
+file(GLOB HEADERS "include/koinos/*.hpp")
 
 find_package(Boost REQUIRED COMPONENTS log log_setup filesystem)
 

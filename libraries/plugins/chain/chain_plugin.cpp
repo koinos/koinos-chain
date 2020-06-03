@@ -1,6 +1,6 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
-#include <koinos/log/log.hpp>
+#include <koinos/log.hpp>
 
 #include <mira/database_configuration.hpp>
 

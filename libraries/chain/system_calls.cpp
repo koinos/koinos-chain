@@ -1,5 +1,5 @@
 #include <koinos/chain/system_calls.hpp>
-#include <koinos/log/log.hpp>
+#include <koinos/log.hpp>
 
 namespace koinos::chain {
 

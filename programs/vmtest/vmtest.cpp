@@ -215,7 +215,7 @@ int main(int argc, char** argv, char** envp)
       std::cerr << e.what() << ": " << e.detail() << std::endl;
       return 1;
    }
-   catch( const koinos::exception::koinos_exception& e )
+   catch( const koinos::exception& e )
    {
       std::cerr << e.to_string() << std::endl;
       return 1;

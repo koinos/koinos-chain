@@ -8,7 +8,7 @@
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
 #include <koinos/crypto/multihash.hpp>
-#include <koinos/log/log.hpp>
+#include <koinos/log.hpp>
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
