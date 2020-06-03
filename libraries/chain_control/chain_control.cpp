@@ -26,9 +26,6 @@
 
 #include <koinos/exception.hpp>
 
-#include <koinos/fork/block_state.hpp>
-#include <koinos/fork/fork_database.hpp>
-
 #include <koinos/log/log.hpp>
 
 #include <koinos/pack/classes.hpp>
@@ -60,15 +57,11 @@ bool operator <=( const block_height_type& a, const block_height_type& b ) { ret
 
 namespace chain_control {
 
-/**
- * Represents the block in the fork DB.
- */
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
 using koinos::protocol::block_topology;
 using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
-using fork_database_type = koinos::fork::fork_database< block_topology >;
 using koinos::statedb::state_db;
 using namespace std::string_literals;
 
@@ -88,7 +81,6 @@ struct submit_block_impl
 
    submit_block             sub;
 
-   fork_database_type::block_state_ptr topo_ptr;
    protocol::block_header   header;
    std::vector< vl_blob >   transactions;
    std::vector< vl_blob >   passives;
@@ -131,9 +123,9 @@ template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 /**
  * Submission API for blocks, transactions, and queries.
  *
- * chain_controller manages the locks on the DB and fork DB.
+ * chain_controller manages the locks on the DB.
  *
- * It knows which queries can run together based on the internal semantics of fork DB,
+ * It knows which queries can run together based on the internal semantics of the DB,
  * so multithreading must live in this class.
  *
  * The multithreading is CSP (Communicating Sequential Processes), as it is the easiest
@@ -172,7 +164,6 @@ class chain_controller_impl
       std::chrono::time_point< std::chrono::steady_clock > now()
       {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
 
-      //fork_database_type                                                       _fork_db;
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
       chain::system_call_table                                                 _syscall_table;
@@ -352,7 +343,6 @@ inline bool multihash_is_zero( const koinos::protocol::multihash_type& mh )
 void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
 {
    decode_block( block );
-   block.topo_ptr = std::make_shared< fork::block_state< block_topology > >( block.sub.block_topo );
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( multihash_is_zero( block.sub.block_topo.previous ) )
