@@ -14,9 +14,13 @@ mkdir build
 cd build
 
 if [ "$RUN_TYPE" = "test" ]; then
-   cmake -DCMAKE_BUILD_TYPE=Release ..
-   make -j3
+   if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+      cmake -DCMAKE_BUILD_TYPE=Release -GXcode ..
+   else
+      cmake -DCMAKE_BUILD_TYPE=Release ..
+   fi
+   cmake --build . --config Release --parallel 3
 elif [ "$RUN_TYPE" = "coverage" ]; then
    cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=ON ..
-   make -j3 coverage
+   cmake --build . --config Debug --parallel 3 --target coverage
 fi

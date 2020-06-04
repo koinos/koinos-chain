@@ -11,7 +11,7 @@
 
 namespace koinos::crypto {
 
-using koinos::exception::koinos_exception;
+using koinos::exception;
 using namespace boost::multiprecision::literals;
 
 template< typename Blob >

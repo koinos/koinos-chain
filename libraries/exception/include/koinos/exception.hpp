@@ -14,20 +14,20 @@
       }                                             \
    } while (0)
 
-#define DECLARE_KOINOS_EXCEPTION( exc_name )                       \
-   class exc_name : public koinos::exception::koinos_exception       \
+#define DECLARE_KOINOS_EXCEPTION( exc_name )                     \
+   class exc_name : public koinos::exception                     \
    {                                                             \
       public:                                                    \
          exc_name() {}                                           \
          exc_name( const strpolate::strpol& strpol )             \
-            : koinos_exception(strpol) {}                          \
+            : exception(strpol) {}                               \
          virtual ~exc_name() {}                                  \
                                                                  \
          static void get_exception_name(std::string& result)     \
          {  result = #exc_name;           }                      \
    }
 
-#define DECLARE_DERIVED_KOINOS_EXCEPTION( exc_name, base )         \
+#define DECLARE_DERIVED_KOINOS_EXCEPTION( exc_name, base )       \
    class exc_name : public base                                  \
    {                                                             \
       public:                                                    \
@@ -40,14 +40,14 @@
          {  result = #exc_name;           }                      \
    }
 
-namespace koinos::exception {
+namespace koinos {
 
-class koinos_exception
+class exception
 {
    public:
-      koinos_exception();
-      koinos_exception( const strpolate::strpol& strpol );
-      virtual ~koinos_exception();
+      exception();
+      exception( const strpolate::strpol& strpol );
+      virtual ~exception();
 
       virtual void to_string(std::string& result)const;
       virtual std::string to_string()const;
@@ -55,4 +55,4 @@ class koinos_exception
       strpolate::strpol _strpol;
 };
 
-} // koinos::exception
+} // koinos

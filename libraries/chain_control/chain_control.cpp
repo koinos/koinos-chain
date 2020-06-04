@@ -26,7 +26,7 @@
 
 #include <koinos/exception.hpp>
 
-#include <koinos/log/log.hpp>
+#include <koinos/log.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -483,7 +483,7 @@ void chain_controller_impl::work_thread_main()
       {
          result = process_item( work->item );
       }
-      catch( const exception::koinos_exception& e )
+      catch( const koinos::exception& e )
       {
          maybe_err = e.to_string();
       }

@@ -7,7 +7,7 @@
 #include <appbase/application.hpp>
 
 #include <koinos/exception.hpp>
-#include <koinos/log/log.hpp>
+#include <koinos/log.hpp>
 
 #include <koinos/manifest/plugins.hpp>
 
@@ -23,11 +23,11 @@ const std::string& version_string()
 void splash()
 {
 const char* BANNER = R"BANNER(
-  _  __     _        ___  ____
- | |/ /___ (_)_ __  / _ \/ ___|
- | ' // _ \| | '_ \| | | \___ \
- | . \ (_) | | | | | |_| |___) |
- |_|\_\___/|_|_| |_|\___/|____/)BANNER";
+  _  __     _
+ | |/ /___ (_)_ __   ___  ___
+ | ' // _ \| | '_ \ / _ \/ __|
+ | . \ (_) | | | | | (_) \__ \
+ |_|\_\___/|_|_| |_|\___/|___/)BANNER";
 
    std::cout << BANNER << std::endl;
 #ifdef IS_TEST_NET
@@ -62,7 +62,7 @@ int main( int argc, char** argv )
 
       if( !initialized ) return EXIT_SUCCESS;
 
-      koinos::log::initialize( appbase::app().data_dir(), "koinosd_%3N.log" );
+      koinos::initialize_logging( appbase::app().data_dir(), "koinosd_%3N.log" );
       appbase::app().set_writer( []( const std::string& msg )
       {
          LOG(info) << msg;
@@ -73,7 +73,7 @@ int main( int argc, char** argv )
 
       return EXIT_SUCCESS;
    }
-   catch ( const koinos::exception::koinos_exception& e )
+   catch ( const koinos::exception& e )
    {
       LOG(fatal) << e.to_string() << std::endl;
    }

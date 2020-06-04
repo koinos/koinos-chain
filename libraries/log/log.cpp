@@ -1,4 +1,4 @@
-#include <koinos/log/log.hpp>
+#include <koinos/log.hpp>
 #include <string>
 #include <boost/log/sinks/basic_sink_backend.hpp>
 #include <boost/log/attributes/value_extraction.hpp>
@@ -6,7 +6,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_io.hpp>
 
-namespace koinos::log {
+namespace koinos {
 
 template< bool Color >
 class console_sink_impl : public boost::log::sinks::basic_formatted_sink_backend< char, boost::log::sinks::synchronized_feeding >
@@ -98,7 +98,7 @@ public:
    }
 };
 
-void initialize( const boost::filesystem::path& p, const std::string& file_pattern, bool color )
+void initialize_logging( const boost::filesystem::path& p, const std::string& file_pattern, bool color )
 {
    using console_sink       = boost::log::sinks::synchronous_sink< console_sink_impl< false > >;
    using color_console_sink = boost::log::sinks::synchronous_sink< console_sink_impl< true > >;
@@ -128,4 +128,4 @@ void initialize( const boost::filesystem::path& p, const std::string& file_patte
 #endif
 }
 
-} // koinos::log
+} // koinos

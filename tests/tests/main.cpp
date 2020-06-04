@@ -1,3 +1,3 @@
-#define BOOST_TEST_MODULE chain_test
+#define BOOST_TEST_MODULE koinos_tests
 #include <BoostTestTargetConfig.h>
 #include <boost/test/included/unit_test.hpp>
