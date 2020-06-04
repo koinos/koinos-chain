@@ -130,15 +130,21 @@ namespace koinos::statedb::detail {
             return true;
          }
 
+         /**
+          * It is the caller's responsiblility to check that obj exists.
+          *
+          * If it does not, the id will be added to removed_objects regardless
+          * of its previous existence.
+          */
          void erase( const value_type& obj )
          {
+            if( !is_root() )
+               _removed_objects.insert( obj.id );
+
             auto itr = _indices->find( obj.id );
 
             if( itr != _indices->end() )
                _indices->erase( itr );
-
-            if( !is_root() )
-               _removed_objects.insert( obj.id );
          }
 
          template< typename IndexedByType, typename CompatibleKey >
