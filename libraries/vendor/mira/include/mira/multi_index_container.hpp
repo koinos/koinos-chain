@@ -84,7 +84,7 @@ private:
   typedef typename detail::multi_index_base_type<
       Value,Serializer,IndexSpecifierList,Allocator>::type   super;
 
-   int64_t                                         _revision = -1;
+   uint64_t                                        _revision = 0;
 
    std::string                                     _name;
    std::shared_ptr< ::rocksdb::Statistics >        _stats;
@@ -297,7 +297,7 @@ public:
 
          if( s.ok() )
          {
-            _revision = Serializer::template from_binary_array< int64_t >( value_slice.data(), value_slice.size() );
+            _revision = Serializer::template from_binary_array< uint64_t >( value_slice.data(), value_slice.size() );
          }
       }
       else
@@ -451,9 +451,9 @@ public:
   };
 #endif
 
-int64_t revision() { return _revision; }
+uint64_t revision() { return _revision; }
 
-int64_t set_revision( int64_t rev )
+uint64_t set_revision( uint64_t rev )
 {
    const static ::rocksdb::Slice rev_slice( REVISION_KEY.data(), REVISION_KEY.size() );
    auto ser_rev_val = Serializer::to_binary_vector( rev );

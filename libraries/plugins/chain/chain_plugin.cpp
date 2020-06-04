@@ -107,8 +107,7 @@ void chain_plugin::plugin_startup()
 
    try
    {
-      // Don't open the db, we are using state db. Dummy
-      //my->db.open( my->state_dir, my->chainbase_flags, database_config );
+      my->controller.open( my->state_dir, database_config );
    }
    catch( fc::exception& e )
    {

@@ -8,19 +8,19 @@ class boost_multi_index_adapter : public boost::multi_index_container< Value, In
 {
    private:
       typedef typename Value::id_type id_type;
-      int64_t _revision = -1;
+      uint64_t _revision = 0;
       id_type _next_id = 0;
 
    public:
       using boost::multi_index_container< Value, IndexSpecifierList, Allocator >::multi_index_container;
       static const size_t node_size = sizeof( Value );
 
-      int64_t revision()
+      uint64_t revision()
       {
          return _revision;
       }
 
-      int64_t set_revision( uint64_t revision )
+      uint64_t set_revision( uint64_t revision )
       {
          _revision = revision;
          return _revision;

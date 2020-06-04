@@ -403,7 +403,7 @@ struct multi_index_adapter
       );
    }
 
-   int64_t revision()
+   uint64_t revision()
    {
       return boost::apply_visitor(
          []( auto& index ){ return index.revision(); },
@@ -411,7 +411,7 @@ struct multi_index_adapter
       );
    }
 
-   int64_t set_revision( int64_t rev )
+   uint64_t set_revision( uint64_t rev )
    {
       return boost::apply_visitor(
          [&rev]( auto& index ){ return index.set_revision( rev ); },
