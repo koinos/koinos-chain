@@ -1,12 +1,13 @@
 
+#include <koinos/pack/rt/string_fwd.hpp>
 #include <koinos/pack/rt/string.hpp>
+#include <koinos/pack/rt/json_fwd.hpp>
 
 #include <koinos/statedb/detail/objects.hpp>
 #include <koinos/statedb/detail/merge_iterator.hpp>
 #include <koinos/statedb/detail/state_delta.hpp>
 
 #include <koinos/statedb/statedb.hpp>
-
 
 #include <cstring>
 #include <deque>

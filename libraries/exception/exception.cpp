@@ -1,15 +1,15 @@
 
 #include <koinos/exception.hpp>
 
-namespace koinos::exception {
+namespace koinos {
 
-koinos_exception::koinos_exception() {}
-koinos_exception::~koinos_exception() {}
+exception::exception() {}
+exception::~exception() {}
 
-koinos_exception::koinos_exception( const strpolate::strpol& strpol )
+exception::exception( const strpolate::strpol& strpol )
    : _strpol(strpol) {}
 
-void koinos_exception::to_string( std::string& result )const
+void exception::to_string( std::string& result )const
 {
    std::string rhs;
    _strpol.to_string(rhs);
@@ -17,7 +17,7 @@ void koinos_exception::to_string( std::string& result )const
    return;
 }
 
-std::string koinos_exception::to_string()const
+std::string exception::to_string()const
 {
    std::string result;
    to_string(result);

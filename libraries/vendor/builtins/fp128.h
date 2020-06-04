@@ -3,7 +3,7 @@
 
 #include <limits.h>
 #include <stdint.h>
-#include "../vendor/eos-vm/external/softfloat/source/include/softfloat.h"
+#include "../eos-vm/external/softfloat/source/include/softfloat.h"
 
 #define REP_C (__uint128_t)
 #define significandBits 112

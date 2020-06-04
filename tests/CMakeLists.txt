@@ -9,6 +9,7 @@ INCLUDE(CTest)
 ENABLE_TESTING()
 
 file(GLOB UNIT_TESTS "tests/*.cpp")
+file(GLOB TEST_FIXTURES "test_fixtures/*.hpp")
 
 include(BoostTestTargets.cmake)
 
@@ -49,9 +50,9 @@ endfunction()
 
 parse_unit_tests(TEST_CASES ${UNIT_TESTS})
 
-add_boost_test( chain_test
-   SOURCES ${UNIT_TESTS}
+add_boost_test( koinos_tests
+   SOURCES ${UNIT_TESTS} ${TEST_FIXTURES}
    TESTS ${TEST_CASES}
 )
 
-target_link_libraries(chain_test chainbase mira fc pack chain koinos_crypto statedb log ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(koinos_tests chainbase mira fc koinos_pack koinos_chain koinos_crypto koinos_statedb koinos_log koinos_strpolate ${PLATFORM_SPECIFIC_LIBS})

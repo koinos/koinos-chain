@@ -1,4 +1,5 @@
 file(GLOB HEADERS "include/koinos/statedb/*.hpp")
-add_library(statedb ${HEADERS} statedb.cpp)
-target_link_libraries( statedb strpolate koinos_exception pack koinos_crypto fc mira )
-target_include_directories(statedb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_library(koinos_statedb ${HEADERS} statedb.cpp)
+target_link_libraries(koinos_statedb koinos_strpolate koinos_exception koinos_pack koinos_crypto fc mira)
+target_include_directories(koinos_statedb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
