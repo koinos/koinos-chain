@@ -9,7 +9,7 @@
 
 #include <memory>
 
-#define ID_KEY "id"
+const std::vector< uint8_t > ID_KEY { 'D','E','L','T','A','_','I','D' };
 
 namespace koinos::statedb::detail {
 

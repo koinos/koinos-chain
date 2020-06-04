@@ -22,7 +22,6 @@ struct state_object
 
       template< typename Constructor, typename Allocator >
       state_object( Constructor&& c, Allocator&& a )
-         : value( a )
       {
          c( *this );
       }
@@ -54,7 +53,5 @@ typedef mira::multi_index_adapter<
 
 } // koinos::statedb::detail
 
-FC_REFLECT( koinos::statedb::detail::state_object,
-             (id)(space)(key)(value) )
 KOINOS_REFLECT( koinos::statedb::detail::state_object,
              (id)(space)(key)(value) )
