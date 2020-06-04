@@ -45,12 +45,12 @@ namespace detail{
 //struct rvalue_tag{};
 //struct emplaced_tag{};
 
-template<typename Value,typename IndexSpecifierList,typename Allocator,typename Serializer>
+template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
 class index_base
 {
 protected:
    typedef multi_index_container<
-      Value,IndexSpecifierList,Allocator,Serializer>  final_type;
+      Value,Serializer,IndexSpecifierList,Allocator>  final_type;
    typedef boost::tuples::null_type                   ctor_args_list;
    typedef typename std::allocator< Value >           final_allocator_type;
    typedef boost::mpl::vector0<>                      index_type_list;

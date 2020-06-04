@@ -4,6 +4,7 @@
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/multi_index_types.hpp>
 #include <koinos/pack/rt/reflect.hpp>
+#include <koinos/pack/rt/binary_serializer.hpp>
 
 namespace koinos { namespace chain {
 
@@ -25,6 +26,7 @@ namespace koinos { namespace chain {
 
    using table_id_multi_index = multi_index_container<
       table_id_object,
+      koinos::pack::binary_serializer,
       indexed_by<
          ordered_unique<tag<by_id>,
             member<table_id_object, table_id_object::id_type, &table_id_object::id>
@@ -61,6 +63,7 @@ namespace koinos { namespace chain {
 
    using key_value_index = multi_index_container<
       key_value_object,
+      koinos::pack::binary_serializer,
       indexed_by<
          ordered_unique<tag<by_id>, member<key_value_object, key_value_object::id_type, &key_value_object::id>>,
          ordered_unique<tag<by_scope_primary>,
@@ -93,6 +96,7 @@ namespace koinos { namespace chain {
 
       typedef multi_index_container<
          index_object,
+         koinos::pack::binary_serializer,
          indexed_by<
             ordered_unique<tag<by_id>, member<index_object, typename index_object::id_type, &index_object::id>>,
             ordered_unique<tag<by_primary>,

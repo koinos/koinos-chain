@@ -3,6 +3,7 @@
 #include <koinos/statedb/koinos_object_types.hpp>
 #include <koinos/statedb/multi_index_types.hpp>
 #include <koinos/pack/rt/reflect.hpp>
+#include <koinos/pack/rt/binary_serializer.hpp>
 
 namespace koinos { namespace statedb {
 
@@ -30,6 +31,7 @@ struct ByKey;
 
 typedef multi_index_container<
    state_object,
+   koinos::pack::binary_serializer,
    indexed_by<
       ordered_unique< tag< ById >, member< state_object, state_object::id_type, &state_object::id > >,
       ordered_unique< tag< ByKey >,

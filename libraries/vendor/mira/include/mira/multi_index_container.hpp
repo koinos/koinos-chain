@@ -14,6 +14,7 @@
 #include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
 #include <algorithm>
 #include <memory>
+#include <vector>
 #include <boost/core/addressof.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/detail/no_exceptions_support.hpp>
@@ -60,9 +61,6 @@
 #define DEFAULT_COLUMN 0
 #define MIRA_MAX_OPEN_FILES_PER_DB 64
 
-#define ENTRY_COUNT_KEY "ENTRY_COUNT"
-#define REVISION_KEY "REV"
-
 namespace mira{
 
 namespace multi_index{
@@ -72,10 +70,13 @@ namespace multi_index{
 #pragma warning(disable:4522) /* spurious warning on multiple operator=()'s */
 #endif
 
-template<typename Value,typename IndexSpecifierList,typename Allocator,typename Serializer>
+const std::vector<char> ENTRY_COUNT_KEY { 11,'E','N','T','R','Y','_','C','O','U','N','T' };
+const std::vector<char> REVISION_KEY { 3,'R','E','V' };
+
+template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
 class multi_index_container:
   public detail::multi_index_base_type<
-    Value,IndexSpecifierList,Allocator,Serializer>::type
+    Value,Serializer,IndexSpecifierList,Allocator>::type
 {
 
 private:
@@ -84,7 +85,7 @@ private:
   template <typename,typename,typename,typename> friend class  detail::index_base;
 
   typedef typename detail::multi_index_base_type<
-      Value,IndexSpecifierList,Allocator,Serializer>::type   super;
+      Value,Serializer,IndexSpecifierList,Allocator>::type   super;
 
    int64_t                                         _revision = -1;
 
@@ -93,6 +94,8 @@ private:
    ::rocksdb::WriteOptions                         _wopts;
 
    rocksdb::ReadOptions                            _ropts;
+
+   Serializer                                      _serializer;
 
 public:
   /* All types are inherited from super, a few are explicitly
@@ -276,12 +279,10 @@ public:
          ::rocksdb::ReadOptions read_opts;
          ::rocksdb::PinnableSlice value_slice;
 
-         auto ser_count_key = fc::raw::pack_to_vector( ENTRY_COUNT_KEY );
-
          s = super::_db->Get(
             read_opts,
             &*super::_handles[ DEFAULT_COLUMN ],
-            ::rocksdb::Slice( ser_count_key.data(), ser_count_key.size() ),
+            ::rocksdb::Slice( ENTRY_COUNT_KEY.data(), ENTRY_COUNT_KEY.size() ),
             &value_slice );
 
          if( s.ok() )
@@ -289,18 +290,17 @@ public:
             _entry_count = fc::raw::unpack_from_char_array< uint64_t >( value_slice.data(), value_slice.size() );
          }
 
-         auto ser_rev_key = fc::raw::pack_to_vector( REVISION_KEY );
          value_slice.Reset();
 
          s = super::_db->Get(
             read_opts,
             &*super::_handles[ DEFAULT_COLUMN ],
-            ::rocksdb::Slice( ser_rev_key.data(), ser_rev_key.size() ),
+            ::rocksdb::Slice( REVISION_KEY.data(), REVISION_KEY.size() ),
             &value_slice );
 
          if( s.ok() )
          {
-            _revision = fc::raw::unpack_from_char_array< int64_t >( value_slice.data(), value_slice.size() );
+            _revision = Serializer::template from_binary_array< int64_t >( value_slice.data(), value_slice.size() );
          }
       }
       else

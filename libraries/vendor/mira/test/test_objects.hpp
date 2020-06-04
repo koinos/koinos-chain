@@ -5,6 +5,8 @@
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 
+#include <koinos/pack/rt/binary_serializer.hpp>
+
 namespace fc
 {
 
@@ -89,6 +91,7 @@ struct by_sum;
 
 typedef mira::multi_index_adapter<
    book,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< book, book::id_type, &book::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_a >,  mira::multi_index::member< book, int,           &book::a  > >,
@@ -118,6 +121,7 @@ struct single_index_object : public chainbase::object< single_index_object_type,
 
 typedef mira::multi_index_adapter<
    single_index_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< single_index_object, single_index_object::id_type, &single_index_object::id > >
    >
@@ -149,6 +153,7 @@ struct composited_ordered_idx;
 
 typedef mira::multi_index_adapter<
    test_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< ordered_idx >, mira::multi_index::member< test_object, chainbase::oid< test_object >, &test_object::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< composited_ordered_idx >,
@@ -179,6 +184,7 @@ struct composite_ordered_idx2;
 
 typedef mira::multi_index_adapter<
    test_object2,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< ordered_idx2 >, mira::multi_index::member< test_object2, chainbase::oid< test_object2 >, &test_object2::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< composite_ordered_idx2 >,
@@ -212,6 +218,7 @@ struct composite_ordered_idx3b;
 
 typedef mira::multi_index_adapter<
    test_object3,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< ordered_idx3 >, mira::multi_index::member< test_object3, chainbase::oid< test_object3 >, &test_object3::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< composite_ordered_idx3a >,
@@ -248,6 +255,7 @@ struct by_name;
 
 typedef mira::multi_index_adapter<
    account_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< account_object, account_object::id_type, &account_object::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_name >, mira::multi_index::member< account_object, std::string, &account_object::name > >

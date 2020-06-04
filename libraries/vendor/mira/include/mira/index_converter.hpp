@@ -46,19 +46,20 @@ struct index_converter
    typedef T bmic_type;
 };
 
-template< typename Arg1, typename Arg2, typename Arg3 >
-struct index_converter< multi_index::multi_index_container< Arg1, Arg2, Arg3 > >
+template< typename Value, typename Serializer, typename IndexSpecifierList, typename Allocator >
+struct index_converter< multi_index::multi_index_container< Value, Serializer, IndexSpecifierList, Allocator > >
 {
    typedef multi_index::multi_index_container<
-      typename index_converter< Arg1 >::mira_type,
-      typename index_converter< Arg2 >::mira_type,
-      typename index_converter< Arg3 >::mira_type
+      typename index_converter< Value >::mira_type,
+      typename index_converter< Serializer >::mira_type,
+      typename index_converter< IndexSpecifierList >::mira_type,
+      typename index_converter< Allocator >::mira_type
       > mira_type;
 
    typedef boost_multi_index_adapter<
-      typename index_converter< Arg1 >::bmic_type,
-      typename index_converter< Arg2 >::bmic_type,
-      typename index_converter< Arg3 >::bmic_type
+      typename index_converter< Value >::bmic_type,
+      typename index_converter< IndexSpecifierList >::bmic_type,
+      typename index_converter< Allocator >::bmic_type
       > bmic_type;
 };
 
