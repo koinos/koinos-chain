@@ -1,5 +1,5 @@
 
-#include <koinos/chain_control/submit.hpp>
+#include <koinos/pack/classes.hpp>
 #include <koinos/exception.hpp>
 
 #include <boost/any.hpp>

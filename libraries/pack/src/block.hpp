@@ -23,13 +23,6 @@ enum class header_hash_index
    NUM_HEADER_HASHES = 3
 };
 
-struct block_topology
-{
-   multihash_type                 id;
-   block_height_type              block_num;
-   multihash_type                 previous;
-};
-    
 struct active_block_data
 {
    /**
@@ -58,7 +51,7 @@ struct passive_block_data
 {
   signature_type block_signature;
 };
-  
+
 // TODO: Do we need this?
 struct block_header
 {

@@ -1,28 +1,35 @@
-namespace koinos { namespace protocol {
+namespace koinos { namespace chain_control {
 
 // Every block has a cryptographic ID.
 // Check the claimed ID against the block content.
+
+struct block_topology
+{
+   protocol::multihash_type                 id;
+   protocol::block_height_type              block_num;
+   protocol::multihash_type                 previous;
+};
 
 struct submit_reserved {};
 
 struct submit_block
 {
-   block_topology                      block_topo;
+   block_topology                                block_topo;
 
-   vl_blob                             block_header_bytes;
-   std::vector< vl_blob >              block_transactions_bytes;
-   std::vector< vl_blob >              block_passives_bytes;
+   protocol::vl_blob                             block_header_bytes;
+   std::vector< protocol::vl_blob >              block_transactions_bytes;
+   std::vector< protocol::vl_blob >              block_passives_bytes;
 };
 
 struct submit_transaction
 {
-   vl_blob                             transaction_active_bytes;
-   vl_blob                             transaction_passive_bytes;
+   protocol::vl_blob                             transaction_active_bytes;
+   protocol::vl_blob                             transaction_passive_bytes;
 };
 
 struct submit_query
 {
-   vl_blob                             query;
+   protocol::vl_blob                             query;
 };
 
 typedef std::variant<
@@ -44,12 +51,12 @@ struct submit_return_transaction {};
 
 struct submit_return_query
 {
-   vl_blob                             result;
+   protocol::vl_blob                             result;
 };
 
 struct submit_return_error
 {
-   vl_blob                             error_text;
+   protocol::vl_blob                             error_text;
 };
 
 typedef std::variant<
@@ -63,12 +70,12 @@ typedef submit_return_query query_error;
 
 struct get_head_info_return
 {
-   multihash_type    id;
-   block_height_type height;
+   protocol::multihash_type    id;
+   protocol::block_height_type height;
 };
 
 typedef std::variant<
    query_error,
    get_head_info_return > query_result_item;
 
-} } // koinos::protocol
+} } // koinos::chain_control

@@ -20,7 +20,6 @@
 #include <koinos/pack/rt/string.hpp>
 
 #include <koinos/chain_control/chain_control.hpp>
-#include <koinos/chain_control/submit.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 

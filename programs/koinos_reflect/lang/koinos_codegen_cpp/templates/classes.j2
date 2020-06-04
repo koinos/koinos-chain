@@ -3,12 +3,12 @@
 {%- if targ["info"]["type"] == "IntLiteral" -%}
 {{ targ["value"] }}
 {%- else -%}
-{{ targ["name"]|simple_name|classname_case }}
+{{ cpp_classname( ns.current_ns, targ["name"] ) }}
 {%- endif -%}
 {%- endmacro %}
 
 {% macro typeref(tref) -%}
-{{ tref["name"]|simple_name|classname_case }}
+{{ cpp_classname( ns.current_ns, tref["name"] ) }}
 {%- if tref["targs"] is not none -%}
 <
 {%- for targ in tref["targs"] -%}
@@ -32,14 +32,26 @@ struct {{ decl["name"]|simple_name|classname_case }}
 };
 {% endmacro -%}
 
-{%- macro reflect_decl(decl) -%}
-KOINOS_REFLECT( koinos::protocol::{{ decl["name"]|simple_name|classname_case }},
+{%- macro reflect_decl(name, decl) -%}
+KOINOS_REFLECT( {{ name|cpp_namespace }}::{{ decl["name"]|simple_name|classname_case }},
 {%- if decl["fields"]|length > 0 %}
 {% for field in decl["fields"] %}   ({{ field["name"] }})
 {% endfor -%}
 {% endif -%}
 )
 {% endmacro -%}
+
+{%- macro update_ns( new_ns ) -%}
+{%- if ns.current_ns != new_ns -%}
+{%- if ns.current_ns != "" -%}
+}
+{% endif -%}
+{%- if new_ns != "" %}
+namespace {{ new_ns }} {
+{% endif -%}
+{%- endif -%}
+{%- set ns.current_ns = new_ns -%}
+{%- endmacro -%}
 
 #pragma once
 
@@ -49,25 +61,30 @@ KOINOS_REFLECT( koinos::protocol::{{ decl["name"]|simple_name|classname_case }},
 #include <koinos/pack/rt/reflect.hpp>
 #include <koinos/pack/rt/basetypes.hpp>
 
-namespace koinos::protocol {
-
-using namespace koinos::pack;
-
+{%  set ns = namespace() -%}
+{%- set ns.current_ns = "" -%}
 {% for name, decl in decls_by_name.items() %}
+
 {%- if decl["info"]["type"] == "Typedef" -%}
+{{ update_ns( name|cpp_namespace ) }}
 {{ typedef_decl( decl ) }}
 {% elif decl["info"]["type"] == "Struct" -%}
+{{ update_ns( name|cpp_namespace ) }}
 {{ struct_decl( decl ) }}
 {% elif decl["info"]["type"] == "EnumClass" -%}
+{{ update_ns( name|cpp_namespace ) }}
 
+{% set ns.current_ns = name|cpp_namespace -%}
 {%- endif -%}
+
 {% endfor %}
 
-} // koinos::protocol
+{{ update_ns( "" ) }}
+{% set ns.current_ns = "" %}
 
 {% for name, decl in decls_by_name.items() %}
 {%- if decl["info"]["type"] == "Struct" -%}
-{{ reflect_decl( decl ) }}
+{{ reflect_decl( name, decl ) }}
 {% elif decl["info"]["type"] == "Typedef" -%}
 {% elif decl["info"]["type"] == "EnumClass" -%}
 {%- endif -%}

@@ -3,7 +3,7 @@
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread.hpp>
 
-#include <koinos/chain_control/submit.hpp>
+#include <koinos/pack/classes.hpp>
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
