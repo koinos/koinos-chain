@@ -13,23 +13,24 @@
 #define _SYSCALL_PRIVATE_PREFIX internal_
 
 #define _SYSCALL_SLOT(r, data, i, elem) BOOST_PP_COMMA_IF(i) elem, BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,elem)
-#define _SYSCALL_SLOT_REGISTRATION(r, data, i, elem) rhf_t::add< system_api, &system_api::elem, koinos::chain::wasm_allocator_type >( "env", BOOST_PP_STRINGIZE(elem) );
 
-#define SYSTEM_CALL_SLOTS( args ) \
-inline void register_syscalls()\
-{\
-   using rhf_t = eosio::vm::registered_host_functions< apply_context >;\
-   BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT_REGISTRATION, =>, args )\
-}\
-enum class system_call_slot : uint32_t\
-{\
-   BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT, =>, args )\
+#define _SYSCALL_SLOT_REGISTRATION(r, data, i, elem) \
+koinos::chain::registrar_type::add< system_api, &system_api::elem, koinos::chain::wasm_allocator_type >( "env", BOOST_PP_STRINGIZE(elem) );
+
+#define SYSTEM_CALL_SLOTS( args )                                 \
+inline void register_syscalls()                                   \
+{                                                                 \
+   BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT_REGISTRATION, =>, args ) \
+}                                                                 \
+enum class system_call_slot : uint32_t                            \
+{                                                                 \
+   BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT, =>, args )              \
 }
 
 #define SYSTEM_CALL_ENFORCE_KERNEL_MODE() KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
 
-#define SYSTEM_CALL_DECLARE(return_type, name, ...) \
-   return_type name(__VA_ARGS__);               \
+#define SYSTEM_CALL_DECLARE(return_type, name, ...)                    \
+   return_type name(__VA_ARGS__);                                      \
    return_type BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,name)(__VA_ARGS__)
 
 #define _SYSCALL_RET_TYPE_void 1)(1
