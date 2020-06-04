@@ -2,6 +2,9 @@
 #include <koinos/chain_control/submit.hpp>
 #include <koinos/exception.hpp>
 
+#include <boost/any.hpp>
+#include <boost/filesystem.hpp>
+
 #include <chrono>
 #include <future>
 #include <memory>
@@ -27,6 +30,8 @@ class chain_controller
       virtual ~chain_controller();
 
       std::future< std::shared_ptr< submit_return > > submit( const submit_item& item );
+
+      void open( const boost::filesystem::path& p, const boost::any& o );
 
       void start_threads();
       void stop_threads();

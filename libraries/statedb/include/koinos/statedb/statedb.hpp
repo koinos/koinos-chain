@@ -1,7 +1,6 @@
 
 #pragma once
-
-#include <koinos/exception.hpp>
+#include <koinos/statedb/statedb_types.hpp>
 
 #include <boost/any.hpp>
 #include <boost/filesystem.hpp>
@@ -14,69 +13,10 @@
 
 namespace koinos { namespace statedb {
 
-DECLARE_KOINOS_EXCEPTION( database_not_open );
-/**
- * The caller attempts to maintain live references to multiple nodes.
- *
- * Due to limitations of chainbase backing, the current implementation
- * only allows one state_node to exist at a time.  The caller must discard
- * its current state_node before calling a method that could create a new
- * state_node.
- */
-DECLARE_KOINOS_EXCEPTION( node_not_expired );
-/**
- * An argument is out of range or otherwise invalid.
- *
- * If IllegalArgument is thrown, it likely indicates a programming error
- * in the caller.
- */
-DECLARE_KOINOS_EXCEPTION( illegal_argument );
-
-/**
- * No node with the given NodeId exists.
- */
-DECLARE_KOINOS_EXCEPTION( unknown_node );
-
-/**
- * The given NodeId cannot be discarded.
- *
- * Due to limitations of chainbase, the only sessions that can be discarded are:
- * - The oldest session.
- * - The session before the newest session.
- *
- * Furthermore the last node cannot be discarded.
- */
-DECLARE_KOINOS_EXCEPTION( cannot_discard );
-
-/**
- * The given tree manipulation cannot be performed due to node position.
- *
- * Due to the limitations of chainbase, only certain nodes may be discarded,
- * read, or written.
- */
-DECLARE_KOINOS_EXCEPTION( bad_node_position );
-
-/**
- * An internal invariant has been violated.
- *
- * This is most likely caused by a programming error in state_db.
- */
-DECLARE_KOINOS_EXCEPTION( internal_error );
-
 namespace detail {
 class state_db_impl;
 class state_node_impl;
 }
-
-// object_space / object_key don't actually use any of the cryptography features of fc::sha256
-// They just use sha256 as an FC serializable 256-bit integer type
-
-using boost::multiprecision::uint256_t;
-
-typedef int64_t                    state_node_id;
-typedef uint256_t                  object_space;
-typedef uint256_t                  object_key;
-typedef std::string                object_value;
 
 struct get_object_args
 {
@@ -122,7 +62,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      void get_object( get_object_result& result, const get_object_args& args );
+      void get_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the next object.
@@ -132,7 +72,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_next_object( get_object_result& result, const get_object_args& args );
+      void get_next_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the previous object.
@@ -142,7 +82,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_prev_object( get_object_result& result, const get_object_args& args );
+      void get_prev_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Write an object into the state_node.
@@ -156,9 +96,11 @@ class state_node final
       /**
        * Return true if the node is writable.
        */
-      bool is_writable();
+      bool is_writable()const;
 
-      state_node_id node_id();
+      const state_node_id& id()const;
+      const state_node_id& parent_id()const;
+      uint64_t             revision()const;
 
       friend class detail::state_db_impl;
 
@@ -166,18 +108,40 @@ class state_node final
       std::unique_ptr< detail::state_node_impl > impl;
 };
 
+using state_node_ptr = std::shared_ptr< state_node >;
+
 /**
- * Database interface with discardable checkpoints.
+ * StateDB is designed to provide parallel access to the database across
+ * different states.
  *
- * Currently this is backed by Chainbase, so there are some heavy restrictions on usage:
+ * It does by tracking positive state deltas, which can be merged on the fly
+ * at read time to return the correct state of the database. A database
+ * checkpoint is represented by the state_node class. Reads and writes happen
+ * against a state_node.
  *
- * - Checkpoints form a queue internally.
- * - Can discard the second-most-recent checkpoint, this is squash().
- * - Can discard the most-recent checkpoint and revert to the previous checkpoint, this is undo().
- * - Can discard the oldest checkpoint, this is commit().
+ * States are organized as a tree with the assumption that one path wins out
+ * over time and cousin paths are discarded as the root is advanced.
  *
- * The caller (bcfork) should be written to obey these restrictions.
- * Replacing chainbase with a less restrictive backing store will allow many caller optimizations.
+ * Currently, state_db is not thread safe. That is, calls directly on state_db
+ * are not thread safe. (i.e. deleting a node concurrently to creating a new
+ * node can leave statedb in an undefined state)
+ *
+ * Conccurrency across state nodes is supported native to the implementation
+ * without locks. Writes on a single state node need to be serialized, but
+ * reads are implicitly parallel.
+ *
+ * TODO: Either extend the design of statedb to support concurrent access
+ * or implement a some locking mechanism for access to the fork multi
+ * index container.
+ *
+ * There is an additional corner case that is difficult to address.
+ *
+ * Upon squashing a state node, readers may be reading from the node that
+ * is being squashed or an intermediate node between root and that node.
+ * Relatively speaking, this should happen infrequently (on the order of once
+ * per some number of seconds). As such, whatever guarantees concurrency
+ * should heavily favor readers. Writing can happen lazily, preferably when
+ * there is no contention from readers at all.
  */
 class state_db final
 {
@@ -200,19 +164,25 @@ class state_db final
        *
        * WARNING:  The chainbase implementation of this method will wipe() the database!
        */
-      std::shared_ptr< state_node > get_empty_node();
+      state_node_ptr get_empty_node();
 
       /**
-       * Get the state node ID of some recent state nodes.
-       *
-       * This method is useful for finding state in an existing database.
+       * Get a list of recent state nodes.
        */
-      void get_recent_states(std::vector<state_node_id>& node_id_list, int limit);
+      void get_recent_states(std::vector< state_node_ptr >& node_list, uint64_t limit);
+
+      /**
+       * Get an ancestor of a node at a particular revision
+       */
+      state_node_ptr get_node_at_revision( uint64_t revision, state_node_id& child_id )const;
+      state_node_ptr get_node_at_revision( uint64_t revision )const;
 
       /**
        * Get the state_node for the given state_node_id.
+       *
+       * Return an empty pointer if no node for the given id exists.
        */
-      std::shared_ptr< state_node > get_node( state_node_id node_id );
+      state_node_ptr get_node( const state_node_id& node_id )const;
 
       /**
        * Create a writable state_node.
@@ -229,17 +199,52 @@ class state_db final
        * to be freed.  This merge may occur immediately, or it may be
        * deferred or parallelized.
        */
-      std::shared_ptr< state_node > create_writable_node( state_node_id parent_id );
+      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
 
       /**
        * Finalize a node.  The node will no longer be writable.
        */
-      void finalize_node( state_node_id node_id );
+      void finalize_node( const state_node_id& node_id );
 
       /**
        * Discard the node, it can no longer be used.
+       *
+       * If the node has any children, they too will be deleted because
+       * there will no longer exist a path from root to those nodes.
+       *
+       * This will fail if the node you are deleting would cause the
+       * current head node to be delted.
        */
-      void discard_node( state_node_id node_id );
+      void discard_node( const state_node_id& node_id );
+
+      /**
+       * Squash the node in to the root state, committing it.
+       * Branching state between this node and its ancestor will be discarded
+       * and no longer accesible.
+       *
+       * It is the responsiblity of the caller to ensure no readers or writers
+       * are accessing affected nodes by this call.
+       *
+       * TODO: Implement thread safety within commit node to make
+       * statedb thread safe for all callers.
+       */
+      void commit_node( const state_node_id& node_id );
+
+      /**
+       * Get and return the current "head" node.
+       *
+       * Head is determined by longest chain. Oldest
+       * chain wins in a tie of length. Only finalized
+       * nodes are eligible to become head.
+       */
+      state_node_ptr get_head()const;
+
+      /**
+       * Get and return the current "root" node.
+       *
+       * All state nodes are guaranteed to a descendant of root.
+       */
+      state_node_ptr get_root()const;
 
    private:
       std::unique_ptr< detail::state_db_impl > impl;

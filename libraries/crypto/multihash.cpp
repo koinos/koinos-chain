@@ -11,8 +11,7 @@ namespace koinos { namespace protocol {
 
 bool operator ==( const multihash_type& mha, const multihash_type& mhb )
 {
-   return ( koinos::crypto::multihash::validate( mha ) && koinos::crypto::multihash::validate( mhb ) )
-       && ( koinos::crypto::multihash::get_id( mha )   == koinos::crypto::multihash::get_id( mhb ) )
+   return ( koinos::crypto::multihash::get_id( mha )   == koinos::crypto::multihash::get_id( mhb ) )
        && ( koinos::crypto::multihash::get_size( mha ) == koinos::crypto::multihash::get_size( mhb ) )
        && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );
 }
@@ -215,6 +214,13 @@ void zero_hash( multihash_type& mh, uint64_t code, uint64_t size )
    multihash::set_size( mh, size );
    mh.digest.data.resize( size );
    std::memset( mh.digest.data.data(), 0, size );
+}
+
+multihash_type zero_hash( uint64_t code, uint64_t size )
+{
+   multihash_type mh;
+   zero_hash( mh, code, size );
+   return mh;
 }
 
 void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in )

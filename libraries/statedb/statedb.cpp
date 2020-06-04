@@ -1,16 +1,48 @@
 
-#include <koinos/statedb/koinos_object_types.hpp>
+#include <koinos/pack/rt/string.hpp>
+
+#include <koinos/statedb/detail/objects.hpp>
+#include <koinos/statedb/detail/merge_iterator.hpp>
+#include <koinos/statedb/detail/state_delta.hpp>
+
 #include <koinos/statedb/statedb.hpp>
-#include <koinos/statedb/objects.hpp>
+
 
 #include <cstring>
 #include <deque>
 #include <optional>
 #include <utility>
 
-namespace koinos { namespace statedb {
+namespace koinos::statedb {
+
+using boost::container::flat_set;
 
 namespace detail {
+
+struct by_id;
+struct by_revision;
+struct by_parent;
+
+using state_multi_index_type = boost::multi_index_container<
+   state_node_ptr,
+   boost::multi_index::indexed_by<
+      boost::multi_index::ordered_unique<
+         boost::multi_index::tag< by_id >,
+            boost::multi_index::const_mem_fun< state_node, const state_node_id&, &state_node::id >
+      >,
+      boost::multi_index::ordered_non_unique<
+         boost::multi_index::tag< by_parent >,
+            boost::multi_index::const_mem_fun< state_node, const state_node_id&, &state_node::parent_id >
+      >,
+      boost::multi_index::ordered_non_unique<
+         boost::multi_index::tag< by_revision >,
+            boost::multi_index::const_mem_fun< state_node, uint64_t, &state_node::revision >
+      >
+   >
+>;
+
+using state_delta_type = state_delta< state_object_index >;
+using state_delta_ptr = std::shared_ptr< state_delta_type >;
 
 /**
  * Private implementation of state_node interface.
@@ -24,28 +56,13 @@ class state_node_impl final
       state_node_impl();
       ~state_node_impl();
 
-      void get_object( get_object_result& result, const get_object_args& args );
-      void get_next_object( get_object_result& result, const get_object_args& args );
-      void get_prev_object( get_object_result& result, const get_object_args& args );
+      void get_object( get_object_result& result, const get_object_args& args )const;
+      void get_next_object( get_object_result& result, const get_object_args& args )const;
+      void get_prev_object( get_object_result& result, const get_object_args& args )const;
       void put_object( put_object_result& result, const put_object_args& args );
-      bool is_tip();
 
-      state_db_impl*           _state_db = nullptr;
-      int64_t                  _node_id  = 0;
-      bool                     _is_writable = false;
-
-      /**
-       * The chainbase session corresponding to this node.
-       *
-       * This is always initialized by make_node().  It cannot be initialized
-       * in the ctor due to data flow / encapsulation breaking issues.
-       *
-       * The only reason it is optional is to make it "safe" to leave
-       * uninitialized until it is set in make_node().  Since nodes
-       * are always initialized by make_node(), it is safe for code outside
-       * of make_node() to assume _session contains a value.
-       */
-      std::optional< chainbase::database::session > _session;
+      state_delta_ptr   _state;
+      bool              _is_writable = true;
 };
 
 state_node_impl::state_node_impl() {}
@@ -63,242 +80,224 @@ class state_db_impl final
 {
    public:
       state_db_impl() {}
-      ~state_db_impl() {}
+      ~state_db_impl() { close(); }
 
       void open( const boost::filesystem::path& p, const boost::any& o );
       void close();
 
-      std::shared_ptr< state_node > get_empty_node();
-      void get_recent_states(std::vector<state_node_id>& get_recent_nodes, int limit);
-      std::shared_ptr< state_node > get_node( state_node_id node_id );
-      std::shared_ptr< state_node > create_writable_node( state_node_id parent_id );
-      void finalize_node( state_node_id node_id );
-      void discard_node( state_node_id node_id );
+      state_node_ptr get_empty_node();
+      void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, uint64_t limit );
+      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child )const;
+      state_node_ptr get_node( const state_node_id& node_id )const;
+      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
+      void finalize_node( const state_node_id& node );
+      void discard_node( const state_node_id& node, const flat_set< state_node_id >& whitelist );
+      void commit_node( const state_node_id& node );
 
-      /**
-       * Create a new state_node and add it to the tip.
-       */
-      std::shared_ptr< state_node > make_node( bool is_writable );
+      state_node_ptr get_head()const;
+      state_node_ptr get_root()const;
 
-      /**
-       * Get the tip node.  If the node ID refers to a node other than
-       * the tip node, throw bad_node_position.
-       */
-      std::shared_ptr< state_node > get_tip( state_node_id node_id );
+      bool is_open()const;
 
-      /**
-       * Require the tip node to have the given node_id.
-       * If the node ID refers to a node other than the tip node, throw bad_node_position.
-       */
-      void require_tip( state_node_id node_id );
+      boost::filesystem::path      _path;
+      boost::any                   _options;
 
-      chainbase::database          _chainbase_db;
-      boost::filesystem::path      _chainbase_path;
-      boost::any                   _chainbase_options;
-      bool                         _is_open = false;
-      std::deque< std::shared_ptr< state_node > > _state_nodes;
-      state_node_id                _next_node_id = 1;
+      state_multi_index_type       _index;
+      state_node_ptr               _head;
+      state_node_ptr               _root;
 };
 
-std::shared_ptr< state_node > state_db_impl::make_node(bool is_writable)
-{
-   std::shared_ptr< state_node > node = std::make_shared< state_node >();
-   node->impl->_state_db = this;
-   node->impl->_node_id = _next_node_id;
-   node->impl->_is_writable = is_writable;
-   node->impl->_session.emplace( std::move( _chainbase_db.start_undo_session() ) );
-   ++_next_node_id;
-   _state_nodes.push_back( node );
-   return node;
-}
-
-std::shared_ptr< state_node > state_db_impl::get_tip( state_node_id node_id )
-{
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
-
-   size_t n = _state_nodes.size();
-   KOINOS_ASSERT( n > 0, internal_error, "_state_nodes is empty", () );
-   std::shared_ptr< state_node >& tip_node = _state_nodes.back();
-   KOINOS_ASSERT( tip_node, internal_error, "tip_node contains a null pointer", () );
-   if( tip_node->node_id() == node_id )
-      return tip_node;
-   // We will throw an exception at this point, all that's left is to figure out
-   //    if it's bad_node_position or unknown_node.
-   std::shared_ptr< state_node > node = get_node( node_id );
-   KOINOS_ASSERT( node, unknown_node, "Node does not exist", () );
-   KOINOS_THROW( bad_node_position, "Node is not tip node", () );
-}
-
-void state_db_impl::require_tip( state_node_id node_id )
-{
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
-
-   size_t n = _state_nodes.size();
-   KOINOS_ASSERT( n > 0, internal_error, "_state_nodes is empty", () );
-   std::shared_ptr< state_node >& tip_node = _state_nodes.back();
-   KOINOS_ASSERT( tip_node, internal_error, "tip_node contains a null pointer", () );
-   if( tip_node->node_id() == node_id )
-      return;
-   // We will throw an exception at this point, all that's left is to figure out
-   //    if it's bad_node_position or unknown_node.
-   std::shared_ptr< state_node > node = get_node( node_id );
-   KOINOS_ASSERT( node, unknown_node, "Node does not exist", () );
-   KOINOS_THROW( bad_node_position, "Node is not tip node", () );
-}
-
-std::shared_ptr< state_node > state_db_impl::get_empty_node()
+state_node_ptr state_db_impl::get_empty_node()
 {
    //
-   // This method closes, wipes and re-opens the chainbase database.
+   // This method closes, wipes and re-opens the database.
    //
    // So the caller needs to be very careful to only call this method if deleting the database is desirable!
    //
 
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   // Wipe chainbase and start over from empty database!
-   _chainbase_db.close();
-   _is_open = false;
-   _chainbase_db.wipe( _chainbase_path );
-   _chainbase_db.open( _chainbase_path, 0, _chainbase_options );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   // Wipe and start over from empty database!
+   _root->impl->_state->clear();
+   close();
+   open( _path, _options );
 
-   return make_node(false);
+   return _head;
 }
 
 void state_db_impl::open( const boost::filesystem::path& p, const boost::any& o )
 {
-   _chainbase_db.open(p, 0, o);
-   _chainbase_path = p;
-   _chainbase_options = o;
-   _chainbase_db.add_index< state_object_index >();
+   auto root = std::make_shared< state_node >();
+   root->impl->_state = std::make_shared< state_delta_type >( p, o );
+   root->impl->_is_writable = false;
+   _index.insert( root );
+   _root = root;
+   _head = root;
 
-   _is_open = true;
-   // Make a node to represent the initial state of the database
-   // This node's session will be empty (i.e. popping the session does nothing)
-   make_node(false);
+   _path = p;
+   _options = o;
 }
 
 void state_db_impl::close()
 {
-   _chainbase_db.close();
-   _is_open = false;
+   _root.reset();
+   _head.reset();
+   _index.clear();
 }
 
-void state_db_impl::get_recent_states(std::vector<state_node_id>& node_id_list, int limit)
+void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list, uint64_t limit )
 {
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   int n = _state_nodes.size();
-   limit = std::min( limit, n );
-   for( int i=0; i<limit; i++ )
-      node_id_list.push_back( _state_nodes[(n-1)-i]->node_id() );
-}
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   node_list.clear();
+   node_list.reserve( limit );
+   auto node_itr = _index.find( _head->id() );
 
-std::shared_ptr< state_node > state_db_impl::get_node( state_node_id node_id )
-{
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
-
-   size_t n = _state_nodes.size();
-   KOINOS_ASSERT( n > 0, internal_error, "_state_nodes is empty", () );
-   for( size_t i=0; i<n; i++ )
+   while( node_list.size() < limit && node_itr != _index.end() )
    {
-      std::shared_ptr< state_node >& current_node = _state_nodes[(n-1)-i];
-      KOINOS_ASSERT( current_node, internal_error, "_state_nodes contains a null pointer", () );
-      if( current_node->node_id() == node_id )
-         return current_node;
+      node_list.emplace_back( *node_itr );
+      if( *node_itr == _root ) return;
+
+      node_itr = _index.find( (*node_itr)->parent_id() );
    }
-   return std::shared_ptr< state_node >();
 }
 
-std::shared_ptr< state_node > state_db_impl::create_writable_node( state_node_id parent_id )
+state_node_ptr state_db_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
 {
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( parent_id >= 0, illegal_argument, "parent_id is negative", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( revision >= _root->revision(), illegal_argument,
+      "Cannot ask for node with revision less than root. root rev: ${root}, requested: ${req}",
+      ("root", _root->revision())("req", revision) );
 
-   std::shared_ptr< state_node > parent_node = get_tip( parent_id );
-   KOINOS_ASSERT( !parent_node->is_writable(), bad_node_position, "Parent is writable", () );
+   if( revision == _root->revision() ) return _root;
 
-   return make_node(true);
+   auto child = get_node( child_id );
+   if( !child ) child = _head;
+
+   state_delta_ptr delta = child->impl->_state;
+
+   while( delta->revision() > revision )
+   {
+      delta = delta->parent();
+   }
+
+   auto node_itr = _index.find( delta->id() );
+   KOINOS_ASSERT( node_itr != _index.end(), internal_error,
+      "Could not find state node associated with linked state_delta ${id}", ("id", delta->id()) );
+   return *node_itr;
 }
 
-void state_db_impl::finalize_node( state_node_id node_id )
+state_node_ptr state_db_impl::get_node( const state_node_id& node_id )const
 {
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
 
-   std::shared_ptr< state_node > node = get_tip(node_id);
+   auto node_itr = _index.find( node_id );
+   return node_itr != _index.end() ? *node_itr : state_node_ptr();
+}
+
+state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_id, const state_node_id& new_id )
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+
+   auto parent_state = _index.find( parent_id );
+   if( parent_state != _index.end() && !(*parent_state)->is_writable() )
+   {
+      auto node = std::make_shared< state_node >();
+      node->impl->_state = std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id );
+      node->impl->_is_writable = true;
+      if( _index.insert( node ).second )
+         return node;
+   }
+
+   return state_node_ptr();
+}
+
+void state_db_impl::finalize_node( const state_node_id& node_id )
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   auto node = get_node( node_id );
+   KOINOS_ASSERT( node, illegal_argument, "Node ${n} not found.", ("n", node_id) );
+
    node->impl->_is_writable = false;
+
+   if( node->revision() > _head->revision() )
+   {
+      _head = node;
+   }
 }
 
-void state_db_impl::discard_node( state_node_id node_id )
+void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< state_node_id >& whitelist )
 {
-   size_t n = _state_nodes.size();
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   auto node = get_node( node_id );
 
-   KOINOS_ASSERT( _is_open, database_not_open, "Database is not open", () );
-   KOINOS_ASSERT( node_id >= 0, illegal_argument, "node_id is negative", () );
-   KOINOS_ASSERT( n > 0, cannot_discard, "Cannot discard the last session", () );
+   if( !node ) return;
 
-   if( n == 1 )
+   KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "Cannot discard root node" );
+
+   std::vector< state_node_id > remove_queue{ node_id };
+   const auto& previdx = _index.template get< by_parent >();
+   const auto head_id = _head->id();
+
+   for( uint32_t i = 0; i < remove_queue.size(); ++i )
    {
-      // Don't actually discard the last session.
-      return;
+      KOINOS_ASSERT( remove_queue[ i ] != head_id, cannot_discard, "Cannot discard a node that would result in discarding of head", () );
+
+      auto previtr = previdx.lower_bound( remove_queue[ i ] );
+      while ( previtr != previdx.end() && (*previtr)->parent_id() == remove_queue[ i ] )
+      {
+         // Do not remove nodes on the whitelist
+         if( whitelist.find( (*previtr)->id() ) == whitelist.end() )
+         {
+            remove_queue.push_back( (*previtr)->id() );
+         }
+
+         ++previtr;
+      }
    }
 
-   std::shared_ptr< state_node > back = _state_nodes.back();
-   KOINOS_ASSERT( back, internal_error, "_state_nodes contains a null pointer", () );
-   KOINOS_ASSERT( back->impl->_session, internal_error, "impl->_session is null", () );
-   if( node_id == back->node_id() )
+   for( const auto& id : remove_queue )
    {
-      // Last node, undo()
-      back->impl->_session->undo();
-      _state_nodes.pop_back();
-      return;
+      auto itr = _index.find( id );
+      if ( itr != _index.end() )
+         _index.erase( itr );
    }
-
-   std::shared_ptr< state_node > front = _state_nodes.front();
-   KOINOS_ASSERT( front, internal_error, "_state_nodes contains a null pointer", () );
-   KOINOS_ASSERT( front->impl->_session, internal_error, "impl->_session is null", () );
-   if( node_id == front->node_id() )
-   {
-      // First node, commit()
-      _chainbase_db.commit(front->impl->_session->revision());
-      _state_nodes.pop_front();
-      return;
-   }
-
-   std::shared_ptr< state_node > penultimate = _state_nodes[n-2];
-   KOINOS_ASSERT( penultimate, internal_error, "_state_nodes contains a null pointer", () );
-   KOINOS_ASSERT( penultimate->impl->_session, internal_error, "impl->_session is null", () );
-   if( node_id == penultimate->node_id() )
-   {
-      // Penultimate node, squash()
-      //
-      // This is a complicated case.  The semantics presented to the caller are that
-      // `back` continues to exist while `penultimate` is discarded.  However, the
-      // underlying chainbase implementation instead has the semantics of discarding
-      // the final session and merging into the prior session.
-      //
-
-      back->impl->_session->squash();
-
-      // Before:  ... pen back
-      _state_nodes.pop_back();
-      _state_nodes[n-2] = back;
-      // After:   ... back
-
-      back->impl->_session.emplace( std::move( *penultimate->impl->_session ) );
-      return;
-   }
-
-   KOINOS_THROW( bad_node_position, "Can only discard front, back or penultimate", () );
 }
 
-void state_node_impl::get_object( get_object_result& result, const get_object_args& args )
+void state_db_impl::commit_node( const state_node_id& node_id )
 {
-   KOINOS_ASSERT( _state_db, internal_error, "_state_db is null", () );
-   _state_db->require_tip( _node_id );
-   const state_object* pobj = _state_db->_chainbase_db.find< state_object, ByKey >( boost::make_tuple( args.space, args.key ) );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "Cannot commit root node. Root node already committed." );
+   auto node = get_node( node_id );
+   KOINOS_ASSERT( node, illegal_argument, "Node ${n} not found.", ("n", node_id) );
+
+   flat_set< state_node_id > whitelist{ node->id() };
+
+   auto old_root = _root;
+   _root = node;
+   _index.modify( _index.find( node->id() ), []( state_node_ptr& n ){ n->impl->_state->commit(); } );
+   discard_node( old_root->id(), whitelist );
+}
+
+state_node_ptr state_db_impl::get_head()const
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   return _head;
+}
+
+state_node_ptr state_db_impl::get_root()const
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   return _root;
+}
+
+bool state_db_impl::is_open()const
+{
+   return (bool)_root && (bool)_head;
+}
+
+void state_node_impl::get_object( get_object_result& result, const get_object_args& args )const
+{
+   auto idx = merge_index< state_object_index, by_key >( _state );
+   auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
    if( pobj != nullptr )
    {
       result.key = pobj->key;
@@ -316,13 +315,9 @@ void state_node_impl::get_object( get_object_result& result, const get_object_ar
    }
 }
 
-void state_node_impl::get_next_object( get_object_result& result, const get_object_args& args )
+void state_node_impl::get_next_object( get_object_result& result, const get_object_args& args )const
 {
-   KOINOS_ASSERT( _state_db, internal_error, "_state_db is null", () );
-   _state_db->require_tip( _node_id );
-   chainbase::database &db = _state_db->_chainbase_db;
-
-   const auto& idx = db.get_index< state_object_index, ByKey >();
+   auto idx = merge_index< state_object_index, by_key >( _state );
    auto it = idx.upper_bound( boost::make_tuple( args.space, args.key ) );
    if( (it != idx.end()) && (it->space == args.space) )
    {
@@ -341,13 +336,9 @@ void state_node_impl::get_next_object( get_object_result& result, const get_obje
    }
 }
 
-void state_node_impl::get_prev_object( get_object_result& result, const get_object_args& args )
+void state_node_impl::get_prev_object( get_object_result& result, const get_object_args& args )const
 {
-   KOINOS_ASSERT( _state_db, internal_error, "_state_db is null", () );
-   _state_db->require_tip( _node_id );
-   chainbase::database &db = _state_db->_chainbase_db;
-
-   const auto& idx = db.get_index< state_object_index, ByKey >();
+   auto idx = merge_index< state_object_index, by_key >( _state );
    auto it = idx.lower_bound( boost::make_tuple( args.space, args.key ) );
    if( it != idx.begin() )
    {
@@ -370,36 +361,34 @@ void state_node_impl::get_prev_object( get_object_result& result, const get_obje
 
 void state_node_impl::put_object( put_object_result& result, const put_object_args& args )
 {
-   KOINOS_ASSERT( _state_db, internal_error, "_state_db is null", () );
-   _state_db->require_tip( _node_id );
-   chainbase::database &db = _state_db->_chainbase_db;
-
-   const state_object* pobj = _state_db->_chainbase_db.find< state_object, ByKey >( boost::make_tuple( args.space, args.key ) );
+   KOINOS_ASSERT( _is_writable, node_finalized, "Cannot write to a finalized node", () );
+   auto idx = merge_index< state_object_index, by_key >( _state );
+   auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
    if( pobj != nullptr )
    {
       result.object_existed = true;
       if( args.buf != nullptr )
       {
          // exist -> exist, modify()
-         db.modify( *pobj, [&]( state_object& obj )
+         _state->modify( *pobj, [&]( state_object& obj )
          {
             obj.value.resize( args.object_size );
             std::memcpy( obj.value.data(), args.buf, args.object_size );
-         } );
+         });
       }
       else
       {
          // exist -> dne, remove()
-         db.remove( *pobj );
+         _state->erase( *pobj );
       }
    }
-   if( pobj == nullptr )
+   else
    {
       result.object_existed = false;
       if( args.buf != nullptr )
       {
          // dne - exist, create()
-         db.create< state_object >( [&]( state_object& obj )
+         _state->emplace( [&]( state_object& obj )
          {
             obj.space = args.space;
             obj.key = args.key;
@@ -419,17 +408,17 @@ void state_node_impl::put_object( put_object_result& result, const put_object_ar
 state_node::state_node() : impl( new detail::state_node_impl() ) {}
 state_node::~state_node() {}
 
-void state_node::get_object( get_object_result& result, const get_object_args& args )
+void state_node::get_object( get_object_result& result, const get_object_args& args )const
 {
    impl->get_object( result, args );
 }
 
-void state_node::get_next_object( get_object_result& result, const get_object_args& args )
+void state_node::get_next_object( get_object_result& result, const get_object_args& args )const
 {
    impl->get_next_object( result, args );
 }
 
-void state_node::get_prev_object( get_object_result& result, const get_object_args& args )
+void state_node::get_prev_object( get_object_result& result, const get_object_args& args )const
 {
    impl->get_prev_object( result, args );
 }
@@ -439,14 +428,24 @@ void state_node::put_object( put_object_result& result, const put_object_args& a
    impl->put_object( result, args );
 }
 
-bool state_node::is_writable()
+bool state_node::is_writable()const
 {
    return impl->_is_writable;
 }
 
-state_node_id state_node::node_id()
+const state_node_id& state_node::id()const
 {
-   return impl->_node_id;
+   return impl->_state->id();
+}
+
+const state_node_id& state_node::parent_id()const
+{
+   return impl->_state->parent_id();
+}
+
+uint64_t state_node::revision()const
+{
+   return impl->_state->revision();
 }
 
 state_db::state_db() : impl( new detail::state_db_impl() ) {}
@@ -462,34 +461,61 @@ void state_db::close()
    impl->close();
 }
 
-std::shared_ptr< state_node > state_db::get_empty_node()
+state_node_ptr state_db::get_empty_node()
 {
    return impl->get_empty_node();
 }
 
-void state_db::get_recent_states(std::vector<state_node_id>& node_id_list, int limit)
+void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, uint64_t limit )
 {
-   impl->get_recent_states( node_id_list, limit );
+   impl->get_recent_states( node_list, limit );
 }
 
-std::shared_ptr< state_node > state_db::get_node( state_node_id node_id )
+state_node_ptr state_db::get_node_at_revision( uint64_t revision, state_node_id& child_id )const
+{
+   return impl->get_node_at_revision( revision, child_id );
+}
+
+state_node_ptr state_db::get_node_at_revision( uint64_t revision )const
+{
+   static const state_node_id null_id;
+   return impl->get_node_at_revision( revision, null_id );
+}
+
+state_node_ptr state_db::get_node( const state_node_id& node_id )const
 {
    return impl->get_node( node_id );
 }
 
-std::shared_ptr< state_node > state_db::create_writable_node( state_node_id parent_id )
+state_node_ptr state_db::create_writable_node( const state_node_id& parent_id, const state_node_id& new_id )
 {
-   return impl->create_writable_node( parent_id );
+   return impl->create_writable_node( parent_id, new_id );
 }
 
-void state_db::finalize_node( state_node_id node_id )
+void state_db::finalize_node( const state_node_id& node_id )
 {
    impl->finalize_node( node_id );
 }
 
-void state_db::discard_node( state_node_id node_id )
+void state_db::discard_node( const state_node_id& node_id )
 {
-   impl->discard_node( node_id );
+   static const flat_set< state_node_id > whitelist;
+   impl->discard_node( node_id, whitelist );
 }
 
-} } // koinos::state_db
+void state_db::commit_node( const state_node_id& node_id )
+{
+   impl->commit_node( node_id );
+}
+
+state_node_ptr state_db::get_head()const
+{
+   return impl->get_head();
+}
+
+state_node_ptr state_db::get_root()const
+{
+   return impl->get_root();
+}
+
+} // koinos::state_db

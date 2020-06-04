@@ -2,53 +2,42 @@
 
 #include <fc/exception/exception.hpp>
 
-#include <chainbase/chainbase.hpp>
-
-#include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
-//#include <fc/variant.hpp>
-//#include <fc/io/raw.hpp>
+
+#include <koinos/pack/rt/binary.hpp>
+#include <koinos/pack/rt/json.hpp>
 
 #include <string>
 
-#define KOINOS_STD_ALLOCATOR_CONSTRUCTOR( object_type )    \
-   public:                                               \
-      object_type () {}
+#pragma message "TODO: Delete this file after #53 is implemented"
 
 namespace koinos { namespace statedb {
 
-enum object_type
-{
-   state_object_type
-};
-
 } } // koinos::statedb
-
-//namespace mira {
-//template< typename T > struct is_static_length< chainbase::oid< T > > : public boost::true_type {};
-//} // mira
 
 namespace fc
 {
+struct variant;
 
-template<typename T>
-void to_variant( const chainbase::oid<T>& var, variant& vo )
+inline void to_variant( const koinos::protocol::multihash_type& mh, variant& v )
 {
-   vo = var._id;
+   nlohmann::json j;
+   koinos::pack::to_json( j, mh );
+   v = j.dump();
 }
 
-template<typename T>
-void from_variant( const variant& vo, chainbase::oid<T>& var )
+inline void from_variant( const variant& v, koinos::protocol::multihash_type& mh )
 {
-   var._id = vo.as_int64();
+   nlohmann::json j = v.as_string();
+   koinos::pack::from_json( j, mh );
 }
 
-template< typename T >
-struct get_typename< chainbase::oid< T > >
+template<>
+struct get_typename< koinos::protocol::multihash_type >
 {
    static const char* name()
    {
-      static std::string n = std::string( "chainbase::oid<" ) + get_typename< T >::name() + ">";
+      static std::string n = "koinos::protocol::multihash_type";
       return n.c_str();
    }
 };
@@ -56,16 +45,16 @@ struct get_typename< chainbase::oid< T > >
 namespace raw
 {
 
-template<typename Stream, typename T>
-void pack( Stream& s, const chainbase::oid<T>& id )
+template< typename Stream >
+void pack( Stream& s, const koinos::protocol::multihash_type& mh )
 {
-   s.write( (const char*)&id._id, sizeof(id._id) );
+   koinos::pack::to_binary( s, mh );
 }
 
-template<typename Stream, typename T>
-void unpack( Stream& s, chainbase::oid<T>& id, uint32_t depth = 0 )
+template< typename Stream >
+void unpack( Stream& s, koinos::protocol::multihash_type& mh, uint32_t depth = 0 )
 {
-   s.read( (char*)&id._id, sizeof(id._id));
+   koinos::pack::from_binary( s, mh );
 }
 
 } } // fc::raw

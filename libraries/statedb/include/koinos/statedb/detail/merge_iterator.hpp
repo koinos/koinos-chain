@@ -1,7 +1,10 @@
 #pragma once
-#include <chainbase/undo_state.hpp>
+
+#include <koinos/statedb/detail/state_delta.hpp>
 
 #include <boost/container/deque.hpp>
+
+#include <boost/iterator/zip_iterator.hpp>
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/composite_key.hpp>
@@ -9,9 +12,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-#include <fc/log/logger.hpp>
-
-namespace chainbase {
+namespace koinos::statedb::detail {
 
    using namespace boost::multi_index;
 
@@ -27,15 +28,14 @@ namespace chainbase {
       public:
          typedef typename MultiIndexType::value_type                                      value_type;
       private:
-         typedef typename value_type::id_type                                             id_type;
          typedef decltype( ((MultiIndexType*)nullptr)->template get< IndexedByType >() )  by_index_type;
          typedef typename by_index_type::iter_type                                        iter_type;
          typedef typename by_index_type::bmic_type::key_type                              key_type;
          typedef typename by_index_type::bmic_type::key_from_value                        key_from_value_type;
          typedef typename by_index_type::bmic_type::key_compare                           key_compare_type;
          typedef typename by_index_type::bmic_type::value_compare                         value_compare_type;
-         typedef undo_state< MultiIndexType >                                             undo_state_type;
-         typedef std::shared_ptr< undo_state_type >                                       undo_state_ptr;
+         typedef state_delta< MultiIndexType >                                            state_delta_type;
+         typedef std::shared_ptr< state_delta_type >                                      state_delta_ptr;
 
          struct iterator_wrapper
          {
@@ -65,18 +65,20 @@ namespace chainbase {
             bool valid() const { return iter != index->template get< IndexedByType >().end(); }
          };
 
+         // Uses revision as a tiebreaker only for when both iterators are invalid
+         // to enforce a total ordering on this comparator. The composite key on
+         // revision is still needed for the case when iterators are valid and equal.
+         // (i.e. lhs < rhs == false && rhs < lhs == false )
          struct iterator_compare_less
          {
             bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const
             {
-               if( !lhs.valid() )
-               {
-                  return false;
-               }
-               else if( !rhs.valid() )
-               {
-                  return true;
-               }
+               bool lh_valid = lhs.valid();
+               bool rh_valid = rhs.valid();
+
+               if( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
+               if( !lh_valid ) return false;
+               if( !rh_valid ) return true;
 
                // Indirection is normally a const method. However, because the rocksdb_iterator may
                // need to go to cache, internal state is updated and the operator is not const.
@@ -90,14 +92,12 @@ namespace chainbase {
          {
             bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const
             {
-               if( !lhs.valid() )
-               {
-                  return false;
-               }
-               else if( !rhs.valid() )
-               {
-                  return true;
-               }
+               bool lh_valid = lhs.valid();
+               bool rh_valid = rhs.valid();
+
+               if( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
+               if( !lh_valid ) return false;
+               if( !rh_valid ) return true;
 
                return value_compare_type()( *const_cast< iter_type& >(rhs.iter),
                                        *const_cast< iter_type& >(lhs.iter) );
@@ -130,50 +130,61 @@ namespace chainbase {
             >
          > iter_revision_index_type;
 
-         iter_revision_index_type                    iter_revision_index;
-         const boost::container::deque< undo_state_ptr >& undo_deque;
-         uint64_t                                base_revision = 0;
+         iter_revision_index_type                     _iter_rev_index;
+         boost::container::deque< state_delta_ptr >   _delta_deque;
 
       public:
          template< typename Initializer >
-         merge_iterator( const boost::container::deque< undo_state_ptr >& deque, Initializer&& init ) :
-            undo_deque( deque )
+         merge_iterator( state_delta_ptr head, Initializer&& init )
          {
-            for( const auto& undo : undo_deque )
+            KOINOS_ASSERT( head, internal_error, "Cannot create a merge iterator on an null delta.", () );
+            auto current_delta = head;
+
+            do
             {
-               const auto& by_index = undo->indices()->template get< IndexedByType >();
+               _delta_deque.push_front( current_delta );
+
+               const auto& by_index = current_delta->indices()->template get< IndexedByType >();
                iterator_wrapper undo_itr(
                   std::move( init( by_index ) ),
-                  undo->revision(),
-                  undo->indices() );
+                  current_delta->revision(),
+                  current_delta->indices() );
 
-               iter_revision_index.emplace( std::move( undo_itr ) );
-            }
+               _iter_rev_index.emplace( std::move( undo_itr ) );
+
+               current_delta = current_delta->parent();
+            } while( current_delta );
 
             resolve_conflicts();
          }
 
-         merge_iterator( const boost::container::deque< undo_state_ptr >& deque ) :
-            undo_deque( deque )
+         merge_iterator( const boost::container::deque< state_delta_ptr >& deque ) :
+            _delta_deque( deque )
          {}
 
          merge_iterator( const merge_iterator& other ) :
-            iter_revision_index( other.iter_revision_index ),
-            undo_deque( other.undo_deque ),
-            base_revision( other.base_revision )
+            _iter_rev_index( other._iter_rev_index ),
+            _delta_deque( other._delta_deque )
          {}
 
          merge_iterator( merge_iterator&& other ) :
-            iter_revision_index( std::move( other.iter_revision_index ) ),
-            undo_deque( other.undo_deque ),
-            base_revision( other.base_revision )
+            _iter_rev_index( std::move( other._iter_rev_index ) ),
+            _delta_deque( other._delta_deque )
          {}
+
+         merge_iterator() {}
 
          bool operator ==( const merge_iterator& other )const
          {
-            if( iter_revision_index.size() == 0 && other.iter_revision_index.size() == 0 ) return true;
-            auto my_begin = iter_revision_index.begin();
-            auto other_begin = other.iter_revision_index.begin();
+            // If both iterators are empty, they are true.
+            // But we use empty merge iterators as an optimization for an end itertor.
+            // So if one is empty, and the other is all end iterators, they are also equal.
+            if( _iter_rev_index.size() == 0 && other._iter_rev_index.size() == 0 ) return true;
+            else if( _iter_rev_index.size() == 0 ) return other.is_end();
+            else if( other._iter_rev_index.size() == 0 ) return is_end();
+
+            auto my_begin = _iter_rev_index.begin();
+            auto other_begin = other._iter_rev_index.begin();
 
             if( !my_begin->valid() && !other_begin->valid() ) return true;
             if( !my_begin->valid() || !other_begin->valid() ) return false;
@@ -184,11 +195,11 @@ namespace chainbase {
 
          merge_iterator& operator ++()
          {
-            auto first_itr = iter_revision_index.begin();
+            auto first_itr = _iter_rev_index.begin();
 
             if( first_itr->valid() )
             {
-               iter_revision_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.iter); } );
+               _iter_rev_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.iter); } );
                resolve_conflicts();
             }
 
@@ -202,7 +213,7 @@ namespace chainbase {
 
          merge_iterator& operator --()
          {
-            const auto& order_idx = iter_revision_index.template get< by_order_revision >();
+            const auto& order_idx = _iter_rev_index.template get< by_order_revision >();
 
             auto head_itr = order_idx.begin();
             // composite keys do not have default initializers, so we need to store them as a pointer
@@ -220,7 +231,7 @@ namespace chainbase {
              * Then iterate over all other iterators and rewind them until they have a value less
              * than the current value. One of those values is what we want to decrement to.
              */
-            const auto& rev_idx = iter_revision_index.template get< by_revision >();
+            const auto& rev_idx = _iter_rev_index.template get< by_revision >();
             for( auto rev_itr = rev_idx.begin(); rev_itr != rev_idx.end(); ++rev_itr )
             {
                // Only decrement iterators that have modified objects
@@ -232,20 +243,20 @@ namespace chainbase {
                   {
                      // If there was no valid key, then bring back each iterator once, it is gauranteed to be less than the
                      // current value (end()).
-                     iter_revision_index.modify( iter_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                     _iter_rev_index.modify( _iter_rev_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
                   }
                   else
                   {
                      // Do an initial decrement if the iterator currently points to end()
                      if( !rev_itr->valid() )
                      {
-                        iter_revision_index.modify( iter_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                        _iter_rev_index.modify( _iter_rev_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
                      }
 
                      // Decrement back to the first key that is less than the head key
                      while( !key_compare( key_from_value( *(rev_itr->iter) ), *head_key ) && rev_itr->iter != begin )
                      {
-                        iter_revision_index.modify( iter_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                        _iter_rev_index.modify( _iter_rev_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
                      }
                   }
 
@@ -259,16 +270,16 @@ namespace chainbase {
 
                      if( dirty )
                      {
-                        iter_revision_index.modify( iter_revision_index.iterator_to( *(rev_itr) ), [](iterator_wrapper& i ){ --(i.iter); } );
+                        _iter_rev_index.modify( _iter_rev_index.iterator_to( *(rev_itr) ), [](iterator_wrapper& i ){ --(i.iter); } );
                      }
                   }
                }
             }
 
-            const auto& rev_order_idx = iter_revision_index.template get< by_reverse_order_revision >();
+            const auto& rev_order_idx = _iter_rev_index.template get< by_reverse_order_revision >();
             auto least_itr = rev_order_idx.begin();
 
-            if( undo_deque.size() > 1 )
+            if( _delta_deque.size() > 1 )
             {
                // This next bit works in two modes.
                // Some indices may not have had a value less than the previous head, so they will show up first,
@@ -294,7 +305,7 @@ namespace chainbase {
                // to become the head.
                while( least_itr != rev_order_idx.end() && least_itr->valid() )
                {
-                  iter_revision_index.modify( iter_revision_index.iterator_to( *(least_itr--) ), [](iterator_wrapper& i ){ ++(i.iter); } );
+                  _iter_rev_index.modify( _iter_rev_index.iterator_to( *(least_itr--) ), [](iterator_wrapper& i ){ ++(i.iter); } );
                   ++least_itr;
                }
 
@@ -311,28 +322,34 @@ namespace chainbase {
 
          const value_type& operator*()const
          {
-            return iter_revision_index.begin()->iter.operator *();
+            return _iter_rev_index.begin()->iter.operator *();
          }
 
          const value_type* operator->()const
          {
-            return iter_revision_index.begin()->iter.operator ->();
+            return _iter_rev_index.begin()->iter.operator ->();
          }
 
          merge_iterator& operator =( const merge_iterator& other )
          {
-            assert( &undo_deque == &(other.undo_deque) );
-            iter_revision_index = other.iter_revision_index;
-            base_revision = other.base_revision;
+            KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
+            KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques.", () );
+            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots", () );
+            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads", () );
+
+            _iter_rev_index = other._iter_rev_index;
 
             return *this;
          }
 
          merge_iterator& operator =( merge_iterator&& other )
          {
-            assert( &undo_deque == &(other.undo_deque) );
-            iter_revision_index = std::move( other.iter_revision_index );
-            base_revision = other.base_revision;
+            KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
+            KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques.", () );
+            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots", () );
+            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads", () );
+
+            _iter_rev_index = std::move( other._iter_rev_index );
 
             return *this;
          }
@@ -343,9 +360,9 @@ namespace chainbase {
          {
             bool dirty = false;
 
-            for( size_t i = undo_deque.size() - 1; itr->revision < uint64_t(undo_deque[i]->revision()) && !dirty; --i )
+            for( int i = _delta_deque.size() - 1; itr->revision < _delta_deque[i]->revision() && !dirty; --i )
             {
-               dirty = undo_deque[i]->is_modified( itr->iter->id );
+               dirty = _delta_deque[i]->is_modified( itr->iter->id );
             }
 
             return dirty;
@@ -353,7 +370,7 @@ namespace chainbase {
 
          void resolve_conflicts()
          {
-            auto first_itr = iter_revision_index.begin();
+            auto first_itr = _iter_rev_index.begin();
             bool dirty = true;
 
             while( dirty && first_itr->valid() )
@@ -362,12 +379,94 @@ namespace chainbase {
 
                if( dirty )
                {
-                  iter_revision_index.modify( first_itr, [](iterator_wrapper& i ){ ++(i.iter); } );
+                  _iter_rev_index.modify( first_itr, [](iterator_wrapper& i ){ ++(i.iter); } );
                }
 
-               first_itr = iter_revision_index.begin();
+               first_itr = _iter_rev_index.begin();
             }
+         }
+
+         bool is_end() const
+         {
+            return std::all_of( _iter_rev_index.begin(), _iter_rev_index.end(),
+               []( auto& i ){ return !i.valid(); } );
          }
    };
 
-} // chainbase
+   template< typename MultiIndexType, typename IndexedByType >
+   class merge_index
+   {
+      public:
+         typedef MultiIndexType                                                        index_type;
+         typedef state_delta< index_type >                                             state_delta_type;
+         typedef decltype( ((index_type*)nullptr)->template get< IndexedByType >() )   by_index_type;
+         typedef typename index_type::value_type                                       value_type;
+         typedef merge_iterator< index_type, IndexedByType >                           iterator_type;
+
+         std::shared_ptr< state_delta_type > _head;
+
+         merge_index( std::shared_ptr< state_delta_type > head ) :
+            _head( head )
+         {}
+
+         template< typename CompatibleKey >
+         iterator_type lower_bound( CompatibleKey&& key ) const
+         {
+            return iterator_type( _head, [&]( by_index_type& idx )
+            {
+               return idx.lower_bound( key );
+            });
+         }
+
+         template< typename CompatibleKey >
+         iterator_type upper_bound( CompatibleKey&& key ) const
+         {
+            return iterator_type( _head, [&]( by_index_type& idx )
+            {
+               return idx.upper_bound( key );
+            });
+         }
+
+         template< typename CompatibleKey >
+         std::pair< iterator_type, iterator_type > equal_range( CompatibleKey&& key ) const
+         {
+            return std::make_pair< iterator_type, iterator_type >(
+               lower_bound( key ), upper_bound( key ) );
+         }
+
+         iterator_type begin() const
+         {
+            return iterator_type( _head, [&]( by_index_type& idx )
+            {
+               return idx.begin();
+            });
+         }
+
+         iterator_type end() const
+         {
+            return iterator_type();
+         }
+
+         template< typename CompatibleKey >
+         const value_type* find( CompatibleKey& key ) const
+         {
+            return _head->template find< IndexedByType >( key );
+         }
+
+         template< typename CompatibleKey >
+         const value_type* find( CompatibleKey&& key ) const
+         {
+            return _head->template find< IndexedByType >( key );
+         }
+
+         iterator_type iterator_to( const value_type& v ) const
+         {
+            return iterator_type( _head, [&]( by_index_type& idx )
+            {
+               auto itr = idx.iterator_to( v );
+               return itr != idx.end() ? itr : idx.upper_bound( v );
+            });
+         }
+   };
+
+} // koinos::statedb::detail
