@@ -64,9 +64,6 @@ namespace koinos { namespace chain {
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
-   using int128_t            = __int128;
-   using uint128_t           = unsigned __int128;
-
 } } // koinos::chain
 
 namespace fc
@@ -217,6 +214,83 @@ void unpack( Stream& s, boost::interprocess::flat_map< K, V, C, A >& value, uint
 }
 
 } } // namespace fc::raw
+
+#pragma TODO "These should be removed when we implement multi index containers on top of statedb"
+namespace koinos::pack {
+
+template<typename Stream, typename T>
+inline void to_binary( Stream& s, const chainbase::oid<T>& id )
+{
+   fc::raw::pack( s, id );
+}
+
+template<typename Stream, typename T>
+inline void from_binary( Stream& s, chainbase::oid<T>& id, uint32_t depth )
+{
+   fc::raw::unpack( s, id, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const float64_t& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, float64_t& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const float128_t& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, float128_t& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const std::string& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, std::string& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+/*
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::int128_t& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::int128_t& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::uint128_t& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::uint128_t& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+*/
+} // koinos::pack
 
 FC_REFLECT_ENUM( koinos::chain::object_type,
                  (null_object_type)

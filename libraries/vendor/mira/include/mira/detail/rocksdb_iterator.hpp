@@ -15,11 +15,11 @@
 
 namespace mira { namespace multi_index { namespace detail {
 
-template< typename Value, typename Key, typename KeyFromValue,
+template< typename Value, typename Serializer, typename Key, typename KeyFromValue,
           typename KeyCompare, typename ID, typename IDFromValue >
 struct rocksdb_iterator :
    public boost::bidirectional_iterator_helper<
-      rocksdb_iterator< Value, Key, KeyFromValue, KeyCompare, ID, IDFromValue >,
+      rocksdb_iterator< Value, Serializer, Key, KeyFromValue, KeyCompare, ID, IDFromValue >,
       Value,
       std::size_t,
       const Value*,
@@ -169,7 +169,7 @@ public:
          _iter.reset( _db->NewIterator( _opts, &*(*_handles)[ _index ] ) );
 
          PinnableSlice key_slice;
-         pack_to_slice( key_slice, k );
+         pack_to_slice< Serializer >( key_slice, k );
 
          _iter->Seek( key_slice );
 
@@ -189,7 +189,7 @@ public:
       _cache( &cache )
    {
       Key k;
-      unpack_from_slice( s, k );
+      unpack_from_slice< Serializer >( s, k );
       key_type* id = (key_type*)&k;
       std::lock_guard< std::mutex > lock( _cache->get_index_cache( _index )->get_lock() );
       _cache_value = cache.get_index_cache( index )->get( (void*)id );
@@ -215,7 +215,7 @@ public:
       {
          key_type key;
 
-         unpack_from_slice( _iter->key(), key );
+         unpack_from_slice< Serializer >( _iter->key(), key );
          std::lock_guard< std::mutex > lock( _cache->get_index_cache( _index )->get_lock() );
          ptr = _cache->get_index_cache( _index )->get( (void*)&key );
 
@@ -226,7 +226,7 @@ public:
                // We are iterating on the primary key, so there is no indirection
                ::rocksdb::Slice value_slice = _iter->value();
                ptr = std::make_shared< value_type >();
-               unpack_from_slice( value_slice, *ptr );
+               unpack_from_slice< Serializer >( value_slice, *ptr );
                ptr = _cache->cache( std::move( *ptr ) );
             }
             else
@@ -236,7 +236,7 @@ public:
                assert( s.ok() );
 
                ptr = std::make_shared< value_type >();
-               unpack_from_slice( value_slice, *ptr );
+               unpack_from_slice< Serializer >( value_slice, *ptr );
                ptr = _cache->cache( std::move( *ptr ) );
             }
          }
@@ -267,7 +267,7 @@ public:
          if ( _iter == nullptr )
          {
             ::rocksdb::PinnableSlice slice;
-            pack_to_slice( slice, key );
+            pack_to_slice< Serializer >( slice, key );
 
             _iter.reset( _db->NewIterator( _opts, &*(*_handles)[ _index ] ) );
             _iter->Seek( slice );
@@ -275,7 +275,7 @@ public:
             if( _iter->Valid() )
             {
                Key found_key;
-               unpack_from_slice( _iter->key(), found_key );
+               unpack_from_slice< Serializer >( _iter->key(), found_key );
 
                if( compare( found_key, key ) != compare( key, found_key ) )
                {
@@ -322,7 +322,7 @@ public:
             if ( _iter == nullptr )
             {
                ::rocksdb::PinnableSlice slice;
-               pack_to_slice( slice, key );
+               pack_to_slice< Serializer >( slice, key );
 
                _iter.reset( _db->NewIterator( _opts, &*(*_handles)[ _index ] ) );
                _iter->Seek( slice );
@@ -374,12 +374,12 @@ public:
          if ( _cache_value != nullptr )
             this_key = key_from_value( *_cache_value );
          else
-            unpack_from_slice( _iter->key(), this_key );
+            unpack_from_slice< Serializer >( _iter->key(), this_key );
 
          if ( other._cache_value != nullptr )
             other_key = key_from_value( *other._cache_value );
          else
-            unpack_from_slice( other._iter->key(), other_key );
+            unpack_from_slice< Serializer >( other._iter->key(), other_key );
 
          return _compare( this_key, other_key ) == _compare( other_key, this_key );
       }
@@ -466,14 +466,14 @@ public:
       itr._iter.reset( db->NewIterator( itr._opts, &*(*handles)[ index ] ) );
 
       PinnableSlice key_slice;
-      pack_to_slice( key_slice, key );
+      pack_to_slice< Serializer >( key_slice, key );
 
       itr._iter->Seek( key_slice );
 
       if( itr.valid() )
       {
          Key found_key;
-         unpack_from_slice( itr._iter->key(), found_key );
+         unpack_from_slice< Serializer >( itr._iter->key(), found_key );
 
          if( compare( k, found_key ) != compare( found_key, k ) )
          {
@@ -509,13 +509,13 @@ public:
       itr._iter.reset( db->NewIterator( itr._opts, &*(*handles)[ index ] ) );
 
       PinnableSlice key_slice;
-      pack_to_slice( key_slice, k );
+      pack_to_slice< Serializer >( key_slice, k );
       itr._iter->Seek( key_slice );
 
       if( itr.valid() )
       {
          Key found_key;
-         unpack_from_slice( itr._iter->key(), found_key );
+         unpack_from_slice< Serializer >( itr._iter->key(), found_key );
 
          if( compare( k, found_key ) != compare( found_key, k ) )
          {
@@ -549,7 +549,7 @@ public:
       itr._iter.reset( db->NewIterator( itr._opts, &*(*handles)[ index ] ) );
 
       PinnableSlice key_slice;
-      pack_to_slice( key_slice, k );
+      pack_to_slice< Serializer >( key_slice, k );
       itr._iter->Seek( key_slice );
 
       return itr;
@@ -569,17 +569,17 @@ public:
       itr._iter.reset( db->NewIterator( itr._opts, &*(*handles)[ index ] ) );
 
       PinnableSlice key_slice;
-      pack_to_slice( key_slice, Key( k ) );
+      pack_to_slice< Serializer >( key_slice, Key( k ) );
 
       itr._iter->Seek( key_slice );
 
       if( itr.valid() )
       {
          Key itr_key;
-         unpack_from_slice( itr._iter->key(), itr_key );
+         unpack_from_slice< Serializer >( itr._iter->key(), itr_key );
 
          //if( !key_equals( itr_key, k, compare ) )
-         if( !is_well_ordered< KeyCompare, true >::value && !compare( itr_key, k ) )
+         if( !is_well_ordered< KeyCompare, Serializer, true >::value && !compare( itr_key, k ) )
          {
             rocksdb_iterator prev( handles, index, db, cache );
             do
@@ -588,7 +588,7 @@ public:
                lb_prev_call_count()++;
                if( !itr.valid() ) return prev;
 
-               unpack_from_slice( itr._iter->key(), itr_key );
+               unpack_from_slice< Serializer >( itr._iter->key(), itr_key );
             }while( !compare( itr_key, k ) );
 
             return prev;
@@ -617,7 +617,7 @@ public:
       itr._iter.reset( db->NewIterator( itr._opts, &*(*handles)[ index ] ) );
 
       PinnableSlice key_slice;
-      pack_to_slice( key_slice, k );
+      pack_to_slice< Serializer >( key_slice, k );
 
       itr._iter->SeekForPrev( key_slice );
 
@@ -644,21 +644,21 @@ public:
 
       auto key = Key( k );
       PinnableSlice key_slice;
-      pack_to_slice( key_slice, key );
+      pack_to_slice< Serializer >( key_slice, key );
 
       itr._iter->Seek( key_slice );
 
       if( itr.valid() )
       {
          Key itr_key;
-         unpack_from_slice( itr._iter->key(), itr_key );
+         unpack_from_slice< Serializer >( itr._iter->key(), itr_key );
 
          while( !compare( k, itr_key ) )
          {
             ++itr;
             if( !itr.valid() ) return itr;
 
-            unpack_from_slice( itr._iter->key(), itr_key );
+            unpack_from_slice< Serializer >( itr._iter->key(), itr_key );
          }
       }
 
@@ -695,20 +695,20 @@ public:
    }
 };
 
-template< typename Value, typename Key, typename KeyFromValue,
+template< typename Value, typename Serializer, typename Key, typename KeyFromValue,
           typename KeyCompare, typename ID, typename IDFromValue >
 bool operator==(
-   const rocksdb_iterator< Value, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& x,
-   const rocksdb_iterator< Value, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& y)
+   const rocksdb_iterator< Value, Serializer, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& x,
+   const rocksdb_iterator< Value, Serializer, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& y)
 {
    return x.equals( y );
 }
 
-template< typename Value, typename Key, typename KeyFromValue,
+template< typename Value, typename Serializer, typename Key, typename KeyFromValue,
           typename KeyCompare, typename ID, typename IDFromValue >
 bool operator!=(
-   const rocksdb_iterator< Value, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& x,
-   const rocksdb_iterator< Value, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& y)
+   const rocksdb_iterator< Value, Serializer, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& x,
+   const rocksdb_iterator< Value, Serializer, Key, KeyFromValue, KeyCompare, ID, IDFromValue >& y)
 {
    return !( x == y );
 }

@@ -67,8 +67,9 @@ namespace multi_index{
 #pragma warning(disable:4522) /* spurious warning on multiple operator=()'s */
 #endif
 
-const std::vector<char> ENTRY_COUNT_KEY { 11,'E','N','T','R','Y','_','C','O','U','N','T' };
-const std::vector<char> REVISION_KEY { 3,'R','E','V' };
+const std::vector<char> ENTRY_COUNT_KEY { 'E','N','T','R','Y','_','C','O','U','N','T' };
+const std::vector<char> REVISION_KEY { 'R','E','V' };
+const std::vector<uint8_t> NEXT_ID_KEY { 'N','E','X','T','_','I','D' };
 
 template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
 class multi_index_container:
@@ -470,14 +471,14 @@ uint64_t set_revision( uint64_t rev )
 id_type next_id()
 {
    id_type id;
-   if ( !get_metadata( "next_id", id ) )
+   if ( !get_metadata( NEXT_ID_KEY, id ) )
       id = 0;
    return id;
 }
 
 void set_next_id( id_type id )
 {
-   bool success = put_metadata( "next_id", id );
+   bool success = put_metadata( NEXT_ID_KEY, id );
    boost::ignore_unused( success );
    assert( success );
 }
@@ -722,7 +723,7 @@ primary_iterator erase( primary_iterator position )
 
       rocksdb::PinnableSlice key_slice, value_slice;
 
-      pack_to_slice( key_slice, k );
+      pack_to_slice< Serializer >( key_slice, k );
 
       auto status = super::_db->Get(
          _ropts,
@@ -732,7 +733,7 @@ primary_iterator erase( primary_iterator position )
 
       if( status.ok() )
       {
-         unpack_from_slice( value_slice, v );
+         unpack_from_slice< Serializer >( value_slice, v );
          //ilog( "Retrieved metdata for ${type}: ${key},${value}", ("type",boost::core::demangle(typeid(Value).name()))("key",k)("value",v) );
       }
       else
@@ -749,8 +750,8 @@ primary_iterator erase( primary_iterator position )
       if( !super::_db ) return false;
 
       rocksdb::PinnableSlice key_slice, value_slice;
-      pack_to_slice( key_slice, k );
-      pack_to_slice( value_slice, v );
+      pack_to_slice< Serializer >( key_slice, k );
+      pack_to_slice< Serializer >( value_slice, v );
 
       auto status = super::_db->Put(
          _wopts,

@@ -135,7 +135,8 @@ public:
   typedef KeyFromValue                               key_from_value;
   typedef slice_comparator<
     key_type,
-    Compare >                                        key_compare;
+    Compare,
+    Serializer >                                     key_compare;
   typedef boost::tuple<key_from_value,key_compare>          ctor_args;
   typedef typename super::final_allocator_type       allocator_type;
 #ifdef BOOST_NO_CXX11_ALLOCATOR
@@ -190,6 +191,7 @@ public:
 */
    typedef rocksdb_iterator<
       value_type,
+      Serializer,
       key_type,
       KeyFromValue,
       key_compare,
@@ -551,7 +553,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
          ::rocksdb::PinnableSlice read_buffer;
          key_type new_key = key( v );
          ::rocksdb::PinnableSlice key_slice;
-         pack_to_slice< key_type >( key_slice, new_key );
+         pack_to_slice< Serializer, key_type >( key_slice, new_key );
 
          s = super::_db->Get(
             ::rocksdb::ReadOptions(),
@@ -571,12 +573,12 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
          if( COLUMN_INDEX == 1 )
          {
             // Insert base case
-            pack_to_slice( value_slice, v );
+            pack_to_slice< Serializer >( value_slice, v );
          }
          else
          {
             // Insert referential case
-            pack_to_slice( value_slice, id( v ) );
+            pack_to_slice< Serializer >( value_slice, id( v ) );
          }
 
          s = super::_write_buffer.Put(
@@ -601,7 +603,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
 
       auto old_key = key( v );
       PinnableSlice old_key_slice;
-      pack_to_slice( old_key_slice, old_key );
+      pack_to_slice< Serializer >( old_key_slice, old_key );
 
       super::_write_buffer.Delete(
          &*super::_handles[ COLUMN_INDEX ],
@@ -647,8 +649,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             if( new_key != old_key )
                return false;
 
-            pack_to_slice( new_key_slice, new_key );
-            pack_to_slice( value_slice, v );
+            pack_to_slice< Serializer >( new_key_slice, new_key );
+            pack_to_slice< Serializer >( value_slice, v );
          }
          else if( new_key != old_key )
          {
@@ -657,7 +659,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
 
             ::rocksdb::PinnableSlice read_buffer;
 
-            pack_to_slice( new_key_slice, new_key );
+            pack_to_slice< Serializer >( new_key_slice, new_key );
 
             s = super::_db->Get(
                ::rocksdb::ReadOptions(),
@@ -673,7 +675,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             }
 
             PinnableSlice old_key_slice;
-            pack_to_slice( old_key_slice, old_key );
+            pack_to_slice< Serializer >( old_key_slice, old_key );
 
             s = super::_write_buffer.Delete(
                &*super::_handles[ COLUMN_INDEX ],
@@ -681,7 +683,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
 
             if( !s.ok() ) return false;
 
-            pack_to_slice( value_slice, id( v ) );
+            pack_to_slice< Serializer >( value_slice, id( v ) );
 
             ++_key_modification_count;
          }

@@ -24,10 +24,10 @@ template<> struct is_static_length< uint32_t > : public boost::true_type {};
 template<> struct is_static_length< int64_t > : public boost::true_type {};
 template<> struct is_static_length< uint64_t > : public boost::true_type {};
 
-template<> struct is_static_length< fc::time_point_sec > : public boost::true_type {};
-template<> struct is_static_length< fc::uint128_t > : public boost::true_type {};
-template<> struct is_static_length< fc::sha256 > : public boost::true_type {};
-template< typename T > struct is_static_length< fc::safe< T > > : public is_static_length< T > {};
+//template<> struct is_static_length< fc::time_point_sec > : public boost::true_type {};
+//template<> struct is_static_length< fc::uint128_t > : public boost::true_type {};
+//template<> struct is_static_length< fc::sha256 > : public boost::true_type {};
+//template< typename T > struct is_static_length< fc::safe< T > > : public is_static_length< T > {};
 
 template<> struct is_static_length< boost::tuples::null_type > : public boost::true_type {};
 
@@ -37,7 +37,7 @@ struct is_static_length< boost::tuples::cons< HT, TT > >
    static const bool value = is_static_length< HT >::value && is_static_length< TT >::value;
 };
 
-template< typename T > struct slice_packer
+template< typename Serializer, typename T > struct slice_packer
 {
    static void pack( PinnableSlice& s, const T& t )
    {
@@ -47,7 +47,7 @@ template< typename T > struct slice_packer
       }
       else
       {
-         auto v = fc::raw::pack_to_vector( t );
+         auto v = Serializer::to_binary_vector( t );
          s.PinSelf( Slice( v.data(), v.size() ) );
       }
    }
@@ -60,28 +60,28 @@ template< typename T > struct slice_packer
       }
       else
       {
-         fc::raw::unpack_from_char_array< T >( s.data(), s.size(), t );
+         Serializer::template from_binary_array< T >( s.data(), s.size(), t );
       }
    }
 };
 
-template< typename T >
+template< typename Serializer, typename T >
 void pack_to_slice( PinnableSlice& s, const T& t )
 {
-   slice_packer< T >::pack( s, t );
+   slice_packer< Serializer, T >::pack( s, t );
 }
 
-template< typename T >
+template< typename Serializer, typename T >
 void unpack_from_slice( const Slice& s, T& t )
 {
-   slice_packer< T >::unpack( s, t );
+   slice_packer< Serializer, T >::unpack( s, t );
 }
 
-template< typename T >
+template< typename Serializer, typename T >
 T unpack_from_slice( const Slice& s )
 {
    T t;
-   unpack_from_slice( s, t );
+   unpack_from_slice< Serializer >( s, t );
    return t;
 }
 
