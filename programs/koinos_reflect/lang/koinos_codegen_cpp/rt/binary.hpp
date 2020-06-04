@@ -142,11 +142,12 @@ template< typename Stream >
 inline void from_binary( Stream& s, unsigned_int& v,  uint32_t depth )
 {
    v.value = 0;
-   char chData;
+   char chData = 0;
 
    do
    {
       s.get(chData);
+      KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
       v.value = (v.value << 7) | (chData & 0x7F);
    } while( chData & 0x80 );
 }
