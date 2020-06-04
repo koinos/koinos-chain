@@ -2,7 +2,6 @@
 
 #include <boost/core/ignore_unused.hpp>
 #include <boost/any.hpp>
-#include <fc/log/logger.hpp>
 #include <list>
 #include <map>
 #include <memory>
@@ -309,7 +308,7 @@ public:
    }
 };
 
-template< typename Value, typename Key, typename KeyFromValue >
+template< typename Value, typename Key, typename KeyFromValue, typename Serializer >
 class index_cache : public abstract_index_cache< Value >
 {
 public:
@@ -374,7 +373,7 @@ private:
       size_t cache_size = 0;
       for( const auto& entry : _cache )
       {
-         cache_size += fc::raw::pack_size( *(entry.second.first) );
+         cache_size += Serializer::binary_size( *(entry.second.first) );
       }
 
       return cache_size;

@@ -37,13 +37,21 @@ struct binary_serializer
    static inline T from_binary_array( const char* data, const size_t size)
    {
       std::vector<char> v(data,data+size);
-      return from_binary_vector< T >(v);
+      return from_binary_vector(v);
    }
 
    template<typename Stream, typename T>
    static inline void from_binary( Stream& s, std::vector< T >& v )
    {
       koinos::pack::from_binary(s, v);
+   }
+
+   template<typename T>
+   static inline std::vector<char> binary_size( const T& v )
+   {
+      vectorstream stream;
+      koinos::pack::to_binary(stream, v);
+      return stream.tellp();
    }
 };
 

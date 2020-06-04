@@ -40,9 +40,6 @@
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/base_from_member.hpp>
 
-#include <fc/io/raw.hpp>
-#include <fc/log/logger.hpp>
-
 #include <rocksdb/filter_policy.h>
 #include <rocksdb/table.h>
 #include <rocksdb/statistics.h>
@@ -287,7 +284,7 @@ public:
 
          if( s.ok() )
          {
-            _entry_count = fc::raw::unpack_from_char_array< uint64_t >( value_slice.data(), value_slice.size() );
+            _entry_count = Serializer::template from_binary_array< uint64_t >(value_slice.data(), value_slice.size() );
          }
 
          value_slice.Reset();
@@ -319,13 +316,12 @@ public:
    {
       if( super::_db && super::_db.unique() )
       {
-         auto ser_count_key = fc::raw::pack_to_vector( ENTRY_COUNT_KEY );
-         auto ser_count_val = fc::raw::pack_to_vector( _entry_count );
+         auto ser_count_val = Serializer::to_binary_vector( _entry_count );
 
          super::_db->Put(
             _wopts,
             &*(super::_handles[ DEFAULT_COLUMN ]),
-            ::rocksdb::Slice( ser_count_key.data(), ser_count_key.size() ),
+            ::rocksdb::Slice( ENTRY_COUNT_KEY.data(), ENTRY_COUNT_KEY.size() ),
             ::rocksdb::Slice( ser_count_val.data(), ser_count_val.size() ) );
 
          super::_cache->clear();
@@ -459,9 +455,8 @@ int64_t revision() { return _revision; }
 
 int64_t set_revision( int64_t rev )
 {
-   const static auto ser_rev_key = fc::raw::pack_to_vector( REVISION_KEY );
-   const static ::rocksdb::Slice rev_slice( ser_rev_key.data(), ser_rev_key.size() );
-   auto ser_rev_val = fc::raw::pack_to_vector( rev );
+   const static ::rocksdb::Slice rev_slice( REVISION_KEY.data(), REVISION_KEY.size() );
+   auto ser_rev_val = Serializer::to_binary_vector( rev );
 
    auto s = super::_db->Put(
       _wopts, rev_slice,
@@ -852,24 +847,22 @@ private:
          {
             // Create default column keys
 
-            auto ser_count_key = fc::raw::pack_to_vector( ENTRY_COUNT_KEY );
-            auto ser_count_val = fc::raw::pack_to_vector( uint64_t(0) );
+            auto ser_count_val = Serializer::to_binary_vector( uint64_t(0) );
 
             s = db->Put(
                _wopts,
                db->DefaultColumnFamily(),
-               ::rocksdb::Slice( ser_count_key.data(), ser_count_key.size() ),
+               ::rocksdb::Slice( ENTRY_COUNT_KEY.data(), ENTRY_COUNT_KEY.size() ),
                ::rocksdb::Slice( ser_count_val.data(), ser_count_val.size() ) );
 
             if( !s.ok() ) return false;
 
-            auto ser_rev_key = fc::raw::pack_to_vector( REVISION_KEY );
-            auto ser_rev_val = fc::raw::pack_to_vector( int64_t(0) );
+            auto ser_rev_val = Serializer::to_binary_vector( uint64_t(0) );
 
             db->Put(
                _wopts,
                db->DefaultColumnFamily(),
-               ::rocksdb::Slice( ser_rev_key.data(), ser_rev_key.size() ),
+               ::rocksdb::Slice( REVISION_KEY.data(), REVISION_KEY.size() ),
                ::rocksdb::Slice( ser_rev_val.data(), ser_rev_val.size() ) );
 
             if( !s.ok() ) return false;

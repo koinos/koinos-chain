@@ -106,13 +106,13 @@ namespace detail{
 struct ordered_unique_tag{};
 
 template<
-  typename KeyFromValue,typename Compare,
+  typename KeyFromValue,typename Compare,typename Serializer,
   typename SuperMeta,typename TagList,typename Category,typename AugmentPolicy
 >
 class ordered_index;
 
 template<
-  typename KeyFromValue,typename Compare,
+  typename KeyFromValue,typename Compare,typename Serializer,
   typename SuperMeta,typename TagList,typename Category,typename AugmentPolicy
 >
 class ordered_index_impl:
@@ -121,7 +121,7 @@ class ordered_index_impl:
 #if defined(BOOST_MULTI_INDEX_ENABLE_SAFE_MODE)
   ,public safe_mode::safe_container<
     ordered_index_impl<
-      KeyFromValue,Compare,SuperMeta,TagList,Category,AugmentPolicy> >
+      KeyFromValue,Compare,Serializer,SuperMeta,TagList,Category,AugmentPolicy> >
 #endif
 {
 
@@ -153,6 +153,7 @@ public:
       ordered_index_impl<
          KeyFromValue,
          Compare,
+         Serializer,
          SuperMeta,
          TagList,
          Category,
@@ -223,7 +224,7 @@ protected:
   typedef typename boost::mpl::push_front<
     typename super::index_type_list,
     ordered_index<
-      KeyFromValue,Compare,
+      KeyFromValue,Compare,Serializer,
       SuperMeta,TagList,Category,AugmentPolicy
     > >::type                                        index_type_list;
   typedef typename boost::mpl::push_front<
@@ -446,7 +447,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
       comp_(std::make_shared<key_compare>(boost::tuples::get<1>(args_list.get_head())))
    {
       empty_initialize();
-      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type, key_from_value > >() );
+      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type,
+                              key_from_value, Serializer > >() );
    }
 
    ordered_index_impl() :
@@ -455,7 +457,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
       _handles( super::_handles )
    {
       empty_initialize();
-      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type, key_from_value > >() );
+      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type,
+                              key_from_value, Serializer > >() );
    }
 
    ordered_index_impl( const ordered_index_impl& other ) :
@@ -834,20 +837,20 @@ protected: /* for the benefit of AugmentPolicy::augmented_interface */
 };
 
 template<
-  typename KeyFromValue,typename Compare,
+  typename KeyFromValue,typename Compare,typename Serializer,
   typename SuperMeta,typename TagList,typename Category,typename AugmentPolicy
 >
 class ordered_index:
   public AugmentPolicy::template augmented_interface<
     ordered_index_impl<
-      KeyFromValue,Compare,SuperMeta,TagList,Category,AugmentPolicy
+      KeyFromValue,Compare,Serializer,SuperMeta,TagList,Category,AugmentPolicy
     >
   >::type
 {
   typedef typename AugmentPolicy::template
     augmented_interface<
       ordered_index_impl<
-        KeyFromValue,Compare,
+        KeyFromValue,Compare,Serializer,
         SuperMeta,TagList,Category,AugmentPolicy
       >
     >::type                                       super;
