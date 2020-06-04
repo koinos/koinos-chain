@@ -77,6 +77,8 @@ namespace koinos::crypto {
          static std::string to_base58( const compressed_public_key &key );
          static public_key from_base58( const std::string& b58 );
 
+         std::string to_address( uint8_t prefix = 0x00 ) const;
+
          unsigned int fingerprint() const;
 
          static bool is_canonical( const recoverable_signature& c );

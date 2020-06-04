@@ -232,6 +232,21 @@ public_key public_key::from_base58( const std::string& b58 )
    return deserialize( key );
 }
 
+std::string public_key::to_address( uint8_t prefix )const
+{
+   auto compressed_key = serialize();
+   auto sha256 = hash_str( CRYPTO_SHA2_256_ID, compressed_key.data.data(), compressed_key.data.size() );
+   auto ripemd160 = hash_str( CRYPTO_RIPEMD160_ID, sha256.digest.data.data(), sha256.digest.data.size() );
+   fl_blob< 25 > d;
+   d.data[0] = prefix;
+   memcpy( d.data.data() + 1, ripemd160.digest.data.data(), ripemd160.digest.data.size() );
+   hash_str( sha256, CRYPTO_SHA2_256_ID, d.data.data(), ripemd160.digest.data.size() + 1 );
+   hash_str( sha256, CRYPTO_SHA2_256_ID, sha256.digest.data.data(), sha256.digest.data.size() );
+   memcpy( d.data.data() + ripemd160.digest.data.size() + 1, sha256.digest.data.data(), 4 );
+   std::string b58;
+   koinos::pack::util::encode_base58( b58, d.data );
+   return b58;
+}
 
 private_key::private_key() { _init_lib(); }
 

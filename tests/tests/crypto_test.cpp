@@ -110,6 +110,16 @@ BOOST_AUTO_TEST_CASE( private_wif )
    BOOST_REQUIRE_THROW( private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
 }
 
+BOOST_AUTO_TEST_CASE( public_address )
+{
+   std::string private_wif = "5J1F7GHadZG3sCCKHCwg8Jvys9xUbFsjLnGec4H125Ny1V9nR6V";
+   auto priv_key = private_key::from_wif( private_wif );
+   auto pub_key = priv_key.get_public_key();
+   auto address = pub_key.to_address();
+
+   BOOST_REQUIRE_EQUAL( address, "1PMycacnJaSqwwJqjawXBErnLsZ7RkXUAs" );
+}
+
 BOOST_AUTO_TEST_CASE( zerohash )
 {
    multihash_type mh;
