@@ -29,12 +29,12 @@ namespace detail{
 
 struct index_applier
 {
-  template<typename IndexSpecifierMeta,typename SuperMeta>
+  template<typename IndexSpecifierMeta,typename SuperMeta,typename Serializer>
   struct apply
   {
     typedef typename IndexSpecifierMeta::type            index_specifier;
     typedef typename index_specifier::
-      BOOST_NESTED_TEMPLATE index_class<SuperMeta>::type type;
+      BOOST_NESTED_TEMPLATE index_class<SuperMeta,Serializer>::type type;
   };
 };
 

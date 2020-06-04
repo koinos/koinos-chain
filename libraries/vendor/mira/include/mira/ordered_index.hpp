@@ -64,11 +64,11 @@ struct ordered_unique
   typedef typename index_args::key_from_value_type key_from_value_type;
   typedef typename index_args::compare_type        compare_type;
 
-  template<typename SuperMeta>
+  template<typename SuperMeta,typename Serializer>
   struct index_class
   {
     typedef detail::ordered_index<
-      key_from_value_type,compare_type,
+      key_from_value_type,compare_type,Serializer,
       SuperMeta,tag_list_type,detail::ordered_unique_tag,
       detail::null_augment_policy>                        type;
   };
