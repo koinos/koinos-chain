@@ -27,9 +27,10 @@ namespace detail{
  * a index list.
  */
 
+template< typename Serializer >
 struct index_applier
 {
-  template<typename IndexSpecifierMeta,typename SuperMeta,typename Serializer>
+  template<typename IndexSpecifierMeta,typename SuperMeta>
   struct apply
   {
     typedef typename IndexSpecifierMeta::type            index_specifier;
@@ -47,7 +48,7 @@ struct nth_layer
     N==length,
     boost::mpl::identity<index_base<Value,Serializer,IndexSpecifierList,Allocator> >,
     boost::mpl::apply2<
-      index_applier,
+      index_applier< Serializer >,
       boost::mpl::at_c<IndexSpecifierList,length-1-N>,
       nth_layer<N+1,Value,Serializer,IndexSpecifierList,Allocator>
     >
