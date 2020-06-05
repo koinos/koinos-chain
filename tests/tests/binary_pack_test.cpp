@@ -476,4 +476,45 @@ BOOST_AUTO_TEST_CASE( reflect_test )
 }
 */
 
+BOOST_AUTO_TEST_CASE( to_vl_blob_test )
+{
+   BOOST_TEST_MESSAGE( "Testing string to vl_blob" );
+   std::string foobar = "foobar";
+   vl_blob expected;
+   expected.data = {0x66, 0x6F, 0x6F, 0x62, 0x61, 0x72};
+   vl_blob result = to_vl_blob( foobar );
+
+   BOOST_REQUIRE( result.data.size() == foobar.size() );
+   BOOST_REQUIRE( memcmp( result.data.data(), foobar.c_str(), foobar.size() ) == 0 );
+
+   std::string result_str = from_vl_blob< std::string >( result );
+   BOOST_REQUIRE_EQUAL( foobar, result_str );
+
+   BOOST_TEST_MESSAGE( "Testing object to vl_blob" );
+
+   // Using the same data from reflect_test
+   test_object obj;
+   obj.id.data = { 0, 4, 8, 15, 16, 23, 42, 0 };
+   obj.key.hash_id = 1;
+   obj.key.digest.data = { 'f', 'o', 'o', 'b', 'a', 'r' };
+   obj.vals = { 108 };
+
+   expected.data = {
+      0x00, 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A, 0x00,
+      0x01, 0x06, 0x66, 0x6F, 0x6F, 0x62, 0x61, 0x72,
+      0x01, 0x00, 0x00, 0x00, 0x6C
+   };
+   to_vl_blob( result, obj );
+
+   BOOST_REQUIRE_EQUAL( result.data.size(), expected.data.size() );
+   BOOST_REQUIRE( memcmp( result.data.data(), expected.data.data(), expected.data.size() ) == 0 );
+
+   test_object result_obj = from_vl_blob< test_object >( result );
+   BOOST_REQUIRE( memcmp( result_obj.id.data.data(), obj.id.data.data(), obj.id.data.size() ) == 0 );
+   BOOST_REQUIRE_EQUAL( result_obj.key.digest.data.size(), obj.key.digest.data.size() );
+   BOOST_REQUIRE( memcmp( result_obj.key.digest.data.data(), obj.key.digest.data.data(), obj.key.digest.data.size() ) == 0 );
+   BOOST_REQUIRE_EQUAL( result_obj.vals.size(), obj.vals.size() );
+   BOOST_REQUIRE( memcmp( (char*)result_obj.vals.data(), (char*)obj.vals.data(), sizeof(uint32_t) * obj.vals.size() ) == 0 );
+}
+
 BOOST_AUTO_TEST_SUITE_END()
