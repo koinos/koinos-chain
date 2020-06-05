@@ -58,10 +58,9 @@
 #include <memory>
 #include <functional>
 
-#include <fc/log/logger.hpp>
-
 #include <iostream>
 #include <iterator>
+#include <optional>
 
 #if !defined(BOOST_NO_CXX11_HDR_INITIALIZER_LIST)
 #include <initializer_list>
@@ -263,8 +262,8 @@ protected:
    uint32_t                                           _key_modification_count = 0;
    rocksdb::FlushOptions                              _flush_opts;
 
-   fc::optional< key_type >                           _first_key;
-   fc::optional< key_type >                           _first_key_update;
+   std::optional< key_type >                          _first_key;
+   std::optional< key_type >                          _first_key_update;
    bool                                               _delete_first_key = false;
 
 public:
@@ -284,7 +283,7 @@ public:
 
    iterator begin() BOOST_NOEXCEPT
    {
-      if( _first_key.valid() )
+      if( _first_key )
          return make_iterator( *_first_key );
       return iterator::begin( ROCKSDB_ITERATOR_PARAM_PACK );
    }
@@ -292,7 +291,7 @@ public:
    const_iterator
       begin()const BOOST_NOEXCEPT
    {
-      if( _first_key.valid() )
+      if( _first_key )
          return make_iterator( *_first_key );
       return const_iterator::begin( ROCKSDB_ITERATOR_PARAM_PACK );
    }
@@ -586,8 +585,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             key_slice,
             value_slice );
 
-         if( ( _first_key.valid() && key_comp()( new_key, *_first_key ) )
-            || !_first_key.valid() )
+         if( ( _first_key && key_comp()( new_key, *_first_key ) )
+            || !_first_key )
          {
             _first_key_update = new_key;
          }
@@ -609,7 +608,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
          &*super::_handles[ COLUMN_INDEX ],
          old_key_slice );
 
-      if( _first_key.valid() && ( key_comp()( old_key, *_first_key ) == key_comp()( *_first_key, old_key ) ) )
+      if( _first_key && ( key_comp()( old_key, *_first_key ) == key_comp()( *_first_key, old_key ) ) )
       {
          auto new_key_itr = ++find( *_first_key );
          if( new_key_itr != end() )
@@ -698,12 +697,12 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             value_slice );
 
          // If the new key is less than the current first, it will be the new first key
-         if( _first_key.valid() && key_comp()( new_key, *_first_key ) )
+         if( _first_key && key_comp()( new_key, *_first_key ) )
          {
             _first_key_update = new_key;
          }
          // Else if we are updating the current first key AND the new key is different...
-         else if( _first_key.valid() &&  key_comp()( *_first_key, new_key )
+         else if( _first_key &&  key_comp()( *_first_key, new_key )
             && ( key_comp()( old_key, *_first_key ) == key_comp()( *_first_key, old_key ) ) )
          {
             // Find the second key (first_key_update)
@@ -758,7 +757,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
    void cache_first_key()
    {
       super::cache_first_key();
-      if( !_first_key.valid() )
+      if( !_first_key )
       {
          auto b = iterator::begin( ROCKSDB_ITERATOR_PARAM_PACK );
          if( b != end() )
@@ -772,7 +771,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
    {
       super::commit_first_key_update();
 
-      if( _first_key_update.valid() )
+      if( _first_key_update )
       {
          _first_key = _first_key_update;
          _first_key_update.reset();

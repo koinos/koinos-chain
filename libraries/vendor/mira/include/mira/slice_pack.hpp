@@ -5,10 +5,6 @@
 #include <boost/type_traits/integral_constant.hpp>
 #include <boost/tuple/tuple.hpp>
 
-#include <fc/time.hpp>
-#include <fc/uint128.hpp>
-#include <fc/crypto/sha256.hpp>
-
 namespace mira {
 
 using ::rocksdb::Slice;
@@ -23,11 +19,6 @@ template<> struct is_static_length< int32_t > : public boost::true_type {};
 template<> struct is_static_length< uint32_t > : public boost::true_type {};
 template<> struct is_static_length< int64_t > : public boost::true_type {};
 template<> struct is_static_length< uint64_t > : public boost::true_type {};
-
-//template<> struct is_static_length< fc::time_point_sec > : public boost::true_type {};
-//template<> struct is_static_length< fc::uint128_t > : public boost::true_type {};
-//template<> struct is_static_length< fc::sha256 > : public boost::true_type {};
-//template< typename T > struct is_static_length< fc::safe< T > > : public is_static_length< T > {};
 
 template<> struct is_static_length< boost::tuples::null_type > : public boost::true_type {};
 

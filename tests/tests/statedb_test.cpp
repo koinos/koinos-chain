@@ -5,7 +5,6 @@
 #include <koinos/exception.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
-#include <koinos/statedb/koinos_object_types.hpp>
 #include <koinos/statedb/detail/merge_iterator.hpp>
 #include <koinos/statedb/detail/objects.hpp>
 #include <koinos/statedb/detail/state_delta.hpp>

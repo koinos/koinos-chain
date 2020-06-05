@@ -20,6 +20,9 @@ namespace koinos::chain {
 
 namespace fc {
 
+// fwd declare
+struct variant;
+
 inline void to_variant( const float64_t& f, variant& v );
 inline void from_variant( const variant& v, float64_t& f );
 

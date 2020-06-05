@@ -1,6 +1,5 @@
 #pragma once
 
-#include <koinos/statedb/koinos_object_types.hpp>
 #include <koinos/statedb/statedb_types.hpp>
 #include <koinos/pack/rt/reflect.hpp>
 #include <koinos/pack/rt/binary_serializer.hpp>

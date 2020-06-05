@@ -3,10 +3,6 @@
 
 #include <mira/detail/slice_compare.hpp>
 
-#include <fc/time.hpp>
-#include <fc/uint128.hpp>
-#include <fc/crypto/sha256.hpp>
-
 #define MIRA_WELL_ORDERED_TYPE( t ) \
 template< typename Serializer, bool ROOT > struct is_well_ordered< t, Serializer, ROOT > : public boost::true_type {};
 
@@ -50,10 +46,6 @@ namespace mira {
    MIRA_WELL_ORDERED_TYPE( uint16_t )
    MIRA_WELL_ORDERED_TYPE( uint32_t )
    MIRA_WELL_ORDERED_TYPE( uint64_t )
-
-   MIRA_WELL_ORDERED_TYPE( fc::time_point_sec )
-   MIRA_WELL_ORDERED_TYPE( fc::uint128_t )
-   MIRA_WELL_ORDERED_TYPE( fc::sha256 )
 
    template< typename T, typename Serializer, bool ROOT > struct is_well_ordered< fc::safe< T >, Serializer, ROOT > : public is_well_ordered< T, Serializer, ROOT > {};
 }
