@@ -27,6 +27,7 @@ namespace detail{
  * a index list.
  */
 
+template< typename Serializer >
 struct index_applier
 {
   template<typename IndexSpecifierMeta,typename SuperMeta>
@@ -34,28 +35,28 @@ struct index_applier
   {
     typedef typename IndexSpecifierMeta::type            index_specifier;
     typedef typename index_specifier::
-      BOOST_NESTED_TEMPLATE index_class<SuperMeta>::type type;
+      BOOST_NESTED_TEMPLATE index_class<SuperMeta,Serializer>::type type;
   };
 };
 
-template<int N,typename Value,typename IndexSpecifierList,typename Allocator>
+template<int N,typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
 struct nth_layer
 {
   BOOST_STATIC_CONSTANT(int,length=boost::mpl::size<IndexSpecifierList>::value);
 
   typedef typename  boost::mpl::eval_if_c<
     N==length,
-    boost::mpl::identity<index_base<Value,IndexSpecifierList,Allocator> >,
+    boost::mpl::identity<index_base<Value,Serializer,IndexSpecifierList,Allocator> >,
     boost::mpl::apply2<
-      index_applier,
+      index_applier< Serializer >,
       boost::mpl::at_c<IndexSpecifierList,length-1-N>,
-      nth_layer<N+1,Value,IndexSpecifierList,Allocator>
+      nth_layer<N+1,Value,Serializer,IndexSpecifierList,Allocator>
     >
   >::type type;
 };
 
-template<typename Value,typename IndexSpecifierList,typename Allocator>
-struct multi_index_base_type:nth_layer<0,Value,IndexSpecifierList,Allocator>
+template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
+struct multi_index_base_type:nth_layer<0,Value,Serializer,IndexSpecifierList,Allocator>
 {
   BOOST_STATIC_ASSERT(detail::is_index_list<IndexSpecifierList>::value);
 };

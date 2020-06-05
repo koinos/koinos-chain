@@ -28,7 +28,7 @@ struct abstract_slice_comparator : ::rocksdb::Comparator, CompareType
    }
 };
 
-template< typename Key, typename CompareType >
+template< typename Key, typename CompareType, typename Serializer >
 struct slice_comparator final : abstract_slice_comparator< Key, CompareType >
 {
    slice_comparator() : abstract_slice_comparator< Key, CompareType >()
@@ -36,8 +36,8 @@ struct slice_comparator final : abstract_slice_comparator< Key, CompareType >
 
    virtual int Compare( const ::rocksdb::Slice& x, const ::rocksdb::Slice& y ) const override
    {
-      Key x_key; unpack_from_slice( x, x_key );
-      Key y_key; unpack_from_slice( y, y_key );
+      Key x_key; unpack_from_slice< Serializer >( x, x_key );
+      Key y_key; unpack_from_slice< Serializer >( y, y_key );
 
       int r = (*this)( x_key, y_key );
 
@@ -53,8 +53,8 @@ struct slice_comparator final : abstract_slice_comparator< Key, CompareType >
    virtual bool Equal( const ::rocksdb::Slice& x, const ::rocksdb::Slice& y ) const override
    {
       if( x.size() != y.size() ) return false;
-      Key x_key; unpack_from_slice( x, x_key );
-      Key y_key; unpack_from_slice( y, y_key );
+      Key x_key; unpack_from_slice< Serializer >( x, x_key );
+      Key y_key; unpack_from_slice< Serializer >( y, y_key );
       return (*this)( x_key, y_key ) == (*this)( y_key, x_key );
    }
 };

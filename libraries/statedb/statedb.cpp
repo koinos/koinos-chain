@@ -2,6 +2,9 @@
 #include <koinos/pack/rt/string_fwd.hpp>
 #include <koinos/pack/rt/string.hpp>
 #include <koinos/pack/rt/json_fwd.hpp>
+#include <koinos/pack/rt/json.hpp>
+#include <koinos/pack/rt/binary_fwd.hpp>
+#include <koinos/pack/rt/binary.hpp>
 
 #include <koinos/statedb/detail/objects.hpp>
 #include <koinos/statedb/detail/merge_iterator.hpp>
@@ -302,11 +305,11 @@ void state_node_impl::get_object( get_object_result& result, const get_object_ar
    if( pobj != nullptr )
    {
       result.key = pobj->key;
-      result.size = pobj->value.size();
+      result.size = pobj->value.data.size();
       if( (args.buf != nullptr) && (args.buf_size > 0) )
       {
          uint64_t size = std::min( uint64_t( result.size ), args.buf_size );
-         std::memcpy( args.buf, pobj->value.c_str(), size );
+         std::memcpy( args.buf, pobj->value.data.data(), size );
       }
    }
    else
@@ -323,11 +326,11 @@ void state_node_impl::get_next_object( get_object_result& result, const get_obje
    if( (it != idx.end()) && (it->space == args.space) )
    {
       result.key = it->key;
-      result.size = it->value.size();
+      result.size = it->value.data.size();
       if( (args.buf != nullptr) && (args.buf_size > 0) )
       {
          uint64_t size = std::min( uint64_t( result.size ), args.buf_size );
-         std::memcpy( args.buf, it->value.c_str(), size );
+         std::memcpy( args.buf, it->value.data.data(), size );
       }
    }
    else
@@ -347,11 +350,11 @@ void state_node_impl::get_prev_object( get_object_result& result, const get_obje
       if( it->space == args.space )
       {
          result.key = it->key;
-         result.size = it->value.size();
+         result.size = it->value.data.size();
          if( (args.buf != nullptr) && (args.buf_size > 0) )
          {
             uint64_t size = std::min( uint64_t( result.size ), args.buf_size );
-            std::memcpy( args.buf, it->value.c_str(), size );
+            std::memcpy( args.buf, it->value.data.data(), size );
          }
          return;
       }
@@ -373,8 +376,8 @@ void state_node_impl::put_object( put_object_result& result, const put_object_ar
          // exist -> exist, modify()
          _state->modify( *pobj, [&]( state_object& obj )
          {
-            obj.value.resize( args.object_size );
-            std::memcpy( obj.value.data(), args.buf, args.object_size );
+            obj.value.data.resize( args.object_size );
+            std::memcpy( obj.value.data.data(), args.buf, args.object_size );
          });
       }
       else
@@ -393,8 +396,8 @@ void state_node_impl::put_object( put_object_result& result, const put_object_ar
          {
             obj.space = args.space;
             obj.key = args.key;
-            obj.value.resize( args.object_size );
-            std::memcpy( obj.value.data(), args.buf, args.object_size );
+            obj.value.data.resize( args.object_size );
+            std::memcpy( obj.value.data.data(), args.buf, args.object_size );
          });
       }
       else

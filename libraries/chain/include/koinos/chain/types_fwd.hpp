@@ -11,7 +11,17 @@
 
 #include <softfloat.hpp>
 
+#include <cstdint>
+
+namespace koinos::chain {
+   using int128_t            = __int128;
+   using uint128_t           = unsigned __int128;
+}
+
 namespace fc {
+
+// fwd declare
+struct variant;
 
 inline void to_variant( const float64_t& f, variant& v );
 inline void from_variant( const variant& v, float64_t& f );
@@ -48,3 +58,36 @@ void unpack( Stream& s, boost::interprocess::flat_map< K, V, C, A >& value, uint
 
 } } // namespace fc::raw
 
+namespace koinos::pack {
+
+template<typename Stream, typename T>
+inline void to_binary( Stream& s, const chainbase::oid<T>& id );
+template<typename Stream, typename T>
+inline void from_binary( Stream& s, chainbase::oid<T>& id, uint32_t depth = 0 );
+
+template<typename Stream>
+void to_binary( Stream& s, const float64_t& v );
+template<typename Stream>
+void from_binary( Stream& s, float64_t& v, uint32_t depth = 0 );
+
+template<typename Stream>
+void to_binary( Stream& s, const float128_t& v );
+template<typename Stream>
+void from_binary( Stream& s, float128_t& v, uint32_t depth = 0 );
+
+template<typename Stream>
+void to_binary( Stream& s, const std::string& v );
+template<typename Stream>
+void from_binary( Stream& s, std::string& v, uint32_t depth = 0 );
+
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::int128_t& v );
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::int128_t& v, uint32_t depth = 0 );
+
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::uint128_t& v );
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::uint128_t& v, uint32_t depth = 0 );
+
+}

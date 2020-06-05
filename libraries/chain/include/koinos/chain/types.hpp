@@ -8,6 +8,7 @@
 #include <koinos/exception.hpp>
 
 #include <fc/crypto/hex.hpp>
+#include <fc/io/raw.hpp>
 
 #include <softfloat.hpp>
 
@@ -63,9 +64,6 @@ namespace koinos { namespace chain {
       index_long_double_object_type,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
-
-   using int128_t            = __int128;
-   using uint128_t           = unsigned __int128;
 
 } } // koinos::chain
 
@@ -218,6 +216,97 @@ void unpack( Stream& s, boost::interprocess::flat_map< K, V, C, A >& value, uint
 
 } } // namespace fc::raw
 
+#pragma TODO "These should be removed when we implement multi index containers on top of statedb"
+namespace koinos::pack {
+
+template<typename Stream, typename T>
+inline void to_binary( Stream& s, const chainbase::oid<T>& id )
+{
+   fc::raw::pack( s, id );
+}
+
+template<typename Stream, typename T>
+inline void from_binary( Stream& s, chainbase::oid<T>& id, uint32_t depth )
+{
+   fc::raw::unpack( s, id, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const float64_t& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, float64_t& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const float128_t& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, float128_t& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const std::string& v )
+{
+   fc::raw::pack( s, v );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, std::string& v, uint32_t depth )
+{
+   fc::raw::unpack( s, v, depth );
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::int128_t& v )
+{
+   fc::raw::pack( s, static_cast< int64_t >( v >> 64 ) );
+   fc::raw::pack( s, static_cast< int64_t >( v ) );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::int128_t& v, uint32_t depth )
+{
+   int64_t hi;
+   int64_t lo;
+   fc::raw::unpack( s, hi, depth );
+   fc::raw::unpack( s, lo, depth );
+   v = hi;
+   v <<= 64;
+   v |= lo;
+}
+
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::uint128_t& v )
+{
+   fc::raw::pack( s, static_cast< uint64_t >( v >> 64 ) );
+   fc::raw::pack( s, static_cast< uint64_t >( v ) );
+}
+
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::uint128_t& v, uint32_t depth )
+{
+   uint64_t hi;
+   uint64_t lo;
+   fc::raw::unpack( s, hi, depth );
+   fc::raw::unpack( s, lo, depth );
+   v = hi;
+   v <<= 64;
+   v |= lo;
+}
+
+} // koinos::pack
+
 FC_REFLECT_ENUM( koinos::chain::object_type,
                  (null_object_type)
                  (table_id_object_type)
@@ -229,3 +318,15 @@ FC_REFLECT_ENUM( koinos::chain::object_type,
                  (index_long_double_object_type)
                  (OBJECT_TYPE_COUNT)
                )
+
+KOINOS_REFLECT_ENUM( koinos::chain::object_type,
+                     (null_object_type)
+                     (table_id_object_type)
+                     (key_value_object_type)
+                     (index64_object_type)
+                     (index128_object_type)
+                     (index256_object_type)
+                     (index_double_object_type)
+                     (index_long_double_object_type)
+                     (OBJECT_TYPE_COUNT)
+                   )

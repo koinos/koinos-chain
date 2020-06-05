@@ -14,6 +14,7 @@
 #include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
 #include <algorithm>
 #include <memory>
+#include <vector>
 #include <boost/core/addressof.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/detail/no_exceptions_support.hpp>
@@ -39,9 +40,6 @@
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/base_from_member.hpp>
 
-#include <fc/io/raw.hpp>
-#include <fc/log/logger.hpp>
-
 #include <rocksdb/filter_policy.h>
 #include <rocksdb/table.h>
 #include <rocksdb/statistics.h>
@@ -60,9 +58,6 @@
 #define DEFAULT_COLUMN 0
 #define MIRA_MAX_OPEN_FILES_PER_DB 64
 
-#define ENTRY_COUNT_KEY "ENTRY_COUNT"
-#define REVISION_KEY "REV"
-
 namespace mira{
 
 namespace multi_index{
@@ -72,19 +67,23 @@ namespace multi_index{
 #pragma warning(disable:4522) /* spurious warning on multiple operator=()'s */
 #endif
 
-template<typename Value,typename IndexSpecifierList,typename Allocator>
+const std::vector<char> ENTRY_COUNT_KEY { 'E','N','T','R','Y','_','C','O','U','N','T' };
+const std::vector<char> REVISION_KEY { 'R','E','V' };
+const std::vector<uint8_t> NEXT_ID_KEY { 'N','E','X','T','_','I','D' };
+
+template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
 class multi_index_container:
   public detail::multi_index_base_type<
-    Value,IndexSpecifierList,Allocator>::type
+    Value,Serializer,IndexSpecifierList,Allocator>::type
 {
 
 private:
   BOOST_COPYABLE_AND_MOVABLE(multi_index_container)
 
-  template <typename,typename,typename> friend class  detail::index_base;
+  template <typename,typename,typename,typename> friend class  detail::index_base;
 
   typedef typename detail::multi_index_base_type<
-      Value,IndexSpecifierList,Allocator>::type   super;
+      Value,Serializer,IndexSpecifierList,Allocator>::type   super;
 
    uint64_t                                        _revision = 0;
 
@@ -93,6 +92,8 @@ private:
    ::rocksdb::WriteOptions                         _wopts;
 
    rocksdb::ReadOptions                            _ropts;
+
+   Serializer                                      _serializer;
 
 public:
   /* All types are inherited from super, a few are explicitly
@@ -276,31 +277,28 @@ public:
          ::rocksdb::ReadOptions read_opts;
          ::rocksdb::PinnableSlice value_slice;
 
-         auto ser_count_key = fc::raw::pack_to_vector( ENTRY_COUNT_KEY );
-
          s = super::_db->Get(
             read_opts,
             &*super::_handles[ DEFAULT_COLUMN ],
-            ::rocksdb::Slice( ser_count_key.data(), ser_count_key.size() ),
+            ::rocksdb::Slice( ENTRY_COUNT_KEY.data(), ENTRY_COUNT_KEY.size() ),
             &value_slice );
 
          if( s.ok() )
          {
-            _entry_count = fc::raw::unpack_from_char_array< uint64_t >( value_slice.data(), value_slice.size() );
+            _entry_count = Serializer::template from_binary_array< uint64_t >(value_slice.data(), value_slice.size() );
          }
 
-         auto ser_rev_key = fc::raw::pack_to_vector( REVISION_KEY );
          value_slice.Reset();
 
          s = super::_db->Get(
             read_opts,
             &*super::_handles[ DEFAULT_COLUMN ],
-            ::rocksdb::Slice( ser_rev_key.data(), ser_rev_key.size() ),
+            ::rocksdb::Slice( REVISION_KEY.data(), REVISION_KEY.size() ),
             &value_slice );
 
          if( s.ok() )
          {
-            _revision = fc::raw::unpack_from_char_array< uint64_t >( value_slice.data(), value_slice.size() );
+            _revision = Serializer::template from_binary_array< uint64_t >( value_slice.data(), value_slice.size() );
          }
       }
       else
@@ -319,13 +317,12 @@ public:
    {
       if( super::_db && super::_db.unique() )
       {
-         auto ser_count_key = fc::raw::pack_to_vector( ENTRY_COUNT_KEY );
-         auto ser_count_val = fc::raw::pack_to_vector( _entry_count );
+         auto ser_count_val = Serializer::to_binary_vector( _entry_count );
 
          super::_db->Put(
             _wopts,
             &*(super::_handles[ DEFAULT_COLUMN ]),
-            ::rocksdb::Slice( ser_count_key.data(), ser_count_key.size() ),
+            ::rocksdb::Slice( ENTRY_COUNT_KEY.data(), ENTRY_COUNT_KEY.size() ),
             ::rocksdb::Slice( ser_count_val.data(), ser_count_val.size() ) );
 
          super::_cache->clear();
@@ -459,9 +456,8 @@ uint64_t revision() { return _revision; }
 
 uint64_t set_revision( uint64_t rev )
 {
-   const static auto ser_rev_key = fc::raw::pack_to_vector( REVISION_KEY );
-   const static ::rocksdb::Slice rev_slice( ser_rev_key.data(), ser_rev_key.size() );
-   auto ser_rev_val = fc::raw::pack_to_vector( rev );
+   const static ::rocksdb::Slice rev_slice( REVISION_KEY.data(), REVISION_KEY.size() );
+   auto ser_rev_val = Serializer::to_binary_vector( rev );
 
    auto s = super::_db->Put(
       _wopts, rev_slice,
@@ -475,14 +471,14 @@ uint64_t set_revision( uint64_t rev )
 id_type next_id()
 {
    id_type id;
-   if ( !get_metadata( "next_id", id ) )
+   if ( !get_metadata( NEXT_ID_KEY, id ) )
       id = 0;
    return id;
 }
 
 void set_next_id( id_type id )
 {
-   bool success = put_metadata( "next_id", id );
+   bool success = put_metadata( NEXT_ID_KEY, id );
    boost::ignore_unused( success );
    assert( success );
 }
@@ -727,7 +723,7 @@ primary_iterator erase( primary_iterator position )
 
       rocksdb::PinnableSlice key_slice, value_slice;
 
-      pack_to_slice( key_slice, k );
+      pack_to_slice< Serializer >( key_slice, k );
 
       auto status = super::_db->Get(
          _ropts,
@@ -737,7 +733,7 @@ primary_iterator erase( primary_iterator position )
 
       if( status.ok() )
       {
-         unpack_from_slice( value_slice, v );
+         unpack_from_slice< Serializer >( value_slice, v );
          //ilog( "Retrieved metdata for ${type}: ${key},${value}", ("type",boost::core::demangle(typeid(Value).name()))("key",k)("value",v) );
       }
       else
@@ -754,8 +750,8 @@ primary_iterator erase( primary_iterator position )
       if( !super::_db ) return false;
 
       rocksdb::PinnableSlice key_slice, value_slice;
-      pack_to_slice( key_slice, k );
-      pack_to_slice( value_slice, v );
+      pack_to_slice< Serializer >( key_slice, k );
+      pack_to_slice< Serializer >( value_slice, v );
 
       auto status = super::_db->Put(
          _wopts,
@@ -852,24 +848,22 @@ private:
          {
             // Create default column keys
 
-            auto ser_count_key = fc::raw::pack_to_vector( ENTRY_COUNT_KEY );
-            auto ser_count_val = fc::raw::pack_to_vector( uint64_t(0) );
+            auto ser_count_val = Serializer::to_binary_vector( uint64_t(0) );
 
             s = db->Put(
                _wopts,
                db->DefaultColumnFamily(),
-               ::rocksdb::Slice( ser_count_key.data(), ser_count_key.size() ),
+               ::rocksdb::Slice( ENTRY_COUNT_KEY.data(), ENTRY_COUNT_KEY.size() ),
                ::rocksdb::Slice( ser_count_val.data(), ser_count_val.size() ) );
 
             if( !s.ok() ) return false;
 
-            auto ser_rev_key = fc::raw::pack_to_vector( REVISION_KEY );
-            auto ser_rev_val = fc::raw::pack_to_vector( int64_t(0) );
+            auto ser_rev_val = Serializer::to_binary_vector( uint64_t(0) );
 
             db->Put(
                _wopts,
                db->DefaultColumnFamily(),
-               ::rocksdb::Slice( ser_rev_key.data(), ser_rev_key.size() ),
+               ::rocksdb::Slice( REVISION_KEY.data(), REVISION_KEY.size() ),
                ::rocksdb::Slice( ser_rev_val.data(), ser_rev_val.size() ) );
 
             if( !s.ok() ) return false;

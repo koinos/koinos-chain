@@ -210,14 +210,15 @@ struct index_adapter
       index_variant _index;
 };
 
-template< typename Arg1, typename Arg2, typename Arg3 = std::allocator< Arg1 > >
+template< typename Value, typename Serializer, typename IndexSpecifierList, typename Allocator = std::allocator< Value > >
 struct multi_index_adapter
 {
-   typedef Arg1                                                                                          value_type;
-   typedef typename index_converter< multi_index::multi_index_container< Arg1, Arg2, Arg3 > >::mira_type mira_type;
-   typedef typename mira_type::primary_iterator                                                          mira_iter_type;
-   typedef typename index_converter< multi_index::multi_index_container< Arg1, Arg2, Arg3 > >::bmic_type bmic_type;
-   typedef typename bmic_type::iterator                                                                  bmic_iter_type;
+   typedef Value                                                                                           value_type;
+   typedef typename multi_index::multi_index_container< Value, Serializer, IndexSpecifierList, Allocator > container_type ;
+   typedef typename index_converter< container_type >::mira_type                                           mira_type;
+   typedef typename mira_type::primary_iterator                                                            mira_iter_type;
+   typedef typename index_converter< container_type >::bmic_type                                           bmic_type;
+   typedef typename bmic_type::iterator                                                                    bmic_iter_type;
    typedef typename value_type::id_type id_type;
 
    typedef iterator_adapter<
@@ -226,13 +227,15 @@ struct multi_index_adapter
       bmic_iter_type >                                                                                   iter_type;
    typedef boost::reverse_iterator< iter_type >                                                          rev_iter_type;
 
-   typedef typename bmic_type::allocator_type                                                         allocator_type;
+   typedef typename bmic_type::allocator_type                                                            allocator_type;
 
    typedef boost::variant<
       mira_type,
       bmic_type > index_variant;
 
    typedef index_type type_enum;
+
+   typedef multi_index_adapter< Value, Serializer, IndexSpecifierList, Allocator >                       adapter_type;
 
    multi_index_adapter()
    {
@@ -286,12 +289,12 @@ struct multi_index_adapter
    };
 
    template< typename IndexedBy >
-   index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, get_index_number< IndexedBy >::value > mutable_get()
+   index_adapter< adapter_type, get_index_number< IndexedBy >::value > mutable_get()
    {
       return boost::apply_visitor(
          []( auto& index )
          {
-            return index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, get_index_number< IndexedBy >::value >(
+            return index_adapter< adapter_type, get_index_number< IndexedBy >::value >(
                index.template get< IndexedBy >()
             );
          },
@@ -300,12 +303,12 @@ struct multi_index_adapter
    }
 
    template< typename IndexedBy >
-   const index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, get_index_number< IndexedBy >::value > get() const
+   const index_adapter< adapter_type, get_index_number< IndexedBy >::value > get() const
    {
       return boost::apply_visitor(
          []( const auto& index )
          {
-            return index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, get_index_number< IndexedBy >::value >(
+            return index_adapter< adapter_type, get_index_number< IndexedBy >::value >(
                index.template get< IndexedBy >()
             );
          },
@@ -314,38 +317,38 @@ struct multi_index_adapter
    }
 
    template< int N >
-   index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, N > mutable_get()
+   index_adapter< adapter_type, N > mutable_get()
    {
       typedef typename boost::mpl::size< typename bmic_type::index_type_list > tag_size_type;
 
       if( _type == index_type::mira )
       {
-         return index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, N >(
+         return index_adapter< adapter_type, N >(
             boost::get< mira_type >( _index ).template get< tag_size_type::value - N - 1 >()
          );
       }
       else
       {
-         return index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, N >(
+         return index_adapter< adapter_type, N >(
             boost::get< bmic_type >( _index ).template get< N >()
          );
       }
    }
 
    template< int N >
-   const index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, N > get()const
+   const index_adapter< adapter_type, N > get()const
    {
       typedef typename boost::mpl::size< typename bmic_type::index_type_list > tag_size_type;
 
       if( _type == index_type::mira )
       {
-         return index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, N >(
+         return index_adapter< adapter_type, N >(
             boost::get< mira_type >( _index ).template get< tag_size_type::value - N - 1 >()
          );
       }
       else
       {
-         return index_adapter< multi_index_adapter< Arg1, Arg2, Arg3 >, N >(
+         return index_adapter< adapter_type, N >(
             boost::get< bmic_type >( _index ).template get< N >()
          );
       }

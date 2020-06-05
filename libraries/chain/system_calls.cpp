@@ -1,6 +1,8 @@
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/log.hpp>
 
+#include <fc/uint128.hpp>
+
 namespace koinos::chain {
 
 // System Call Table API

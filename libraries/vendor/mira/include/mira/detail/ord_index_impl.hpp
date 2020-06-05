@@ -58,10 +58,9 @@
 #include <memory>
 #include <functional>
 
-#include <fc/log/logger.hpp>
-
 #include <iostream>
 #include <iterator>
+#include <optional>
 
 #if !defined(BOOST_NO_CXX11_HDR_INITIALIZER_LIST)
 #include <initializer_list>
@@ -106,13 +105,13 @@ namespace detail{
 struct ordered_unique_tag{};
 
 template<
-  typename KeyFromValue,typename Compare,
+  typename KeyFromValue,typename Compare,typename Serializer,
   typename SuperMeta,typename TagList,typename Category,typename AugmentPolicy
 >
 class ordered_index;
 
 template<
-  typename KeyFromValue,typename Compare,
+  typename KeyFromValue,typename Compare,typename Serializer,
   typename SuperMeta,typename TagList,typename Category,typename AugmentPolicy
 >
 class ordered_index_impl:
@@ -121,7 +120,7 @@ class ordered_index_impl:
 #if defined(BOOST_MULTI_INDEX_ENABLE_SAFE_MODE)
   ,public safe_mode::safe_container<
     ordered_index_impl<
-      KeyFromValue,Compare,SuperMeta,TagList,Category,AugmentPolicy> >
+      KeyFromValue,Compare,Serializer,SuperMeta,TagList,Category,AugmentPolicy> >
 #endif
 {
 
@@ -135,7 +134,8 @@ public:
   typedef KeyFromValue                               key_from_value;
   typedef slice_comparator<
     key_type,
-    Compare >                                        key_compare;
+    Compare,
+    Serializer >                                     key_compare;
   typedef boost::tuple<key_from_value,key_compare>          ctor_args;
   typedef typename super::final_allocator_type       allocator_type;
 #ifdef BOOST_NO_CXX11_ALLOCATOR
@@ -153,6 +153,7 @@ public:
       ordered_index_impl<
          KeyFromValue,
          Compare,
+         Serializer,
          SuperMeta,
          TagList,
          Category,
@@ -189,6 +190,7 @@ public:
 */
    typedef rocksdb_iterator<
       value_type,
+      Serializer,
       key_type,
       KeyFromValue,
       key_compare,
@@ -223,7 +225,7 @@ protected:
   typedef typename boost::mpl::push_front<
     typename super::index_type_list,
     ordered_index<
-      KeyFromValue,Compare,
+      KeyFromValue,Compare,Serializer,
       SuperMeta,TagList,Category,AugmentPolicy
     > >::type                                        index_type_list;
   typedef typename boost::mpl::push_front<
@@ -260,8 +262,8 @@ protected:
    uint32_t                                           _key_modification_count = 0;
    rocksdb::FlushOptions                              _flush_opts;
 
-   fc::optional< key_type >                           _first_key;
-   fc::optional< key_type >                           _first_key_update;
+   std::optional< key_type >                          _first_key;
+   std::optional< key_type >                          _first_key_update;
    bool                                               _delete_first_key = false;
 
 public:
@@ -281,7 +283,7 @@ public:
 
    iterator begin() BOOST_NOEXCEPT
    {
-      if( _first_key.valid() )
+      if( _first_key )
          return make_iterator( *_first_key );
       return iterator::begin( ROCKSDB_ITERATOR_PARAM_PACK );
    }
@@ -289,7 +291,7 @@ public:
    const_iterator
       begin()const BOOST_NOEXCEPT
    {
-      if( _first_key.valid() )
+      if( _first_key )
          return make_iterator( *_first_key );
       return const_iterator::begin( ROCKSDB_ITERATOR_PARAM_PACK );
    }
@@ -446,7 +448,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
       comp_(std::make_shared<key_compare>(boost::tuples::get<1>(args_list.get_head())))
    {
       empty_initialize();
-      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type, key_from_value > >() );
+      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type,
+                              key_from_value, Serializer > >() );
    }
 
    ordered_index_impl() :
@@ -455,7 +458,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
       _handles( super::_handles )
    {
       empty_initialize();
-      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type, key_from_value > >() );
+      _cache->set_index_cache( COLUMN_INDEX, std::make_unique< index_cache< value_type, key_type,
+                              key_from_value, Serializer > >() );
    }
 
    ordered_index_impl( const ordered_index_impl& other ) :
@@ -548,7 +552,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
          ::rocksdb::PinnableSlice read_buffer;
          key_type new_key = key( v );
          ::rocksdb::PinnableSlice key_slice;
-         pack_to_slice< key_type >( key_slice, new_key );
+         pack_to_slice< Serializer, key_type >( key_slice, new_key );
 
          s = super::_db->Get(
             ::rocksdb::ReadOptions(),
@@ -568,12 +572,12 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
          if( COLUMN_INDEX == 1 )
          {
             // Insert base case
-            pack_to_slice( value_slice, v );
+            pack_to_slice< Serializer >( value_slice, v );
          }
          else
          {
             // Insert referential case
-            pack_to_slice( value_slice, id( v ) );
+            pack_to_slice< Serializer >( value_slice, id( v ) );
          }
 
          s = super::_write_buffer.Put(
@@ -581,8 +585,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             key_slice,
             value_slice );
 
-         if( ( _first_key.valid() && key_comp()( new_key, *_first_key ) )
-            || !_first_key.valid() )
+         if( ( _first_key && key_comp()( new_key, *_first_key ) )
+            || !_first_key )
          {
             _first_key_update = new_key;
          }
@@ -598,13 +602,13 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
 
       auto old_key = key( v );
       PinnableSlice old_key_slice;
-      pack_to_slice( old_key_slice, old_key );
+      pack_to_slice< Serializer >( old_key_slice, old_key );
 
       super::_write_buffer.Delete(
          &*super::_handles[ COLUMN_INDEX ],
          old_key_slice );
 
-      if( _first_key.valid() && ( key_comp()( old_key, *_first_key ) == key_comp()( *_first_key, old_key ) ) )
+      if( _first_key && ( key_comp()( old_key, *_first_key ) == key_comp()( *_first_key, old_key ) ) )
       {
          auto new_key_itr = ++find( *_first_key );
          if( new_key_itr != end() )
@@ -644,8 +648,8 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             if( new_key != old_key )
                return false;
 
-            pack_to_slice( new_key_slice, new_key );
-            pack_to_slice( value_slice, v );
+            pack_to_slice< Serializer >( new_key_slice, new_key );
+            pack_to_slice< Serializer >( value_slice, v );
          }
          else if( new_key != old_key )
          {
@@ -654,7 +658,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
 
             ::rocksdb::PinnableSlice read_buffer;
 
-            pack_to_slice( new_key_slice, new_key );
+            pack_to_slice< Serializer >( new_key_slice, new_key );
 
             s = super::_db->Get(
                ::rocksdb::ReadOptions(),
@@ -665,12 +669,12 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             // New key already exists, uniqueness constraint violated
             if( s.ok() )
             {
-               ilog( "Key ${k} already exists. Object: ${o}", ("k",new_key)("o", v) );
+               //ilog( "Key ${k} already exists. Object: ${o}", ("k",new_key)("o", v) );
                return false;
             }
 
             PinnableSlice old_key_slice;
-            pack_to_slice( old_key_slice, old_key );
+            pack_to_slice< Serializer >( old_key_slice, old_key );
 
             s = super::_write_buffer.Delete(
                &*super::_handles[ COLUMN_INDEX ],
@@ -678,7 +682,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
 
             if( !s.ok() ) return false;
 
-            pack_to_slice( value_slice, id( v ) );
+            pack_to_slice< Serializer >( value_slice, id( v ) );
 
             ++_key_modification_count;
          }
@@ -693,12 +697,12 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             value_slice );
 
          // If the new key is less than the current first, it will be the new first key
-         if( _first_key.valid() && key_comp()( new_key, *_first_key ) )
+         if( _first_key && key_comp()( new_key, *_first_key ) )
          {
             _first_key_update = new_key;
          }
          // Else if we are updating the current first key AND the new key is different...
-         else if( _first_key.valid() &&  key_comp()( *_first_key, new_key )
+         else if( _first_key &&  key_comp()( *_first_key, new_key )
             && ( key_comp()( old_key, *_first_key ) == key_comp()( *_first_key, old_key ) ) )
          {
             // Find the second key (first_key_update)
@@ -753,7 +757,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
    void cache_first_key()
    {
       super::cache_first_key();
-      if( !_first_key.valid() )
+      if( !_first_key )
       {
          auto b = iterator::begin( ROCKSDB_ITERATOR_PARAM_PACK );
          if( b != end() )
@@ -767,7 +771,7 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
    {
       super::commit_first_key_update();
 
-      if( _first_key_update.valid() )
+      if( _first_key_update )
       {
          _first_key = _first_key_update;
          _first_key_update.reset();
@@ -834,20 +838,20 @@ protected: /* for the benefit of AugmentPolicy::augmented_interface */
 };
 
 template<
-  typename KeyFromValue,typename Compare,
+  typename KeyFromValue,typename Compare,typename Serializer,
   typename SuperMeta,typename TagList,typename Category,typename AugmentPolicy
 >
 class ordered_index:
   public AugmentPolicy::template augmented_interface<
     ordered_index_impl<
-      KeyFromValue,Compare,SuperMeta,TagList,Category,AugmentPolicy
+      KeyFromValue,Compare,Serializer,SuperMeta,TagList,Category,AugmentPolicy
     >
   >::type
 {
   typedef typename AugmentPolicy::template
     augmented_interface<
       ordered_index_impl<
-        KeyFromValue,Compare,
+        KeyFromValue,Compare,Serializer,
         SuperMeta,TagList,Category,AugmentPolicy
       >
     >::type                                       super;

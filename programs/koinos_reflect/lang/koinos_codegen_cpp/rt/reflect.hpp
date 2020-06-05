@@ -138,7 +138,7 @@ template<> struct reflector<TYPE> {\
 #define KOINOS_REFLECT_ENUM_TO_STRING( r, enum_type, elem ) \
    case enum_type::elem: return BOOST_PP_STRINGIZE(elem);
 #define KOINOS_REFLECT_ENUM_TO_KOINOS_STRING( r, enum_type, elem ) \
-   case enum_type::elem: return koinos::string(BOOST_PP_STRINGIZE(elem));
+   case enum_type::elem: return std::string(BOOST_PP_STRINGIZE(elem));
 
 #define KOINOS_REFLECT_ENUM_FROM_STRING( r, enum_type, elem ) \
   if( strcmp( s, BOOST_PP_STRINGIZE(elem)  ) == 0 ) return enum_type::elem;
@@ -154,20 +154,11 @@ template<> struct reflector<ENUM> { \
       switch( elem ) { \
         BOOST_PP_SEQ_FOR_EACH( KOINOS_REFLECT_ENUM_TO_STRING, ENUM, FIELDS ) \
         default: \
-           koinos::throw_bad_enum_cast( std::to_string(int64_t(elem)).c_str(), BOOST_PP_STRINGIZE(ENUM) ); \
+           koinos::pack::throw_bad_enum_cast( std::to_string(int64_t(elem)).c_str(), BOOST_PP_STRINGIZE(ENUM) ); \
       }\
       return nullptr; \
     } \
     static const char* to_string(int64_t i) { \
-      return to_string(ENUM(i)); \
-    } \
-    static std::string to_string(ENUM elem) { \
-      switch( elem ) { \
-        BOOST_PP_SEQ_FOR_EACH( KOINOS_REFLECT_ENUM_TO_KOINOS_STRING, ENUM, FIELDS ) \
-      } \
-      return std::to_string(int64_t(elem)); \
-    } \
-    static std::string to_KOINOS_string(int64_t i) { \
       return to_string(ENUM(i)); \
     } \
     static ENUM from_int(int64_t i) { \
@@ -177,7 +168,7 @@ template<> struct reflector<ENUM> { \
         BOOST_PP_SEQ_FOR_EACH( KOINOS_REFLECT_ENUM_FROM_STRING_CASE, ENUM, FIELDS ) \
           break; \
         default: \
-          koinos::throw_bad_enum_cast( i, BOOST_PP_STRINGIZE(ENUM) ); \
+          koinos::pack::throw_bad_enum_cast( i, BOOST_PP_STRINGIZE(ENUM) ); \
       } \
       return e;\
     } \
@@ -190,7 +181,7 @@ template<> struct reflector<ENUM> { \
         } \
         catch( const boost::bad_lexical_cast& e ) \
         { \
-           koinos::throw_bad_enum_cast( s, BOOST_PP_STRINGIZE(ENUM) ); \
+           koinos::pack::throw_bad_enum_cast( s, BOOST_PP_STRINGIZE(ENUM) ); \
         } \
         return from_int(i); \
     } \
@@ -202,3 +193,4 @@ template<> struct reflector<ENUM> { \
 };  \
 template<> struct get_typename<ENUM>  { static const char* name()  { return BOOST_PP_STRINGIZE(ENUM);  } }; \
 }
+

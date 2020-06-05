@@ -5,6 +5,7 @@
 
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
+#include <koinos/pack/rt/binary_serializer.hpp>
 
 namespace fc
 {
@@ -101,6 +102,7 @@ struct by_sum;
 
 typedef mira::multi_index_adapter<
    book,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< book, book::id_type, &book::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_a >,  mira::multi_index::member< book, int,           &book::a  > >,
@@ -115,6 +117,6 @@ typedef mira::multi_index_adapter<
   >
 > book_index;
 
-FC_REFLECT( book::id_type, (_id) )
-FC_REFLECT( book, (id)(a)(b) )
+KOINOS_REFLECT( book::id_type, (_id) )
+KOINOS_REFLECT( book, (id)(a)(b) )
 CHAINBASE_SET_INDEX_TYPE( book, book_index )

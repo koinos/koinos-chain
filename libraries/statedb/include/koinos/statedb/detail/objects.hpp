@@ -1,7 +1,8 @@
 #pragma once
 
-#include <koinos/statedb/koinos_object_types.hpp>
 #include <koinos/statedb/statedb_types.hpp>
+#include <koinos/pack/rt/reflect.hpp>
+#include <koinos/pack/rt/binary_serializer.hpp>
 
 #include <mira/index_adapter.hpp>
 #include <mira/ordered_index.hpp>
@@ -20,7 +21,6 @@ struct state_object
 
       template< typename Constructor, typename Allocator >
       state_object( Constructor&& c, Allocator&& a )
-         : value( a )
       {
          c( *this );
       }
@@ -37,6 +37,7 @@ struct by_key;
 
 typedef mira::multi_index_adapter<
    state_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >,
          mira::multi_index::member< state_object, state_object::id_type, &state_object::id > >,
@@ -51,5 +52,5 @@ typedef mira::multi_index_adapter<
 
 } // koinos::statedb::detail
 
-FC_REFLECT( koinos::statedb::detail::state_object,
+KOINOS_REFLECT( koinos::statedb::detail::state_object,
              (id)(space)(key)(value) )

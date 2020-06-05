@@ -5,6 +5,9 @@
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 
+#include <koinos/pack/rt/reflect.hpp>
+#include <koinos/pack/rt/binary_serializer.hpp>
+
 namespace fc
 {
 
@@ -89,6 +92,7 @@ struct by_sum;
 
 typedef mira::multi_index_adapter<
    book,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< book, book::id_type, &book::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_a >,  mira::multi_index::member< book, int,           &book::a  > >,
@@ -118,6 +122,7 @@ struct single_index_object : public chainbase::object< single_index_object_type,
 
 typedef mira::multi_index_adapter<
    single_index_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< single_index_object, single_index_object::id_type, &single_index_object::id > >
    >
@@ -126,7 +131,7 @@ typedef mira::multi_index_adapter<
 struct test_object : public chainbase::object< test_object_type, test_object >
 {
    template <class Constructor, class Allocator>
-   test_object(Constructor&& c, Allocator a ) : id( 0 ), val( 0 ), name( a )
+   test_object(Constructor&& c, Allocator a ) : id( 0 ), val( 0 )
    {
       c(*this);
    }
@@ -141,7 +146,7 @@ struct test_object : public chainbase::object< test_object_type, test_object >
 
    id_type id;
    uint32_t val;
-   std::string name;
+   uint32_t name;
 };
 
 struct ordered_idx;
@@ -149,11 +154,12 @@ struct composited_ordered_idx;
 
 typedef mira::multi_index_adapter<
    test_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< ordered_idx >, mira::multi_index::member< test_object, chainbase::oid< test_object >, &test_object::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< composited_ordered_idx >,
          mira::multi_index::composite_key< test_object,
-            mira::multi_index::member< test_object, std::string, &test_object::name >,
+            mira::multi_index::member< test_object, uint32_t, &test_object::name >,
             mira::multi_index::member< test_object, uint32_t, &test_object::val >
          >
       >
@@ -179,6 +185,7 @@ struct composite_ordered_idx2;
 
 typedef mira::multi_index_adapter<
    test_object2,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< ordered_idx2 >, mira::multi_index::member< test_object2, chainbase::oid< test_object2 >, &test_object2::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< composite_ordered_idx2 >,
@@ -212,6 +219,7 @@ struct composite_ordered_idx3b;
 
 typedef mira::multi_index_adapter<
    test_object3,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< ordered_idx3 >, mira::multi_index::member< test_object3, chainbase::oid< test_object3 >, &test_object3::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< composite_ordered_idx3a >,
@@ -241,39 +249,40 @@ struct account_object : public chainbase::object< account_object_type, account_o
    account_object() = default;
 
    id_type id;
-   std::string name;
+   uint32_t name;
 };
 
 struct by_name;
 
 typedef mira::multi_index_adapter<
    account_object,
+   koinos::pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< account_object, account_object::id_type, &account_object::id > >,
-      mira::multi_index::ordered_unique< mira::multi_index::tag< by_name >, mira::multi_index::member< account_object, std::string, &account_object::name > >
+      mira::multi_index::ordered_unique< mira::multi_index::tag< by_name >, mira::multi_index::member< account_object, uint32_t, &account_object::name > >
    >
 > account_index;
 
-FC_REFLECT( book::id_type, (_id) )
-FC_REFLECT( book, (id)(a)(b) )
+KOINOS_REFLECT( book::id_type, (_id) )
+KOINOS_REFLECT( book, (id)(a)(b) )
 CHAINBASE_SET_INDEX_TYPE( book, book_index )
 
-FC_REFLECT( single_index_object::id_type, (_id) )
-FC_REFLECT( single_index_object, (id) )
+KOINOS_REFLECT( single_index_object::id_type, (_id) )
+KOINOS_REFLECT( single_index_object, (id) )
 CHAINBASE_SET_INDEX_TYPE( single_index_object, single_index_index )
 
-FC_REFLECT( test_object::id_type, (_id) )
-FC_REFLECT( test_object, (id)(val)(name) )
+KOINOS_REFLECT( test_object::id_type, (_id) )
+KOINOS_REFLECT( test_object, (id)(val)(name) )
 CHAINBASE_SET_INDEX_TYPE( test_object, test_object_index )
 
-FC_REFLECT( test_object2::id_type, (_id) )
-FC_REFLECT( test_object2, (id)(val) )
+KOINOS_REFLECT( test_object2::id_type, (_id) )
+KOINOS_REFLECT( test_object2, (id)(val) )
 CHAINBASE_SET_INDEX_TYPE( test_object2, test_object2_index )
 
-FC_REFLECT( test_object3::id_type, (_id) )
-FC_REFLECT( test_object3, (id)(val)(val2)(val3) )
+KOINOS_REFLECT( test_object3::id_type, (_id) )
+KOINOS_REFLECT( test_object3, (id)(val)(val2)(val3) )
 CHAINBASE_SET_INDEX_TYPE( test_object3, test_object3_index )
 
-FC_REFLECT( account_object::id_type, (_id) )
-FC_REFLECT( account_object, (id)(name) )
+KOINOS_REFLECT( account_object::id_type, (_id) )
+KOINOS_REFLECT( account_object, (id)(name) )
 CHAINBASE_SET_INDEX_TYPE( account_object, account_index )
