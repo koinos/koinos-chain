@@ -73,12 +73,14 @@ def generate_cpp(schema):
     env.filters["tuple"] = tuple
     env.filters["cpp_namespace"] = cpp_namespace
     decls_by_name = collections.OrderedDict(((fq_name(name), decl) for name, decl in schema["decls"]))
+    decl_namespaces = sorted(set(cpp_namespace(name) for name in decls_by_name))
 
     env.globals["raise"] = template_raise
     env.globals["cpp_classname"] = cpp_classname
 
     ctx = {"schema" : schema,
            "decls_by_name" : decls_by_name,
+           "decl_namespaces" : decl_namespaces,
           }
     for name, val in ctx["decls_by_name"].items():
         print(name)

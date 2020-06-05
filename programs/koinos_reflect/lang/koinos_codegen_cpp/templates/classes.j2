@@ -89,3 +89,9 @@ namespace {{ new_ns }} {
 {% elif decl["info"]["type"] == "EnumClass" -%}
 {%- endif -%}
 {% endfor %}
+
+{% for decl_ns in decl_namespaces -%}
+{%- if decl_ns not in ["", "std"] -%}
+KOINOS_DEFINE_JSON_STREAM_OPERATOR( {{ decl_ns }} )
+{% endif -%}
+{%- endfor %}

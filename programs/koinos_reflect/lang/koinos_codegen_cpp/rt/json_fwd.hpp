@@ -100,8 +100,5 @@ operator<<( std::ostream& o, const T& t )                                       
                                                                                                     \
 }
 
-KOINOS_DEFINE_JSON_STREAM_OPERATOR( koinos::protocol )
-KOINOS_DEFINE_JSON_STREAM_OPERATOR( koinos::chain_control )
-
 #undef KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER
 #undef KOINOS_DECLARE_BASE_JSON_SERIALIZER
