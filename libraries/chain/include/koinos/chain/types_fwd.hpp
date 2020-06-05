@@ -77,14 +77,14 @@ void to_binary( Stream& s, const std::string& v );
 template<typename Stream>
 void from_binary( Stream& s, std::string& v, uint32_t depth = 0 );
 
-//template<typename Stream>
-//void to_binary( Stream& s, const koinos::chain::int128_t& v );
-//template<typename Stream>
-//void from_binary( Stream& s, koinos::chain::int128_t& v, uint32_t depth = 0 );
-//
-//template<typename Stream>
-//void to_binary( Stream& s, const koinos::chain::uint128_t& v );
-//template<typename Stream>
-//void from_binary( Stream& s, koinos::chain::uint128_t& v, uint32_t depth = 0 );
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::int128_t& v );
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::int128_t& v, uint32_t depth = 0 );
+
+template<typename Stream>
+void to_binary( Stream& s, const koinos::chain::uint128_t& v );
+template<typename Stream>
+void from_binary( Stream& s, koinos::chain::uint128_t& v, uint32_t depth = 0 );
 
 }

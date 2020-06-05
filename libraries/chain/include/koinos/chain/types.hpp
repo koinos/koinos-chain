@@ -8,6 +8,7 @@
 #include <koinos/exception.hpp>
 
 #include <fc/crypto/hex.hpp>
+#include <fc/io/raw.hpp>
 
 #include <softfloat.hpp>
 
@@ -265,31 +266,45 @@ void from_binary( Stream& s, std::string& v, uint32_t depth )
 {
    fc::raw::unpack( s, v, depth );
 }
-/*
+
 template<typename Stream>
 void to_binary( Stream& s, const koinos::chain::int128_t& v )
 {
-   fc::raw::pack( s, v );
+   fc::raw::pack( s, static_cast< int64_t >( v >> 64 ) );
+   fc::raw::pack( s, static_cast< int64_t >( v ) );
 }
 
 template<typename Stream>
 void from_binary( Stream& s, koinos::chain::int128_t& v, uint32_t depth )
 {
-   fc::raw::unpack( s, v, depth );
+   int64_t hi;
+   int64_t lo;
+   fc::raw::unpack( s, hi, depth );
+   fc::raw::unpack( s, lo, depth );
+   v = hi;
+   v <<= 64;
+   v |= lo;
 }
 
 template<typename Stream>
 void to_binary( Stream& s, const koinos::chain::uint128_t& v )
 {
-   fc::raw::pack( s, v );
+   fc::raw::pack( s, static_cast< uint64_t >( v >> 64 ) );
+   fc::raw::pack( s, static_cast< uint64_t >( v ) );
 }
 
 template<typename Stream>
 void from_binary( Stream& s, koinos::chain::uint128_t& v, uint32_t depth )
 {
-   fc::raw::unpack( s, v, depth );
+   uint64_t hi;
+   uint64_t lo;
+   fc::raw::unpack( s, hi, depth );
+   fc::raw::unpack( s, lo, depth );
+   v = hi;
+   v <<= 64;
+   v |= lo;
 }
-*/
+
 } // koinos::pack
 
 FC_REFLECT_ENUM( koinos::chain::object_type,
