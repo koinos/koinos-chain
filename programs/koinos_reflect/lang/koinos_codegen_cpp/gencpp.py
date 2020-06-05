@@ -36,6 +36,18 @@ def simple_name(fqn):
 def fq_name(name):
     return "::".join(name)
 
+def cpp_namespace(name):
+    u = name.split("::")
+    if len(u) <= 1:
+        return ""
+    return "::".join(u[:-1])
+
+def cpp_classname(current_ns, name):
+    name_ns = "::".join(name[:-1])
+    if name_ns == current_ns:
+        return name[-1]
+    return "::".join(name)
+
 def typeref_has_type_parameters(tref):
     # Typedef with type parameters is a base typedef.
     if tref["targs"] is None:
@@ -59,17 +71,21 @@ def generate_cpp(schema):
     env.filters["typeref_has_type_parameters"] = typeref_has_type_parameters
     env.filters["fq_name"] = fq_name
     env.filters["tuple"] = tuple
+    env.filters["cpp_namespace"] = cpp_namespace
     decls_by_name = collections.OrderedDict(((fq_name(name), decl) for name, decl in schema["decls"]))
+    decl_namespaces = sorted(set(cpp_namespace(name) for name in decls_by_name))
 
     env.globals["raise"] = template_raise
+    env.globals["cpp_classname"] = cpp_classname
 
     ctx = {"schema" : schema,
            "decls_by_name" : decls_by_name,
+           "decl_namespaces" : decl_namespaces,
           }
-    #for name, val in ctx["decls_by_name"].items():
-    #    print(name)
-    #    import json
-    #    print(json.dumps(val))
+    for name, val in ctx["decls_by_name"].items():
+        print(name)
+        import json
+        print(json.dumps(val))
     classes_j2 = env.get_template("classes.j2")
     # json_j2 = env.get_template("json.j2")
     # import json

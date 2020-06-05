@@ -3,10 +3,14 @@
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread.hpp>
 
-#include <koinos/chain_control/submit.hpp>
+#include <koinos/pack/rt/string_fwd.hpp>
+#include <koinos/pack/rt/json_fwd.hpp>
+
+#include <koinos/pack/classes.hpp>
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
+#include <koinos/pack/rt/string.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 
@@ -37,22 +41,22 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    active_data.timestamp = timestamp_now();
 
    // Get previous block data
-   pack::block_topology topology;
-   protocol::query_param_item p = protocol::get_head_info_params();
+   chain_control::block_topology topology;
+   chain_control::query_param_item p = chain_control::get_head_info_params();
    vectorstream ostream;
    pack::to_binary(ostream, p);
    crypto::vl_blob query_bytes{ostream.vector()};
-   pack::submit_query query{query_bytes};
+   chain_control::submit_query query{query_bytes};
    auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
-   auto r = controller.submit(pack::submit_item(query));
-   protocol::query_result_item q;
+   auto r = controller.submit(chain_control::submit_item(query));
+   chain_control::query_result_item q;
    try
    {
       auto w = std::get<chain_control::submit_return_query>(*(r.get()));
       vectorstream istream(w.result.data);
       pack::from_binary(istream, q);
       std::visit(overloaded{
-         [&](protocol::get_head_info_return& head_info) {
+         [&](chain_control::get_head_info_return& head_info) {
             active_data.height.height = head_info.height.height+1;
             topology.previous = head_info.id;
             topology.block_num = active_data.height;
@@ -67,7 +71,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 
    // Serialize active data, store it in block header
    vectorstream active_stream;
-   protocol::to_binary(active_stream, active_data);
+   pack::to_binary(active_stream, active_data);
    crypto::vl_blob active_data_bytes{active_stream.vector()};
    block->active_bytes = active_data_bytes;
 
@@ -84,7 +88,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 
    // Serialize the header
    vectorstream header_stream;
-   protocol::to_binary(header_stream, *block);
+   pack::to_binary(header_stream, *block);
    crypto::vl_blob block_header_bytes{header_stream.vector()};
 
    // Store hash of header as ID
@@ -92,7 +96,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 
    // Serialize the passive data
    vectorstream passive_stream;
-   protocol::to_binary(passive_stream, passive_data);
+   pack::to_binary(passive_stream, passive_data);
    crypto::vl_blob passive_data_bytes{passive_stream.vector()};
 
    // Create the submit block object
@@ -103,7 +107,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 
 
    // Submit the block
-   protocol::submit_item si = block_submission;
+   chain_control::submit_item si = block_submission;
    r = controller.submit(si);
    try
    {

@@ -20,7 +20,6 @@
 #include <koinos/pack/rt/string.hpp>
 
 #include <koinos/chain_control/chain_control.hpp>
-#include <koinos/chain_control/submit.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 
@@ -59,7 +58,6 @@ namespace chain_control {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
-using koinos::protocol::block_topology;
 using koinos::protocol::block_header;
 using koinos::protocol::vl_blob;
 using koinos::statedb::state_db;
