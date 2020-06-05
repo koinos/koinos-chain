@@ -570,38 +570,38 @@ BOOST_AUTO_TEST_CASE( variable_length_key_test )
 
       db.create< account_object >( [&]( account_object& a )
       {
-         a.name = "alice";
+         a.name = 1234;
       });
 
       db.create< account_object >( [&]( account_object& a )
       {
-         a.name = "bob";
+         a.name = 5678;
       });
 
       db.create< account_object >( [&]( account_object& a )
       {
-         a.name = "charlie";
+         a.name = 5555;
       });
 
       itr = acc_by_name_idx.begin();
 
-      BOOST_REQUIRE( itr->name == "alice" );
+      BOOST_REQUIRE( itr->name == 1234 );
 
       ++itr;
 
-      BOOST_REQUIRE( itr->name == "bob" );
+      BOOST_REQUIRE( itr->name == 5678 );
 
       ++itr;
 
-      BOOST_REQUIRE( itr->name == "charlie" );
+      BOOST_REQUIRE( itr->name == 5555 );
 
       ++itr;
 
       BOOST_REQUIRE( itr == acc_by_name_idx.end() );
 
-      itr = acc_by_name_idx.lower_bound( "archibald" );
+      itr = acc_by_name_idx.lower_bound( 1345 );
 
-      BOOST_REQUIRE( itr->name == "bob" );
+      BOOST_REQUIRE( itr->name == 5678 );
    }
    FC_LOG_AND_RETHROW();
 }
@@ -768,7 +768,7 @@ BOOST_AUTO_TEST_CASE( basic_tests )
    db.add_index< test_object2_index >();
    db.add_index< test_object3_index >();
 
-   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
+   auto c1 = []( test_object& obj ) { obj.name = 6767; };
    auto c1b = []( test_object2& obj ) {};
    auto c1c = []( test_object3& obj ) { obj.val2 = 5; obj.val3 = 5; };
 
@@ -783,7 +783,7 @@ BOOST_AUTO_TEST_CASE( insert_remove_tests )
    db.add_index< test_object2_index >();
    db.add_index< test_object3_index >();
 
-   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
+   auto c1 = []( test_object& obj ) { obj.name = 6767; };
    auto c1b = []( test_object2& obj ) {};
    auto c1c = []( test_object3& obj ) { obj.val2 = 7; obj.val3 = obj.val2 + 1; };
 
@@ -798,10 +798,10 @@ BOOST_AUTO_TEST_CASE( insert_remove_collision_tests )
    db.add_index< test_object2_index >();
    db.add_index< test_object3_index >();
 
-   auto c1 = []( test_object& obj ) { obj.id = 0; obj.name = "_name7"; obj.val = 7; };
-   auto c2 = []( test_object& obj ) { obj.id = 0; obj.name = "_name8"; obj.val = 8; };
-   auto c3 = []( test_object& obj ) { obj.id = 0; obj.name = "the_same_name"; obj.val = 7; };
-   auto c4 = []( test_object& obj ) { obj.id = 1; obj.name = "the_same_name"; obj.val = 7; };
+   auto c1 = []( test_object& obj ) { obj.id = 0; obj.name = 7777; obj.val = 7; };
+   auto c2 = []( test_object& obj ) { obj.id = 0; obj.name = 8888; obj.val = 8; };
+   auto c3 = []( test_object& obj ) { obj.id = 0; obj.name = 989898; obj.val = 7; };
+   auto c4 = []( test_object& obj ) { obj.id = 1; obj.name = 989898; obj.val = 7; };
 
    auto c1b = []( test_object2& obj ) { obj.id = 0; obj.val = 7; };
    auto c2b = []( test_object2& obj ) { obj.id = 0; obj.val = 8; };
@@ -824,9 +824,9 @@ BOOST_AUTO_TEST_CASE( modify_tests )
    db.add_index< test_object2_index >();
    db.add_index< test_object3_index >();
 
-   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
-   auto c2 = []( test_object& obj ){ obj.name = "new_name"; };
-   auto c3 = []( const test_object& obj ){ BOOST_REQUIRE( obj.name == "new_name" ); };
+   auto c1 = []( test_object& obj ) { obj.name = 6767; };
+   auto c2 = []( test_object& obj ){ obj.name = 123123; };
+   auto c3 = []( const test_object& obj ){ BOOST_REQUIRE( obj.name == 123123 ); };
    auto c4 = []( const test_object& obj ){ BOOST_REQUIRE( obj.val == obj.id._id + 100 ); };
    auto c5 = []( bool result ){ BOOST_REQUIRE( result == false ); };
 

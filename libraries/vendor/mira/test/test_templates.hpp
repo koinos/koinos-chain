@@ -260,7 +260,7 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
       db.create< Object >( [&] ( Object& o )
       {
          o.id = item;
-         o.name = "any_name";
+         o.name = 454545;
          o.val = item + 200;
       } );
    }
@@ -271,7 +271,7 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
    for( const auto& item : c )
    {
       BOOST_REQUIRE( item.id == v[ cnt++ ] );
-      BOOST_REQUIRE( item.name == "any_name" );
+      BOOST_REQUIRE( item.name == 454545 );
       BOOST_REQUIRE( item.val == item.id._id + 200 );
    }
 
@@ -286,15 +286,15 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
    BOOST_REQUIRE( v.size() - 2 == c.size() );
 
    //Modyfing key `name` in one object.
-   db.modify( *( c.begin() ), [] ( Object& o ) { o.name = "completely_different_name"; } );
+   db.modify( *( c.begin() ), [] ( Object& o ) { o.name = 567876; } );
    auto it1 = c.begin();
-   BOOST_REQUIRE( it1->name == "completely_different_name" );
+   BOOST_REQUIRE( it1->name == 567876 );
    uint32_t val1 = it1->val;
 
    //Creating collision in two objects: [1] and [2]
    auto it2 = it1;
    it2++;
-   BOOST_CHECK_THROW( db.modify( *it2, [ val1 ]( Object& obj ){ obj.name = "completely_different_name"; obj.val = val1;} ), std::logic_error );
+   BOOST_CHECK_THROW( db.modify( *it2, [ val1 ]( Object& obj ){ obj.name = 567876; obj.val = val1;} ), std::logic_error );
 
    //Removing object [1].
    it1 = c.begin();
@@ -319,7 +319,7 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
       auto constructor = [ &item ]( Object &obj )
       {
          obj.id = item;
-         obj.name = "all_objects_have_the_same_name";
+         obj.name = 1211211;
          obj.val = 667;
       };
 
@@ -334,7 +334,7 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
 
    auto it_only_one = c.begin();
    BOOST_REQUIRE( it_only_one->id == v[0] );
-   BOOST_REQUIRE( it_only_one->name == "all_objects_have_the_same_name" );
+   BOOST_REQUIRE( it_only_one->name == 1211211 );
    BOOST_REQUIRE( it_only_one->val == 667 );
 
    BOOST_TEST_MESSAGE( "Erasing one objects." );
@@ -349,7 +349,7 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
       auto constructor = [ &item, &cnt ]( Object &obj )
       {
          obj.id = item;
-         obj.name = "object nr:" + std::to_string( cnt++ );
+         obj.name = cnt++;
          obj.val = 5000;
       };
       db.create< Object >( constructor );
@@ -371,12 +371,12 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
    found = ordered_idx.find( v[0] );
    BOOST_REQUIRE( found != ordered_idx.end() );
 
-   auto cfound = composite_ordered_idx.find( boost::make_tuple( "stupid_name", 5000 ) );
+   auto cfound = composite_ordered_idx.find( boost::make_tuple( 444444, 5000 ) );
    BOOST_REQUIRE( cfound == composite_ordered_idx.end() );
 
-   cfound = composite_ordered_idx.find( boost::make_tuple( "object nr:" + std::to_string( 0 ), 5000 ) );
+   cfound = composite_ordered_idx.find( boost::make_tuple( 0, 5000 ) );
    auto copy_cfound = cfound;
-   auto cfound2 = composite_ordered_idx.find( boost::make_tuple( "object nr:" + std::to_string( 9 ), 5000 ) );
+   auto cfound2 = composite_ordered_idx.find( boost::make_tuple( 9, 5000 ) );
    BOOST_REQUIRE( cfound == composite_ordered_idx.begin() );
 
    {
