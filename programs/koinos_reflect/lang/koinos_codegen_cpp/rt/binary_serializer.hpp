@@ -146,7 +146,7 @@ inline T binary_serializer::from_binary_array( const char* data, const size_t si
 }
 
 template<typename T>
-inline size_t binary_size( const T& v )
+inline size_t binary_serializer::binary_size( const T& v )
 {
    #pragma message "TODO: Replace with to_vl_blob"
    vectorstream stream;

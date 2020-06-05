@@ -117,6 +117,6 @@ typedef mira::multi_index_adapter<
   >
 > book_index;
 
-FC_REFLECT( book::id_type, (_id) )
-FC_REFLECT( book, (id)(a)(b) )
+KOINOS_REFLECT( book::id_type, (_id) )
+KOINOS_REFLECT( book, (id)(a)(b) )
 CHAINBASE_SET_INDEX_TYPE( book, book_index )
