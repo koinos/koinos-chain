@@ -1,9 +1,22 @@
 #include <koinos/chain/system_calls.hpp>
+
+#include <koinos/pack/rt/json.hpp>
+
 #include <koinos/log.hpp>
 
-#include <fc/uint128.hpp>
-
 namespace koinos::chain {
+
+std::string hex_string( const char* d, size_t len )
+{
+   static const auto hex = "0123456789ABCDEF";
+
+   std::stringstream ss;
+
+   for( int i = 0; i < len; i++)
+      ss << hex[(*(d + i) & 0xF0) >> 4] << hex[*(d + i) & 0x0F];
+
+   return ss.str();
+}
 
 // System Call Table API
 //
@@ -205,13 +218,13 @@ SYSTEM_CALL_DEFINE( void, printi128, ((const __int128&) val) )
    else
       val_magnitude = static_cast<unsigned __int128>(val);
 
-   fc::uint128_t v(val_magnitude>>64, static_cast<uint64_t>(val_magnitude) );
-
    string s;
    if( is_negative ) {
       s += '-';
    }
-   s += fc::variant(v).get_string();
+   nlohmann::json j;
+   pack::to_json( j, static_cast< protocol::uint128_t >( val_magnitude ) );
+   s += j.dump();
 
    context.console_append( s );
 }
@@ -219,8 +232,9 @@ SYSTEM_CALL_DEFINE( void, printi128, ((const __int128&) val) )
 SYSTEM_CALL_DEFINE( void, printui128, ((const unsigned __int128&) val) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   fc::uint128_t v(val>>64, static_cast<uint64_t>(val) );
-   context.console_append(fc::variant(v).get_string());
+   nlohmann::json j;
+   pack::to_json( j, static_cast< protocol::uint128_t >(val) );
+   context.console_append(j.dump());
 }
 
 SYSTEM_CALL_DEFINE( void, printsf, ((float) val) )
@@ -288,7 +302,7 @@ SYSTEM_CALL_DEFINE( void, printn, ((name) value) )
 SYSTEM_CALL_DEFINE( void, printhex, ((array_ptr< const char >) data, (uint32_t) data_len ) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   context.console_append(fc::to_hex(data, data_len));
+   context.console_append(hex_string(data, data_len));
 }
 
 SYSTEM_CALL_DEFINE( int, db_store_i64, ((uint64_t) scope, (uint64_t) table, (uint64_t) payer, (uint64_t) id, (array_ptr<const char>) buffer, (uint32_t) buffer_size) )
@@ -976,7 +990,10 @@ SYSTEM_CALL_DEFINE( double, _eosio_ui64_to_f64, ((uint64_t) a) )
 SYSTEM_CALL_DEFINE( void, __ashlti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   fc::uint128_t i(high, low);
+   protocol::int128_t i;
+   i = high;
+   i <<= 64;
+   i += low;
    i <<= shift;
    ret = (unsigned __int128)i;
 }
@@ -994,7 +1011,10 @@ SYSTEM_CALL_DEFINE( void, __ashrti3, ((__int128&) ret, (uint64_t) low, (uint64_t
 SYSTEM_CALL_DEFINE( void, __lshlti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   fc::uint128_t i(high, low);
+   protocol::int128_t i;
+   i = high;
+   i <<= 64;
+   i += low;
    i <<= shift;
    ret = (unsigned __int128)i;
 }
@@ -1002,7 +1022,10 @@ SYSTEM_CALL_DEFINE( void, __lshlti3, ((__int128&) ret, (uint64_t) low, (uint64_t
 SYSTEM_CALL_DEFINE( void, __lshrti3, ((__int128&) ret, (uint64_t) low, (uint64_t) high, (uint32_t) shift) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   fc::uint128_t i(high, low);
+   protocol::uint128_t i;
+   i = high;
+   i <<= 64;
+   i += low;
    i >>= shift;
    ret = (unsigned __int128)i;
 }
@@ -1259,16 +1282,22 @@ SYSTEM_CALL_DEFINE( void, __floatunditf, ((float128_t&) ret, (uint64_t) a) )
 SYSTEM_CALL_DEFINE( double, __floattidf, ((uint64_t) l, (uint64_t) h) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   fc::uint128_t v(h, l);
-   unsigned __int128 val = (unsigned __int128)v;
+   protocol::int128_t i;
+   i = h;
+   i <<= 64;
+   i += l;
+   unsigned __int128 val = (unsigned __int128)i;
    return ___floattidf( *(__int128*)&val );
 }
 
 SYSTEM_CALL_DEFINE( double, __floatuntidf, ((uint64_t) l, (uint64_t) h) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   fc::uint128_t v(h, l);
-   return ___floatuntidf( (unsigned __int128)v );
+   protocol::int128_t i;
+   i = h;
+   i <<= 64;
+   i += l;
+   return ___floatuntidf( (unsigned __int128)i );
 }
 
 SYSTEM_CALL_DEFINE( int, ___cmptf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) lb, (uint64_t) hb, (int) return_value_if_nan) )

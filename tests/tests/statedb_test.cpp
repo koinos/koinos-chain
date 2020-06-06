@@ -76,7 +76,6 @@ typedef mira::multi_index_adapter<
   >
 > book_index;
 
-FC_REFLECT( book, (id)(a)(b) )
 KOINOS_REFLECT( book, (id)(a)(b) )
 
 void test_block::get_id( multihash_type& mh )const

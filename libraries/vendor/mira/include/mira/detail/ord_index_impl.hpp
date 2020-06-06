@@ -563,7 +563,6 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
          // Key already exists, uniqueness constraint violated
          if( s.ok() )
          {
-            //ilog( "Key ${k} already exists. Object: ${o}", ("k",new_key)("o", v) );
             return false;
          }
 
@@ -669,7 +668,6 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
             // New key already exists, uniqueness constraint violated
             if( s.ok() )
             {
-               //ilog( "Key ${k} already exists. Object: ${o}", ("k",new_key)("o", v) );
                return false;
             }
 
@@ -793,8 +791,6 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
    void dump_lb_call_counts()
    {
       super::dump_lb_call_counts();
-      ilog( boost::core::demangle( typeid( tag_list ).name() ) );
-      wdump( (iterator::lb_call_count())(iterator::lb_prev_call_count())(iterator::lb_no_prev_count())(iterator::lb_miss_count()) );
    }
 
 private:

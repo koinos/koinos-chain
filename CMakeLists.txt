@@ -19,7 +19,7 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
 
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_NO_BOOST_CMAKE ON)
-if( NOT( Boost_VERSION LESS 106900 ) )
+if( NOT( Boost_VERSION_MACRO LESS 106900 ) )
    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
 endif()

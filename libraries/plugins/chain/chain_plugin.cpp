@@ -4,9 +4,6 @@
 
 #include <mira/database_configuration.hpp>
 
-#include <fc/io/json.hpp>
-#include <fc/exception/exception.hpp>
-
 #include <chainbase/chainbase.hpp>
 
 namespace koinos::plugins::chain {
@@ -31,7 +28,8 @@ class chain_plugin_impl
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
 {
    LOG(info) << "writing database configuration: " << p.string();
-   fc::json::save_to_file( mira::utilities::default_database_configuration(), p );
+   boost::filesystem::ofstream config_file( p, std::ios::binary );
+   config_file << mira::utilities::default_database_configuration();
 }
 
 } // detail
@@ -88,18 +86,14 @@ void chain_plugin::plugin_initialize(const variables_map& options)
 
 void chain_plugin::plugin_startup()
 {
-   fc::variant database_config;
+   nlohmann::json database_config;
 
    try
    {
-      database_config = fc::json::from_file( my->database_cfg, fc::json::strict_parser );
+      boost::filesystem::ifstream config_file( my->database_cfg, std::ios::binary );
+      config_file >> database_config;
    }
    catch ( const std::exception& e )
-   {
-      LOG(error) << "error while parsing database configuration: " << e.what();
-      exit( EXIT_FAILURE );
-   }
-   catch ( const fc::exception& e )
    {
       LOG(error) << "error while parsing database configuration: " << e.what();
       exit( EXIT_FAILURE );
@@ -109,10 +103,9 @@ void chain_plugin::plugin_startup()
    {
       my->controller.open( my->state_dir, database_config );
    }
-   catch( fc::exception& e )
+   catch( std::exception& e )
    {
-      LOG(error) << "error opening database";
-      LOG(error) << "error: " << e.to_string();
+      LOG(error) << "error opening database: " << e.what();
       exit( EXIT_FAILURE );
    }
 

@@ -9,8 +9,6 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-#include <fc/log/logger.hpp>
-
 namespace chainbase {
 
    using namespace boost::multi_index;

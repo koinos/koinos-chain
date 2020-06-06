@@ -1,18 +1,11 @@
 #pragma once
 #include <string>
-#include <fc/reflect/reflect.hpp>
 #include <koinos/pack/rt/reflect.hpp>
 #include <iosfwd>
 
 namespace koinos { namespace chain {
   struct name;
 } } // koinos::chain
-
-namespace fc {
-  class variant;
-  void to_variant(const koinos::chain::name& c, fc::variant& v);
-  void from_variant(const fc::variant& v, koinos::chain::name& check);
-} // fc
 
 namespace koinos { namespace chain {
    static constexpr uint64_t char_to_symbol( char c ) {
@@ -41,14 +34,12 @@ namespace koinos { namespace chain {
       return n;
    }
 
-   /// Immutable except for fc::from_variant.
+   /// Immutable except for koinos::pack::from_json
    struct name {
    private:
       uint64_t value = 0;
 
-      friend struct fc::reflector<name>;
       friend struct koinos::pack::reflector<name>;
-      friend void fc::from_variant(const fc::variant& v, koinos::chain::name& check);
 
       void set( std::string_view str );
 
@@ -103,5 +94,4 @@ namespace std {
    };
 };
 
-FC_REFLECT( koinos::chain::name, (value) )
 KOINOS_REFLECT( koinos::chain::name, (value) )

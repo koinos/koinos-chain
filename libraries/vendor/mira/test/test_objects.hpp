@@ -2,53 +2,8 @@
 
 #include <chainbase/chainbase.hpp>
 
-#include <fc/reflect/reflect.hpp>
-#include <fc/reflect/variant.hpp>
-
 #include <koinos/pack/rt/reflect.hpp>
 #include <koinos/pack/rt/binary_serializer.hpp>
-
-namespace fc
-{
-
-template<typename T>
-void to_variant( const chainbase::oid<T>& var,  variant& vo )
-{
-   vo = var._id;
-}
-
-template<typename T>
-void from_variant( const variant& vo, chainbase::oid<T>& var )
-{
-   var._id = vo.as_int64();
-}
-
-template< typename T >
-struct get_typename< chainbase::oid< T > >
-{
-   static const char* name()
-   {
-      static std::string n = std::string( "chainbase::oid<" ) + get_typename< T >::name() + ">";
-      return n.c_str();
-   }
-};
-
-namespace raw
-{
-
-template<typename Stream, typename T>
-void pack( Stream& s, const chainbase::oid<T>& id )
-{
-   s.write( (const char*)&id._id, sizeof(id._id) );
-}
-
-template<typename Stream, typename T>
-void unpack( Stream& s, chainbase::oid<T>& id )
-{
-   s.read( (char*)&id._id, sizeof(id._id));
-}
-
-} }
 
 #include <mira/index_adapter.hpp>
 #include <mira/ordered_index.hpp>

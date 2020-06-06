@@ -1,5 +1,4 @@
 #include <koinos/chain/name.hpp>
-#include <fc/variant.hpp>
 #include <boost/algorithm/string.hpp>
 #include <koinos/chain/exceptions.hpp>
 
@@ -32,8 +31,3 @@ namespace koinos::chain {
    }
 
 } // koinos::chain
-
-namespace fc {
-  void to_variant(const koinos::chain::name& c, fc::variant& v) { v = c.to_string(); }
-  void from_variant(const fc::variant& v, koinos::chain::name& check) { check.set( v.get_string() ); }
-} // fc

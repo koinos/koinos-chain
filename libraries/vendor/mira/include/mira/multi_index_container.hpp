@@ -242,21 +242,13 @@ public:
 
       ::rocksdb::Options opts;
 
-      try
-      {
-         detail::cache_manager::get()->set_object_threshold( configuration::get_object_count( cfg ) );
+      detail::cache_manager::get()->set_object_threshold( configuration::get_object_count( cfg ) );
 
-         opts = configuration::get_options( cfg, boost::core::demangle( typeid( Value ).name() ) );
+      opts = configuration::get_options( cfg, boost::core::demangle( typeid( Value ).name() ) );
 
-         if ( configuration::gather_statistics( cfg ) )
-            opts.statistics = _stats = ::rocksdb::CreateDBStatistics();
-      }
-      catch ( ... )
-      {
-         elog( "Failure while applying configuration for database: ${db}",
-            ("db", boost::core::demangle( typeid( Value ).name())) );
-         throw;
-      }
+      if ( configuration::gather_statistics( cfg ) )
+         opts.statistics = _stats = ::rocksdb::CreateDBStatistics();
+
 
       std::vector< ::rocksdb::ColumnFamilyHandle* > handles;
 
@@ -504,9 +496,7 @@ size_t get_cache_size() const
 
 void dump_lb_call_counts()
 {
-   ilog( "Object ${s}:", ("s",_name) );
    super::dump_lb_call_counts();
-   ilog( "" );
 }
 
 primary_iterator iterator_to( const value_type& x )
@@ -630,7 +620,6 @@ primary_iterator erase( primary_iterator position )
             }
             else
             {
-               elog( "${e}", ("e", retval.ToString()) );
                super::reset_first_key_update();
             }
          }
@@ -666,7 +655,6 @@ primary_iterator erase( primary_iterator position )
       }
       else
       {
-         elog( "${e}", ("e", retval.ToString()) );
          super::reset_first_key_update();
       }
 
@@ -702,7 +690,6 @@ primary_iterator erase( primary_iterator position )
          }
          else
          {
-            elog( "${e}", ("e", retval.ToString()) );
             super::reset_first_key_update();
          }
       }
@@ -734,11 +721,6 @@ primary_iterator erase( primary_iterator position )
       if( status.ok() )
       {
          unpack_from_slice< Serializer >( value_slice, v );
-         //ilog( "Retrieved metdata for ${type}: ${key},${value}", ("type",boost::core::demangle(typeid(Value).name()))("key",k)("value",v) );
-      }
-      else
-      {
-         //ilog( "Failed to retrieve metadata for ${type}: ${key}", ("type",boost::core::demangle(typeid(Value).name()))("key",k) );
       }
 
       return status.ok();
@@ -758,15 +740,6 @@ primary_iterator erase( primary_iterator position )
          &*super::_handles[0],
          key_slice,
          value_slice );
-
-      if( status.ok() )
-      {
-         //ilog( "Stored metdata for ${type}: ${key},${value}", ("type",boost::core::demangle(typeid(Value).name()))("key",k)("value",v) );
-      }
-      else
-      {
-         //ilog( "Failed to store metadata for ${type}: ${key},${value}", ("type",boost::core::demangle(typeid(Value).name()))("key",k)("value",v) );
-      }
 
       return status.ok();
    }
