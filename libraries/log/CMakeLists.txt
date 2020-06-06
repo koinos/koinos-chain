@@ -9,4 +9,3 @@ add_library(koinos_log
 
 target_include_directories(koinos_log PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(koinos_log PUBLIC Boost::log_setup Boost::log Boost::filesystem)
-target_compile_definitions(koinos_log PUBLIC -DBOOST_LOG_DYN_LINK)
