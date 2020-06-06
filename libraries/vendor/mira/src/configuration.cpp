@@ -1,6 +1,24 @@
+#include <boost/core/demangle.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
+
 #include <mira/configuration.hpp>
 
+#include <rocksdb/filter_policy.h>
+#include <rocksdb/table.h>
+#include <rocksdb/statistics.h>
+#include <rocksdb/rate_limiter.h>
+#include <rocksdb/convenience.h>
+
 namespace mira {
+
+mira_config_error::mira_config_error( std::string&& msg ) : _msg( msg ) {}
+mira_config_error::~mira_config_error() {}
+
+const char* mira_config_error::what() const noexcept
+{
+   return _msg.c_str();
+}
 
 // Base configuration for an index
 #define BASE                             "base"
@@ -40,82 +58,85 @@ namespace mira {
 static std::shared_ptr< rocksdb::Cache > global_shared_cache;
 static std::shared_ptr< rocksdb::WriteBufferManager > global_write_buffer_manager;
 
-static std::map< std::string, std::function< void( ::rocksdb::Options&, fc::variant ) > > global_database_option_map {
-   { ALLOW_MMAP_READS,                  []( ::rocksdb::Options& o, fc::variant v ) { o.allow_mmap_reads = v.as< bool >(); }                 },
-   { WRITE_BUFFER_SIZE,                 []( ::rocksdb::Options& o, fc::variant v ) { o.write_buffer_size = v.as< uint64_t >(); }            },
-   { MAX_BYTES_FOR_LEVEL_BASE,          []( ::rocksdb::Options& o, fc::variant v ) { o.max_bytes_for_level_base = v.as< uint64_t >(); }     },
-   { TARGET_FILE_SIZE_BASE,             []( ::rocksdb::Options& o, fc::variant v ) { o.target_file_size_base = v.as< uint64_t >(); }        },
-   { MAX_WRITE_BUFFER_NUMBER,           []( ::rocksdb::Options& o, fc::variant v ) { o.max_write_buffer_number = v.as< int >(); }           },
-   { MAX_BACKGROUND_COMPACTIONS,        []( ::rocksdb::Options& o, fc::variant v ) { o.max_background_compactions = v.as< int >(); }        },
-   { MAX_BACKGROUND_FLUSHES,            []( ::rocksdb::Options& o, fc::variant v ) { o.max_background_flushes = v.as< int >(); }            },
-   { MIN_WRITE_BUFFER_NUMBER_TO_MERGE,  []( ::rocksdb::Options& o, fc::variant v ) { o.min_write_buffer_number_to_merge = v.as< int >(); }  },
-   { OPTIMIZE_LEVEL_STYLE_COMPACTION,   []( ::rocksdb::Options& o, fc::variant v )
+static std::map< std::string, std::function< void( ::rocksdb::Options&, nlohmann::json& ) > > global_database_option_map {
+   { ALLOW_MMAP_READS,                  []( ::rocksdb::Options& o, nlohmann::json& j ) { o.allow_mmap_reads = j.template get< bool >(); }                 },
+   { WRITE_BUFFER_SIZE,                 []( ::rocksdb::Options& o, nlohmann::json& j ) { o.write_buffer_size = j.template get< uint64_t >(); }            },
+   { MAX_BYTES_FOR_LEVEL_BASE,          []( ::rocksdb::Options& o, nlohmann::json& j ) { o.max_bytes_for_level_base = j.template get< uint64_t >(); }     },
+   { TARGET_FILE_SIZE_BASE,             []( ::rocksdb::Options& o, nlohmann::json& j ) { o.target_file_size_base = j.template get< uint64_t >(); }        },
+   { MAX_WRITE_BUFFER_NUMBER,           []( ::rocksdb::Options& o, nlohmann::json& j ) { o.max_write_buffer_number = j.template get< int >(); }           },
+   { MAX_BACKGROUND_COMPACTIONS,        []( ::rocksdb::Options& o, nlohmann::json& j ) { o.max_background_compactions = j.template get< int >(); }        },
+   { MAX_BACKGROUND_FLUSHES,            []( ::rocksdb::Options& o, nlohmann::json& j ) { o.max_background_flushes = j.template get< int >(); }            },
+   { MIN_WRITE_BUFFER_NUMBER_TO_MERGE,  []( ::rocksdb::Options& o, nlohmann::json& j ) { o.min_write_buffer_number_to_merge = j.template get< int >(); }  },
+   { OPTIMIZE_LEVEL_STYLE_COMPACTION,   []( ::rocksdb::Options& o, nlohmann::json& j )
       {
-         if ( v.as< bool >() )
+         if ( j.template get< bool >() )
             o.OptimizeLevelStyleCompaction();
       }
    },
-   { INCREASE_PARALLELISM, []( ::rocksdb::Options& o, fc::variant v )
+   { INCREASE_PARALLELISM, []( ::rocksdb::Options& o, nlohmann::json& j )
       {
-         if ( v.as< bool >() )
+         if ( j.template get< bool >() )
             o.IncreaseParallelism();
       }
    },
-   { BLOCK_BASED_TABLE_OPTIONS, []( ::rocksdb::Options& o, auto v )
+   { BLOCK_BASED_TABLE_OPTIONS, []( ::rocksdb::Options& o, nlohmann::json& j )
       {
          ::rocksdb::BlockBasedTableOptions table_options;
-         FC_ASSERT( v.is_object(), "Expected '${key}' to be an object",
-            ("key", BLOCK_BASED_TABLE_OPTIONS) );
-
-         auto& obj = v.get_object();
+         if( !j.is_object() )
+            throw mira_config_error( "Expected '" BLOCK_BASED_TABLE_OPTIONS "' to be an object" );
 
          table_options.block_cache = global_shared_cache;
-
-         if ( obj.contains( BLOCK_SIZE ) )
+         if( j.is_object() )
          {
-            FC_ASSERT( obj[ BLOCK_SIZE ].is_uint64(), "Expected '${key}' to be an unsigned integer",
-               ("key", BLOCK_SIZE) );
-
-            table_options.block_size = obj[ BLOCK_SIZE ].template as< uint64_t >();
-         }
-
-         if ( obj.contains( CACHE_INDEX_AND_FILTER_BLOCKS ) )
-         {
-            FC_ASSERT( obj[ CACHE_INDEX_AND_FILTER_BLOCKS ].is_bool(), "Expected '${key}' to be a boolean",
-               ("key", CACHE_INDEX_AND_FILTER_BLOCKS) );
-
-            table_options.cache_index_and_filter_blocks = obj[ CACHE_INDEX_AND_FILTER_BLOCKS ].template as< bool >();
-         }
-
-         if ( obj.contains( BLOOM_FILTER_POLICY ) )
-         {
-            FC_ASSERT( obj[ BLOOM_FILTER_POLICY ].is_object(), "Expected '${key}' to be an object",
-               ("key", BLOOM_FILTER_POLICY) );
-
-            auto filter_policy = obj[ BLOOM_FILTER_POLICY ].get_object();
-            size_t bits_per_key;
-
-            // Bits per key is required for the bloom filter policy
-            FC_ASSERT( filter_policy.contains( BITS_PER_KEY ), "Expected '${parent}' to contain '${key}'",
-               ("parent", BLOOM_FILTER_POLICY)
-               ("key", BITS_PER_KEY) );
-
-            FC_ASSERT( filter_policy[ BITS_PER_KEY ].is_uint64(), "Expected '${key}' to be an unsigned integer",
-               ("key", BITS_PER_KEY) );
-
-            bits_per_key = filter_policy[ BITS_PER_KEY ].template as< uint64_t >();
-
-            if ( filter_policy.contains( USE_BLOCK_BASED_BUILDER ) )
+            if ( j.contains( BLOCK_SIZE ) )
             {
-               FC_ASSERT( filter_policy[ USE_BLOCK_BASED_BUILDER ].is_bool(), "Expected '${key}' to be a boolean",
-                  ("key", USE_BLOCK_BASED_BUILDER) );
+               if( !j[ BLOCK_SIZE ].is_number() )
+                  throw mira_config_error( "Expected '" BLOCK_SIZE "' to be an unsigned integer" );
 
-               table_options.filter_policy.reset( rocksdb::NewBloomFilterPolicy( bits_per_key, filter_policy[ USE_BLOCK_BASED_BUILDER ].template as< bool >() ) );
+               table_options.block_size = j[ BLOCK_SIZE ].template get< uint64_t >();
             }
-            else
+
+            if ( j.contains( CACHE_INDEX_AND_FILTER_BLOCKS ) )
             {
-               table_options.filter_policy.reset( rocksdb::NewBloomFilterPolicy( bits_per_key ) );
+               if( !j[ CACHE_INDEX_AND_FILTER_BLOCKS ]. is_boolean() )
+                  throw mira_config_error( "Expected '" CACHE_INDEX_AND_FILTER_BLOCKS "' to be a boolean" );
+
+               table_options.cache_index_and_filter_blocks = j[ CACHE_INDEX_AND_FILTER_BLOCKS ].template get< bool >();
             }
+
+            if ( j.contains( BLOOM_FILTER_POLICY ) )
+            {
+               if( !j[ BLOOM_FILTER_POLICY ].is_object() )
+                  throw mira_config_error( "Expected '" BLOOM_FILTER_POLICY "' to be an object" );
+
+               auto& filter_policy = j[ BLOOM_FILTER_POLICY ];
+               size_t bits_per_key;
+
+               // Bits per key is required for the bloom filter policy
+               if( !filter_policy.contains( BITS_PER_KEY ) )
+                  throw mira_config_error( "Expected '" BLOOM_FILTER_POLICY "' to contain '" BITS_PER_KEY "'" );
+
+               if( !filter_policy[ BITS_PER_KEY ].is_number() )
+                  throw mira_config_error( "Expected '" BITS_PER_KEY "' to be an unsigned integer" );
+
+               bits_per_key = filter_policy[ BITS_PER_KEY ].template get< uint64_t >();
+
+               if( filter_policy.contains( USE_BLOCK_BASED_BUILDER ) )
+               {
+                  if( !filter_policy[ USE_BLOCK_BASED_BUILDER ]. is_boolean() )
+                     throw mira_config_error( "Expected '" USE_BLOCK_BASED_BUILDER "' to be a boolean" );
+
+                  table_options.filter_policy.reset( rocksdb::NewBloomFilterPolicy( bits_per_key, filter_policy[ USE_BLOCK_BASED_BUILDER ].template get< bool >() ) );
+               }
+               else
+               {
+                  table_options.filter_policy.reset( rocksdb::NewBloomFilterPolicy( bits_per_key ) );
+               }
+            }
+         }
+         else
+         {
+            throw mira_config_error( "Expected json object" );
          }
 
          o.table_factory.reset( ::rocksdb::NewBlockBasedTableFactory( table_options ) );
@@ -123,73 +144,66 @@ static std::map< std::string, std::function< void( ::rocksdb::Options&, fc::vari
    }
 };
 
-fc::variant_object configuration::apply_configuration_overlay( const fc::variant& base, const fc::variant& overlay )
+void apply_configuration_overlay( nlohmann::json& base, const nlohmann::json& overlay )
 {
-   fc::mutable_variant_object config;
-   FC_ASSERT( base.is_object(), "Expected '${key}' configuration to be an object",
-      ("key", BASE) );
+   if( !base.is_object() )
+      throw mira_config_error( "Expected '" BASE "' configuration to be an object" );
 
-   FC_ASSERT( overlay.is_object(), "Expected database overlay configuration to be an object" );
-
-   // Start with our base configuration
-   config = base.get_object();
+   if( !overlay.is_object() )
+      throw mira_config_error( "Expected database overlay configuration to be an object" );
 
    // Iterate through the overlay overriding the base values
-   auto& overlay_obj = overlay.get_object();
-   for ( auto it = overlay_obj.begin(); it != overlay_obj.end(); ++it )
-      config[ it->key() ] = it->value();
-
-   return config;
+   for( auto it = overlay.begin(); it != overlay.end(); ++it )
+      base[ it.key() ] = it.value();
 }
 
-fc::variant_object configuration::retrieve_global_configuration( const fc::variant_object& obj )
+nlohmann::json& retrieve_global_configuration( nlohmann::json& j )
 {
-   fc::mutable_variant_object global_config;
+   if( !j.contains( GLOBAL ) )
+      throw mira_config_error( "Does not contain object '" GLOBAL "'" );
 
-   FC_ASSERT( obj[ GLOBAL ].is_object(), "Expected '${key}' configuration to be an object",
-      ("key", GLOBAL) );
+   if( !j[ GLOBAL ].is_object() )
+      throw mira_config_error( "Expected '" GLOBAL "' configuration to be an object" );
 
-   global_config = obj[ GLOBAL ].get_object();
-   return global_config;
+   return j[ GLOBAL ];
 }
 
-fc::variant_object configuration::retrieve_active_configuration( const fc::variant_object& obj, std::string type_name )
+nlohmann::json& retrieve_active_configuration( nlohmann::json& j, std::string type_name )
 {
-   fc::mutable_variant_object active_config;
    std::vector< std::string > split_v;
    boost::split( split_v, type_name, boost::is_any_of( ":" ) );
    const auto index_name = *(split_v.rbegin());
 
-   FC_ASSERT( obj[ BASE ].is_object(), "Expected '${key}' configuration to be an object",
-      ("key", BASE) );
+   if( !j.contains( BASE ) )
+      throw mira_config_error( "Does not contain object '" BASE "'" );
+
+   if( !j[ BASE ].is_object() )
+      throw mira_config_error( "Expected '" BASE "' configuration to be an object" );
 
    // We look to apply an index configuration overlay
-   if ( obj.find( index_name ) != obj.end() )
-      active_config = apply_configuration_overlay( obj[ BASE ], obj[ index_name ] );
-   else
-      active_config = obj[ BASE ].get_object();
+   if ( j.find( index_name ) != j.end() )
+      apply_configuration_overlay( j[ BASE ], j[ index_name ] );
 
-   return active_config;
+   return j[ BASE ];
 }
 
 size_t configuration::get_object_count( const boost::any& cfg )
 {
    size_t object_count = 0;
 
-   auto c = boost::any_cast< fc::variant >( cfg );
-   FC_ASSERT( c.is_object(), "Expected database configuration to be an object" );
-   auto& obj = c.get_object();
+   auto j = boost::any_cast< nlohmann::json >( cfg );
+   if( !j.is_object() )
+      throw mira_config_error( "Expected database configuration to be an object" );
 
-   fc::variant_object global_config = retrieve_global_configuration( obj );
+   const nlohmann::json& global_config = retrieve_global_configuration( j );
 
-   FC_ASSERT( global_config.contains( OBJECT_COUNT ), "Expected '${parent}' configuration to contain '${key}'",
-      ("parent", GLOBAL)
-      ("key", OBJECT_COUNT) );
+   if( !global_config.contains( OBJECT_COUNT ) )
+      throw mira_config_error( "Expected '" GLOBAL "' configuration to contain '" OBJECT_COUNT "'" );
 
-   FC_ASSERT( global_config[ OBJECT_COUNT ].is_uint64(), "Expected '${key}' to be an unsigned integer",
-      ("key", OBJECT_COUNT) );
+   if( !global_config[ OBJECT_COUNT ].is_number() )
+      throw mira_config_error( "Expected '" OBJECT_COUNT "' to be an unsigned integer" );
 
-   object_count = global_config[ OBJECT_COUNT ].as< uint64_t >();
+   object_count = global_config[ OBJECT_COUNT ].get< uint64_t >();
 
    return object_count;
 }
@@ -198,20 +212,19 @@ bool configuration::gather_statistics( const boost::any& cfg )
 {
    bool statistics = false;
 
-   auto c = boost::any_cast< fc::variant >( cfg );
-   FC_ASSERT( c.is_object(), "Expected database configuration to be an object" );
-   auto& obj = c.get_object();
+   auto j = boost::any_cast< nlohmann::json >( cfg );
+   if( !j.is_object() )
+      throw mira_config_error( "Expected database configuration to be an object" );
 
-   fc::variant_object global_config = retrieve_global_configuration( obj );
+   const nlohmann::json& global_config = retrieve_global_configuration( j );
 
-   FC_ASSERT( global_config.contains( STATISTICS ), "Expected '${parent}' configuration to contain '${key}'",
-      ("parent", GLOBAL)
-      ("key", STATISTICS) );
+   if( !global_config.contains( STATISTICS ) )
+      throw mira_config_error( "Expected '" GLOBAL "' configuration to contain '" STATISTICS "'" );
 
-   FC_ASSERT( global_config[ STATISTICS ].is_bool(), "Expected '${key}' to be a boolean value",
-      ("key", STATISTICS) );
+   if( !global_config[ STATISTICS ].is_boolean() )
+      throw mira_config_error( "Expected '" STATISTICS "' to be a boolean value" );
 
-   statistics = global_config[ STATISTICS ].as< bool >();
+   statistics = global_config[ STATISTICS ].get< bool >();
 
    return statistics;
 }
@@ -220,41 +233,39 @@ bool configuration::gather_statistics( const boost::any& cfg )
 {
    ::rocksdb::Options opts;
 
-   auto c = boost::any_cast< fc::variant >( cfg );
-   FC_ASSERT( c.is_object(), "Expected database configuration to be an object" );
-   auto& obj = c.get_object();
+   auto j = boost::any_cast< nlohmann::json >( cfg );
+   if( !j.is_object() )
+      throw mira_config_error( "Expected database configuration to be an object" );
 
-   if ( global_shared_cache == nullptr )
+   if( global_shared_cache == nullptr )
    {
       size_t capacity = 0;
       int num_shard_bits = 0;
 
-      fc::variant_object global_config = retrieve_global_configuration( obj );
+      const nlohmann::json& global_config = retrieve_global_configuration( j );
 
-      FC_ASSERT( global_config.contains( SHARED_CACHE ), "Expected '${parent}' configuration to contain '${key}'",
-         ("parent", GLOBAL)
-         ("key", SHARED_CACHE) );
+      if( !global_config.contains( SHARED_CACHE ) )
+         throw mira_config_error( "Expected '" GLOBAL "' configuration to contain '" SHARED_CACHE "'" );
 
-      FC_ASSERT( global_config[ SHARED_CACHE ].is_object(), "Expected '${key}' to be an object",
-         ("key", SHARED_CACHE) );
+      if( !global_config[ SHARED_CACHE ].is_object() )
+         throw mira_config_error( "Expected '" SHARED_CACHE "' to be an object" );
 
-      auto& shared_cache_obj = global_config[ SHARED_CACHE ].get_object();
+      auto& shared_cache_obj = global_config[ SHARED_CACHE ];
 
-      FC_ASSERT( shared_cache_obj.contains( CAPACITY ), "Expected '${parent}' configuration to contain '${key}'",
-         ("parent", SHARED_CACHE)
-         ("key", CAPACITY) );
+      if( !shared_cache_obj.contains( CAPACITY ) )
+         throw mira_config_error( "Expected '" SHARED_CACHE "' configuration to contain '" CAPACITY "'" );
 
-      FC_ASSERT( shared_cache_obj[ CAPACITY ].is_string(), "Expected '${key}' to be a string representation of an unsigned integer",
-         ("key", CAPACITY) );
+      if( !shared_cache_obj[ CAPACITY ].is_number() )
+         throw mira_config_error( "Expected '" CAPACITY "' to be a an unsigned integer" );
 
-      capacity = shared_cache_obj[ CAPACITY ].as< uint64_t >();
+      capacity = shared_cache_obj[ CAPACITY ].get< uint64_t >();
 
       if ( shared_cache_obj.contains( NUM_SHARD_BITS ) )
       {
-         FC_ASSERT( shared_cache_obj[ NUM_SHARD_BITS ].is_uint64(), "Expected '${key}' to be an unsigned integer",
-            ("key", NUM_SHARD_BITS) );
+         if( !shared_cache_obj[ NUM_SHARD_BITS ].is_number() )
+            throw mira_config_error( "Expected '" NUM_SHARD_BITS "' to be an unsigned integer" );
 
-         num_shard_bits = shared_cache_obj[ NUM_SHARD_BITS ].as< int >();
+         num_shard_bits = shared_cache_obj[ NUM_SHARD_BITS ].get< int >();
 
          global_shared_cache = rocksdb::NewLRUCache( capacity, num_shard_bits );
       }
@@ -268,25 +279,23 @@ bool configuration::gather_statistics( const boost::any& cfg )
    {
       size_t write_buf_size = 0;
 
-      fc::variant_object global_config = retrieve_global_configuration( obj );
+      const nlohmann::json& global_config = retrieve_global_configuration( j );
 
-      FC_ASSERT( global_config.contains( WRITE_BUFFER_MANAGER ), "Expected '${parent}' configuration to contain '${key}'",
-         ("parent", GLOBAL)
-         ("key", WRITE_BUFFER_MANAGER) );
+      if( !global_config.contains( WRITE_BUFFER_MANAGER ) )
+         throw mira_config_error( "Expected '" GLOBAL "' configuration to contain '" WRITE_BUFFER_MANAGER "'" );
 
-      FC_ASSERT( global_config[ WRITE_BUFFER_MANAGER ].is_object(), "Expected '${key}' to be an object",
-         ("key", WRITE_BUFFER_MANAGER) );
+      if( !global_config[ WRITE_BUFFER_MANAGER ].is_object() )
+         throw mira_config_error( "Expected '" WRITE_BUFFER_MANAGER "' to be an object" );
 
-      auto& write_buffer_mgr_obj = global_config[ WRITE_BUFFER_MANAGER ].get_object();
+      auto& write_buffer_mgr_obj = global_config[ WRITE_BUFFER_MANAGER ];
 
-      FC_ASSERT( write_buffer_mgr_obj.contains( WRITE_BUFFER_SIZE ), "Expected '${parent}' configuration to contain '${key}'",
-         ("parent", WRITE_BUFFER_MANAGER)
-         ("key", WRITE_BUFFER_SIZE) );
+      if( !write_buffer_mgr_obj.contains( WRITE_BUFFER_SIZE ) )
+         throw mira_config_error( "Expected '" WRITE_BUFFER_MANAGER "' configuration to contain '" WRITE_BUFFER_SIZE "'" );
 
-      FC_ASSERT( write_buffer_mgr_obj[ WRITE_BUFFER_SIZE ].is_string(), "Expected '${key}' to be a string representation of an unsigned integer",
-         ("key", WRITE_BUFFER_SIZE) );
+      if( !write_buffer_mgr_obj[ WRITE_BUFFER_SIZE ].is_number() )
+         throw mira_config_error( "Expected '" WRITE_BUFFER_SIZE "' to be a an unsigned integer" );
 
-      write_buf_size = write_buffer_mgr_obj[ WRITE_BUFFER_SIZE ].as< uint64_t >();
+      write_buf_size = write_buffer_mgr_obj[ WRITE_BUFFER_SIZE ].get< uint64_t >();
 
       global_write_buffer_manager = std::make_shared< ::rocksdb::WriteBufferManager >( write_buf_size, global_shared_cache );
    }
@@ -294,22 +303,12 @@ bool configuration::gather_statistics( const boost::any& cfg )
    // We assign the global write buffer manager to all databases
    opts.write_buffer_manager = global_write_buffer_manager;
 
-   fc::variant_object config = retrieve_active_configuration( obj, type_name );
+   nlohmann::json& config = retrieve_active_configuration( j, type_name );
 
-   for ( auto it = config.begin(); it != config.end(); ++it )
+   for( auto it = config.begin(); it != config.end(); ++it )
    {
-      try
-      {
-         if ( global_database_option_map.find( it->key() ) != global_database_option_map.end() )
-            global_database_option_map[ it->key() ]( opts, it->value() );
-         else
-            wlog( "Encountered an unknown database configuration option: ${key}", ("key",it->key()) );
-      }
-      catch( ... )
-      {
-         elog( "Error applying database option: ${key}", ("key", it->key()) );
-         throw;
-      }
+      if ( global_database_option_map.find( it.key() ) != global_database_option_map.end() )
+         global_database_option_map[ it.key() ]( opts, it.value() );
    }
 
    return opts;

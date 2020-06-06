@@ -169,7 +169,7 @@ namespace koinos { namespace chain {
    template<size_t N>
    struct secondary_key_traits<std::array<uint128_t, N>> {
    private:
-      FC_TODO( "Fix uint128 for FC" )
+      #pragma message "TODO: Fix uint128 for FC"
       // static constexpr uint128_t max_uint128 = (static_cast<uint128_t>(std::numeric_limits<uint64_t>::max()) << 64) | std::numeric_limits<uint64_t>::max();
       // static_assert( std::numeric_limits<uint128_t>::max() == max_uint128, "numeric_limits for uint128_t is not properly defined" );
 
@@ -250,14 +250,10 @@ CHAINBASE_SET_INDEX_TYPE(koinos::chain::index256_object, koinos::chain::index256
 CHAINBASE_SET_INDEX_TYPE(koinos::chain::index_double_object, koinos::chain::index_double_index)
 CHAINBASE_SET_INDEX_TYPE(koinos::chain::index_long_double_object, koinos::chain::index_long_double_index)
 
-FC_REFLECT(koinos::chain::table_id_object, (code)(scope)(table)(payer)(count) )
-FC_REFLECT(koinos::chain::key_value_object, (primary_key)(payer)(value) )
-
 KOINOS_REFLECT(koinos::chain::table_id_object, (code)(scope)(table)(payer)(count) )
 KOINOS_REFLECT(koinos::chain::key_value_object, (primary_key)(payer)(value) )
 
 #define REFLECT_SECONDARY(type)\
-  FC_REFLECT(type, (primary_key)(payer)(secondary_key) )\
   KOINOS_REFLECT(type, (primary_key)(payer)(secondary_key) )
 
 REFLECT_SECONDARY(koinos::chain::index64_object)

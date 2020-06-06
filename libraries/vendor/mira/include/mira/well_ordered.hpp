@@ -46,6 +46,4 @@ namespace mira {
    MIRA_WELL_ORDERED_TYPE( uint16_t )
    MIRA_WELL_ORDERED_TYPE( uint32_t )
    MIRA_WELL_ORDERED_TYPE( uint64_t )
-
-   template< typename T, typename Serializer, bool ROOT > struct is_well_ordered< fc::safe< T >, Serializer, ROOT > : public is_well_ordered< T, Serializer, ROOT > {};
 }

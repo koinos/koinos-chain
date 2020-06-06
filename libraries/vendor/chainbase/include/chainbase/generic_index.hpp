@@ -2,8 +2,6 @@
 #include <chainbase/undo_state.hpp>
 #include <chainbase/merge_iterator.hpp>
 
-#include <fc/log/logger.hpp>
-
 namespace chainbase {
 
    /**

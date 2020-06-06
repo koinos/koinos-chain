@@ -54,7 +54,7 @@ if( CLANG_TIDY_EXE )
    )
 endif( CLANG_TIDY_EXE )
 
-target_link_libraries( mira ${Boost_LIBRARIES} rocksdb fc )
+target_link_libraries( mira ${Boost_LIBRARIES} rocksdb nlohmann_json )
 
 target_include_directories( mira
    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"

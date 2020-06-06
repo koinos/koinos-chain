@@ -2,6 +2,8 @@
 
 #include <boost/any.hpp>
 
+#include <koinos/log.hpp>
+
 #include <mira/database_configuration.hpp>
 
 #include <iostream>
@@ -131,7 +133,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
          BOOST_REQUIRE_EQUAL( new_book.a, 7 );
          BOOST_REQUIRE_EQUAL( new_book.b, 8 );
       }
-   } FC_LOG_AND_RETHROW()
+   } catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; }
 }
 
 BOOST_AUTO_TEST_CASE( merge_iterator )
@@ -1153,7 +1155,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
       BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
    }
-} FC_LOG_AND_RETHROW() }
+} catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_CASE( key_uniqueness )
 { try {
@@ -1228,6 +1230,6 @@ BOOST_AUTO_TEST_CASE( key_uniqueness )
    }
 
 
-} FC_LOG_AND_RETHROW() }
+} catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_SUITE_END()

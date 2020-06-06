@@ -4,8 +4,6 @@
 
 #include <koinos/crypto/elliptic.hpp>
 
-#include <fc/crypto/base58.hpp>
-
 #include <iostream>
 
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
