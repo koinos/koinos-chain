@@ -362,6 +362,10 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
 
 #pragma message( "TODO:  Apply block" )
 
+   // Apply block
+   // Apply transaction
+   // Apply operation
+
    _state_db.finalize_node( block_node->id() );
 
 #pragma message( "TODO:  Report success / failure to caller" )

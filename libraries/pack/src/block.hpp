@@ -42,6 +42,11 @@ struct active_block_data
    timestamp_type                 timestamp;
 
    /**
+    * Vector of opaque transactions in the block.
+    */
+   std::vector< vl_blob >              transactions;
+
+   /**
     * A zero byte at the end, reserved for protocol expansion.
     */
    unused_extensions_type         extensions;
@@ -101,7 +106,10 @@ struct reserved_block_header
 
 struct transaction_type
 {
-   std::vector<operation>         operations;
+   /**
+    * Vector of opaque operations in this transation
+    */
+   std::vector< vl_blob >         operations;
 
    /**
     * A zero byte at the end, reserved for protocol expansion.
