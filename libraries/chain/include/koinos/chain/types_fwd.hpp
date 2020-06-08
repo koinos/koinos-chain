@@ -1,8 +1,5 @@
 #pragma once
 
-#include <chainbase/allocators.hpp>
-#include <chainbase/util/object_id.hpp>
-
 #include <mira/multi_index_container_fwd.hpp>
 
 #include <koinos/pack/rt/binary_fwd.hpp>
@@ -19,11 +16,6 @@ namespace koinos::chain {
 }
 
 namespace koinos::pack {
-
-template<typename Stream, typename T>
-inline void to_binary( Stream& s, const chainbase::oid<T>& id );
-template<typename Stream, typename T>
-inline void from_binary( Stream& s, chainbase::oid<T>& id, uint32_t depth = 0 );
 
 template<typename Stream>
 void to_binary( Stream& s, const float64_t& v );

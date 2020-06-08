@@ -155,99 +155,7 @@ struct system_api final
    SYSTEM_CALL_DECLARE( double, _eosio_ui32_to_f64, uint32_t a );
    SYSTEM_CALL_DECLARE( double, _eosio_ui64_to_f64, uint64_t a );
 
-   // Assertions
-   SYSTEM_CALL_DECLARE( void, abort );
-   SYSTEM_CALL_DECLARE( void, eosio_assert, bool condition, null_terminated_ptr msg );
-   SYSTEM_CALL_DECLARE( void, eosio_assert_message, bool, array_ptr< const char > msg, uint32_t len );
-   SYSTEM_CALL_DECLARE( void, eosio_assert_code, bool condition, uint64_t error_code );
-   SYSTEM_CALL_DECLARE( void, eosio_exit, int32_t code );
-
-   SYSTEM_CALL_DECLARE( int, read_action_data, array_ptr<char> memory, uint32_t buffer_size );
-   SYSTEM_CALL_DECLARE( int, action_data_size );
-   SYSTEM_CALL_DECLARE( name, current_receiver );
-
-   SYSTEM_CALL_DECLARE( char*, memcpy, array_ptr< char > dest, array_ptr< const char > src, uint32_t length );
-   SYSTEM_CALL_DECLARE( char*, memmove, array_ptr< char > dest, array_ptr< const char > src, uint32_t length );
-   SYSTEM_CALL_DECLARE( int, memcmp, array_ptr< const char > dest, array_ptr< const char > src, uint32_t length );
-   SYSTEM_CALL_DECLARE( char*, memset, array_ptr<char> dest, int value, uint32_t length );
-
    SYSTEM_CALL_DECLARE( void, prints, null_terminated_ptr str );
-   SYSTEM_CALL_DECLARE( void, prints_l, array_ptr< const char > str, uint32_t str_len );
-   SYSTEM_CALL_DECLARE( void, printi, int64_t val );
-   SYSTEM_CALL_DECLARE( void, printui, uint64_t val );
-   SYSTEM_CALL_DECLARE( void, printi128, const __int128& val );
-   SYSTEM_CALL_DECLARE( void, printui128, const unsigned __int128& val );
-   SYSTEM_CALL_DECLARE( void, printsf, float val );
-   SYSTEM_CALL_DECLARE( void, printdf, double val );
-   SYSTEM_CALL_DECLARE( void, printqf, const float128_t& val );
-   SYSTEM_CALL_DECLARE( void, printn, name val );
-   SYSTEM_CALL_DECLARE( void, printhex, array_ptr< const char > data, uint32_t data_len );
-
-   SYSTEM_CALL_DECLARE( int, db_store_i64, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, array_ptr< const char > buffer, uint32_t buffer_size );
-   SYSTEM_CALL_DECLARE( void, db_update_i64, int itr, uint64_t payer, array_ptr< const char > buffer, uint32_t buffer_size );
-   SYSTEM_CALL_DECLARE( void, db_remove_i64, int itr );
-   SYSTEM_CALL_DECLARE( int, db_get_i64, int itr, array_ptr< char > buffer, uint32_t buffer_size );
-   SYSTEM_CALL_DECLARE( int, db_next_i64, int itr, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_previous_i64, int itr, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_find_i64, uint64_t code, uint64_t scope, uint64_t table, uint64_t id );
-   SYSTEM_CALL_DECLARE( int, db_lowerbound_i64, uint64_t code, uint64_t scope, uint64_t table, uint64_t id );
-   SYSTEM_CALL_DECLARE( int, db_upperbound_i64, uint64_t code, uint64_t scope, uint64_t table, uint64_t id );
-   SYSTEM_CALL_DECLARE( int, db_end_i64, uint64_t code, uint64_t scope, uint64_t table );
-
-   SYSTEM_CALL_DECLARE( int, db_idx64_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const uint64_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx64_update, int iterator, uint64_t payer, const uint64_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx64_remove, int iterator );
-   SYSTEM_CALL_DECLARE( int, db_idx64_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const uint64_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx64_find_primary, uint64_t code, uint64_t scope, uint64_t table, uint64_t& secondary, uint64_t primary );
-   SYSTEM_CALL_DECLARE( int, db_idx64_lowerbound, uint64_t code, uint64_t scope, uint64_t table, uint64_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx64_upperbound, uint64_t code, uint64_t scope, uint64_t table, uint64_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx64_end, uint64_t code, uint64_t scope, uint64_t table );
-   SYSTEM_CALL_DECLARE( int, db_idx64_next, int iterator, uint64_t& primary  );
-   SYSTEM_CALL_DECLARE( int, db_idx64_previous, int iterator, uint64_t& primary );
-
-   SYSTEM_CALL_DECLARE( int, db_idx128_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const uint128_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx128_update, int iterator, uint64_t payer, const uint128_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx128_remove, int iterator );
-   SYSTEM_CALL_DECLARE( int, db_idx128_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const uint128_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx128_find_primary, uint64_t code, uint64_t scope, uint64_t table, uint128_t& secondary, uint64_t primary );
-   SYSTEM_CALL_DECLARE( int, db_idx128_lowerbound, uint64_t code, uint64_t scope, uint64_t table, uint128_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx128_upperbound, uint64_t code, uint64_t scope, uint64_t table, uint128_t& secondary, uint64_t& primary );;
-   SYSTEM_CALL_DECLARE( int, db_idx128_end, uint64_t code, uint64_t scope, uint64_t table );
-   SYSTEM_CALL_DECLARE( int, db_idx128_next, int iterator, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx128_previous, int iterator, uint64_t& primary );
-
-   SYSTEM_CALL_DECLARE( int, db_idx256_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, array_ptr< const uint128_t > data, uint32_t data_len );
-   SYSTEM_CALL_DECLARE( void, db_idx256_update, int iterator, uint64_t payer, array_ptr< const uint128_t > data, uint32_t data_len );
-   SYSTEM_CALL_DECLARE( void, db_idx256_remove, int iterator );
-   SYSTEM_CALL_DECLARE( int, db_idx256_find_secondary, uint64_t code, uint64_t scope, uint64_t table, array_ptr< const uint128_t > data, uint32_t data_len, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx256_find_primary, uint64_t code, uint64_t scope, uint64_t table, array_ptr< uint128_t > data, uint32_t data_len, uint64_t primary );
-   SYSTEM_CALL_DECLARE( int, db_idx256_lowerbound, uint64_t code, uint64_t scope, uint64_t table, array_ptr< uint128_t > data, uint32_t data_len, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx256_upperbound, uint64_t code, uint64_t scope, uint64_t table, array_ptr< uint128_t > data, uint32_t data_len, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx256_end, uint64_t code, uint64_t scope, uint64_t table );
-   SYSTEM_CALL_DECLARE( int, db_idx256_next, int iterator, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx256_previous, int iterator, uint64_t& primary );
-
-   SYSTEM_CALL_DECLARE( int, db_idx_double_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const float64_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx_double_update, int iterator, uint64_t payer, const float64_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx_double_remove, int iterator );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const float64_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_find_primary, uint64_t code, uint64_t scope, uint64_t table, float64_t& secondary, uint64_t primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_lowerbound, uint64_t code, uint64_t scope, uint64_t table, float64_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_upperbound, uint64_t code, uint64_t scope, uint64_t table, float64_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_end, uint64_t code, uint64_t scope, uint64_t table );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_next, int iterator, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_double_previous, int iterator, uint64_t& primary );
-
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_store, uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, const float128_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx_long_double_update, int iterator, uint64_t payer, const float128_t& secondary );
-   SYSTEM_CALL_DECLARE( void, db_idx_long_double_remove, int iterator );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_find_secondary, uint64_t code, uint64_t scope, uint64_t table, const float128_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_find_primary, uint64_t code, uint64_t scope, uint64_t table, float128_t& secondary, uint64_t primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_lowerbound, uint64_t code, uint64_t scope, uint64_t table, float128_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_upperbound, uint64_t code, uint64_t scope, uint64_t table, float128_t& secondary, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_end, uint64_t code, uint64_t scope, uint64_t table );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_next, int iterator, uint64_t& primary );
-   SYSTEM_CALL_DECLARE( int, db_idx_long_double_previous, int iterator, uint64_t& primary );
 
    SYSTEM_CALL_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
 };
@@ -365,97 +273,6 @@ SYSTEM_CALL_SLOTS(
    (_eosio_ui64_to_f64)
 
    (prints)
-   (prints_l)
-   (printi)
-   (printui)
-   (printi128)
-   (printui128)
-   (printsf)
-   (printdf)
-   (printqf)
-   (printn)
-   (printhex)
-
-   (memset)
-   (memcmp)
-   (memmove)
-   (memcpy)
-
-   (current_receiver)
-   (action_data_size)
-   (read_action_data)
-
-   (eosio_assert)
-   (eosio_assert_message)
-   (eosio_assert_code)
-   (eosio_exit)
-   (abort)
-
-   (db_store_i64)
-   (db_update_i64)
-   (db_remove_i64)
-   (db_get_i64)
-   (db_next_i64)
-   (db_previous_i64)
-   (db_find_i64)
-   (db_lowerbound_i64)
-   (db_upperbound_i64)
-   (db_end_i64)
-
-   (db_idx64_store)
-   (db_idx64_update)
-   (db_idx64_remove)
-   (db_idx64_next)
-   (db_idx64_previous)
-   (db_idx64_find_primary)
-   (db_idx64_find_secondary)
-   (db_idx64_lowerbound)
-   (db_idx64_upperbound)
-   (db_idx64_end)
-
-   (db_idx128_store)
-   (db_idx128_update)
-   (db_idx128_remove)
-   (db_idx128_next)
-   (db_idx128_previous)
-   (db_idx128_find_primary)
-   (db_idx128_find_secondary)
-   (db_idx128_lowerbound)
-   (db_idx128_upperbound)
-   (db_idx128_end)
-
-   (db_idx256_store)
-   (db_idx256_update)
-   (db_idx256_remove)
-   (db_idx256_next)
-   (db_idx256_previous)
-   (db_idx256_find_primary)
-   (db_idx256_find_secondary)
-   (db_idx256_lowerbound)
-   (db_idx256_upperbound)
-   (db_idx256_end)
-
-   (db_idx_double_store)
-   (db_idx_double_update)
-   (db_idx_double_remove)
-   (db_idx_double_next)
-   (db_idx_double_previous)
-   (db_idx_double_find_primary)
-   (db_idx_double_find_secondary)
-   (db_idx_double_lowerbound)
-   (db_idx_double_upperbound)
-   (db_idx_double_end)
-
-   (db_idx_long_double_store)
-   (db_idx_long_double_update)
-   (db_idx_long_double_remove)
-   (db_idx_long_double_next)
-   (db_idx_long_double_previous)
-   (db_idx_long_double_find_primary)
-   (db_idx_long_double_find_secondary)
-   (db_idx_long_double_lowerbound)
-   (db_idx_long_double_upperbound)
-   (db_idx_long_double_end)
 
    (verify_block_header)
 );
@@ -463,7 +280,6 @@ SYSTEM_CALL_SLOTS(
 struct system_call_bundle
 {
    std::vector< uint8_t > wasm_bytes;
-   name action;
 };
 
 class system_call_table final
