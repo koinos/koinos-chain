@@ -15,7 +15,7 @@ BOOST_AUTO_TEST_CASE( vm_tests )
 {
    koinos::chain::register_syscalls();
    koinos::chain::wasm_allocator_type wa;
-   std::vector< uint8_t > wasm_bin = get_wasm();
+   std::vector< uint8_t > wasm_bin = get_hello_wasm();
    koinos::chain::backend_type bkend( wasm_bin, koinos::chain::registrar_type{} );
 
    bkend.set_wasm_allocator(&wa);
@@ -26,10 +26,7 @@ BOOST_AUTO_TEST_CASE( vm_tests )
    bkend(&ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0);
 
    const char* expected_output =
-R"OUTPUT(row [1]: {foo1, bar1, alice}
-row [2]: {foo2, bar2, bob}
-row [3]: {foo3, bar3, charlie}
-)OUTPUT";
+R"OUTPUT(Greetings from koinos vm)OUTPUT";
 
    BOOST_CHECK_EQUAL( expected_output, ctx.get_pending_console_output() );
 }
