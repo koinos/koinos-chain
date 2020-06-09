@@ -24,7 +24,7 @@ DECLARE_KOINOS_EXCEPTION( depth_violation );
 DECLARE_KOINOS_EXCEPTION( allocation_violation );
 
 /*
- * Unexpected end of stream while unpacking from binary.
+ * Unexpected end of stream while packing/unpacking binary.
  */
 DECLARE_KOINOS_EXCEPTION( stream_error );
 
