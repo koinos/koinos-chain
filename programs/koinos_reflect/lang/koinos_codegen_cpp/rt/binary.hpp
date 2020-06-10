@@ -479,16 +479,16 @@ namespace detail
    // Minimal vectorstream implementations for internal serialization to a vl_blob
    // Boost vectorstream has to own the underlying vector. This implementation utilizes
    // a reference for efficiency.
-   class output_vectorstream
+   class output_blobstream
    {
       private:
          vl_blob& _data;
          size_t   _write_pos = 0;
 
       public:
-         output_vectorstream( vl_blob& d ) : _data(d) {}
+         output_blobstream( vl_blob& d ) : _data(d) {}
 
-         output_vectorstream& write( const char* s, size_t n )
+         output_blobstream& write( const char* s, size_t n )
          {
             _data.data.resize( _write_pos + n );
 
@@ -499,17 +499,18 @@ namespace detail
          }
    };
 
-   class input_vectorstream
+   template< typename Blob >
+   class input_blobstream
    {
       private:
-         const vl_blob& _data;
-         bool           _error = false;
-         size_t         _read_pos = 0;
+         const Blob& _data;
+         bool        _error = false;
+         size_t      _read_pos = 0;
 
       public:
-         input_vectorstream( const vl_blob& d ) : _data(d) {}
+         input_blobstream( const Blob& d ) : _data(d) {}
 
-         input_vectorstream& read( char* s, size_t n )
+         input_blobstream& read( char* s, size_t n )
          {
             _error = false;
 
@@ -522,7 +523,7 @@ namespace detail
             return *this;
          }
 
-         input_vectorstream& get( char& c )
+         input_blobstream& get( char& c )
          {
             _error = false;
 
@@ -753,7 +754,7 @@ template< typename T >
 inline void to_vl_blob( vl_blob& v, const T& t )
 {
    v.data.clear();
-   detail::output_vectorstream vs( v );
+   detail::output_blobstream vs( v );
    to_binary( vs, t );
 }
 
@@ -773,7 +774,7 @@ inline void from_vl_blob( const vl_blob& v, std::string& s )
 template< typename T >
 inline void from_vl_blob( const vl_blob& v, T& t )
 {
-   detail::input_vectorstream vs( v );
+   detail::input_blobstream< vl_blob > vs( v );
    from_binary( vs, t );
 }
 
@@ -791,6 +792,21 @@ inline std::string from_vl_blob< std::string >( const vl_blob& v )
    std::string s;
    from_vl_blob( v, s );
    return s;
+}
+
+template< typename T, size_t N >
+inline void from_fl_blob( const fl_blob< N >& f, T& t )
+{
+   detail::input_blobstream< fl_blob< N > > bs( f );
+   from_binary( bs, t );
+}
+
+template< typename T, size_t N >
+inline T from_fl_blob( const fl_blob< N >& f )
+{
+   T t;
+   from_fl_blob( f, t );
+   return t;
 }
 
 template< typename T >
