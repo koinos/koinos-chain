@@ -33,8 +33,6 @@
 
 #include <koinos/statedb/statedb.hpp>
 
-#include <chainbase/chainbase.hpp>
-
 #include <mira/database_configuration.hpp>
 
 #include <algorithm>
@@ -167,7 +165,6 @@ class chain_controller_impl
       chain::system_call_table                                                 _syscall_table;
       std::unique_ptr< chain::system_api >                                     _sys_api;
       std::unique_ptr< chain::apply_context >                                  _ctx;
-      chainbase::database                                                      _db;
 
       // Item lifetime:
       //
@@ -203,18 +200,7 @@ chain_controller::~chain_controller()
 
 chain_controller_impl::chain_controller_impl()
 {
-   auto tmp = boost::filesystem::current_path() / boost::filesystem::unique_path();
-
-   _db.open( tmp, 0, mira::utilities::default_database_configuration() );
-//   _db.add_index< chain::table_id_multi_index >();
-//   _db.add_index< chain::key_value_index >();
-//   _db.add_index< chain::index64_index >();
-//   _db.add_index< chain::index128_index >();
-//   _db.add_index< chain::index256_index >();
-//   _db.add_index< chain::index_double_index >();
-//   _db.add_index< chain::index_long_double_index >();
-
-   _ctx = std::make_unique< chain::apply_context >( _db, _syscall_table );
+   _ctx = std::make_unique< chain::apply_context >( _syscall_table );
    _ctx->privilege_level = chain::privilege::kernel_mode;
    _sys_api = std::make_unique< chain::system_api >( *_ctx );
 }
