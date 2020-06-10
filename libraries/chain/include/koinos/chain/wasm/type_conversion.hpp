@@ -1,18 +1,8 @@
 #pragma once
-#include <koinos/chain/name.hpp>
 #include <koinos/chain/wasm/common.hpp>
 #include <koinos/chain/exceptions.hpp>
 
 namespace eosio::vm {
-   template<>
-   struct wasm_type_converter<koinos::chain::name> {
-      static auto from_wasm(uint64_t val) {
-         return koinos::chain::name{val};
-      }
-      static auto to_wasm(koinos::chain::name val) {
-         return val.to_uint64_t();
-      }
-   };
 
    template<typename T>
    struct wasm_type_converter<T*> : linear_memory_access {

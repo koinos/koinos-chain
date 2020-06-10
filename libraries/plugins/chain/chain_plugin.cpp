@@ -4,8 +4,6 @@
 
 #include <mira/database_configuration.hpp>
 
-#include <chainbase/chainbase.hpp>
-
 namespace koinos::plugins::chain {
 
 namespace detail {
@@ -18,7 +16,6 @@ class chain_plugin_impl
 
       void write_default_database_config( bfs::path &p );
 
-      uint32_t             chainbase_flags = 0;
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
@@ -70,8 +67,6 @@ void chain_plugin::plugin_initialize(const variables_map& options)
       else
          my->state_dir = sfd;
    }
-
-   my->chainbase_flags |= options.at( "force-open" ).as< bool >() ? chainbase::skip_env_check : chainbase::skip_nothing;
 
    my->database_cfg = options.at( "database-config" ).as< bfs::path >();
 
