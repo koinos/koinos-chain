@@ -16,21 +16,21 @@ BOOST_AUTO_TEST_CASE( system_tests )
    koinos::chain::apply_context ctx( t );
    koinos::chain::system_api sys_api( ctx );
 
-#pragma message( "TODO redo this with a different syscall" )
-   /*
+   char print_str[] = "message";
+   koinos::chain::null_terminated_ptr p_print_str(print_str);
+
    BOOST_TEST_MESSAGE( "call the public system slot" );
    // This should end up calling the private native implementation and throwing `abort_called`
-   BOOST_CHECK_THROW( sys_api.abort(), koinos::chain::abort_called );
+   sys_api.prints( p_print_str );
 
    BOOST_TEST_MESSAGE( "call the private system slot in user mode" );
    // We should not be able to bypass the public system slot in user_mode
-   BOOST_CHECK_THROW( sys_api.internal_abort(), koinos::chain::insufficient_privileges );
+   BOOST_CHECK_THROW( sys_api.internal_prints( p_print_str ), koinos::chain::insufficient_privileges );
 
    BOOST_TEST_MESSAGE( "call the private system slot in kernel mode" );
    // If we are in kernel mode, we can call the private implementation and it should throw `abort_called`
    ctx.privilege_level = koinos::chain::privilege::kernel_mode;
-   BOOST_CHECK_THROW( sys_api.internal_abort(), koinos::chain::abort_called );
-   */
+   sys_api.internal_prints( p_print_str );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
