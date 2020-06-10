@@ -5,6 +5,7 @@
 
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/varint.hpp>
+#include <koinos/util.hpp>
 
 #define REQUIRE_DEEP_EQUAL( s, v )                         \
 do{                                                        \
@@ -243,9 +244,6 @@ BOOST_AUTO_TEST_CASE( array_test )
    BOOST_REQUIRE_THROW( from_binary( ss, large_array ), stream_error );
 }
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
 BOOST_AUTO_TEST_CASE( variant_test )
 {
    typedef std::variant< int16_t, int32_t > test_variant;
@@ -264,7 +262,7 @@ BOOST_AUTO_TEST_CASE( variant_test )
    test_variant from_bin;
    from_binary( ss, from_bin );
 
-   std::visit( overloaded {
+   std::visit( koinos::overloaded {
       []( int16_t v ){ BOOST_REQUIRE_EQUAL( v, 10 ); },
       []( int32_t v ){ BOOST_FAIL( "variant contains unexpected type" ); },
       []( auto& v ){ BOOST_FAIL( "variant contains unexpected type" ); }
@@ -283,7 +281,7 @@ BOOST_AUTO_TEST_CASE( variant_test )
 
    from_binary( ss, from_bin );
 
-   std::visit( overloaded {
+   std::visit( koinos::overloaded {
       []( int16_t v ){ BOOST_FAIL( "variant contains unexpected type" ); },
       []( int32_t v ){ BOOST_REQUIRE_EQUAL( v, 20 ); },
       []( auto& v ){ BOOST_FAIL( "variant contains unexpected type" ); }

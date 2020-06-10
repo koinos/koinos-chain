@@ -4,6 +4,7 @@
 #include <koinos/pack/rt/json.hpp>
 
 #include <koinos/log.hpp>
+#include <koinos/util.hpp>
 
 std::string hex_string( const char* d, size_t len )
 {
@@ -1379,7 +1380,21 @@ SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) 
 
 SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
 {
-
+   for ( auto& o : t.operations )
+   {
+      std::visit( koinos::overloaded {
+         [&]( const protocol::reserved_operation& op ) { /* intentional fallthrough */ },
+         [&]( const protocol::nop_operation& op ) { /* intentional fallthrough */ },
+         [&]( const protocol::create_system_contract_operation& op )
+         {
+            apply_upload_contract_operation( op );
+         },
+         [&]( const protocol::contract_call_operation& op )
+         {
+            apply_execute_contract_operation( op );
+         },
+      }, pack::from_vl_blob< pack::operation >( o ) );
+   }
 }
 
 SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )

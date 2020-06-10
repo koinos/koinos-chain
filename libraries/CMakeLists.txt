@@ -9,4 +9,5 @@ add_subdirectory(exception)
 add_subdirectory(strpolate)
 add_subdirectory(vendor)
 add_subdirectory(manifest)
+add_subdirectory(util)
 

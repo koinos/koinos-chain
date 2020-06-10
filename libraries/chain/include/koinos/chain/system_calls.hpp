@@ -502,7 +502,7 @@ class system_call_table final
       using system_call_override_map = std::map< system_call_slot, system_call_bundle >;
       system_call_override_map system_call_map;
 
-#pragma message("TODO: Replace pending_updates with a state that tracks undo and such from chain operations")
+      KOINOS_TODO( "Replace pending_updates with a state that tracks undo and such from chain operations" )
       system_call_override_map pending_updates;
 
       bool overridable( system_call_slot s ) noexcept;

@@ -13,9 +13,7 @@
 #include <koinos/pack/rt/string.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
-
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+#include <koinos/util.hpp>
 
 namespace koinos::plugins::block_producer {
 
@@ -55,7 +53,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
       auto w = std::get<chain_control::submit_return_query>(*(r.get()));
       vectorstream istream(w.result.data);
       pack::from_binary(istream, q);
-      std::visit(overloaded{
+      std::visit(koinos::overloaded{
          [&](chain_control::get_head_info_return& head_info) {
             active_data.height.height = head_info.height.height+1;
             topology.previous = head_info.id;

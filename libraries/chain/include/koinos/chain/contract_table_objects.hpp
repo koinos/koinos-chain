@@ -5,6 +5,7 @@
 #include <koinos/chain/multi_index_types.hpp>
 #include <koinos/pack/rt/reflect.hpp>
 #include <koinos/pack/rt/binary_serializer.hpp>
+#include <koinos/util.hpp>
 
 namespace koinos { namespace chain {
 
@@ -169,7 +170,7 @@ namespace koinos { namespace chain {
    template<size_t N>
    struct secondary_key_traits<std::array<uint128_t, N>> {
    private:
-      #pragma message "TODO: Fix uint128 for FC"
+      KOINOS_TODO( "Fix uint128 for FC" )
       // static constexpr uint128_t max_uint128 = (static_cast<uint128_t>(std::numeric_limits<uint64_t>::max()) << 64) | std::numeric_limits<uint64_t>::max();
       // static_assert( std::numeric_limits<uint128_t>::max() == max_uint128, "numeric_limits for uint128_t is not properly defined" );
 

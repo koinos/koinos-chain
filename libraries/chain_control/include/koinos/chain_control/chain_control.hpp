@@ -1,6 +1,7 @@
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/exception.hpp>
+#include <koinos/util.hpp>
 
 #include <boost/any.hpp>
 #include <boost/filesystem.hpp>
@@ -9,7 +10,7 @@
 #include <future>
 #include <memory>
 
-#pragma message( "Move this somewhere else, please!" )
+KOINOS_TODO( "Move this somewhere else, please!" )
 namespace koinos { namespace protocol {
    bool operator >( const block_height_type& a, const block_height_type& b );
    bool operator >=( const block_height_type& a, const block_height_type& b );
@@ -19,7 +20,7 @@ namespace koinos { namespace protocol {
 
 namespace chain_control {
 
-DECLARE_KOINOS_EXCEPTION( UnknownSubmitType );
+DECLARE_KOINOS_EXCEPTION( unknown_submission_type );
 
 class chain_controller_impl;
 
