@@ -62,7 +62,6 @@ using koinos::statedb::state_db;
 using namespace std::string_literals;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
-std::vector< char > to_vlblob( std::string&& s ){ return std::vector< char >( s.begin(), s.end() ); }
 
 struct submit_item_impl
 {
@@ -338,6 +337,8 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    auto block_node = _state_db.create_writable_node( block.sub.block_topo.previous, block.sub.block_topo.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block", () );
 
+   _ctx->set_state_node( block_node );
+
    crypto::recoverable_signature sig;
    vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
    pack::from_binary( in_sig, sig );
@@ -352,6 +353,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    // Apply transaction
    // Apply operation
 
+   _ctx->clear_state_node();
    _state_db.finalize_node( block_node->id() );
 
 #pragma message( "TODO:  Report success / failure to caller" )
@@ -383,7 +385,7 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
          }
          else
          {
-            result = query_error{ to_vlblob( "Could not find head block"s ) };
+            result = query_error{ pack::to_vl_blob( "Could not find head block"s ) };
          }
       }
    }, params);

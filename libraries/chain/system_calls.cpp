@@ -1,7 +1,8 @@
+#include <koinos/pack/rt/pack_fwd.hpp>
+
 #include <koinos/chain/system_calls.hpp>
 
-#include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/json.hpp>
+#include <koinos/pack/rt/string.hpp>
 
 #include <koinos/log.hpp>
 
@@ -1113,22 +1114,94 @@ SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::co
 
 SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )
 {
-   return false;
+   statedb::put_object_args put_args;
+   put_args.space = space;
+   put_args.key = key;
+   put_args.buf = obj.data.data();
+   put_args.object_size = obj.data.size();
+
+   auto node = context.get_state_node();
+   KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
+
+   statedb::put_object_result put_res;
+   node->put_object( put_res, put_args );
+
+   return put_res.object_existed;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key) )
+SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   return vl_blob();
+   statedb::get_object_args get_args;
+   get_args.space = space;
+   get_args.key = key;
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
+
+   vl_blob object_buffer;
+   object_buffer.data.resize( get_args.buf_size );
+   get_args.buf = object_buffer.data.data();
+
+   auto node = context.get_state_node();
+   KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
+
+   statedb::get_object_result get_res;
+   node->get_object( get_res, get_args );
+
+   if( get_res.key == get_args.key )
+      object_buffer.data.resize( get_res.size );
+   else
+      object_buffer.data.clear();
+
+   return object_buffer;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key) )
+SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   return vl_blob();
+   statedb::get_object_args get_args;
+   get_args.space = space;
+   get_args.key = key;
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
+
+   vl_blob object_buffer;
+   object_buffer.data.resize( get_args.buf_size );
+   get_args.buf = object_buffer.data.data();
+
+   auto node = context.get_state_node();
+   KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
+
+   statedb::get_object_result get_res;
+   node->get_next_object( get_res, get_args );
+
+   if( get_res.size > 0 )
+      object_buffer.data.resize( get_res.size );
+   else
+      object_buffer.data.clear();
+
+   return object_buffer;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key) )
+SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   return vl_blob();
+   statedb::get_object_args get_args;
+   get_args.space = space;
+   get_args.key = key;
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
+
+   vl_blob object_buffer;
+   object_buffer.data.resize( get_args.buf_size );
+   get_args.buf = object_buffer.data.data();
+
+   auto node = context.get_state_node();
+   KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
+
+   statedb::get_object_result get_res;
+   node->get_prev_object( get_res, get_args );
+
+   if( get_res.size > 0 )
+      object_buffer.data.resize( get_res.size );
+   else
+      object_buffer.data.clear();
+
+   return object_buffer;
 }
 
 } // koinos::chain

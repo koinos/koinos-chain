@@ -1,9 +1,7 @@
 #pragma once
 
 #include <koinos/pack/rt/basetypes.hpp>
-#include <koinos/pack/rt/json_fwd.hpp>
-
-#include <nlohmann/json.hpp>
+#include <koinos/pack/rt/json.hpp>
 
 #include <string>
 

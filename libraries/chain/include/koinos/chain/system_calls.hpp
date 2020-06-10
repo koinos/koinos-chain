@@ -169,9 +169,9 @@ struct system_api final
    SYSTEM_CALL_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
 
    SYSTEM_CALL_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key );
+   SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 };
 
 // For any given system call, two slots are used. The first definition
