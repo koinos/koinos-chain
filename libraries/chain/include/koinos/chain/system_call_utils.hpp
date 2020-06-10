@@ -20,7 +20,7 @@ koinos::chain::registrar_type::add< system_api, &system_api::elem, koinos::chain
 #define SYSTEM_CALL_SLOTS( args )                                 \
 inline void register_syscalls()                                   \
 {                                                                 \
-   BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_SLOT_REGISTRATION, =>, args ) \
+   koinos::chain::registrar_type::add< system_api, &system_api::prints, koinos::chain::wasm_allocator_type >( "env", "prints" ); \
 }                                                                 \
 enum class system_call_slot : uint32_t                            \
 {                                                                 \
