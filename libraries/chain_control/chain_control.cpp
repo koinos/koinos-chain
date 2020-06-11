@@ -33,6 +33,8 @@
 
 #include <koinos/statedb/statedb.hpp>
 
+#include <koinos/util.hpp>
+
 #include <mira/database_configuration.hpp>
 
 #include <algorithm>
@@ -42,7 +44,7 @@
 #include <mutex>
 #include <optional>
 
-#pragma message( "Move this somewhere else, please!" )
+KOINOS_TODO( "Move this somewhere else, please!" )
 namespace koinos { namespace protocol {
 
 bool operator >( const block_height_type& a, const block_height_type& b )  { return a.height > b.height;  }
@@ -62,7 +64,6 @@ using koinos::statedb::state_db;
 using namespace std::string_literals;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
-std::vector< char > to_vlblob( std::string&& s ){ return std::vector< char >( s.begin(), s.end() ); }
 
 struct submit_item_impl
 {
@@ -109,10 +110,6 @@ struct work_item
    std::future< std::shared_ptr< submit_return > >     fut_work_done;    // Future corresponding to prom_work_done
    std::promise< std::shared_ptr< submit_return > >    prom_output;      // Promise that was returned to submit() caller
 };
-
-// Helper class for overloading variant visitors
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 // We need to do some additional work, we need to index blocks by all accepted hash algorithms.
 
@@ -232,7 +229,7 @@ struct create_impl_item_visitor
 {
    template< typename T >
    std::shared_ptr< submit_item_impl > operator()( const T& sub ) const
-   {   KOINOS_THROW( UnknownSubmitType, "Unimplemented submission type" ); }
+   {   KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" ); }
 
    std::shared_ptr< submit_item_impl > operator()( const submit_block& sub ) const
    {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_block_impl >( sub ) ); }
@@ -338,6 +335,8 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    auto block_node = _state_db.create_writable_node( block.sub.block_topo.previous, block.sub.block_topo.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block", () );
 
+   _ctx->set_state_node( block_node );
+
    crypto::recoverable_signature sig;
    vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
    pack::from_binary( in_sig, sig );
@@ -346,15 +345,16 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 
-#pragma message( "TODO:  Apply block" )
+   KOINOS_TODO( "Apply block" )
 
    // Apply block
    // Apply transaction
    // Apply operation
 
+   _ctx->clear_state_node();
    _state_db.finalize_node( block_node->id() );
 
-#pragma message( "TODO:  Report success / failure to caller" )
+   KOINOS_TODO( "Report success / failure to caller" )
 }
 
 void chain_controller_impl::process_submit_transaction( submit_return_transaction& ret, submit_transaction_impl& tx )
@@ -370,7 +370,7 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
 
    query_result_item result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   std::visit(overloaded {
+   std::visit(koinos::overloaded {
       [&]( get_head_info_params& p )
       {
          auto head = _state_db.get_head();
@@ -383,7 +383,7 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
          }
          else
          {
-            result = query_error{ to_vlblob( "Could not find head block"s ) };
+            result = query_error{ pack::to_vl_blob( "Could not find head block"s ) };
          }
       }
    }, params);

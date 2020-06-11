@@ -1,5 +1,6 @@
 #pragma once
 #include <boost/preprocessor.hpp>
+#include <koinos/util.hpp>
 
 // This file exposes seven public macros for consumption
 // 1. SYSTEM_CALL_SLOTS
@@ -60,7 +61,7 @@ enum class system_call_slot : uint32_t                            \
 #define _SYSCALL_INTERNAL_CALL(x, ...) BOOST_PP_CAT(_SYSCALL_PRIVATE_PREFIX,x)(_SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__));
 #define _SYSCALL_INTERNAL_CALL_WITH_RETURN(ret, x, ...) ret = _SYSCALL_INTERNAL_CALL(x, __VA_ARGS__);
 
-#pragma message( "TODO: Use the syscall_bundle to actually call VM with arguments and retrieve return value" )
+KOINOS_TODO( "Use the syscall_bundle to actually call VM with arguments and retrieve return value" )
 #define SYSTEM_CALL_DEFINE( RETURN_TYPE, SYSCALL, ... )                                       \
    RETURN_TYPE system_api::SYSCALL( _SYSCALL_DETAIL_DEFINE_ARGS(__VA_ARGS__) )                \
    {                                                                                          \

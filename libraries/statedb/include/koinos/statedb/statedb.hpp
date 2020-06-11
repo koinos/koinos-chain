@@ -36,7 +36,7 @@ struct put_object_args
 {
    object_space    space;
    object_key      key;
-   char*           buf = nullptr;    // null -> delete object
+   const char      *buf = nullptr;    // null -> delete object
    uint64_t        object_size = 0;
 };
 

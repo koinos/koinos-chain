@@ -169,9 +169,9 @@ struct system_api final
    SYSTEM_CALL_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
 
    SYSTEM_CALL_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key );
+   SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 };
 
 // For any given system call, two slots are used. The first definition
@@ -318,7 +318,7 @@ class system_call_table final
       using system_call_override_map = std::map< system_call_slot, system_call_bundle >;
       system_call_override_map system_call_map;
 
-#pragma message("TODO: Replace pending_updates with a state that tracks undo and such from chain operations")
+      KOINOS_TODO( "Replace pending_updates with a state that tracks undo and such from chain operations" )
       system_call_override_map pending_updates;
 
       bool overridable( system_call_slot s ) noexcept;
