@@ -67,6 +67,10 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
       LOG(error) << e.what();
    }
 
+   // Check if special demo block, call proper function
+   if (topology.block_num.height == 1) { this->demo_create_contract(active_data); }
+   else if (topology.block_num.height == 3) { this->demo_call_contract(active_data); }
+
    // Serialize active data, store it in block header
    vectorstream active_stream;
    pack::to_binary(active_stream, active_data);
@@ -103,7 +107,6 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    block_submission.block_header_bytes = block_header_bytes;
    block_submission.block_passives_bytes.push_back(passive_data_bytes);
 
-
    // Submit the block
    chain_control::submit_item si = block_submission;
    r = controller.submit(si);
@@ -123,6 +126,16 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 
 block_producer_plugin::block_producer_plugin() {}
 block_producer_plugin::~block_producer_plugin() {}
+
+void block_producer_plugin::demo_create_contract(protocol::active_block_data& active_data)
+{
+   LOG(info) << "Creating contract";
+}
+
+void block_producer_plugin::demo_call_contract(protocol::active_block_data& active_data)
+{
+   LOG(info) << "Calling contract";
+}
 
 void block_producer_plugin::plugin_initialize( const variables_map& options )
 {
