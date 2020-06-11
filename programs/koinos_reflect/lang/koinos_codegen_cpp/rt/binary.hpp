@@ -503,7 +503,7 @@ namespace detail
    {
       private:
          const vl_blob& _data;
-         bool           _error;
+         bool           _error = false;
          size_t         _read_pos = 0;
 
       public:
@@ -529,6 +529,76 @@ namespace detail
             if( _read_pos < _data.data.size() )
             {
                c = _data.data[ _read_pos ];
+               _read_pos++;
+            }
+            else
+            {
+               _error = true;
+            }
+
+            return *this;
+         }
+
+         bool good() const
+         {
+            return !_error;
+         }
+   };
+
+   // Minimal stringstream wrapper implementations for internal serialization to a c string
+   class output_stringstream
+   {
+      private:
+         char*    _buffer;
+         size_t   _length;
+         size_t   _write_pos = 0;
+
+      public:
+         output_stringstream( char* c, size_t l ) : _buffer(c), _length(l) {}
+
+         output_stringstream& write( const char* s, size_t n )
+         {
+            KOINOS_ASSERT( _write_pos + n <= _length, stream_error,
+               "Buffer overflow when serializing to a c string.", () );
+
+            memcpy( _buffer + _write_pos, s, n );
+            _write_pos += n;
+
+            return *this;
+         }
+   };
+
+   class input_stringstream
+   {
+      private:
+         const char* _buffer;
+         size_t      _length;
+         bool        _error = false;
+         size_t      _read_pos = 0;
+
+      public:
+         input_stringstream( const char* c, size_t l ) : _buffer(c), _length(l) {}
+
+         input_stringstream& read( char* s, size_t n )
+         {
+            _error = false;
+
+            size_t to_read = std::min( n, _length - _read_pos );
+            if( to_read < n ) _error = true;
+
+            memcpy( s, _buffer + _read_pos, to_read );
+            _read_pos += to_read;
+
+            return *this;
+         }
+
+         input_stringstream& get( char& c )
+         {
+            _error = false;
+
+            if( _read_pos < _length )
+            {
+               c = _buffer[ _read_pos ];
                _read_pos++;
             }
             else
@@ -721,6 +791,28 @@ inline std::string from_vl_blob< std::string >( const vl_blob& v )
    std::string s;
    from_vl_blob( v, s );
    return s;
+}
+
+template< typename T >
+inline void to_c_str( char* c, size_t l, const T& t )
+{
+   detail::output_stringstream ss( c, l );
+   to_binary( ss, t );
+}
+
+template< typename T >
+inline void from_c_str( const char* c, size_t l, T& t )
+{
+   detail::input_stringstream ss( c, l );
+   from_binary( ss, t );
+}
+
+template< typename T >
+inline T from_c_str( const char* c, size_t l )
+{
+   T t;
+   from_c_str( c, l, t );
+   return t;
 }
 
 } // koinos::raw

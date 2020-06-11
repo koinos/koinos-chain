@@ -1,10 +1,9 @@
 #include <koinos/chain/system_calls.hpp>
 
+#include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
 
 #include <koinos/log.hpp>
-
-namespace koinos::chain {
 
 std::string hex_string( const char* d, size_t len )
 {
@@ -17,6 +16,8 @@ std::string hex_string( const char* d, size_t len )
 
    return ss.str();
 }
+
+namespace koinos::chain {
 
 // System Call Table API
 //
@@ -1088,6 +1089,46 @@ SYSTEM_CALL_DEFINE( int, __unordtf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) l
 SYSTEM_CALL_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
 {
    return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
+}
+
+SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
+{
+
+}
+
+SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
+{
+
+}
+
+SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
+{
+
+}
+
+SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
+{
+
+}
+
+SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )
+{
+   return false;
+}
+
+SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key) )
+{
+   return vl_blob();
+}
+
+SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key) )
+{
+   return vl_blob();
+}
+
+SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key) )
+{
+   return vl_blob();
 }
 
 } // koinos::chain
