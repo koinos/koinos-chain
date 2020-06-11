@@ -8,6 +8,8 @@
 #define KOINOS_BLOCK_PRODUCER_PLUGIN_NAME "block_producer"
 #define KOINOS_BLOCK_TIME_MS              10000
 
+const std::vector<char> DEMO_CONTRACT { 0 };
+
 using namespace appbase;
 
 namespace koinos::plugins::block_producer {

@@ -130,6 +130,17 @@ block_producer_plugin::~block_producer_plugin() {}
 void block_producer_plugin::demo_create_contract(protocol::active_block_data& active_data)
 {
    LOG(info) << "Creating contract";
+
+   // Create the operation, fill the contract code
+   // We will leave extensions and id at default for now
+   pack::create_system_contract_operation create_op;
+   create_op.bytecode.data = DEMO_CONTRACT;
+   pack::operation o = create_op;
+
+   pack::transaction_type transaction;
+   transaction.operations.push_back(pack::to_vl_blob( o ) );
+
+   active_data.transactions.push_back(pack::to_vl_blob( transaction ) );
 }
 
 void block_producer_plugin::demo_call_contract(protocol::active_block_data& active_data)
