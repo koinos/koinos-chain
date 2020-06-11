@@ -1090,11 +1090,13 @@ SYSTEM_CALL_DEFINE( int, __unordtf2, ((uint64_t) la, (uint64_t) ha, (uint64_t) l
 
 SYSTEM_CALL_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
 }
 
 SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    for ( auto& t : b.transactions )
    {
       apply_transaction( pack::from_vl_blob< protocol::transaction_type >( t ) );
@@ -1103,6 +1105,7 @@ SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) 
 
 SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    for ( auto& o : t.operations )
    {
       std::visit( koinos::overloaded {
@@ -1122,6 +1125,7 @@ SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&
 
 SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    protocol::uint256_t contract_id = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
    db_put_object( 0, contract_id, o.bytecode );
@@ -1129,11 +1133,23 @@ SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::cre
 
 SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
+   protocol::uint256_t contract_key = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
+   auto bytecode = db_get_object( 0, contract_key );
+   wasm_allocator_type wa;
 
+   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data.data(), bytecode.data.size() );
+   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
+
+   backend.set_wasm_allocator( &wa );
+   backend.initialize();
+
+   backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
 SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::put_object_args put_args;
    put_args.space = space;
    put_args.key = key;
@@ -1151,6 +1167,7 @@ SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, 
 
 SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
@@ -1176,6 +1193,7 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) spac
 
 SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
@@ -1201,6 +1219,7 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&)
 
 SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;

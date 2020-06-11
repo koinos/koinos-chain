@@ -38,6 +38,7 @@ DECLARE_KOINOS_EXCEPTION( system_call_not_overridable );
 using wasm_allocator_type = eosio::vm::wasm_allocator;
 using backend_type        = eosio::vm::backend< apply_context >;
 using registrar_type      = eosio::vm::registered_host_functions< apply_context >;
+using wasm_code_ptr       = eosio::vm::wasm_code_ptr;
 
 using vl_blob             = koinos::protocol::vl_blob;
 
