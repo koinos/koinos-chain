@@ -134,7 +134,11 @@ void block_producer_plugin::demo_create_contract(protocol::active_block_data& ac
    // Create the operation, fill the contract code
    // We will leave extensions and id at default for now
    pack::create_system_contract_operation create_op;
-   create_op.bytecode.data = DEMO_CONTRACT;
+   create_op.bytecode.data.insert(create_op.bytecode.data.end(), DEMO_CONTRACT.begin(), DEMO_CONTRACT.end());
+
+   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   for (int i = 0; i < 20; i++) { create_op.contract_id.data[i] = id.digest.data[i]; }
+
    pack::operation o = create_op;
 
    pack::transaction_type transaction;
@@ -147,6 +151,10 @@ void block_producer_plugin::demo_call_contract(protocol::active_block_data& acti
 {
    LOG(info) << "Calling contract";
    pack::contract_call_operation call_op;
+
+   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   for (int i = 0; i < 20; i++) { call_op.contract_id.data[i] = id.digest.data[i]; }
+
    pack::operation o = call_op;
 
    pack::transaction_type transaction;
