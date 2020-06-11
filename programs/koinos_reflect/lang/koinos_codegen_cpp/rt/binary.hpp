@@ -762,7 +762,7 @@ template< typename T >
 inline vl_blob to_vl_blob( const T& t )
 {
    vl_blob v;
-   to_vlob( v, t );
+   to_vl_blob( v, t );
    return v;
 }
 
