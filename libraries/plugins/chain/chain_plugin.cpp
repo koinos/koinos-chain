@@ -82,6 +82,9 @@ void chain_plugin::plugin_initialize(const variables_map& options)
 
 void chain_plugin::plugin_startup()
 {
+   // Check for state directory, and create if necessary
+   if ( !bfs::exists( my->state_dir ) ) { bfs::create_directory( my->state_dir ); }
+
    nlohmann::json database_config;
 
    try
