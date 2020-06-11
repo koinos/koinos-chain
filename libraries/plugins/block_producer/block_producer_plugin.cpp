@@ -67,7 +67,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
       LOG(error) << e.what();
    }
 
-   // Check if special demo block, call proper function
+   // Check if special demo block, call proper function to add transactions
    if (topology.block_num.height == 1) { this->demo_create_contract(active_data); }
    else if (topology.block_num.height == 3) { this->demo_call_contract(active_data); }
 
@@ -146,6 +146,13 @@ void block_producer_plugin::demo_create_contract(protocol::active_block_data& ac
 void block_producer_plugin::demo_call_contract(protocol::active_block_data& active_data)
 {
    LOG(info) << "Calling contract";
+   pack::contract_call_operation call_op;
+   pack::operation o = call_op;
+
+   pack::transaction_type transaction;
+   transaction.operations.push_back(pack::to_vl_blob( o ) );
+
+   active_data.transactions.push_back(pack::to_vl_blob( transaction ) );
 }
 
 void block_producer_plugin::plugin_initialize( const variables_map& options )
