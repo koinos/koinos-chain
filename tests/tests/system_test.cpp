@@ -1,10 +1,17 @@
 #include <boost/test/unit_test.hpp>
 
-#include <koinos/chain/system_calls.hpp>
-#include <koinos/chain/exceptions.hpp>
 #include <koinos/log.hpp>
+
+#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/thunk_dispatcher.hpp>
+
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
+#include <koinos/pack/classes.hpp>
+
+#include <koinos/pack/rt/binary.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -172,5 +179,30 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+
+BOOST_AUTO_TEST_CASE( thunk_test )
+{
+   BOOST_TEST_MESSAGE( "thunk test" );
+
+   using namespace koinos::chain;
+   using koinos::protocol::vl_blob;
+
+   thunk_dispatcher& disp = thunk_dispatcher::instance();
+   hello_thunk_args args;
+   hello_thunk_ret ret;
+
+   args.a = 5;
+   args.b = 3;
+
+   system_call_table t;
+   apply_context ctx( t );
+   vl_blob vl_args, vl_ret;
+   koinos::pack::to_vl_blob( vl_args, args );
+   disp.call_thunk( 1234, ctx, vl_ret, vl_args );
+   koinos::pack::from_vl_blob( vl_ret, ret );
+
+   BOOST_CHECK_EQUAL( ret.c, 8 );
+   BOOST_CHECK_EQUAL( ret.d, 2 );
+}
 
 BOOST_AUTO_TEST_SUITE_END()
