@@ -1122,7 +1122,9 @@ SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&
 
 SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
-
+   // Contract id is a ripemd160. It needs to be copied in to a uint256_t
+   protocol::uint256_t contract_id = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
+   db_put_object( 0, contract_id, o.bytecode );
 }
 
 SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
