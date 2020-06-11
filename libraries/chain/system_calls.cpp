@@ -1290,10 +1290,10 @@ SYSTEM_CALL_DEFINE( vl_blob, invoke_xcall, ((uint32_t) xid, (const vl_blob&) arg
          [&]( contract_id_type& cid ) {
 #pragma message( "TODO:  Invoke smart contract xcall handler" )
          },
-         [&]() {
+         [&]( auto& ) {
             KOINOS_THROW( unknown_xcall, "xcall table dispatch entry ${xid} has unimplemented type ${tag}",
                ("xid", xid)("tag", target.index()) );
-         } } );
+         } }, target );
    return ret;
 }
 
