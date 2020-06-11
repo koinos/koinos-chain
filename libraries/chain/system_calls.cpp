@@ -1094,7 +1094,10 @@ SYSTEM_CALL_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signa
 
 SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
 {
-
+   for ( auto& t : b.transactions )
+   {
+      apply_transaction( pack::from_vl_blob< protocol::transaction_type >( t ) );
+   }
 }
 
 SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
