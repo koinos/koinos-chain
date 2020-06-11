@@ -23,6 +23,7 @@ struct system_fixture
 
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
+      koinos::chain::register_syscalls();
    }
 
    ~system_fixture()
@@ -145,7 +146,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
-BOOST_AUTO_TEST_CASE( upload_contract )
+BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
@@ -162,6 +163,13 @@ BOOST_AUTO_TEST_CASE( upload_contract )
 
    BOOST_REQUIRE( stored_bytecode.data.size() == bytecode.size() );
    BOOST_REQUIRE( memcmp( stored_bytecode.data.data(), bytecode.data(), bytecode.size() ) == 0 );
+
+   BOOST_TEST_MESSAGE( "Test executing a contract" );
+
+   koinos::protocol::contract_call_operation op2;
+   memcpy( op2.contract_id.data.data(), id.digest.data.data(), op2.contract_id.data.size() );
+   sys_api.apply_execute_contract_operation( op2 );
+   BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
