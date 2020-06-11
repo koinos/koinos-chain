@@ -1,6 +1,7 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
 
 #include <koinos/log.hpp>
+#include <koinos/util.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -110,7 +111,7 @@ void chain_plugin::plugin_startup()
 void chain_plugin::plugin_shutdown()
 {
    LOG(info) << "closing chain database";
-#pragma message( "TODO We eventually need to call close() from somewhere" )
+   KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
    my->controller.stop_threads();
    LOG(info) << "database closed successfully";
