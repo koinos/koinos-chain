@@ -1134,12 +1134,12 @@ SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::cre
 SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   koinos::protocol::uint256_t contract_key = koinos::pack::from_fl_blob< koinos::protocol::uint160_t >( o.contract_id );
+   protocol::uint256_t contract_key = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
    auto bytecode = db_get_object( 0, contract_key );
-   koinos::chain::wasm_allocator_type wa;
+   wasm_allocator_type wa;
 
-   eosio::vm::wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data.data(), bytecode.data.size() );
-   koinos::chain::backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), koinos::chain::registrar_type{} );
+   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data.data(), bytecode.data.size() );
+   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
 
    backend.set_wasm_allocator( &wa );
    backend.initialize();
