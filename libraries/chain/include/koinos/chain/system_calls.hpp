@@ -160,6 +160,9 @@ struct system_api final
    SYSTEM_CALL_DECLARE( double, _eosio_ui32_to_f64, uint32_t a );
    SYSTEM_CALL_DECLARE( double, _eosio_ui64_to_f64, uint64_t a );
 
+   SYSTEM_CALL_DECLARE( vl_blob, invoke_thunk, uint32_t tid, const vl_blob& args );
+   SYSTEM_CALL_DECLARE( vl_blob, invoke_xcall, uint32_t xid, const vl_blob& args );
+
    SYSTEM_CALL_DECLARE( void, prints, null_terminated_ptr str );
 
    SYSTEM_CALL_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
@@ -301,6 +304,9 @@ SYSTEM_CALL_SLOTS(
    (db_get_object)
    (db_get_next_object)
    (db_get_prev_object)
+
+   (invoke_thunk)
+   (invoke_xcall)
 );
 
 struct system_call_bundle

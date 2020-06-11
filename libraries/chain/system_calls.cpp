@@ -1,6 +1,8 @@
 #include <koinos/pack/rt/pack_fwd.hpp>
 
 #include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/xcalls.hpp>
 
 #include <koinos/pack/rt/string.hpp>
 
@@ -1165,9 +1167,10 @@ SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, 
    return put_res.object_existed;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+vl_blob get_object_impl( statedb::state_node_ptr state, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint )
 {
-   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
+   KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
+
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
@@ -1177,18 +1180,20 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) spac
    object_buffer.data.resize( get_args.buf_size );
    get_args.buf = object_buffer.data.data();
 
-   auto node = context.get_state_node();
-   KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
-
    statedb::get_object_result get_res;
-   node->get_object( get_res, get_args );
+   state->get_object( get_res, get_args );
 
    if( get_res.key == get_args.key )
       object_buffer.data.resize( get_res.size );
    else
       object_buffer.data.clear();
-
    return object_buffer;
+}
+
+SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+{
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
+   return get_object_impl( context.get_state_node(), space, key, object_size_hint );
 }
 
 SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
@@ -1241,6 +1246,55 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&)
       object_buffer.data.clear();
 
    return object_buffer;
+}
+
+SYSTEM_CALL_DEFINE( vl_blob, invoke_thunk, ((uint32_t) tid, (const vl_blob&) args) )
+{
+   vl_blob ret;
+   thunk_dispatcher::instance().call_thunk( thunk_id(tid), context, ret, args );
+   return ret;
+}
+
+SYSTEM_CALL_DEFINE( vl_blob, invoke_xcall, ((uint32_t) xid, (const vl_blob&) args) )
+{
+   using protocol::thunk_id_type;
+   using protocol::contract_id_type;
+
+   vl_blob ret;
+
+   // TODO Do we need to invoke serialization here?
+   statedb::object_key key = xid;
+
+   auto state = context.get_state_node();
+   vl_blob vl_target =
+      get_object_impl( state, XCALL_DISPATCH_TABLE_SPACE_ID, key, XCALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );
+
+   if( vl_target.data.size() == 0 )
+   {
+      vl_target = get_default_xcall_entry( xid );
+      KOINOS_ASSERT( vl_target.data.size() > 0,
+         unknown_xcall,
+         "xcall table dispatch entry ${xid} does not exist",
+         ("xid", xid)
+         );
+   }
+
+   protocol::xcall_target target;
+
+   koinos::pack::from_vl_blob( vl_target, target );
+
+   std::visit( koinos::overloaded{
+         [&]( thunk_id_type& tid ) {
+            thunk_dispatcher::instance().call_thunk( tid, context, ret, args );
+         },
+         [&]( contract_id_type& cid ) {
+#pragma message( "TODO:  Invoke smart contract xcall handler" )
+         },
+         [&]() {
+            KOINOS_THROW( unknown_xcall, "xcall table dispatch entry ${xid} has unimplemented type ${tag}",
+               ("xid", xid)("tag", target.index()) );
+         } } );
+   return ret;
 }
 
 } // koinos::chain

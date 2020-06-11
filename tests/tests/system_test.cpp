@@ -205,4 +205,28 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_CHECK_EQUAL( ret.d, 2 );
 }
 
+BOOST_AUTO_TEST_CASE( xcall_test )
+{
+   BOOST_TEST_MESSAGE( "xcall test" );
+
+   using namespace koinos::chain;
+   using koinos::protocol::vl_blob;
+
+   hello_thunk_args args;
+   hello_thunk_ret ret;
+
+   args.a = 5;
+   args.b = 3;
+
+   system_call_table t;
+   apply_context ctx( t );
+   vl_blob vl_args, vl_ret;
+   koinos::pack::to_vl_blob( vl_args, args );
+   vl_ret = sys_api.invoke_xcall( 2345, vl_args );
+   koinos::pack::from_vl_blob( vl_ret, ret );
+
+   BOOST_CHECK_EQUAL( ret.c, 8 );
+   BOOST_CHECK_EQUAL( ret.d, 2 );
+}
+
 BOOST_AUTO_TEST_SUITE_END()
