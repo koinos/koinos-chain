@@ -8,6 +8,8 @@
 
 #include <mira/database_configuration.hpp>
 
+#include "../test_fixtures/wasm/hello_wasm.hpp"
+
 using namespace std::string_literals;
 
 struct system_fixture
@@ -27,6 +29,11 @@ struct system_fixture
    {
       db.close();
       boost::filesystem::remove_all( temp );
+   }
+
+   std::vector< uint8_t > get_hello_wasm()
+   {
+      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
    }
 
    boost::filesystem::path temp;
@@ -136,6 +143,26 @@ BOOST_AUTO_TEST_CASE( db_crud )
    obj_blob = sys_api.db_get_object( 0, 1, 10 );
    BOOST_REQUIRE( obj_blob.data.size() == 0 );
 
-} catch ( const::koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+
+BOOST_AUTO_TEST_CASE( upload_contract )
+{ try {
+   BOOST_TEST_MESSAGE( "Test uploading a contract" );
+
+   koinos::protocol::create_system_contract_operation op;
+   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   memcpy( op.contract_id.data.data(), id.digest.data.data(), op.contract_id.data.size() );
+   auto bytecode = get_hello_wasm();
+   op.bytecode.data.insert( op.bytecode.data.end(), bytecode.begin(), bytecode.end() );
+
+   sys_api.apply_upload_contract_operation( op );
+
+   koinos::protocol::uint256_t contract_key = koinos::pack::from_fl_blob< koinos::protocol::uint160_t >( op.contract_id );
+   auto stored_bytecode = sys_api.db_get_object( 0, contract_key, bytecode.size() );
+
+   BOOST_REQUIRE( stored_bytecode.data.size() == bytecode.size() );
+   BOOST_REQUIRE( memcmp( stored_bytecode.data.data(), bytecode.data(), bytecode.size() ) == 0 );
+
+} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_SUITE_END()
