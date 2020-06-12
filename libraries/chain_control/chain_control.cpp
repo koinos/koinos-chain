@@ -197,6 +197,7 @@ chain_controller::~chain_controller()
 
 chain_controller_impl::chain_controller_impl()
 {
+   koinos::chain::register_syscalls();
    _ctx = std::make_unique< chain::apply_context >( _syscall_table );
    _ctx->privilege_level = chain::privilege::kernel_mode;
    _sys_api = std::make_unique< chain::system_api >( *_ctx );
@@ -346,7 +347,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
 
    _sys_api->apply_block(pack::from_vl_blob< protocol::active_block_data >( block.header.active_bytes ));
    auto output = _ctx->get_pending_console_output();
-   if (output.length() > 0) { LOG(info) << _ctx->get_pending_console_output(); }
+   if (output.length() > 0) { LOG(info) << output; }
 
    _ctx->clear_state_node();
    _state_db.finalize_node( block_node->id() );
