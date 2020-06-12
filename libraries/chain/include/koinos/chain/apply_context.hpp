@@ -20,7 +20,13 @@ class apply_context
       void console_append( const std::string& val ) {
          pending_console_output += val;
       }
-      std::string get_pending_console_output() { return pending_console_output; }
+
+      std::string get_pending_console_output()
+      {
+         std::string buf = pending_console_output;
+         pending_console_output.clear();
+         return buf;
+      }
 
       void set_state_node( state_node_ptr );
       state_node_ptr get_state_node() const;
