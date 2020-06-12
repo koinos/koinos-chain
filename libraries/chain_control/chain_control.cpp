@@ -347,7 +347,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
 
 
    _sys_api->apply_block(pack::from_vl_blob< protocol::active_block_data >( block.header.active_bytes ));
-   KOINOS_TODO( "Apply block" )      auto output = _ctx->get_pending_console_output();
+   auto output = _ctx->get_pending_console_output();
 
    if (output.length() > 0) { LOG(info) << output; }
 
