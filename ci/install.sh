@@ -12,7 +12,8 @@ if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       libbz2-dev \
       liblz4-dev \
       libzstd-dev \
-      valgrind
+      valgrind \
+      ccache
 elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
    brew install cmake \
       boost \
@@ -20,7 +21,8 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
       zlib \
       snappy \
       bzip2 \
-      gflags
+      gflags \
+      ccache
 
    if [ "$RUN_TYPE" = "coverage" ]; then
       brew install lcov

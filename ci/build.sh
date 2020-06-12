@@ -4,10 +4,11 @@ set -e
 set -x
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-   export OPENSSL_ROOT_DIR=$(brew --cellar openssl)/$(brew list --versions openssl | tr ' ' '\n' | tail -1)
-   export SNAPPY_LIBRARIES=$(brew --cellar snappy)/$(brew list --versions snappy | tr ' ' '\n' | tail -1)/lib
-   export SNAPPY_INCLUDE_DIR=$(brew --cellar snappy)/$(brew list --versions snappy | tr ' ' '\n' | tail -1)/include
-   export ZLIB_LIBRARIES=$(brew --cellar zlib)/$(brew list --versions zlib | tr ' ' '\n' | tail -1)/lib
+   PACKAGE_DIR=/usr/local/opt
+   export OPENSSL_ROOT_DIR=${PACKAGE_DIR}/openssl@1.1
+   export SNAPPY_LIBRARIES=${PACKAGE_DIR}/snappy/lib
+   export SNAPPY_INCLUDE_DIR=${PACKAGE_DIR}/snappy/include
+   export ZLIB_LIBRARIES=${PACKAGE_DIR}/zlib/lib
 fi
 
 mkdir build
