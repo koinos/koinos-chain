@@ -344,12 +344,9 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
-
-   KOINOS_TODO( "Apply block" )
-
-   // Apply block
-   // Apply transaction
-   // Apply operation
+   _sys_api->apply_block(pack::from_vl_blob< protocol::active_block_data >( block.header.active_bytes ));
+   auto output = _ctx->get_pending_console_output();
+   if (output.length() > 0) { LOG(info) << _ctx->get_pending_console_output(); }
 
    _ctx->clear_state_node();
    _state_db.finalize_node( block_node->id() );
