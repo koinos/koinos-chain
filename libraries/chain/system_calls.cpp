@@ -1250,6 +1250,7 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&)
 
 SYSTEM_CALL_DEFINE( vl_blob, invoke_thunk, ((uint32_t) tid, (const vl_blob&) args) )
 {
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    vl_blob ret;
    thunk_dispatcher::instance().call_thunk( thunk_id(tid), context, ret, args );
    return ret;
