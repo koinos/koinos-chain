@@ -810,6 +810,9 @@ inline T from_fl_blob( const fl_blob< N >& f )
 }
 
 template< typename T >
+inline void to_c_str( char* c, size_t l, void ){}
+
+template< typename T >
 inline void to_c_str( char* c, size_t l, const T& t )
 {
    detail::output_stringstream ss( c, l );

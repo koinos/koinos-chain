@@ -44,19 +44,6 @@
 
 #define _THUNK_CALL_RETURN_TYPE( ret ) BOOST_PP_COMMA() ret
 
-/*thunk_dispatcher::instance().call_thunk< decltype(SYSCALL), RETURN_TYPE >(                      \
-                  tid,                                                                                         \
-                  context,                                                                                     \
-                  ret,                                                                                         \
-                  _SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__)                                                  \
-               )*/
-
-/*BOOST_PP_IF(                                                                                    \
-                  _THUNK_IS_VOID(RETURN_TYPE),                                                                 \
-                  _THUNK_CALL(SYSCALL, tid, context, __VA_ARGS__),                                             \
-                  _THUNK_CALL_WITH_RETURN(ret, SYSCALL, tid, context, __VA_ARGS__)                             \
-               )*/
-
 #pragma message( "TODO:  Invoke smart contract xcall handler" )
 #define SYSTEM_CALL_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                        \
    RETURN_TYPE SYSCALL( apply_context& context, _SYSCALL_DETAIL_DEFINE_ARGS(__VA_ARGS__) )         \

@@ -6,7 +6,7 @@ namespace koinos::chain { namespace detail {
 
 void register_thunks( thunk_dispatcher& td )
 {
-   td.register_thunk< hello_thunk_ret >( 1234, thunk::hello );
+   td.register_thunk( 1234, thunk::hello );
 }
 
 } // detail
@@ -26,7 +26,7 @@ void thunk_dispatcher::call_thunk( thunk_id id, apply_context& ctx, char* ret_pt
 {
    auto it = _dispatch_map.find( id );
    KOINOS_ASSERT( it != _dispatch_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
-   it->second( &ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+   it->second( ctx, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
 } // koinos::chain
