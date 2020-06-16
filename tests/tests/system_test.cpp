@@ -30,7 +30,7 @@ struct system_fixture
 
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
-      koinos::chain::register_syscalls();
+      koinos::chain::register_host_functions();
    }
 
    ~system_fixture()

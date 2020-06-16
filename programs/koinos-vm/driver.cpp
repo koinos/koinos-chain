@@ -36,7 +36,7 @@ int main( int argc, char** argv, char** envp )
          return EXIT_FAILURE;
       }
 
-      koinos::chain::register_syscalls();
+      koinos::chain::register_host_functions();
       koinos::chain::wasm_allocator_type wa;
       std::vector< uint8_t > wasm_bin = koinos::chain::backend_type::read_wasm( vmap[ CONTRACT_OPTION ].as< std::string >() );
       koinos::chain::backend_type backend( wasm_bin, koinos::chain::registrar_type{} );

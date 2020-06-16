@@ -13,7 +13,7 @@ BOOST_FIXTURE_TEST_SUITE( vm_tests, vm_fixture )
 
 BOOST_AUTO_TEST_CASE( vm_tests )
 {
-   koinos::chain::register_syscalls();
+   koinos::chain::register_host_function();
    koinos::chain::wasm_allocator_type wa;
    std::vector< uint8_t > wasm_bin = get_hello_wasm();
    koinos::chain::backend_type bkend( wasm_bin, koinos::chain::registrar_type{} );

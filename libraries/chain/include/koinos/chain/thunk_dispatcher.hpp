@@ -5,6 +5,11 @@
 #include <koinos/chain/thunks.hpp>
 #include <koinos/exception.hpp>
 
+#include <boost/container/flat_map.hpp>
+
+#include <functional>
+#include <type_traits>
+
 namespace koinos { namespace protocol {
 struct vl_blob;
 } }
@@ -14,10 +19,6 @@ namespace koinos { namespace chain {
 DECLARE_KOINOS_EXCEPTION( unknown_thunk );
 
 class apply_context;
-
-namespace detail {
-class thunk_dispatcher_impl;
-}
 
 typedef uint32_t thunk_id;
 
@@ -38,16 +39,35 @@ typedef uint32_t thunk_id;
 class thunk_dispatcher
 {
    public:
-      virtual ~thunk_dispatcher();
+      void call_thunk( thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
 
-      virtual void call_thunk( thunk_id id, apply_context& ctx, protocol::vl_blob& ret, const protocol::vl_blob& args ) = 0;
+      template< typename ThunkRet, typename ThunkHandler, typename... ThunkArgs >
+      ThunkRet call_thunk( uint32_t id, apply_context& ctx, ThunkArgs... args )
+      {
+         auto it = _pass_through_map.find( id );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
+         return (*(ThunkHandler*)(it->second))( ctx, args... );
+      }
+
+      template< typename ThunkHandler, typename... ThunkArgs >
+      void call_thunk( uint32_t id, apply_context& ctx, ThunkArgs... args )
+      {
+         auto it = _pass_through_map.find( id );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
+         (*(ThunkHandler*)(it->second))( ctx, args... );
+      }
 
       static thunk_dispatcher& instance();
 
    private:
       thunk_dispatcher();
 
-      friend class detail::thunk_dispatcher_impl;
+      // These parameters should be refeneces, but std::function doesn't play nicely with references.
+      // See https://cboard.cprogramming.com/cplusplus-programming/160098-std-thread-help.html
+      typedef std::function< void(apply_context*, protocol::vl_blob*, const protocol::vl_blob*) > generic_thunk_handler;
+
+      boost::container::flat_map< thunk_id, generic_thunk_handler >  _dispatch_map;
+      boost::container::flat_map< thunk_id, void* >                  _pass_through_map;
 };
 
 } }
