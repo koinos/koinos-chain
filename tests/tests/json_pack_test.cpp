@@ -258,10 +258,10 @@ BOOST_AUTO_TEST_CASE( optional_test )
    BOOST_REQUIRE_EQUAL( *from_j, *to_j );
 }
 
-BOOST_AUTO_TEST_CASE( vl_blob_test )
+BOOST_AUTO_TEST_CASE( variable_blob_test )
 {
-   vl_blob to_j;
-   to_j.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   variable_blob to_j;
+   to_j = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
 
    json j;
    to_json( j, to_j );
@@ -269,19 +269,19 @@ BOOST_AUTO_TEST_CASE( vl_blob_test )
    std::string expected = "\"z31SRtpx1\"";
    BOOST_REQUIRE_EQUAL( j.dump(), expected );
 
-   vl_blob from_j;
+   variable_blob from_j;
    from_json( j, from_j );
-   BOOST_REQUIRE_EQUAL( to_j.data.size(), from_j.data.size() );
-   for( size_t i = 0; i < to_j.data.size(); ++i )
+   BOOST_REQUIRE_EQUAL( to_j.size(), from_j.size() );
+   for( size_t i = 0; i < to_j.size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_j.data[i], from_j.data[i] );
+      BOOST_REQUIRE_EQUAL( to_j[i], from_j[i] );
    }
 }
 
-BOOST_AUTO_TEST_CASE( fl_blob_test )
+BOOST_AUTO_TEST_CASE( fixed_blob_test )
 {
-   fl_blob< 6 > to_j;
-   to_j.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   fixed_blob< 6 > to_j;
+   to_j = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
 
    json j;
    to_json( j, to_j );
@@ -289,11 +289,11 @@ BOOST_AUTO_TEST_CASE( fl_blob_test )
    std::string expected = "\"z31SRtpx1\"";
    BOOST_REQUIRE_EQUAL( j.dump(), expected );
 
-   fl_blob< 6 > from_j;
+   fixed_blob< 6 > from_j;
    from_json( j, from_j );
-   for( size_t i = 0; i < to_j.data.size(); ++i )
+   for( size_t i = 0; i < to_j.size(); ++i )
    {
-      BOOST_CHECK_EQUAL( to_j.data[i], from_j.data[i] );
+      BOOST_CHECK_EQUAL( to_j[i], from_j[i] );
    }
 }
 
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE( multihash_type_test )
 {
    multihash_type to_j;
    to_j.hash_id = 1;
-   to_j.digest.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   to_j.digest = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
 
    json j;
    to_json( j, to_j );
@@ -321,15 +321,15 @@ BOOST_AUTO_TEST_CASE( multihash_type_test )
 
    multihash_type from_j;
    from_json( j, from_j );
-   BOOST_REQUIRE_EQUAL( to_j.digest.data.size(), from_j.digest.data.size() );
-   for( size_t i = 0; i < to_j.digest.data.size(); ++i )
+   BOOST_REQUIRE_EQUAL( to_j.digest.size(), from_j.digest.size() );
+   for( size_t i = 0; i < to_j.digest.size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_j.digest.data[i], from_j.digest.data[i] );
+      BOOST_REQUIRE_EQUAL( to_j.digest[i], from_j.digest[i] );
    }
 
-   to_j.digest.data.clear();
+   to_j.digest.clear();
    to_j.hash_id = 4640;
-   hex_to_vector( to_j.digest.data, {
+   hex_to_vector( to_j.digest, {
       0xBA, 0x78, 0x16, 0xBF, 0x8F, 0x01, 0xCF, 0xEA,
       0x41, 0x41, 0x40, 0xDE, 0x5D, 0xAE, 0x22, 0x23,
       0xB0, 0x03, 0x61, 0xA3, 0x96, 0x17, 0x7A, 0x9C,
@@ -345,10 +345,10 @@ BOOST_AUTO_TEST_CASE( multihash_vector_test )
 {
    multihash_vector to_j;
    to_j.hash_id = 1;
-   vl_blob digest_a;
-   digest_a.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
-   vl_blob digest_b;
-   digest_b.data = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
+   variable_blob digest_a;
+   digest_a = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   variable_blob digest_b;
+   digest_b = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
    to_j.digests.push_back( digest_a );
    to_j.digests.push_back( digest_b );
 
@@ -362,21 +362,21 @@ BOOST_AUTO_TEST_CASE( multihash_vector_test )
    from_json( j, from_j );
    BOOST_REQUIRE_EQUAL( to_j.hash_id, from_j.hash_id );
    BOOST_REQUIRE_EQUAL( to_j.digests.size(), from_j.digests.size() );
-   BOOST_REQUIRE_EQUAL( to_j.digests[0].data.size(), from_j.digests[0].data.size() );
-   BOOST_REQUIRE_EQUAL( to_j.digests[1].data.size(), from_j.digests[1].data.size() );
-   for( size_t i = 0; i < to_j.digests[0].data.size(); ++i )
+   BOOST_REQUIRE_EQUAL( to_j.digests[0].size(), from_j.digests[0].size() );
+   BOOST_REQUIRE_EQUAL( to_j.digests[1].size(), from_j.digests[1].size() );
+   for( size_t i = 0; i < to_j.digests[0].size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_j.digests[0].data[i], from_j.digests[0].data[i] );
-      BOOST_REQUIRE_EQUAL( to_j.digests[1].data[i], from_j.digests[1].data[i] );
+      BOOST_REQUIRE_EQUAL( to_j.digests[0][i], from_j.digests[0][i] );
+      BOOST_REQUIRE_EQUAL( to_j.digests[1][i], from_j.digests[1][i] );
    }
 }
 
 BOOST_AUTO_TEST_CASE( reflect_test )
 {
    test_object to_j;
-   to_j.id.data = { 0, 4, 8, 15, 16, 23, 42, 0 };
+   to_j.id = { 0, 4, 8, 15, 16, 23, 42, 0 };
    to_j.key.hash_id = 1;
-   to_j.key.digest.data = { 'f', 'o', 'o', 'b', 'a', 'r' };
+   to_j.key.digest = { 'f', 'o', 'o', 'b', 'a', 'r' };
    to_j.vals = { 108 };
 
    json j;
@@ -386,9 +386,9 @@ BOOST_AUTO_TEST_CASE( reflect_test )
 
    test_object from_j;
    from_json( j, from_j );
-   BOOST_REQUIRE( memcmp( from_j.id.data.data(), to_j.id.data.data(), to_j.id.data.size() ) == 0 );
-   BOOST_REQUIRE_EQUAL( from_j.key.digest.data.size(), to_j.key.digest.data.size() );
-   BOOST_REQUIRE( memcmp( from_j.key.digest.data.data(), to_j.key.digest.data.data(), to_j.key.digest.data.size() ) == 0 );
+   BOOST_REQUIRE( memcmp( from_j.id.data(), to_j.id.data(), to_j.id.size() ) == 0 );
+   BOOST_REQUIRE_EQUAL( from_j.key.digest.size(), to_j.key.digest.size() );
+   BOOST_REQUIRE( memcmp( from_j.key.digest.data(), to_j.key.digest.data(), to_j.key.digest.size() ) == 0 );
    BOOST_REQUIRE_EQUAL( from_j.vals.size(), to_j.vals.size() );
    BOOST_REQUIRE( memcmp( (char*)from_j.vals.data(), (char*)to_j.vals.data(), sizeof(uint32_t) * to_j.vals.size() ) == 0 );
 }

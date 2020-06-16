@@ -13,7 +13,7 @@ bool operator ==( const multihash_type& mha, const multihash_type& mhb )
 {
    return ( koinos::crypto::multihash::get_id( mha )   == koinos::crypto::multihash::get_id( mhb ) )
        && ( koinos::crypto::multihash::get_size( mha ) == koinos::crypto::multihash::get_size( mhb ) )
-       && ( memcmp( mha.digest.data.data(), mhb.digest.data.data(), mhb.digest.data.size() ) == 0 );
+       && ( memcmp( mha.digest.data(), mhb.digest.data(), mhb.digest.size() ) == 0 );
 }
 
 bool operator !=( const multihash_type& mha, const multihash_type& mhb )
@@ -26,10 +26,10 @@ bool operator <( const multihash_type& mha, const multihash_type& mhb )
    int64_t res = (int64_t)mha.hash_id - (int64_t)mhb.hash_id;
    if( res < 0 ) return true;
    if( res > 0 ) return false;
-   res = mha.digest.data.size() - mhb.digest.data.size();
+   res = mha.digest.size() - mhb.digest.size();
    if( res < 0 ) return true;
    if( res > 0 ) return false;
-   return memcmp( mha.digest.data.data(), mhb.digest.data.data(), mha.digest.data.size() ) < 0;
+   return memcmp( mha.digest.data(), mhb.digest.data(), mha.digest.size() ) < 0;
 }
 
 bool operator <=( const multihash_type& mha, const multihash_type& mhb )
@@ -37,10 +37,10 @@ bool operator <=( const multihash_type& mha, const multihash_type& mhb )
    int64_t res = (int64_t)mha.hash_id - (int64_t)mhb.hash_id;
    if( res < 0 ) return true;
    if( res > 0 ) return false;
-   res = mha.digest.data.size() - mhb.digest.data.size();
+   res = mha.digest.size() - mhb.digest.size();
    if( res < 0 ) return true;
    if( res > 0 ) return false;
-   return memcmp( mha.digest.data.data(), mhb.digest.data.data(), mha.digest.data.size() ) <= 0;
+   return memcmp( mha.digest.data(), mhb.digest.data(), mha.digest.size() ) <= 0;
 }
 
 bool operator >( const multihash_type& mha, const multihash_type& mhb )
@@ -120,7 +120,7 @@ bool validate( const multihash_type& mh, uint64_t code, uint64_t size )
    if( code && ( get_id( mh ) != code ) ) return false;
    if( size && ( get_size( mh ) != size ) ) return false;
    return get_evp_md( get_id( mh ) ) != nullptr
-      && get_size( mh ) == mh.digest.data.size();
+      && get_size( mh ) == mh.digest.size();
 }
 
 bool validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
@@ -133,7 +133,7 @@ bool validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
 
    for( auto d : mhv.digests )
    {
-      if( d.data.size() != s ) return false;
+      if( d.size() != s ) return false;
    }
 
    return true;
@@ -183,13 +183,13 @@ void encoder::reset()
    }
 }
 
-void encoder::get_result( vl_blob& v )
+void encoder::get_result( variable_blob& v )
 {
    unsigned int size = (unsigned int) _size;
-   v.data.resize( _size );
+   v.resize( _size );
    KOINOS_ASSERT(
       EVP_DigestFinal_ex(
-         mdctx, (unsigned char*)( v.data.data() ), &size ),
+         mdctx, (unsigned char*)( v.data() ), &size ),
       koinos::exception, "EVP_DigestFinal_ex returned failure", () );
    KOINOS_ASSERT( size == _size,
       multihash_size_mismatch,
@@ -217,8 +217,8 @@ void zero_hash( multihash_type& mh, uint64_t code, uint64_t size )
    if( size == 0 )
       size = get_standard_size( code );
    multihash::set_size( mh, size );
-   mh.digest.data.resize( size );
-   std::memset( mh.digest.data.data(), 0, size );
+   mh.digest.resize( size );
+   std::memset( mh.digest.data(), 0, size );
 }
 
 multihash_type zero_hash( uint64_t code, uint64_t size )

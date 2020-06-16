@@ -59,7 +59,7 @@ namespace chain_control {
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
 using koinos::protocol::block_header;
-using koinos::protocol::vl_blob;
+using koinos::protocol::variable_blob;
 using koinos::statedb::state_db;
 using namespace std::string_literals;
 
@@ -79,8 +79,8 @@ struct submit_block_impl
    submit_block             sub;
 
    protocol::block_header   header;
-   std::vector< vl_blob >   transactions;
-   std::vector< vl_blob >   passives;
+   std::vector< variable_blob >   transactions;
+   std::vector< variable_blob >   passives;
 };
 
 struct submit_transaction_impl
@@ -278,30 +278,30 @@ DECLARE_KOINOS_EXCEPTION( block_height_mismatch );
 DECLARE_KOINOS_EXCEPTION( previous_id_mismatch );
 DECLARE_KOINOS_EXCEPTION( invalid_signature );
 
-template< typename T > void decode_canonical( const vl_blob& bin, T& target )
+template< typename T > void decode_canonical( const variable_blob& bin, T& target )
 {
-   boost::interprocess::ibufferstream s( bin.data.data(), bin.data.size() );
+   boost::interprocess::ibufferstream s( bin.data(), bin.size() );
    pack::from_binary( s, target );
    // No-padding check:  Enforce that bin doesn't have extra bytes that were unread
-   KOINOS_ASSERT( size_t( s.tellg() ) == bin.data.size(), decode_exception, "Data does not deserialize (extra padding)", () );
+   KOINOS_ASSERT( size_t( s.tellg() ) == bin.size(), decode_exception, "Data does not deserialize (extra padding)", () );
 
    // Canonicity check:
    // Re-serialize the data and ensure it is the same as the input
    // The binary serialization format is intended to have a canonical serialization,
    // so if this check ever fails, there is a bug in the serialization spec / code.
-   std::vector< char > tmp( bin.data.size() );
+   std::vector< char > tmp( bin.size() );
    boost::interprocess::bufferstream s2( tmp.data(), tmp.size() );
 
    pack::to_binary( s2, target );
 
    KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)", () );
-   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.data.size(), decode_exception, "Data does not reserialize (size mismatch)", () );
-   KOINOS_ASSERT( bin.data == tmp, decode_exception, "Data does not reserialize", () );
+   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.size(), decode_exception, "Data does not reserialize (size mismatch)", () );
+   KOINOS_ASSERT( bin == tmp, decode_exception, "Data does not reserialize", () );
 }
 
 void decode_block( submit_block_impl& block )
 {
-   KOINOS_ASSERT( block.sub.block_header_bytes.data.size() >= 1, block_header_empty, "Block has empty header", () );
+   KOINOS_ASSERT( block.sub.block_header_bytes.size() >= 1, block_header_empty, "Block has empty header", () );
 
    decode_canonical( block.sub.block_header_bytes, block.header );
 
@@ -317,7 +317,7 @@ void decode_block( submit_block_impl& block )
 
 inline bool multihash_is_zero( const koinos::protocol::multihash_type& mh )
 {
-   return std::all_of( mh.digest.data.begin(), mh.digest.data.end(),
+   return std::all_of( mh.digest.begin(), mh.digest.end(),
       []( char c ) { return (c == 0); } );
 }
 
@@ -338,10 +338,10 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    _ctx->set_state_node( block_node );
 
    crypto::recoverable_signature sig;
-   vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
+   vectorstream in_sig( block.sub.block_passives_bytes[ 0 ] );
    pack::from_binary( in_sig, sig );
 
-   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
+   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 
@@ -365,7 +365,7 @@ void chain_controller_impl::process_submit_transaction( submit_return_transactio
 void chain_controller_impl::process_submit_query( submit_return_query& ret, submit_query_impl& query )
 {
    query_param_item params;
-   vectorstream in( query.sub.query.data );
+   vectorstream in( query.sub.query );
    pack::from_binary( in, params );
 
    query_result_item result;
@@ -383,14 +383,14 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
          }
          else
          {
-            result = query_error{ pack::to_vl_blob( "Could not find head block"s ) };
+            result = query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }
       }
    }, params);
 
    vectorstream out;
    pack::to_binary( out, result );
-   ret.result.data = out.vector();
+   ret.result = out.vector();
 }
 
 std::shared_ptr< submit_return > chain_controller_impl::process_item( std::shared_ptr< submit_item_impl > item )
@@ -489,7 +489,7 @@ void chain_controller_impl::work_thread_main()
          LOG(error) << "err in work_thread: " << (*maybe_err) << std::endl;
          result = std::make_shared< submit_return >();
          result->emplace< submit_return_error >();
-         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text.data ) );
+         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text ) );
       }
 
       work->prom_work_done.set_value( result );

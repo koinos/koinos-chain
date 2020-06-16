@@ -16,20 +16,20 @@ struct submit_block
 {
    block_topology                                block_topo;
 
-   protocol::vl_blob                             block_header_bytes;
-   std::vector< protocol::vl_blob >              block_transactions_bytes;
-   std::vector< protocol::vl_blob >              block_passives_bytes;
+   protocol::variable_blob                       block_header_bytes;
+   std::vector< protocol::variable_blob >        block_transactions_bytes;
+   std::vector< protocol::variable_blob >        block_passives_bytes;
 };
 
 struct submit_transaction
 {
-   protocol::vl_blob                             transaction_active_bytes;
-   protocol::vl_blob                             transaction_passive_bytes;
+   protocol::variable_blob                       transaction_active_bytes;
+   protocol::variable_blob                       transaction_passive_bytes;
 };
 
 struct submit_query
 {
-   protocol::vl_blob                             query;
+   protocol::variable_blob                       query;
 };
 
 typedef std::variant<
@@ -51,12 +51,12 @@ struct submit_return_transaction {};
 
 struct submit_return_query
 {
-   protocol::vl_blob                             result;
+   protocol::variable_blob result;
 };
 
 struct submit_return_error
 {
-   protocol::vl_blob                             error_text;
+   protocol::variable_blob error_text;
 };
 
 typedef std::variant<

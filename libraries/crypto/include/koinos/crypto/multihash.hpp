@@ -29,7 +29,7 @@ namespace crypto {
 
 using koinos::protocol::multihash_type;
 using koinos::protocol::multihash_vector;
-using koinos::protocol::vl_blob;
+using koinos::protocol::variable_blob;
 
 DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
 DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
@@ -65,7 +65,7 @@ struct encoder
    void write( const char* d, size_t len );
    void put( char c ) { write( &c, 1 ); }
    void reset();
-   void get_result( vl_blob& v );
+   void get_result( variable_blob& v );
    inline void get_result( multihash_type& mh )
    {
       get_result( mh.digest );

@@ -327,10 +327,10 @@ BOOST_AUTO_TEST_CASE( optional_test )
    BOOST_REQUIRE_EQUAL( *from_bin, *to_bin );
 }
 
-BOOST_AUTO_TEST_CASE( vl_blob_test )
+BOOST_AUTO_TEST_CASE( variable_blob_test )
 {
-   vl_blob to_bin;
-   to_bin.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   variable_blob to_bin;
+   to_bin = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
 
    std::stringstream ss;
    to_binary( ss, to_bin );
@@ -338,19 +338,19 @@ BOOST_AUTO_TEST_CASE( vl_blob_test )
    vector< uint8_t > expected = { 0x06, 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
    REQUIRE_DEEP_EQUAL( ss, expected );
 
-   vl_blob from_bin;
+   variable_blob from_bin;
    from_binary( ss, from_bin );
-   BOOST_REQUIRE_EQUAL( to_bin.data.size(), from_bin.data.size() );
-   for( size_t i = 0; i < to_bin.data.size(); ++i )
+   BOOST_REQUIRE_EQUAL( to_bin.size(), from_bin.size() );
+   for( size_t i = 0; i < to_bin.size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_bin.data[i], from_bin.data[i] );
+      BOOST_REQUIRE_EQUAL( to_bin[i], from_bin[i] );
    }
 }
 
-BOOST_AUTO_TEST_CASE( fl_blob_test )
+BOOST_AUTO_TEST_CASE( fixed_blob_test )
 {
-   fl_blob< 6 > to_bin;
-   to_bin.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   fixed_blob< 6 > to_bin;
+   to_bin = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
 
    std::stringstream ss;
    to_binary( ss, to_bin );
@@ -358,11 +358,11 @@ BOOST_AUTO_TEST_CASE( fl_blob_test )
    vector< uint8_t > expected = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
    REQUIRE_DEEP_EQUAL( ss, expected );
 
-   fl_blob< 6 > from_bin;
+   fixed_blob< 6 > from_bin;
    from_binary( ss, from_bin );
-   for( size_t i = 0; i < to_bin.data.size(); ++i )
+   for( size_t i = 0; i < to_bin.size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_bin.data[i], from_bin.data[i] );
+      BOOST_REQUIRE_EQUAL( to_bin[i], from_bin[i] );
    }
 }
 
@@ -370,7 +370,7 @@ BOOST_AUTO_TEST_CASE( multihash_type_test )
 {
    multihash_type to_bin;
    to_bin.hash_id = 1;
-   to_bin.digest.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   to_bin.digest = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
 
    std::stringstream ss;
    to_binary( ss, to_bin );
@@ -380,10 +380,10 @@ BOOST_AUTO_TEST_CASE( multihash_type_test )
 
    multihash_type from_bin;
    from_binary( ss, from_bin );
-   BOOST_REQUIRE_EQUAL( to_bin.digest.data.size(), from_bin.digest.data.size() );
-   for( size_t i = 0; i < to_bin.digest.data.size(); ++i )
+   BOOST_REQUIRE_EQUAL( to_bin.digest.size(), from_bin.digest.size() );
+   for( size_t i = 0; i < to_bin.digest.size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_bin.digest.data[i], from_bin.digest.data[i] );
+      BOOST_REQUIRE_EQUAL( to_bin.digest[i], from_bin.digest[i] );
    }
 }
 
@@ -391,10 +391,10 @@ BOOST_AUTO_TEST_CASE( multihash_vector_test )
 {
    multihash_vector to_bin;
    to_bin.hash_id = 1;
-   vl_blob digest_a;
-   digest_a.data = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
-   vl_blob digest_b;
-   digest_b.data = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
+   variable_blob digest_a;
+   digest_a = { 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A };
+   variable_blob digest_b;
+   digest_b = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
    to_bin.digests.push_back( digest_a );
    to_bin.digests.push_back( digest_b );
 
@@ -414,21 +414,21 @@ BOOST_AUTO_TEST_CASE( multihash_vector_test )
    from_binary( ss, from_bin );
    BOOST_REQUIRE_EQUAL( to_bin.hash_id, from_bin.hash_id );
    BOOST_REQUIRE_EQUAL( to_bin.digests.size(), from_bin.digests.size() );
-   BOOST_REQUIRE_EQUAL( to_bin.digests[0].data.size(), from_bin.digests[0].data.size() );
-   BOOST_REQUIRE_EQUAL( to_bin.digests[1].data.size(), from_bin.digests[1].data.size() );
-   for( size_t i = 0; i < to_bin.digests[0].data.size(); ++i )
+   BOOST_REQUIRE_EQUAL( to_bin.digests[0].size(), from_bin.digests[0].size() );
+   BOOST_REQUIRE_EQUAL( to_bin.digests[1].size(), from_bin.digests[1].size() );
+   for( size_t i = 0; i < to_bin.digests[0].size(); ++i )
    {
-      BOOST_REQUIRE_EQUAL( to_bin.digests[0].data[i], from_bin.digests[0].data[i] );
-      BOOST_REQUIRE_EQUAL( to_bin.digests[1].data[i], from_bin.digests[1].data[i] );
+      BOOST_REQUIRE_EQUAL( to_bin.digests[0][i], from_bin.digests[0][i] );
+      BOOST_REQUIRE_EQUAL( to_bin.digests[1][i], from_bin.digests[1][i] );
    }
 }
 
 BOOST_AUTO_TEST_CASE( reflect_test )
 {
    test_object to_bin;
-   to_bin.id.data = { 0, 4, 8, 15, 16, 23, 42, 0 };
+   to_bin.id = { 0, 4, 8, 15, 16, 23, 42, 0 };
    to_bin.key.hash_id = 1;
-   to_bin.key.digest.data = { 'f', 'o', 'o', 'b', 'a', 'r' };
+   to_bin.key.digest = { 'f', 'o', 'o', 'b', 'a', 'r' };
    to_bin.vals = { 108 };
 
    std::stringstream ss;
@@ -443,9 +443,9 @@ BOOST_AUTO_TEST_CASE( reflect_test )
 
    test_object from_bin;
    from_binary( ss, from_bin );
-   BOOST_REQUIRE( memcmp( from_bin.id.data.data(), to_bin.id.data.data(), to_bin.id.data.size() ) == 0 );
-   BOOST_REQUIRE_EQUAL( from_bin.key.digest.data.size(), to_bin.key.digest.data.size() );
-   BOOST_REQUIRE( memcmp( from_bin.key.digest.data.data(), to_bin.key.digest.data.data(), to_bin.key.digest.data.size() ) == 0 );
+   BOOST_REQUIRE( memcmp( from_bin.id.data(), to_bin.id.data(), to_bin.id.size() ) == 0 );
+   BOOST_REQUIRE_EQUAL( from_bin.key.digest.size(), to_bin.key.digest.size() );
+   BOOST_REQUIRE( memcmp( from_bin.key.digest.data(), to_bin.key.digest.data(), to_bin.key.digest.size() ) == 0 );
    BOOST_REQUIRE_EQUAL( from_bin.vals.size(), to_bin.vals.size() );
    BOOST_REQUIRE( memcmp( (char*)from_bin.vals.data(), (char*)to_bin.vals.data(), sizeof(uint32_t) * to_bin.vals.size() ) == 0 );
 }
@@ -474,43 +474,43 @@ BOOST_AUTO_TEST_CASE( reflect_test )
 }
 */
 
-BOOST_AUTO_TEST_CASE( to_vl_blob_test )
+BOOST_AUTO_TEST_CASE( to_variable_blob_test )
 {
    BOOST_TEST_MESSAGE( "Testing string to vl_blob" );
    std::string foobar = "foobar";
-   vl_blob expected;
-   expected.data = {0x66, 0x6F, 0x6F, 0x62, 0x61, 0x72};
-   vl_blob result = to_vl_blob( foobar );
+   variable_blob expected;
+   expected = {0x66, 0x6F, 0x6F, 0x62, 0x61, 0x72};
+   variable_blob result = to_variable_blob( foobar );
 
-   BOOST_REQUIRE( result.data.size() == foobar.size() );
-   BOOST_REQUIRE( memcmp( result.data.data(), foobar.c_str(), foobar.size() ) == 0 );
+   BOOST_REQUIRE( result.size() == foobar.size() );
+   BOOST_REQUIRE( memcmp( result.data(), foobar.c_str(), foobar.size() ) == 0 );
 
-   std::string result_str = from_vl_blob< std::string >( result );
+   std::string result_str = from_variable_blob< std::string >( result );
    BOOST_REQUIRE_EQUAL( foobar, result_str );
 
    BOOST_TEST_MESSAGE( "Testing object to vl_blob" );
 
    // Using the same data from reflect_test
    test_object obj;
-   obj.id.data = { 0, 4, 8, 15, 16, 23, 42, 0 };
+   obj.id = { 0, 4, 8, 15, 16, 23, 42, 0 };
    obj.key.hash_id = 1;
-   obj.key.digest.data = { 'f', 'o', 'o', 'b', 'a', 'r' };
+   obj.key.digest = { 'f', 'o', 'o', 'b', 'a', 'r' };
    obj.vals = { 108 };
 
-   expected.data = {
+   expected = {
       0x00, 0x04, 0x08, 0x0F, 0x10, 0x17, 0x2A, 0x00,
       0x01, 0x06, 0x66, 0x6F, 0x6F, 0x62, 0x61, 0x72,
       0x01, 0x00, 0x00, 0x00, 0x6C
    };
-   to_vl_blob( result, obj );
+   to_variable_blob( result, obj );
 
-   BOOST_REQUIRE_EQUAL( result.data.size(), expected.data.size() );
-   BOOST_REQUIRE( memcmp( result.data.data(), expected.data.data(), expected.data.size() ) == 0 );
+   BOOST_REQUIRE_EQUAL( result.size(), expected.size() );
+   BOOST_REQUIRE( memcmp( result.data(), expected.data(), expected.size() ) == 0 );
 
-   test_object result_obj = from_vl_blob< test_object >( result );
-   BOOST_REQUIRE( memcmp( result_obj.id.data.data(), obj.id.data.data(), obj.id.data.size() ) == 0 );
-   BOOST_REQUIRE_EQUAL( result_obj.key.digest.data.size(), obj.key.digest.data.size() );
-   BOOST_REQUIRE( memcmp( result_obj.key.digest.data.data(), obj.key.digest.data.data(), obj.key.digest.data.size() ) == 0 );
+   test_object result_obj = from_variable_blob< test_object >( result );
+   BOOST_REQUIRE( memcmp( result_obj.id.data(), obj.id.data(), obj.id.size() ) == 0 );
+   BOOST_REQUIRE_EQUAL( result_obj.key.digest.size(), obj.key.digest.size() );
+   BOOST_REQUIRE( memcmp( result_obj.key.digest.data(), obj.key.digest.data(), obj.key.digest.size() ) == 0 );
    BOOST_REQUIRE_EQUAL( result_obj.vals.size(), obj.vals.size() );
    BOOST_REQUIRE( memcmp( (char*)result_obj.vals.data(), (char*)obj.vals.data(), sizeof(uint32_t) * obj.vals.size() ) == 0 );
 }

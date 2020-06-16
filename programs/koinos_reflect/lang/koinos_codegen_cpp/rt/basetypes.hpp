@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <koinos/exception.hpp>
@@ -58,30 +60,21 @@ namespace koinos::protocol {
    typedef int256_t  int256;
    typedef uint256_t uint256;
 
-   struct vl_blob
-   {
-      vector< char > data;
-   };
+   using variable_blob = std::vector< char >;
 
-   template< size_t N >
-   struct fl_blob
-   {
-      fl_blob()
-      { data.fill(0); }
-
-      array< char, N > data;
-   };
+   template < size_t N >
+   using fixed_blob    = std::array< char, N >;
 
    struct multihash_type
    {
-      uint64_t hash_id = 0;
-      vl_blob  digest;
+      uint64_t       hash_id = 0;
+      variable_blob  digest;
    };
 
    struct multihash_vector
    {
-      uint64_t               hash_id = 0;
-      std::vector< vl_blob > digests;
+      uint64_t                     hash_id = 0;
+      std::vector< variable_blob > digests;
    };
 
 } // koinos::protocol

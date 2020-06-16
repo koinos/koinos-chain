@@ -43,7 +43,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    chain_control::query_param_item p = chain_control::get_head_info_params();
    vectorstream ostream;
    pack::to_binary(ostream, p);
-   crypto::vl_blob query_bytes{ostream.vector()};
+   crypto::variable_blob query_bytes{ostream.vector()};
    chain_control::submit_query query{query_bytes};
    auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
    auto r = controller.submit(chain_control::submit_item(query));
@@ -51,7 +51,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    try
    {
       auto w = std::get<chain_control::submit_return_query>(*(r.get()));
-      vectorstream istream(w.result.data);
+      vectorstream istream(w.result);
       pack::from_binary(istream, q);
       std::visit(koinos::overloaded{
          [&](chain_control::get_head_info_return& head_info) {
@@ -70,7 +70,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    // Serialize active data, store it in block header
    vectorstream active_stream;
    pack::to_binary(active_stream, active_data);
-   crypto::vl_blob active_data_bytes{active_stream.vector()};
+   crypto::variable_blob active_data_bytes{active_stream.vector()};
    block->active_bytes = active_data_bytes;
 
    // Hash active data and use it to sign block
@@ -87,7 +87,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    // Serialize the header
    vectorstream header_stream;
    pack::to_binary(header_stream, *block);
-   crypto::vl_blob block_header_bytes{header_stream.vector()};
+   crypto::variable_blob block_header_bytes{header_stream.vector()};
 
    // Store hash of header as ID
    topology.id = crypto::hash(CRYPTO_SHA2_256_ID, *block);
@@ -95,7 +95,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    // Serialize the passive data
    vectorstream passive_stream;
    pack::to_binary(passive_stream, passive_data);
-   crypto::vl_blob passive_data_bytes{passive_stream.vector()};
+   crypto::variable_blob passive_data_bytes{passive_stream.vector()};
 
    // Create the submit block object
    chain_control::submit_block block_submission;
