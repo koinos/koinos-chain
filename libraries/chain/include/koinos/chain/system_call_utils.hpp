@@ -91,9 +91,7 @@
             [&]( thunk_id_type& _tid ) {                                                                        \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                 \
                thunk_dispatcher::instance().call_thunk<                                                        \
-                  decltype(SYSCALL) \
-                  BOOST_PP_IF( _THUNK_IS_VOID(RETURN_TYPE),,BOOST_PP_COMMA ) \
-                  BOOST_PP_IF( _THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE) >(          \
+                  decltype(SYSCALL) >(                                                                         \
                      _tid,                                                                                      \
                      context,                                                                                  \
                      _SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__) );                                            \

@@ -831,68 +831,7 @@ inline T from_c_str( const char* c, size_t l )
    return t;
 }
 
-namespace detail
-{
-   // An implementation of bind_front prior to official support in C++20 based on
-   // https://codereview.stackexchange.com/questions/227695/c17-compatible-stdbind-front-alternative
-   template< typename Function, typename... BoundArgs >
-   struct bind_obj
-   {
-      Function func;
-      std::tuple< BoundArgs... > bound_args;
-
-      bind_obj( Function&& f, BoundArgs... b ) :
-         func( f ),
-         bound_args( b... )
-      {}
-
-      template< typename... CallArgs >
-      inline auto operator()( CallArgs... call_args )
-      {
-         return std::apply( func, bound_args, std::forward< CallArgs >( call_args )... );
-      }
-   };
-
-   template< typename Function, typename... Args >
-   inline bind_obj< Function, Args... > bind_front( Function&& func, Args&&... arg )
-   {
-      return bind_obj< Function, Args... >(
-         std::forward< Function >( func ),
-         std::forward< Args >( arg )...
-      );
-   }
-
-   template< typename Function, typename Stream, typename T >
-   inline auto parse_args( Function&& f, Stream& s ) -> decltype(bind_front< Function, Stream, T >)
-   {
-      T t;
-      from_binary( s, t );
-      return bind_front( std::forward(f), std::move(t) );
-   }
-
-   template< typename Function, typename Stream, typename T, typename... Ts >
-   inline auto parse_args( Function&& f, Stream& s ) -> decltype(parse_args< decltype(bind_front< Function, T >), Stream, T >)
-   {
-      T t;
-      from_binary( s, t );
-      return parse_args< decltype(bind_front< Function, T >), Stream, Ts... >( bind_front( std::forward(f), std::move(t) ), s );
-   }
-
-   template< typename Function, typename Stream >
-   inline Function&& parse_args( Function&& f, Stream& v )
-   {
-      return f;
-   }
-}
-
-template< typename RetType, typename... ArgTypes >
-inline void call_with_vl_blob( std::function< RetType(ArgTypes...) >&& func, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, ArgTypes... args )
-{
-   detail::input_stringstream instream( arg_ptr, arg_len );
-   to_c_str< RetType >( ret_ptr, ret_len, std::invoke( detail::parse_args( detail::bind_front( func, args... ), instream ) ) );
-}
-
-} // koinos::raw
+} // koinos::pack
 
 #undef KOINOS_NATIVE_INT_SERIALIZER
 #undef KOINOS_BOOST_INT_SERIALIZER
