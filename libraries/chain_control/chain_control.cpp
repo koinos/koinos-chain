@@ -44,17 +44,7 @@
 #include <mutex>
 #include <optional>
 
-KOINOS_TODO( "Move this somewhere else, please!" )
-namespace koinos { namespace protocol {
-
-bool operator >( const block_height_type& a, const block_height_type& b )  { return a.height > b.height;  }
-bool operator >=( const block_height_type& a, const block_height_type& b ) { return a.height >= b.height; }
-bool operator <( const block_height_type& a, const block_height_type& b )  { return a.height < b.height;  }
-bool operator <=( const block_height_type& a, const block_height_type& b ) { return a.height <= b.height; }
-
-} // protocol
-
-namespace chain_control {
+namespace koinos::chain_control {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
@@ -329,7 +319,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    if( multihash_is_zero( block.sub.block_topo.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.sub.block_topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
+      KOINOS_ASSERT( block.sub.block_topo.block_num == 1, root_height_mismatch, "First block must have height of 1", () );
    }
 
    auto block_node = _state_db.create_writable_node( block.sub.block_topo.previous, block.sub.block_topo.id );
@@ -378,7 +368,7 @@ void chain_controller_impl::process_submit_query( submit_return_query& ret, subm
          {
             get_head_info_return res;
             res.id = head->id();
-            res.height.height = head->revision();
+            res.height = head->revision();
             result = res;
          }
          else
@@ -538,4 +528,4 @@ void chain_controller_impl::stop_threads()
    _feed_thread.reset();
 }
 
-} }
+}

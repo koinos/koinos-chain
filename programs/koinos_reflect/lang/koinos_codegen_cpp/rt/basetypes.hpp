@@ -3,6 +3,7 @@
 #include <cstddef>
 
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/serialization/strong_typedef.hpp>
 
 #include <koinos/exception.hpp>
 
@@ -13,6 +14,12 @@
 #include <set>
 #include <variant>
 #include <vector>
+
+template< class, class = std::void_t<> >
+struct has_t : std::false_type { };
+
+template< class T >
+struct has_t<T, std::void_t<typename T::type>> : std::true_type { };
 
 namespace koinos::protocol {
 
@@ -64,6 +71,9 @@ namespace koinos::protocol {
 
    template < size_t N >
    using fixed_blob    = std::array< char, N >;
+
+   BOOST_STRONG_TYPEDEF( uint64_t, timestamp_type );
+   BOOST_STRONG_TYPEDEF( uint64_t, block_height_type );
 
    struct multihash_type
    {

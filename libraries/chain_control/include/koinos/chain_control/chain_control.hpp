@@ -10,15 +10,7 @@
 #include <future>
 #include <memory>
 
-KOINOS_TODO( "Move this somewhere else, please!" )
-namespace koinos { namespace protocol {
-   bool operator >( const block_height_type& a, const block_height_type& b );
-   bool operator >=( const block_height_type& a, const block_height_type& b );
-   bool operator <( const block_height_type& a, const block_height_type& b );
-   bool operator <=( const block_height_type& a, const block_height_type& b );
-}
-
-namespace chain_control {
+namespace koinos::chain_control {
 
 DECLARE_KOINOS_EXCEPTION( unknown_submission_type );
 
@@ -44,4 +36,4 @@ class chain_controller
       std::unique_ptr< chain_controller_impl > _my;
 };
 
-} }
+}

@@ -43,6 +43,9 @@ KOINOS_DECLARE_BASE_SERIALIZER( signed_int )
 KOINOS_DECLARE_BASE_SERIALIZER( multihash_type )
 KOINOS_DECLARE_BASE_SERIALIZER( multihash_vector )
 
+KOINOS_DECLARE_BASE_SERIALIZER( block_height_type )
+KOINOS_DECLARE_BASE_SERIALIZER( timestamp_type )
+
 KOINOS_DECLARE_BASE_SERIALIZER( variable_blob )
 
 template< typename Stream, size_t N >

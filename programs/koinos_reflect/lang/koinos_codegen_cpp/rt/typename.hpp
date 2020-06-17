@@ -62,6 +62,8 @@ KOINOS_DEFINE_SIMPLE_TYPENAME( bool )
 KOINOS_DEFINE_SIMPLE_TYPENAME( variable_blob )
 KOINOS_DEFINE_SIMPLE_TYPENAME( multihash_type )
 KOINOS_DEFINE_SIMPLE_TYPENAME( multihash_vector )
+KOINOS_DEFINE_SIMPLE_TYPENAME( block_height_type )
+KOINOS_DEFINE_SIMPLE_TYPENAME( timestamp_type )
 
 template< typename T > struct get_typename< vector< T > >
 {

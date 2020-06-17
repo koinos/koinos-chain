@@ -25,7 +25,7 @@ static protocol::timestamp_type timestamp_now()
    auto ticks = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
 
    protocol::timestamp_type t;
-   t.timestamp = ticks;
+   t = ticks;
    return t;
 }
 
@@ -55,7 +55,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
       pack::from_binary(istream, q);
       std::visit(koinos::overloaded{
          [&](chain_control::get_head_info_return& head_info) {
-            active_data.height.height = head_info.height.height+1;
+            active_data.height = head_info.height+1;
             topology.previous = head_info.id;
             topology.block_num = active_data.height;
          },

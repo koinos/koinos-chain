@@ -90,6 +90,16 @@ inline void from_json( json& j, int_type& v, uint32_t depth )     \
    }                                                              \
 }
 
+#define JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( type )      \
+inline void to_json( json& j, const type& v )             \
+{                                                         \
+   to_json( j, v.t );                                     \
+}                                                         \
+inline void from_json( json& j, type& v, uint32_t depth ) \
+{                                                         \
+   from_json( j, v.t, depth );                            \
+}
+
 namespace koinos::pack
 {
 
@@ -103,6 +113,8 @@ JSON_SIGNED_INT_SERIALIZER( int16_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint16_t )
 JSON_SIGNED_INT_SERIALIZER( int32_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint32_t )
+JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( block_height_type )
+JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( timestamp_type )
 
 inline void to_json( json& j, int64_t v )
 {

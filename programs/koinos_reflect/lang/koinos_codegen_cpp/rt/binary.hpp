@@ -46,6 +46,18 @@ inline void from_binary( Stream& s, int_type& t, uint32_t depth )            \
    t |= low;                                                                 \
 }
 
+#define KOINOS_DEFINE_BOOST_STRONG_TYPEDEF_SERIALIZER( type )  \
+template< typename Stream >                                    \
+inline void to_binary( Stream& s, const type& t )              \
+{                                                              \
+   to_binary( s, t.t );                                        \
+}                                                              \
+template< typename Stream >                                    \
+inline void from_binary( Stream& s, type& t, uint32_t depth )  \
+{                                                              \
+   from_binary( s, t.t );                                      \
+}
+
 namespace koinos::pack {
 
 namespace detail {
@@ -78,6 +90,9 @@ KOINOS_DEFINE_BOOST_INT_SERIALIZER( int160_t,  int32_t,   int128_t,  128 );
 KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint160_t, uint32_t,  uint128_t, 128 );
 KOINOS_DEFINE_BOOST_INT_SERIALIZER( int256_t,  int128_t,  int128_t,  128 );
 KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint256_t, uint128_t, uint128_t, 128 );
+
+KOINOS_DEFINE_BOOST_STRONG_TYPEDEF_SERIALIZER( block_height_type );
+KOINOS_DEFINE_BOOST_STRONG_TYPEDEF_SERIALIZER( timestamp_type );
 
 /* Bool:
  *
