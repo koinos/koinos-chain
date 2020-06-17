@@ -10,65 +10,65 @@ struct block_topology
    protocol::multihash_type                 previous;
 };
 
-struct submit_reserved {};
+struct reserved_submission {};
 
-struct submit_block
+struct block_submission
 {
-   block_topology                                block_topo;
+   block_topology                                topology;
 
-   protocol::variable_blob                       block_header_bytes;
-   std::vector< protocol::variable_blob >        block_transactions_bytes;
-   std::vector< protocol::variable_blob >        block_passives_bytes;
+   protocol::variable_blob                       header_bytes;
+   std::vector< protocol::variable_blob >        transactions_bytes;
+   std::vector< protocol::variable_blob >        passives_bytes;
 };
 
-struct submit_transaction
+struct transaction_submission
 {
-   protocol::variable_blob                       transaction_active_bytes;
-   protocol::variable_blob                       transaction_passive_bytes;
+   protocol::variable_blob                       active_bytes;
+   protocol::variable_blob                       passive_bytes;
 };
 
-struct submit_query
+struct query_submission
 {
    protocol::variable_blob                       query;
 };
 
 typedef std::variant<
-   submit_reserved,
-   submit_block,
-   submit_transaction,
-   submit_query > submit_item;
+   reserved_submission,
+   block_submission,
+   transaction_submission,
+   query_submission > submission_item;
 
 struct get_head_info_params {};
 
 typedef std::variant<
    get_head_info_params > query_param_item;
 
-struct submit_return_reserved {};
+struct reserved_submission_result {};
 
-struct submit_return_block {};
+struct block_submission_result {};
 
-struct submit_return_transaction {};
+struct transaction_submission_result {};
 
-struct submit_return_query
+struct query_submission_result
 {
    protocol::variable_blob result;
 };
 
-struct submit_return_error
+struct submission_error_result
 {
    protocol::variable_blob error_text;
 };
 
 typedef std::variant<
-   submit_return_reserved,
-   submit_return_block,
-   submit_return_transaction,
-   submit_return_query,
-   submit_return_error > submit_return;
+   reserved_submission_result,
+   block_submission_result,
+   transaction_submission_result,
+   query_submission_result,
+   submission_error_result > submission_result;
 
-typedef submit_return_query query_error;
+typedef query_submission_result query_error;
 
-struct get_head_info_return
+struct get_head_info_result
 {
    protocol::multihash_type    id;
    protocol::block_height_type height;
@@ -76,6 +76,6 @@ struct get_head_info_return
 
 typedef std::variant<
    query_error,
-   get_head_info_return > query_result_item;
+   get_head_info_result > query_item_result;
 
 } } // koinos::chain_control

@@ -55,6 +55,11 @@ namespace multihash
 
    inline bool validate_sha256( const multihash_type& mh )    { return validate( mh,  CRYPTO_SHA2_256_ID, 32 ); }
    inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
+
+   inline bool is_zero( const multihash_type& mh )
+   {
+      return std::all_of( mh.digest.begin(), mh.digest.end(), []( char c ) { return (c == 0); } );
+   }
 } // multihash
 
 struct encoder
