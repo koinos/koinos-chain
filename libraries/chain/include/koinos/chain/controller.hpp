@@ -10,7 +10,7 @@
 #include <future>
 #include <memory>
 
-namespace koinos::chain_control {
+namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( unknown_submission_type );
 DECLARE_KOINOS_EXCEPTION( decode_exception );
@@ -22,13 +22,13 @@ DECLARE_KOINOS_EXCEPTION( block_height_mismatch );
 DECLARE_KOINOS_EXCEPTION( previous_id_mismatch );
 DECLARE_KOINOS_EXCEPTION( invalid_signature );
 
-namespace detail { class chain_controller_impl; }
+namespace detail { class controller_impl; }
 
-class chain_controller
+class controller
 {
    public:
-      chain_controller();
-      virtual ~chain_controller();
+      controller();
+      virtual ~controller();
 
       std::future< std::shared_ptr< submission_result > > submit( const submission_item& item );
 
@@ -41,7 +41,7 @@ class chain_controller
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
    private:
-      std::unique_ptr< detail::chain_controller_impl > _my;
+      std::unique_ptr< detail::controller_impl > _my;
 };
 
 }

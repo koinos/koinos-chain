@@ -1,4 +1,4 @@
-namespace koinos { namespace chain_control {
+namespace koinos { namespace chain {
 
 // Every block has a cryptographic ID.
 // Check the claimed ID against the block content.

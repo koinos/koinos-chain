@@ -20,7 +20,7 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-      chain_control::chain_controller controller;
+      koinos::chain::controller controller;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
@@ -36,8 +36,8 @@ void chain_plugin_impl::write_default_database_config( bfs::path &p )
 chain_plugin::chain_plugin() : my( new detail::chain_plugin_impl() ) {}
 chain_plugin::~chain_plugin(){}
 
-chain_control::chain_controller& chain_plugin::controller() { return my->controller; }
-const chain_control::chain_controller& chain_plugin::controller() const { return my->controller; }
+koinos::chain::controller& chain_plugin::controller() { return my->controller; }
+const koinos::chain::controller& chain_plugin::controller() const { return my->controller; }
 
 bfs::path chain_plugin::state_dir() const
 {

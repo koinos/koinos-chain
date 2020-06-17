@@ -19,7 +19,7 @@
 #include <koinos/pack/rt/json.hpp>
 #include <koinos/pack/rt/string.hpp>
 
-#include <koinos/chain_control/chain_control.hpp>
+#include <koinos/chain/controller.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 
@@ -44,7 +44,7 @@
 #include <mutex>
 #include <optional>
 
-namespace koinos::chain_control {
+namespace koinos::chain {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
@@ -116,11 +116,11 @@ struct work_item
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
  */
-class chain_controller_impl
+class controller_impl
 {
    public:
-      chain_controller_impl();
-      virtual ~chain_controller_impl();
+      controller_impl();
+      virtual ~controller_impl();
 
       void start_threads();
       void stop_threads();
@@ -166,21 +166,21 @@ class chain_controller_impl
       std::optional< std::chrono::time_point< std::chrono::steady_clock > >    _now;
 };
 
-chain_controller_impl::chain_controller_impl()
+controller_impl::controller_impl()
 {
    _ctx = std::make_unique< chain::apply_context >( _syscall_table );
    _ctx->privilege_level = chain::privilege::kernel_mode;
    _sys_api = std::make_unique< chain::system_api >( *_ctx );
 }
 
-chain_controller_impl::~chain_controller_impl() = default;
+controller_impl::~controller_impl() = default;
 
-std::chrono::time_point< std::chrono::steady_clock > chain_controller_impl::now()
+std::chrono::time_point< std::chrono::steady_clock > controller_impl::now()
 {
    return (_now) ? (*_now) : std::chrono::steady_clock::now();
 }
 
-void chain_controller_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
+void controller_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
 {
    _now = t;
 }
@@ -209,7 +209,7 @@ struct create_impl_item_visitor
    }
 };
 
-std::future< std::shared_ptr< submission_result > > chain_controller_impl::submit( const submission_item& item )
+std::future< std::shared_ptr< submission_result > > controller_impl::submit( const submission_item& item )
 {
    create_impl_item_visitor vtor;
    std::shared_ptr< item_submission_impl > impl_item = std::make_shared< item_submission_impl >( std::visit( vtor, item ) );
@@ -232,7 +232,7 @@ std::future< std::shared_ptr< submission_result > > chain_controller_impl::submi
    return fut_output;
 }
 
-void chain_controller_impl::open( const boost::filesystem::path& p, const boost::any& o )
+void controller_impl::open( const boost::filesystem::path& p, const boost::any& o )
 {
    _state_db.open( p, o );
 }
@@ -274,7 +274,7 @@ void decode_block( block_submission_impl& block )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-void chain_controller_impl::process_submission( block_submission_result& ret, block_submission_impl& block )
+void controller_impl::process_submission( block_submission_result& ret, block_submission_impl& block )
 {
    decode_block( block );
 
@@ -310,12 +310,12 @@ void chain_controller_impl::process_submission( block_submission_result& ret, bl
    KOINOS_TODO( "Report success / failure to caller" )
 }
 
-void chain_controller_impl::process_submission( transaction_submission_result& ret, transaction_submission_impl& tx )
+void controller_impl::process_submission( transaction_submission_result& ret, transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void chain_controller_impl::process_submission( query_submission_result& ret, query_submission_impl& query )
+void controller_impl::process_submission( query_submission_result& ret, query_submission_impl& query )
 {
    query_param_item params;
    vectorstream in( query.submission.query );
@@ -346,7 +346,7 @@ void chain_controller_impl::process_submission( query_submission_result& ret, qu
    ret.result = out.vector();
 }
 
-std::shared_ptr< submission_result > chain_controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
+std::shared_ptr< submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
 {
    submission_result result;
 
@@ -374,7 +374,7 @@ std::shared_ptr< submission_result > chain_controller_impl::process_item( std::s
    return std::make_shared< submission_result >( result );
 }
 
-void chain_controller_impl::feed_thread_main()
+void controller_impl::feed_thread_main()
 {
    while ( true )
    {
@@ -400,7 +400,7 @@ void chain_controller_impl::feed_thread_main()
    }
 }
 
-void chain_controller_impl::work_thread_main()
+void controller_impl::work_thread_main()
 {
    while( true )
    {
@@ -446,7 +446,7 @@ void chain_controller_impl::work_thread_main()
    }
 }
 
-void chain_controller_impl::start_threads()
+void controller_impl::start_threads()
 {
    boost::thread::attributes attrs;
    attrs.set_stack_size( _thread_stack_size );
@@ -460,7 +460,7 @@ void chain_controller_impl::start_threads()
    _feed_thread.emplace( attrs, [this]() { feed_thread_main(); } );
 }
 
-void chain_controller_impl::stop_threads()
+void controller_impl::stop_threads()
 {
    //
    // We must close the queues in order from last to first:  A later queue may be waiting on
@@ -480,33 +480,33 @@ void chain_controller_impl::stop_threads()
 
 } // detail
 
-chain_controller::chain_controller() : _my( std::make_unique< detail::chain_controller_impl >() ) {}
+controller::controller() : _my( std::make_unique< detail::controller_impl >() ) {}
 
-chain_controller::~chain_controller() = default;
+controller::~controller() = default;
 
-std::future< std::shared_ptr< submission_result > > chain_controller::submit( const submission_item& item )
+std::future< std::shared_ptr< submission_result > > controller::submit( const submission_item& item )
 {
    return _my->submit( item );
 }
 
-void chain_controller::open( const boost::filesystem::path& p, const boost::any& o )
+void controller::open( const boost::filesystem::path& p, const boost::any& o )
 {
    _my->open( p, o );
 }
 
-void chain_controller::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
+void controller::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
 {
    _my->set_time( t );
 }
 
-void chain_controller::start_threads()
+void controller::start_threads()
 {
    _my->start_threads();
 }
 
-void chain_controller::stop_threads()
+void controller::stop_threads()
 {
    _my->stop_threads();
 }
 
-} // koinos::chain_control
+} // koinos::chain

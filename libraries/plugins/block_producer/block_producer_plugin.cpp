@@ -39,22 +39,22 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    active_data.timestamp = timestamp_now();
 
    // Get previous block data
-   chain_control::block_topology topology;
-   chain_control::query_param_item p = chain_control::get_head_info_params();
+   koinos::chain::block_topology topology;
+   koinos::chain::query_param_item p = koinos::chain::get_head_info_params();
    vectorstream ostream;
    pack::to_binary( ostream, p );
    crypto::variable_blob query_bytes{ ostream.vector() };
-   chain_control::query_submission query{ query_bytes };
+   koinos::chain::query_submission query{ query_bytes };
    auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
-   auto r = controller.submit( chain_control::submission_item( query ) );
-   chain_control::query_item_result q;
+   auto r = controller.submit( koinos::chain::submission_item( query ) );
+   koinos::chain::query_item_result q;
    try
    {
-      auto w = std::get< chain_control::query_submission_result >( *(r.get()) );
+      auto w = std::get< koinos::chain::query_submission_result >( *(r.get()) );
       vectorstream istream( w.result );
       pack::from_binary( istream, q );
       std::visit( koinos::overloaded {
-         [&]( chain_control::get_head_info_result& head_info ) {
+         [&]( koinos::chain::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
             topology.previous = head_info.id;
             topology.block_num = active_data.height;
@@ -98,14 +98,14 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    crypto::variable_blob passive_data_bytes{ passive_stream.vector() };
 
    // Create the submit block object
-   chain_control::block_submission block_submission;
+   koinos::chain::block_submission block_submission;
    block_submission.topology = topology;
    block_submission.header_bytes = block_header_bytes;
    block_submission.passives_bytes.push_back( passive_data_bytes );
 
 
    // Submit the block
-   chain_control::submission_item si = block_submission;
+   koinos::chain::submission_item si = block_submission;
    r = controller.submit( si );
    try
    {
