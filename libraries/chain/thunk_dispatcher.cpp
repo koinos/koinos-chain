@@ -2,18 +2,11 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/thunks.hpp>
 
-namespace koinos::chain { namespace detail {
-
-void register_thunks( thunk_dispatcher& td )
-{
-   td.register_thunk( 1234, thunk::hello );
-}
-
-} // detail
+namespace koinos::chain {
 
 thunk_dispatcher::thunk_dispatcher()
 {
-   detail::register_thunks( *this );
+   register_thunks( *this );
 }
 
 const thunk_dispatcher& thunk_dispatcher::instance()

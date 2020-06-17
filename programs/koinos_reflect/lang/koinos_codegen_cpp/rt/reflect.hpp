@@ -82,6 +82,12 @@ void inline throw_bad_enum_cast( const char* k, const char* e )
    visitor.template operator()<member_type,type,&type::elem>( BOOST_PP_STRINGIZE(elem) ); \
 }
 
+#define KOINOS_REFLECT_TUPLE_BASE(r, obj, i, base) \
+   BOOST_PP_COMMA_IF(i) reflector<base>::make_tuple(obj)
+
+#define KOINOS_REFLECT_TUPLE_MEMBER(r, obj, i, member) \
+   BOOST_PP_COMMA_IF(i) std::cref(obj.member)
+
 #define KOINOS_REFLECT_BASE_MEMBER_COUNT( r, OP, elem ) \
    OP koinos::pack::reflector<elem>::total_member_count
 
@@ -93,7 +99,18 @@ template<typename Visitor>\
 static inline void visit( const Visitor& v ) { \
    BOOST_PP_SEQ_FOR_EACH( KOINOS_REFLECT_VISIT_BASE, v, INHERITS ) \
    BOOST_PP_SEQ_FOR_EACH( KOINOS_REFLECT_VISIT_MEMBER, v, MEMBERS ) \
-}
+}\
+static auto make_tuple( const TYPE& t ) \
+{ \
+   return std::tuple_cat( \
+      std::tuple_cat( \
+         BOOST_PP_SEQ_FOR_EACH_I( KOINOS_REFLECT_TUPLE_BASE, t, INHERITS ) \
+      ), \
+      std::make_tuple( \
+         BOOST_PP_SEQ_FOR_EACH_I( KOINOS_REFLECT_TUPLE_MEMBER, t, MEMBERS ) \
+      ) \
+   ); \
+} \
 
 /**
  *  @def KOINOS_REFLECT_DERIVED(TYPE,INHERITS,MEMBERS)

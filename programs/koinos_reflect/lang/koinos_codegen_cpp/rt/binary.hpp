@@ -252,7 +252,26 @@ inline void from_binary( Stream& s, vl_blob& v, uint32_t depth )
    v.data.resize( size.value );
    s.read( v.data.data(), size.value );
    KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
+}
 
+// std::string serializes identically to vector< char >
+template< typename Stream >
+inline void to_binary( Stream& s, const std::string& v )
+{
+   to_binary( s, unsigned_int( v.size() ) );
+   s.write( v.c_str(), v.size() );
+}
+
+template< typename Stream >
+inline void from_binary( Stream& s, std::string& v, uint32_t depth )
+{
+   unsigned_int size;
+   from_binary( s, size );
+   KOINOS_ASSERT( size.value < KOINOS_PACK_MAX_ARRAY_ALLOC_SIZE, allocation_violation, "Vector allocation exceeded", () );
+
+   v.resize( size.value );
+   s.read( v.data(), size.value );
+   KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
 }
 
 /* Array< T, N >:
@@ -808,9 +827,6 @@ inline T from_fl_blob( const fl_blob< N >& f )
    from_fl_blob( f, t );
    return t;
 }
-
-template< typename T >
-inline void to_c_str( char* c, size_t l, void ){}
 
 template< typename T >
 inline void to_c_str( char* c, size_t l, const T& t )

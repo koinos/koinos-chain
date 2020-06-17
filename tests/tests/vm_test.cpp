@@ -13,7 +13,7 @@ BOOST_FIXTURE_TEST_SUITE( vm_tests, vm_fixture )
 
 BOOST_AUTO_TEST_CASE( vm_tests )
 {
-   koinos::chain::register_host_function();
+   koinos::chain::register_host_functions();
    koinos::chain::wasm_allocator_type wa;
    std::vector< uint8_t > wasm_bin = get_hello_wasm();
    koinos::chain::backend_type bkend( wasm_bin, koinos::chain::registrar_type{} );
@@ -21,8 +21,7 @@ BOOST_AUTO_TEST_CASE( vm_tests )
    bkend.set_wasm_allocator(&wa);
    bkend.initialize();
 
-   koinos::chain::system_call_table t;
-   koinos::chain::apply_context ctx( t );
+   koinos::chain::apply_context ctx;
    bkend(&ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0);
 
    const char* expected_output =

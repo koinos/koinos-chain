@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/thunks.hpp>
 #include <koinos/exception.hpp>
 
@@ -10,18 +11,17 @@
 
 #include <boost/container/flat_map.hpp>
 
+#include <any>
 #include <functional>
 #include <type_traits>
 
-namespace koinos { namespace protocol {
+namespace koinos::protocol {
 struct vl_blob;
-} }
+} // koinos::protocol
 
-namespace koinos { namespace chain {
+namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( unknown_thunk );
-
-class apply_context;
 
 typedef uint32_t thunk_id;
 
@@ -29,10 +29,11 @@ namespace detail
 {
    // An implementation of bind_front prior to official support in C++20 based on
    // https://codereview.stackexchange.com/questions/227695/c17-compatible-stdbind-front-alternative
+   /*
    template< typename Function, typename BoundArg >
    struct bind_obj
    {
-      Function& func;
+      Function func;
       BoundArg arg;
 
       bind_obj( Function& f, BoundArg&& b ) :
@@ -89,6 +90,31 @@ namespace detail
       pack::to_c_str< ThunkResult >( ret_ptr, ret_len, detail::parse_args< decltype(thunk_with_ctx), decltype(instream), ThunkArgs... >( thunk_with_ctx, instream )() );
       return 0;
    }
+   */
+
+   /*
+    * std::apply takes a function and a tuple and calls the function with the contents of the tuple
+    * as the arguments. The only "trick" here is converting a reflected object in to an equivalent
+    * tuple. That is handled as part of the reflection macro to generate the needed code. We cat a
+    * tuple containing just the apply context as the first argument and then call in to the thunk.
+    */
+   template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+   typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
+   call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
+   {
+      auto thunk_args = std::tuple_cat( std::make_tuple( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
+      std::apply( thunk, thunk_args );
+      return 0;
+   }
+
+   template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+   typename std::enable_if< !std::is_same< ThunkReturn, void >::value, int >::type
+   call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
+   {
+      auto thunk_args = std::tuple_cat( std::make_tuple( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
+      pack::to_c_str< ThunkReturn >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
+      return 0;
+   }
 } // detail
 
 /**
@@ -110,23 +136,26 @@ class thunk_dispatcher
    public:
       void call_thunk( thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
 
-      template< typename ThunkHandler, typename... ThunkArgs >
+      template< typename ThunkReturn, typename... ThunkArgs >
       auto call_thunk( uint32_t id, apply_context& ctx, ThunkArgs... args ) const
       {
          auto it = _pass_through_map.find( id );
          KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
-         return (*(ThunkHandler*)(it->second))( ctx, args... );
+         return std::any_cast< const std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
-      template< typename ThunkResult, typename... ThunkArgs >
-      void register_thunk( thunk_id id, ThunkResult (*thunk_ptr)(apply_context&, ThunkArgs...) )
+      template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+      void register_thunk( thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
       {
-         _dispatch_map.emplace( id, [thunk_ptr]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+         std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
+         _dispatch_map.emplace( id, [thunk]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
          {
-            std::function< ThunkResult(apply_context&, ThunkArgs...) > thunk = thunk_ptr;
-            detail::call_thunk_impl( thunk, ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+            //std::function< ThunkReturn(apply_context&, ThunkArgs...) > thunk = thunk_ptr;
+            ArgStruct args;
+            koinos::pack::from_c_str( arg_ptr, arg_len, args );
+            detail::call_thunk_impl( thunk, ctx, ret_ptr, ret_len, args );
          });
-         _pass_through_map.emplace( id, (void*)&thunk_ptr );
+         _pass_through_map.emplace( id, std::any( thunk ) );
       }
 
       static const thunk_dispatcher& instance();
@@ -139,7 +168,9 @@ class thunk_dispatcher
       typedef std::function< void(apply_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
 
       boost::container::flat_map< thunk_id, generic_thunk_handler >  _dispatch_map;
-      boost::container::flat_map< thunk_id, void* >                  _pass_through_map;
+      boost::container::flat_map< thunk_id, std::any >               _pass_through_map;
 };
 
-} }
+void register_thunks( thunk_dispatcher& td );
+
+} // koinos::chain

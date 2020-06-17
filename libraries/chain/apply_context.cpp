@@ -3,10 +3,6 @@
 
 namespace koinos::chain {
 
-apply_context::apply_context( system_call_table& _sct ) :
-   syscalls( _sct )
-{}
-
 void apply_context::set_state_node( state_node_ptr node )
 {
    current_state_node = node;

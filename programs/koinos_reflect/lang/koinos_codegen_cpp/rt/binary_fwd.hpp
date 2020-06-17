@@ -43,6 +43,7 @@ KOINOS_DECLARE_BASE_SERIALIZER( signed_int )
 KOINOS_DECLARE_BASE_SERIALIZER( multihash_type )
 KOINOS_DECLARE_BASE_SERIALIZER( multihash_vector )
 
+KOINOS_DECLARE_BASE_SERIALIZER( std::string )
 KOINOS_DECLARE_BASE_SERIALIZER( vl_blob )
 
 template< typename Stream, size_t N >

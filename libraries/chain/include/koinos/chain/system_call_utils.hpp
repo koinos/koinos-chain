@@ -5,18 +5,44 @@
 #include <koinos/util.hpp>
 
 // This file exposes seven public macros for consumption
-// 1. SYSTEM_CALL_SLOTS
-// 2. SYSTEM_CALL_DECLARE
-// 3. SYSTEM_CALL_DEFINE
-// 4. SYSTEM_CALL_ENFORCE_KERNEL_MODE
-// 5. SYSTEM_CALL_DB_WRAPPERS_SIMPLE_SECONDARY
-// 6. SYSTEM_CALL_DB_WRAPPERS_ARRAY_SECONDARY
-// 7. SYSTEM_CALL_DB_WRAPPERS_FLOAT_SECONDARY
+// 1. DEFINE_REGISTER_THUNKS
+// 2. THUNK_DECLARE
+// 3. THUNK_DEFINE
 
 #define _THUNK_SUFFIX _thunk
 #define _THUNK_ID_SUFFIX _thunk_id
+#define _THUNK_TYPE_SUFFIX _type
+#define _THUNK_ARGS_SUFFIX _args
 
-#define SYSTEM_CALL_ENFORCE_KERNEL_MODE()
+#define _THUNK_REGISTRATION( r, data, i, elem ) \
+td.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( BOOST_PP_CAT(elem,_THUNK_ID_SUFFIX), thunk::elem );
+
+#define REGISTER_THUNKS( args )                             \
+void register_thunks( thunk_dispatcher& td )                \
+{                                                           \
+   BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, =>, args ) \
+}
+
+#define _DEFAULT_SYS_CALL_ENTRY( r, data, call ) \
+case(BOOST_PP_CAT(call,_THUNK_ID_SUFFIX)): \
+{ \
+   target = thunk_id_type(r); \
+   koinos::pack::to_vl_blob( ret, target ); \
+   break; \
+} \
+
+#define DEFAULT_SYS_CALLS( args )   \
+vl_blob get_default_xcall_entry( uint32_t xid ) \
+{ \
+   vl_blob ret; \
+   xcall_target target; \
+   switch( xid ) \
+   { \
+      BOOST_PP_SEQ_FOR_EACH( _DEFAULT_SYS_CALL_ENTRY, xid, args ) \
+      default: {} /* Do Nothing */ \
+   } \
+   return ret; \
+}
 
 #define SYSTEM_CALL_DECLARE(return_type, name, ...)                           \
    return_type name( apply_context&, __VA_ARGS__);                            \
@@ -38,11 +64,6 @@
 
 #define _SYSCALL_DETAIL_DEFINE_ARGS(args) BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_DETAIL_DEFINE_ARGS_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 #define _SYSCALL_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_SYSCALL_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
-
-#define _THUNK_CALL(SYSCALL, tid, context, ...) thunk_dispatcher::instance().call_thunk< decltype(system_api::SYSCALL) >( tid BOOST_PP_COMMA context BOOST_PP_COMMA _SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__) );
-#define _THUNK_CALL_WITH_RETURN(ret, SYSCALL, tid, context, ...) ret = thunk_dispatcher::instance().call_thunk< decltype(ret) BOOST_PP_COMMA decltype(system_api::SYSCALL) >( tid BOOST_PP_COMMA context BOOST_PP_COMMA _SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__) );
-
-#define _THUNK_CALL_RETURN_TYPE( ret ) BOOST_PP_COMMA() ret
 
 #pragma message( "TODO:  Invoke smart contract xcall handler" )
 #define SYSTEM_CALL_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                        \
@@ -78,7 +99,7 @@
             [&]( thunk_id_type& _tid ) {                                                                        \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                 \
                thunk_dispatcher::instance().call_thunk<                                                        \
-                  decltype(SYSCALL) >(                                                                         \
+                  RETURN_TYPE >(                                                                           \
                      _tid,                                                                                      \
                      context,                                                                                  \
                      _SYSCALL_DETAIL_DEFINE_FORWARD(__VA_ARGS__) );                                            \
