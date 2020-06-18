@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace koinos { namespace chain {
+namespace koinos::chain {
 
 using koinos::statedb::state_node_ptr;
 
@@ -34,4 +34,4 @@ class apply_context
       state_node_ptr                current_state_node;
 };
 
-} } // koinos::chain
+} // koinos::chain

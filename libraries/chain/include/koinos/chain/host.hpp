@@ -17,7 +17,7 @@ struct host_api final
 inline void register_host_functions()
 {
    registrar_type::add< host_api, &host_api::invoke_thunk, wasm_allocator_type >( "env", "invoke_thunk" );
-   registrar_type::add< host_api, &host_api::invoke_system_call, wasm_allocator_type >( "env", "invoke_sysyetm_call" );
+   registrar_type::add< host_api, &host_api::invoke_system_call, wasm_allocator_type >( "env", "invoke_system_call" );
 }
 
 } // koinos::chain
