@@ -1099,7 +1099,7 @@ SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) 
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    for ( auto& t : b.transactions )
    {
-      apply_transaction( pack::from_vl_blob< protocol::transaction_type >( t ) );
+      apply_transaction( pack::from_variable_blob< protocol::transaction_type >( t ) );
    }
 }
 
@@ -1119,7 +1119,7 @@ SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&
          {
             apply_execute_contract_operation( op );
          },
-      }, pack::from_vl_blob< pack::operation >( o ) );
+      }, pack::from_variable_blob< pack::operation >( o ) );
    }
 }
 
@@ -1127,18 +1127,18 @@ SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::cre
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
-   protocol::uint256_t contract_id = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
+   protocol::uint256_t contract_id = pack::from_fixed_blob< protocol::uint160_t >( o.contract_id );
    db_put_object( 0, contract_id, o.bytecode );
 }
 
 SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   protocol::uint256_t contract_key = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
+   protocol::uint256_t contract_key = pack::from_fixed_blob< protocol::uint160_t >( o.contract_id );
    auto bytecode = db_get_object( 0, contract_key );
    wasm_allocator_type wa;
 
-   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data.data(), bytecode.data.size() );
+   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
    backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
 
    backend.set_wasm_allocator( &wa );
@@ -1149,14 +1149,14 @@ SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::co
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
-SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )
+SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::put_object_args put_args;
    put_args.space = space;
    put_args.key = key;
-   put_args.buf = obj.data.data();
-   put_args.object_size = obj.data.size();
+   put_args.buf = obj.data();
+   put_args.object_size = obj.size();
 
    auto node = context.get_state_node();
    KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
@@ -1167,7 +1167,7 @@ SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, 
    return put_res.object_existed;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+SYSTEM_CALL_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::get_object_args get_args;
@@ -1175,9 +1175,9 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) spac
    get_args.key = key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
 
-   vl_blob object_buffer;
-   object_buffer.data.resize( get_args.buf_size );
-   get_args.buf = object_buffer.data.data();
+   variable_blob object_buffer;
+   object_buffer.resize( get_args.buf_size );
+   get_args.buf = object_buffer.data();
 
    auto node = context.get_state_node();
    KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
@@ -1186,14 +1186,14 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) spac
    node->get_object( get_res, get_args );
 
    if( get_res.key == get_args.key )
-      object_buffer.data.resize( get_res.size );
+      object_buffer.resize( get_res.size );
    else
-      object_buffer.data.clear();
+      object_buffer.clear();
 
    return object_buffer;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+SYSTEM_CALL_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::get_object_args get_args;
@@ -1201,9 +1201,9 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&)
    get_args.key = key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
 
-   vl_blob object_buffer;
-   object_buffer.data.resize( get_args.buf_size );
-   get_args.buf = object_buffer.data.data();
+   variable_blob object_buffer;
+   object_buffer.resize( get_args.buf_size );
+   get_args.buf = object_buffer.data();
 
    auto node = context.get_state_node();
    KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
@@ -1212,14 +1212,14 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&)
    node->get_next_object( get_res, get_args );
 
    if( get_res.size > 0 )
-      object_buffer.data.resize( get_res.size );
+      object_buffer.resize( get_res.size );
    else
-      object_buffer.data.clear();
+      object_buffer.clear();
 
    return object_buffer;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+SYSTEM_CALL_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
    statedb::get_object_args get_args;
@@ -1227,9 +1227,9 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&)
    get_args.key = key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
 
-   vl_blob object_buffer;
-   object_buffer.data.resize( get_args.buf_size );
-   get_args.buf = object_buffer.data.data();
+   variable_blob object_buffer;
+   object_buffer.resize( get_args.buf_size );
+   get_args.buf = object_buffer.data();
 
    auto node = context.get_state_node();
    KOINOS_ASSERT( node, database_exception, "Current state node does not exist", () );
@@ -1238,9 +1238,9 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&)
    node->get_prev_object( get_res, get_args );
 
    if( get_res.size > 0 )
-      object_buffer.data.resize( get_res.size );
+      object_buffer.resize( get_res.size );
    else
-      object_buffer.data.clear();
+      object_buffer.clear();
 
    return object_buffer;
 }

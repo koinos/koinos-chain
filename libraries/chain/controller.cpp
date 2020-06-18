@@ -19,7 +19,7 @@
 #include <koinos/pack/rt/json.hpp>
 #include <koinos/pack/rt/string.hpp>
 
-#include <koinos/chain_control/chain_control.hpp>
+#include <koinos/chain/controller.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 
@@ -44,71 +44,56 @@
 #include <mutex>
 #include <optional>
 
-KOINOS_TODO( "Move this somewhere else, please!" )
-namespace koinos { namespace protocol {
-
-bool operator >( const block_height_type& a, const block_height_type& b )  { return a.height > b.height;  }
-bool operator >=( const block_height_type& a, const block_height_type& b ) { return a.height >= b.height; }
-bool operator <( const block_height_type& a, const block_height_type& b )  { return a.height < b.height;  }
-bool operator <=( const block_height_type& a, const block_height_type& b ) { return a.height <= b.height; }
-
-} // protocol
-
-namespace chain_control {
+namespace koinos::chain {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
 using koinos::protocol::block_header;
-using koinos::protocol::vl_blob;
+using koinos::protocol::variable_blob;
 using koinos::statedb::state_db;
 using namespace std::string_literals;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
-struct submit_item_impl
+namespace detail {
+
+struct block_submission_impl
 {
-   submit_item_impl();
-   virtual ~submit_item_impl();
+   block_submission_impl( const block_submission& s ) : submission( s ) {}
+
+   block_submission               submission;
+
+   protocol::block_header         header;
+   std::vector< variable_blob >   transactions;
+   std::vector< variable_blob >   passives;
 };
 
-struct submit_block_impl
-   : public submit_item_impl
+struct transaction_submission_impl
 {
-   submit_block_impl( const submit_block& s ) : sub(s) {}
+   transaction_submission_impl( const transaction_submission& s ) : submission( s ) {}
 
-   submit_block             sub;
-
-   protocol::block_header   header;
-   std::vector< vl_blob >   transactions;
-   std::vector< vl_blob >   passives;
+   transaction_submission   submission;
 };
 
-struct submit_transaction_impl
-   : public submit_item_impl
+struct query_submission_impl
 {
-   submit_transaction_impl( const submit_transaction& s ) : sub(s) {}
+   query_submission_impl( const query_submission& s ) : submission( s ) {}
 
-   submit_transaction   sub;
+   query_submission         submission;
 };
 
-struct submit_query_impl
-   : public submit_item_impl
-{
-   submit_query_impl( const submit_query& s ) : sub(s) {}
-
-   submit_query         sub;
-};
+using item_submission_impl = std::variant< block_submission_impl, transaction_submission_impl, query_submission_impl >;
 
 struct work_item
 {
-   std::shared_ptr< submit_item_impl >                 item;
+   std::shared_ptr< item_submission_impl >             item;
    std::chrono::nanoseconds                            submit_time;
    std::chrono::nanoseconds                            work_begin_time;
    std::chrono::nanoseconds                            work_end_time;
 
-   std::promise< std::shared_ptr< submit_return > >    prom_work_done;   // Promise set when work is done
-   std::future< std::shared_ptr< submit_return > >     fut_work_done;    // Future corresponding to prom_work_done
-   std::promise< std::shared_ptr< submit_return > >    prom_output;      // Promise that was returned to submit() caller
+   std::promise< std::shared_ptr< submission_result > >    prom_work_done;   // Promise set when work is done
+   std::future< std::shared_ptr< submission_result > >     fut_work_done;    // Future corresponding to prom_work_done
+   std::promise< std::shared_ptr< submission_result > >    prom_output;      // Promise that was returned to submit() caller
 };
 
 // We need to do some additional work, we need to index blocks by all accepted hash algorithms.
@@ -131,31 +116,30 @@ struct work_item
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
  */
-class chain_controller_impl
+class controller_impl
 {
    public:
-      chain_controller_impl();
-      virtual ~chain_controller_impl();
+      controller_impl();
+      virtual ~controller_impl();
 
       void start_threads();
       void stop_threads();
 
-      std::future< std::shared_ptr< submit_return > > submit( const submit_item& item );
+      std::future< std::shared_ptr< submission_result > > submit( const submission_item& item );
       void open( const boost::filesystem::path& p, const boost::any& o );
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
    private:
-      std::shared_ptr< submit_return > process_item( std::shared_ptr< submit_item_impl > item );
+      std::shared_ptr< submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
-      void process_submit_block( submit_return_block& ret, submit_block_impl& block );
-      void process_submit_transaction( submit_return_transaction& ret, submit_transaction_impl& tx );
-      void process_submit_query( submit_return_query& ret, submit_query_impl& query );
+      void process_submission( block_submission_result& ret,       block_submission_impl& block );
+      void process_submission( transaction_submission_result& ret, transaction_submission_impl& tx );
+      void process_submission( query_submission_result& ret,       query_submission_impl& query );
 
       void feed_thread_main();
       void work_thread_main();
 
-      std::chrono::time_point< std::chrono::steady_clock > now()
-      {   return (_now) ? (*_now) : std::chrono::steady_clock::now();     }
+      std::chrono::time_point< std::chrono::steady_clock > now();
 
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
@@ -182,20 +166,7 @@ class chain_controller_impl
       std::optional< std::chrono::time_point< std::chrono::steady_clock > >    _now;
 };
 
-submit_item_impl::submit_item_impl()
-{}
-
-submit_item_impl::~submit_item_impl()
-{}
-
-chain_controller::chain_controller()
-   : _my( std::make_unique< chain_controller_impl >() )
-{}
-
-chain_controller::~chain_controller()
-{}
-
-chain_controller_impl::chain_controller_impl()
+controller_impl::controller_impl()
 {
    koinos::chain::register_syscalls();
    _ctx = std::make_unique< chain::apply_context >( _syscall_table );
@@ -203,25 +174,14 @@ chain_controller_impl::chain_controller_impl()
    _sys_api = std::make_unique< chain::system_api >( *_ctx );
 }
 
-chain_controller_impl::~chain_controller_impl()
-{}
+controller_impl::~controller_impl() = default;
 
-std::future< std::shared_ptr< submit_return > > chain_controller::submit( const submit_item& item )
+std::chrono::time_point< std::chrono::steady_clock > controller_impl::now()
 {
-   return _my->submit( item );
+   return (_now) ? (*_now) : std::chrono::steady_clock::now();
 }
 
-void chain_controller::open( const boost::filesystem::path& p, const boost::any& o )
-{
-   _my->open( p, o );
-}
-
-void chain_controller::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
-{
-   _my->set_time( t );
-}
-
-void chain_controller_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
+void controller_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
 {
    _now = t;
 }
@@ -229,28 +189,36 @@ void chain_controller_impl::set_time( std::chrono::time_point< std::chrono::stea
 struct create_impl_item_visitor
 {
    template< typename T >
-   std::shared_ptr< submit_item_impl > operator()( const T& sub ) const
-   {   KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" ); }
+   item_submission_impl operator()( const T& sub ) const
+   {
+      KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" );
+   }
 
-   std::shared_ptr< submit_item_impl > operator()( const submit_block& sub ) const
-   {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_block_impl >( sub ) ); }
+   item_submission_impl operator()( const block_submission& sub ) const
+   {
+      return block_submission_impl( sub );
+   }
 
-   std::shared_ptr< submit_item_impl > operator()( const submit_transaction& sub ) const
-   {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_transaction_impl >( sub ) ); }
+   item_submission_impl operator()( const transaction_submission& sub ) const
+   {
+      return transaction_submission_impl( sub );
+   }
 
-   std::shared_ptr< submit_item_impl > operator()( const submit_query& sub ) const
-   {   return std::shared_ptr< submit_item_impl >( std::make_shared< submit_query_impl >( sub ) ); }
+   item_submission_impl operator()( const query_submission& sub ) const
+   {
+      return query_submission_impl( sub );
+   }
 };
 
-std::future< std::shared_ptr< submit_return > > chain_controller_impl::submit( const submit_item& item )
+std::future< std::shared_ptr< submission_result > > controller_impl::submit( const submission_item& item )
 {
    create_impl_item_visitor vtor;
-   std::shared_ptr< submit_item_impl > impl_item = std::visit( vtor, item );
+   std::shared_ptr< item_submission_impl > impl_item = std::make_shared< item_submission_impl >( std::visit( vtor, item ) );
    std::shared_ptr< work_item > work = std::make_shared< work_item >();
    work->item = impl_item;
    work->submit_time = std::chrono::duration_cast< std::chrono::nanoseconds >( std::chrono::system_clock::now().time_since_epoch() );
    work->fut_work_done = work->prom_work_done.get_future();
-   std::future< std::shared_ptr< submit_return > > fut_output = work->prom_output.get_future();
+   std::future< std::shared_ptr< submission_result > > fut_output = work->prom_output.get_future();
    try
    {
       _input_queue.push_back( work );
@@ -265,84 +233,69 @@ std::future< std::shared_ptr< submit_return > > chain_controller_impl::submit( c
    return fut_output;
 }
 
-void chain_controller_impl::open( const boost::filesystem::path& p, const boost::any& o )
+void controller_impl::open( const boost::filesystem::path& p, const boost::any& o )
 {
    _state_db.open( p, o );
 }
 
-DECLARE_KOINOS_EXCEPTION( decode_exception );
-DECLARE_KOINOS_EXCEPTION( block_header_empty );
-DECLARE_KOINOS_EXCEPTION( cannot_switch_root );
-DECLARE_KOINOS_EXCEPTION( root_height_mismatch );
-DECLARE_KOINOS_EXCEPTION( unknown_previous_block );
-DECLARE_KOINOS_EXCEPTION( block_height_mismatch );
-DECLARE_KOINOS_EXCEPTION( previous_id_mismatch );
-DECLARE_KOINOS_EXCEPTION( invalid_signature );
-
-template< typename T > void decode_canonical( const vl_blob& bin, T& target )
+template< typename T > void decode_canonical( const variable_blob& bin, T& target )
 {
-   boost::interprocess::ibufferstream s( bin.data.data(), bin.data.size() );
+   boost::interprocess::ibufferstream s( bin.data(), bin.size() );
    pack::from_binary( s, target );
    // No-padding check:  Enforce that bin doesn't have extra bytes that were unread
-   KOINOS_ASSERT( size_t( s.tellg() ) == bin.data.size(), decode_exception, "Data does not deserialize (extra padding)", () );
+   KOINOS_ASSERT( size_t( s.tellg() ) == bin.size(), decode_exception, "Data does not deserialize (extra padding)", () );
 
    // Canonicity check:
    // Re-serialize the data and ensure it is the same as the input
    // The binary serialization format is intended to have a canonical serialization,
    // so if this check ever fails, there is a bug in the serialization spec / code.
-   std::vector< char > tmp( bin.data.size() );
+   std::vector< char > tmp( bin.size() );
    boost::interprocess::bufferstream s2( tmp.data(), tmp.size() );
 
    pack::to_binary( s2, target );
 
    KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)", () );
-   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.data.size(), decode_exception, "Data does not reserialize (size mismatch)", () );
-   KOINOS_ASSERT( bin.data == tmp, decode_exception, "Data does not reserialize", () );
+   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.size(), decode_exception, "Data does not reserialize (size mismatch)", () );
+   KOINOS_ASSERT( bin == tmp, decode_exception, "Data does not reserialize", () );
 }
 
-void decode_block( submit_block_impl& block )
+void decode_block( block_submission_impl& block )
 {
-   KOINOS_ASSERT( block.sub.block_header_bytes.data.size() >= 1, block_header_empty, "Block has empty header", () );
+   KOINOS_ASSERT( block.submission.header_bytes.size() >= 1, block_header_empty, "Block has empty header", () );
 
-   decode_canonical( block.sub.block_header_bytes, block.header );
+   decode_canonical( block.submission.header_bytes, block.header );
 
    // Deserialize submitted transactions
-   size_t n_transactions = block.transactions.size();
-   for( size_t i=0; i < n_transactions; i++ )
+   std::size_t n_transactions = block.transactions.size();
+   for( std::size_t i = 0; i < n_transactions; i++ )
       decode_canonical( block.transactions[i], block.transactions[i] );
 
-   size_t n_passives = block.passives.size();
-   for( size_t i=0; i < n_passives; i++ )
+   std::size_t n_passives = block.passives.size();
+   for( std::size_t i = 0; i < n_passives; i++ )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-inline bool multihash_is_zero( const koinos::protocol::multihash_type& mh )
-{
-   return std::all_of( mh.digest.data.begin(), mh.digest.data.end(),
-      []( char c ) { return (c == 0); } );
-}
-
-void chain_controller_impl::process_submit_block( submit_return_block& ret, submit_block_impl& block )
+void controller_impl::process_submission( block_submission_result& ret, block_submission_impl& block )
 {
    decode_block( block );
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   if( multihash_is_zero( block.sub.block_topo.previous ) )
+   if( crypto::multihash::is_zero( block.submission.topology.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.sub.block_topo.block_num.height == 1, root_height_mismatch, "First block must have height of 1", () );
+      KOINOS_ASSERT( block.submission.topology.block_num == 1, root_height_mismatch, "First block must have height of 1", () );
    }
 
-   auto block_node = _state_db.create_writable_node( block.sub.block_topo.previous, block.sub.block_topo.id );
+   auto block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block", () );
 
    _ctx->set_state_node( block_node );
 
    crypto::recoverable_signature sig;
-   vectorstream in_sig( block.sub.block_passives_bytes[ 0 ].data );
+   vectorstream in_sig( block.submission.passives_bytes[ 0 ] );
    pack::from_binary( in_sig, sig );
 
-   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
+   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 
@@ -357,76 +310,73 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    KOINOS_TODO( "Report success / failure to caller" )
 }
 
-void chain_controller_impl::process_submit_transaction( submit_return_transaction& ret, submit_transaction_impl& tx )
+void controller_impl::process_submission( transaction_submission_result& ret, transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void chain_controller_impl::process_submit_query( submit_return_query& ret, submit_query_impl& query )
+void controller_impl::process_submission( query_submission_result& ret, query_submission_impl& query )
 {
    query_param_item params;
-   vectorstream in( query.sub.query.data );
+   vectorstream in( query.submission.query );
    pack::from_binary( in, params );
 
-   query_result_item result;
+   query_item_result result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   std::visit(koinos::overloaded {
+   std::visit( koinos::overloaded {
       [&]( get_head_info_params& p )
       {
          auto head = _state_db.get_head();
          if( head )
          {
-            get_head_info_return res;
+            get_head_info_result res;
             res.id = head->id();
-            res.height.height = head->revision();
+            res.height = head->revision();
             result = res;
          }
          else
          {
-            result = query_error{ pack::to_vl_blob( "Could not find head block"s ) };
+            result = query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }
       }
    }, params);
 
    vectorstream out;
    pack::to_binary( out, result );
-   ret.result.data = out.vector();
+   ret.result = out.vector();
 }
 
-std::shared_ptr< submit_return > chain_controller_impl::process_item( std::shared_ptr< submit_item_impl > item )
+std::shared_ptr< submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
 {
-   std::shared_ptr< submit_return > result = std::make_shared< submit_return >();
+   submission_result result;
 
-   std::shared_ptr< submit_query_impl > maybe_query = std::dynamic_pointer_cast< submit_query_impl >( item );
-   if( maybe_query )
-   {
-      result->emplace< submit_return_query >();
-      process_submit_query( std::get< submit_return_query >( *result ), *maybe_query );
-      return result;
-   }
+   std::visit( koinos::overloaded {
+      [&]( query_submission_impl& s )
+      {
+         query_submission_result qres;
+         process_submission( qres, s );
+         result.emplace< query_submission_result >( std::move( qres ) );
+      },
+      [&]( transaction_submission_impl& s )
+      {
+         transaction_submission_result tres;
+         process_submission( tres, s );
+         result.emplace< transaction_submission_result >( std::move( tres ) );
+      },
+      [&]( block_submission_impl& s )
+      {
+         block_submission_result bres;
+         process_submission( bres, s );
+         result.emplace< block_submission_result >( std::move( bres ) );
+      }
+   }, *item );
 
-   std::shared_ptr< submit_transaction_impl > maybe_transaction = std::dynamic_pointer_cast< submit_transaction_impl >( item );
-   if( maybe_transaction )
-   {
-      result->emplace< submit_return_transaction >();
-      process_submit_transaction( std::get< submit_return_transaction >( *result ), *maybe_transaction );
-      return result;
-   }
-
-   std::shared_ptr< submit_block_impl > maybe_block = std::dynamic_pointer_cast< submit_block_impl >( item );
-   if( maybe_block )
-   {
-      result->emplace< submit_return_block >();
-      process_submit_block( std::get< submit_return_block >( *result ), *maybe_block );
-      return result;
-   }
-
-   return result;
+   return std::make_shared< submission_result >( result );
 }
 
-void chain_controller_impl::feed_thread_main()
+void controller_impl::feed_thread_main()
 {
-   while( true )
+   while ( true )
    {
       std::shared_ptr< work_item > work;
       try
@@ -445,12 +395,12 @@ void chain_controller_impl::feed_thread_main()
       // We will probably also want to either set prom_output.set_value() in the worker thread,
       // or a dedicated output handling thread.
       work->fut_work_done.wait();
-      std::shared_ptr< submit_return > result = work->fut_work_done.get();
+      std::shared_ptr< submission_result > result = work->fut_work_done.get();
       work->prom_output.set_value( result );
    }
 }
 
-void chain_controller_impl::work_thread_main()
+void controller_impl::work_thread_main()
 {
    while( true )
    {
@@ -465,7 +415,7 @@ void chain_controller_impl::work_thread_main()
       }
 
       std::optional< std::string > maybe_err;
-      std::shared_ptr< submit_return > result;
+      std::shared_ptr< submission_result > result;
 
       try
       {
@@ -487,32 +437,22 @@ void chain_controller_impl::work_thread_main()
       if( maybe_err )
       {
          LOG(error) << "err in work_thread: " << (*maybe_err) << std::endl;
-         result = std::make_shared< submit_return >();
-         result->emplace< submit_return_error >();
-         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submit_return_error >( *result ).error_text.data ) );
+         result = std::make_shared< submission_result >();
+         result->emplace< submission_error_result >();
+         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submission_error_result >( *result ).error_text ) );
       }
 
       work->prom_work_done.set_value( result );
    }
 }
 
-void chain_controller::start_threads()
-{
-   _my->start_threads();
-}
-
-void chain_controller::stop_threads()
-{
-   _my->stop_threads();
-}
-
-void chain_controller_impl::start_threads()
+void controller_impl::start_threads()
 {
    boost::thread::attributes attrs;
    attrs.set_stack_size( _thread_stack_size );
 
-   size_t num_threads = boost::thread::hardware_concurrency()+1;
-   for( size_t i=0; i<num_threads; i++ )
+   std::size_t num_threads = boost::thread::hardware_concurrency()+1;
+   for( std::size_t i = 0; i < num_threads; i++ )
    {
       _work_threads.emplace_back( attrs, [this]() { work_thread_main(); } );
    }
@@ -520,7 +460,7 @@ void chain_controller_impl::start_threads()
    _feed_thread.emplace( attrs, [this]() { feed_thread_main(); } );
 }
 
-void chain_controller_impl::stop_threads()
+void controller_impl::stop_threads()
 {
    //
    // We must close the queues in order from last to first:  A later queue may be waiting on
@@ -538,4 +478,35 @@ void chain_controller_impl::stop_threads()
    _feed_thread.reset();
 }
 
-} }
+} // detail
+
+controller::controller() : _my( std::make_unique< detail::controller_impl >() ) {}
+
+controller::~controller() = default;
+
+std::future< std::shared_ptr< submission_result > > controller::submit( const submission_item& item )
+{
+   return _my->submit( item );
+}
+
+void controller::open( const boost::filesystem::path& p, const boost::any& o )
+{
+   _my->open( p, o );
+}
+
+void controller::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
+{
+   _my->set_time( t );
+}
+
+void controller::start_threads()
+{
+   _my->start_threads();
+}
+
+void controller::stop_threads()
+{
+   _my->stop_threads();
+}
+
+} // koinos::chain

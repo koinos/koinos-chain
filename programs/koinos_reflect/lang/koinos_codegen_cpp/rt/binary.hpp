@@ -46,6 +46,18 @@ inline void from_binary( Stream& s, int_type& t, uint32_t depth )            \
    t |= low;                                                                 \
 }
 
+#define KOINOS_DEFINE_BOOST_STRONG_TYPEDEF_SERIALIZER( type )  \
+template< typename Stream >                                    \
+inline void to_binary( Stream& s, const type& t )              \
+{                                                              \
+   to_binary( s, t.t );                                        \
+}                                                              \
+template< typename Stream >                                    \
+inline void from_binary( Stream& s, type& t, uint32_t depth )  \
+{                                                              \
+   from_binary( s, t.t );                                      \
+}
+
 namespace koinos::pack {
 
 namespace detail {
@@ -78,6 +90,9 @@ KOINOS_DEFINE_BOOST_INT_SERIALIZER( int160_t,  int32_t,   int128_t,  128 );
 KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint160_t, uint32_t,  uint128_t, 128 );
 KOINOS_DEFINE_BOOST_INT_SERIALIZER( int256_t,  int128_t,  int128_t,  128 );
 KOINOS_DEFINE_BOOST_INT_SERIALIZER( uint256_t, uint128_t, uint128_t, 128 );
+
+KOINOS_DEFINE_BOOST_STRONG_TYPEDEF_SERIALIZER( block_height_type );
+KOINOS_DEFINE_BOOST_STRONG_TYPEDEF_SERIALIZER( timestamp_type );
 
 /* Bool:
  *
@@ -236,21 +251,21 @@ inline void from_binary( Stream& s, std::set< T, Compare >& v, uint32_t depth )
 // Variable Length Blob serializes identically to vector< char >
 
 template< typename Stream >
-inline void to_binary( Stream& s, const vl_blob& v )
+inline void to_binary( Stream& s, const variable_blob& v )
 {
-   to_binary( s, unsigned_int( v.data.size() ) );
-   s.write( v.data.data(), v.data.size() );
+   to_binary( s, unsigned_int( v.size() ) );
+   s.write( v.data(), v.size() );
 }
 
 template< typename Stream >
-inline void from_binary( Stream& s, vl_blob& v, uint32_t depth )
+inline void from_binary( Stream& s, variable_blob& v, uint32_t depth )
 {
    unsigned_int size;
    from_binary( s, size );
    KOINOS_ASSERT( size.value < KOINOS_PACK_MAX_ARRAY_ALLOC_SIZE, allocation_violation, "Vector allocation exceeded", () );
 
-   v.data.resize( size.value );
-   s.read( v.data.data(), size.value );
+   v.resize( size.value );
+   s.read( v.data(), size.value );
    KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
 
 }
@@ -284,15 +299,15 @@ inline void from_binary( Stream& s, std::array< T, N >& v, uint32_t depth )
 // Fixed Length Blob serializes identically to array< uint8_t, N >
 
 template< typename Stream, size_t N >
-inline void to_binary( Stream& s, const fl_blob< N >& v )
+inline void to_binary( Stream& s, const fixed_blob< N >& v )
 {
-   s.write( v.data.data(), N );
+   s.write( v.data(), N );
 }
 
 template< typename Stream, size_t N >
-inline void from_binary( Stream& s, fl_blob< N >& v, uint32_t depth )
+inline void from_binary( Stream& s, fixed_blob< N >& v, uint32_t depth )
 {
-   s.read( v.data.data(), N );
+   s.read( v.data(), N );
    KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
 }
 
@@ -418,10 +433,10 @@ inline void from_binary( Stream& s, multihash_type& v, uint32_t depth )
 
    KOINOS_ASSERT( size.value < KOINOS_PACK_MAX_ARRAY_ALLOC_SIZE, allocation_violation, "Array allocation exceeded" );
 
-   v.digest.data.resize( size.value );
+   v.digest.resize( size.value );
    if( size.value )
    {
-      s.read( v.digest.data.data(), size.value );
+      s.read( v.digest.data(), size.value );
       KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
    }
 
@@ -437,10 +452,10 @@ inline void from_binary( Stream& s, multihash_type& v, uint32_t depth )
 template< typename Stream >
 inline void to_binary( Stream& s, const multihash_vector& v )
 {
-   size_t size = v.digests.size() ? v.digests[0].data.size() : 0;
+   size_t size = v.digests.size() ? v.digests[0].size() : 0;
    for( size_t i = 0; i < v.digests.size(); ++i )
    {
-      KOINOS_ASSERT( v.digests[i].data.size() == size, parse_error, "Multihash vector digest size mismatch when packing" );
+      KOINOS_ASSERT( v.digests[i].size() == size, parse_error, "Multihash vector digest size mismatch when packing" );
    }
 
    to_binary( s, unsigned_int( v.hash_id ) );
@@ -448,7 +463,7 @@ inline void to_binary( Stream& s, const multihash_vector& v )
    to_binary( s, unsigned_int( v.digests.size() ) );
    for( size_t i = 0; i < v.digests.size(); ++i )
    {
-      s.write( &(v.digests[i].data.front()), size );
+      s.write( &(v.digests[i].front()), size );
    }
 }
 
@@ -467,32 +482,32 @@ inline void from_binary( Stream& s, multihash_vector& v, uint32_t depth )
 
    for( size_t i = 0; i < num_digests.value; ++i )
    {
-      v.digests.emplace_back( vl_blob() );
-      v.digests[i].data.resize( digest_size.value );
-      s.read( v.digests[i].data.data(), digest_size.value );
+      v.digests.emplace_back( variable_blob() );
+      v.digests[i].resize( digest_size.value );
+      s.read( v.digests[i].data(), digest_size.value );
       KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
    }
 }
 
 namespace detail
 {
-   // Minimal vectorstream implementations for internal serialization to a vl_blob
+   // Minimal vectorstream implementations for internal serialization to a variable_blob
    // Boost vectorstream has to own the underlying vector. This implementation utilizes
    // a reference for efficiency.
    class output_blobstream
    {
       private:
-         vl_blob& _data;
-         size_t   _write_pos = 0;
+         variable_blob& _data;
+         size_t         _write_pos = 0;
 
       public:
-         output_blobstream( vl_blob& d ) : _data(d) {}
+         output_blobstream( variable_blob& d ) : _data(d) {}
 
          output_blobstream& write( const char* s, size_t n )
          {
-            _data.data.resize( _write_pos + n );
+            _data.resize( _write_pos + n );
 
-            memcpy( _data.data.data() + _write_pos, s, n );
+            memcpy( _data.data() + _write_pos, s, n );
             _write_pos += n;
 
             return *this;
@@ -514,10 +529,10 @@ namespace detail
          {
             _error = false;
 
-            size_t to_read = std::min( n, _data.data.size() - _read_pos );
+            size_t to_read = std::min( n, _data.size() - _read_pos );
             if( to_read < n ) _error = true;
 
-            memcpy( s, _data.data.data() + _read_pos, to_read );
+            memcpy( s, _data.data() + _read_pos, to_read );
             _read_pos += to_read;
 
             return *this;
@@ -527,9 +542,9 @@ namespace detail
          {
             _error = false;
 
-            if( _read_pos < _data.data.size() )
+            if( _read_pos < _data.size() )
             {
-               c = _data.data[ _read_pos ];
+               c = _data[ _read_pos ];
                _read_pos++;
             }
             else
@@ -725,87 +740,87 @@ inline void from_binary( Stream& s, T& v, uint32_t depth )
    detail::binary::if_enum< typename reflector< T >::is_enum >::from_binary( s, v, depth );
 }
 
-inline void to_vl_blob( vl_blob& v, const std::string& s )
+inline void to_variable_blob( variable_blob& v, const std::string& s )
 {
-   v.data.clear();
-   v.data.insert( v.data.end(), s.begin(), s.end() );
+   v.clear();
+   v.insert( v.end(), s.begin(), s.end() );
 }
 
-inline void to_vl_blob( vl_blob& v, const std::string&& s )
+inline void to_variable_blob( variable_blob& v, const std::string&& s )
 {
-   to_vl_blob( v, s );
+   to_variable_blob( v, s );
 }
 
-inline vl_blob to_vl_blob( const std::string& s )
+inline variable_blob to_variable_blob( const std::string& s )
 {
-   vl_blob v;
-   to_vl_blob( v, s );
+   variable_blob v;
+   to_variable_blob( v, s );
    return v;
 }
 
-inline vl_blob to_vl_blob( const std::string&& s )
+inline variable_blob to_variable_blob( const std::string&& s )
 {
-   vl_blob v;
-   to_vl_blob( v, s );
+   variable_blob v;
+   to_variable_blob( v, s );
    return v;
 }
 
 template< typename T >
-inline void to_vl_blob( vl_blob& v, const T& t )
+inline void to_variable_blob( variable_blob& v, const T& t )
 {
-   v.data.clear();
+   v.clear();
    detail::output_blobstream vs( v );
    to_binary( vs, t );
 }
 
 template< typename T >
-inline vl_blob to_vl_blob( const T& t )
+inline variable_blob to_variable_blob( const T& t )
 {
-   vl_blob v;
+   variable_blob v;
    to_vl_blob( v, t );
    return v;
 }
 
-inline void from_vl_blob( const vl_blob& v, std::string& s )
+inline void from_variable_blob( const variable_blob& v, std::string& s )
 {
-   s = std::string( v.data.data(), v.data.size() );
+   s = std::string( v.data(), v.size() );
 }
 
 template< typename T >
-inline void from_vl_blob( const vl_blob& v, T& t )
+inline void from_variable_blob( const variable_blob& v, T& t )
 {
-   detail::input_blobstream< vl_blob > vs( v );
+   detail::input_blobstream< variable_blob > vs( v );
    from_binary( vs, t );
 }
 
 template< typename T >
-inline T from_vl_blob( const vl_blob& v )
+inline T from_variable_blob( const variable_blob& v )
 {
    T t;
-   from_vl_blob( v, t );
+   from_variable_blob( v, t );
    return t;
 }
 
 template<>
-inline std::string from_vl_blob< std::string >( const vl_blob& v )
+inline std::string from_variable_blob< std::string >( const variable_blob& v )
 {
    std::string s;
-   from_vl_blob( v, s );
+   from_variable_blob( v, s );
    return s;
 }
 
 template< typename T, size_t N >
-inline void from_fl_blob( const fl_blob< N >& f, T& t )
+inline void from_fixed_blob( const fixed_blob< N >& f, T& t )
 {
-   detail::input_blobstream< fl_blob< N > > bs( f );
+   detail::input_blobstream< fixed_blob< N > > bs( f );
    from_binary( bs, t );
 }
 
 template< typename T, size_t N >
-inline T from_fl_blob( const fl_blob< N >& f )
+inline T from_fixed_blob( const fixed_blob< N >& f )
 {
    T t;
-   from_fl_blob( f, t );
+   from_fixed_blob( f, t );
    return t;
 }
 

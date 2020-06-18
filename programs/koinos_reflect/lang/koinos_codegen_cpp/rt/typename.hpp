@@ -59,9 +59,11 @@ KOINOS_DEFINE_SIMPLE_TYPENAME( uint128_t )
 KOINOS_DEFINE_SIMPLE_TYPENAME( int256_t )
 KOINOS_DEFINE_SIMPLE_TYPENAME( uint256_t )
 KOINOS_DEFINE_SIMPLE_TYPENAME( bool )
-KOINOS_DEFINE_SIMPLE_TYPENAME( vl_blob )
+KOINOS_DEFINE_SIMPLE_TYPENAME( variable_blob )
 KOINOS_DEFINE_SIMPLE_TYPENAME( multihash_type )
 KOINOS_DEFINE_SIMPLE_TYPENAME( multihash_vector )
+KOINOS_DEFINE_SIMPLE_TYPENAME( block_height_type )
+KOINOS_DEFINE_SIMPLE_TYPENAME( timestamp_type )
 
 template< typename T > struct get_typename< vector< T > >
 {
@@ -92,11 +94,11 @@ template< typename T, size_t N > struct get_typename< array< T, N > >
    }
 };
 
-template< size_t N > struct get_typename< fl_blob< N > >
+template< size_t N > struct get_typename< fixed_blob< N > >
 {
    static const char* name()
    {
-      static std::string n = std::string( "fl_blob<" ) + std::to_string( N ) + ">";
+      static std::string n = std::string( "fixed_blob<" ) + std::to_string( N ) + ">";
       return n.c_str();
    }
 };

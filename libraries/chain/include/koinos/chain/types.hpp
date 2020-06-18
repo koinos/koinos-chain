@@ -62,10 +62,10 @@ template<typename Stream>
 void from_binary( Stream& s, std::string& v, uint32_t depth )
 {
    depth++;
-   vl_blob tmp;
+   variable_blob tmp;
    from_binary(s,tmp,depth);
-   if( tmp.data.size() )
-      v = std::string(tmp.data.data(),tmp.data.data()+tmp.data.size());
+   if( tmp.size() )
+      v = std::string(tmp.data(),tmp.data()+tmp.size());
    else v = std::string();
 }
 

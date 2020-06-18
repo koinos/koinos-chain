@@ -48,6 +48,6 @@ using boost::multiprecision::uint256_t;
 typedef protocol::multihash_type   state_node_id;
 typedef uint256_t                  object_space;
 typedef uint256_t                  object_key;
-typedef protocol::vl_blob          object_value;
+typedef protocol::variable_blob    object_value;
 
 } // koinos::statedb

@@ -41,12 +41,15 @@ KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( bool )
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( multihash_type )
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( multihash_vector )
 
-KOINOS_DECLARE_BASE_JSON_SERIALIZER( vl_blob )
+KOINOS_DECLARE_BASE_JSON_SERIALIZER( block_height_type )
+KOINOS_DECLARE_BASE_JSON_SERIALIZER( timestamp_type )
+
+KOINOS_DECLARE_BASE_JSON_SERIALIZER( variable_blob )
 
 template< size_t N >
-inline void to_json( json& s, const fl_blob< N >& v );
+inline void to_json( json& s, const fixed_blob< N >& v );
 template< size_t N >
-inline void from_json( json& s, fl_blob< N >& v, uint32_t depth = 0 );
+inline void from_json( json& s, fixed_blob< N >& v, uint32_t depth = 0 );
 
 template< typename T >
 inline void to_json( json& s, const std::vector< T >& v );

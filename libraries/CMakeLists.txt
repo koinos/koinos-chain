@@ -1,6 +1,5 @@
 add_subdirectory(chain)
 add_subdirectory(crypto)
-add_subdirectory(chain_control)
 add_subdirectory(log)
 add_subdirectory(pack)
 add_subdirectory(plugins)
