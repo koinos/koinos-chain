@@ -23,7 +23,9 @@ enum thunk_ids : thunk_id
    db_put_object_thunk_id,
    db_get_object_thunk_id,
    db_get_next_object_thunk_id,
-   db_get_prev_object_thunk_id
+   db_get_prev_object_thunk_id,
+   contact_args_size_thunk_id,
+   read_contract_args_thunk_id
 };
 
 namespace thunk {
@@ -70,5 +72,7 @@ THUNK_DECLARE( bool, db_put_object, const statedb::object_space& space, const st
 THUNK_DECLARE( variable_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 THUNK_DECLARE( variable_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 THUNK_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+
+THUNK_DECLARE( uint32_t, get_contract_args );
 
 } } // koinos::chain::thunk

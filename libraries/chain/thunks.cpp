@@ -174,4 +174,9 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
+THUNK_DEFINE( variable_blob&, get_contract_args )
+{
+   return context.get_contract_call_args();
+}
+
 } } // koinos::chain::thunk

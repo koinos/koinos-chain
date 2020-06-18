@@ -43,8 +43,8 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
 }
 
 #define THUNK_DECLARE(return_type, name, ...)                                 \
-   return_type name( apply_context&, __VA_ARGS__);                            \
-   return_type BOOST_PP_CAT(name,_THUNK_SUFFIX)( apply_context&, __VA_ARGS__)
+   return_type name( apply_context& BOOST_PP_COMMA_IF(BOOST_PP_VARIADIC_SIZE(__VA_ARGS__)) __VA_ARGS__ );                            \
+   return_type BOOST_PP_CAT(name,_THUNK_SUFFIX)( apply_context& BOOST_PP_COMMA_IF(BOOST_PP_VARIADIC_SIZE(__VA_ARGS__)) __VA_ARGS__ )
 
 #define _THUNK_RET_TYPE_void 1)(1
 #define _THUNK_IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(_THUNK_RET_TYPE_,type))),2)
