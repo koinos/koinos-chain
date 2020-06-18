@@ -777,7 +777,7 @@ template< typename T >
 inline variable_blob to_variable_blob( const T& t )
 {
    variable_blob v;
-   to_vl_blob( v, t );
+   to_variable_blob( v, t );
    return v;
 }
 

@@ -1251,9 +1251,9 @@ SYSTEM_CALL_DEFINE( uint32_t, read_contract_args, ((array_ptr<char>) memory, (ui
    KOINOS_TODO("Properly validate (and maybe clear) the args")
    // if( buffer_size == 0 ) return s;
 
-   auto s = (uint32_t)context.get_contract_call_args().data.size();
+   auto s = (uint32_t)context.get_contract_call_args().size();
    auto copy_size = std::min( buffer_size, s );
-   memcpy( (char*)memory.value, context.get_contract_call_args().data.data(), copy_size );
+   memcpy( (char*)memory.value, context.get_contract_call_args().data(), copy_size );
 
    return copy_size;
 }
@@ -1261,7 +1261,7 @@ SYSTEM_CALL_DEFINE( uint32_t, read_contract_args, ((array_ptr<char>) memory, (ui
 SYSTEM_CALL_DEFINE( uint32_t, contract_args_size )
 {
    SYSTEM_CALL_ENFORCE_KERNEL_MODE();
-   return (uint32_t)context.get_contract_call_args().data.size();
+   return (uint32_t)context.get_contract_call_args().size();
 }
 
 } // koinos::chain
