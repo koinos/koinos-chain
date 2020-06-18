@@ -35,7 +35,7 @@ struct crypto_fixture
 
       std::stringstream ss;
 
-      for( auto c : b.data )
+      for( auto c : b )
          ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
 
       return ss.str();

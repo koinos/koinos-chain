@@ -40,7 +40,7 @@ using backend_type        = eosio::vm::backend< apply_context >;
 using registrar_type      = eosio::vm::registered_host_functions< apply_context >;
 using wasm_code_ptr       = eosio::vm::wasm_code_ptr;
 
-using vl_blob             = koinos::protocol::vl_blob;
+using variable_blob       = koinos::protocol::variable_blob;
 
 // When defining a new system call, we have essentially two different implementations.
 // One of the implementations is considered upgradeable and can be overridden with
@@ -169,10 +169,10 @@ struct system_api final
    SYSTEM_CALL_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
    SYSTEM_CALL_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
 
-   SYSTEM_CALL_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-   SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const variable_blob& obj );
+   SYSTEM_CALL_DECLARE( variable_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( variable_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+   SYSTEM_CALL_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 };
 
 // For any given system call, two slots are used. The first definition

@@ -90,6 +90,16 @@ inline void from_json( json& j, int_type& v, uint32_t depth )     \
    }                                                              \
 }
 
+#define JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( type )      \
+inline void to_json( json& j, const type& v )             \
+{                                                         \
+   to_json( j, v.t );                                     \
+}                                                         \
+inline void from_json( json& j, type& v, uint32_t depth ) \
+{                                                         \
+   from_json( j, v.t, depth );                            \
+}
+
 namespace koinos::pack
 {
 
@@ -103,6 +113,8 @@ JSON_SIGNED_INT_SERIALIZER( int16_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint16_t )
 JSON_SIGNED_INT_SERIALIZER( int32_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint32_t )
+JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( block_height_type )
+JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( timestamp_type )
 
 inline void to_json( json& j, int64_t v )
 {
@@ -192,17 +204,17 @@ inline void from_json( json& j, vector< T >& v, uint32_t depth )
 }
 
 // variable length blob
-inline void to_json( json& j, const vl_blob& v )
+inline void to_json( json& j, const variable_blob& v )
 {
    string base58;
-   util::encode_base58( base58, v.data );
+   util::encode_base58( base58, v );
    j = std::move( 'z' + base58 );
 }
 
-inline void from_json( json& j, vl_blob& v, uint32_t depth )
+inline void from_json( json& j, variable_blob& v, uint32_t depth )
 {
    KOINOS_ASSERT( j.is_string(), json_type_mismatch, "Unexpected JSON type: String Expected", () );
-   v.data.clear();
+   v.clear();
    string encoded_str = j.template get< string >();
    switch( encoded_str.c_str()[0] )
    {
@@ -211,7 +223,7 @@ inline void from_json( json& j, vl_blob& v, uint32_t depth )
          break;
       case 'z':
          // Base58
-         KOINOS_ASSERT( util::decode_base58( encoded_str.c_str() + 1, v.data ), json_decode_error, "Error decoding base58 string", () );
+         KOINOS_ASSERT( util::decode_base58( encoded_str.c_str() + 1, v ), json_decode_error, "Error decoding base58 string", () );
          break;
       default:
          KOINOS_ASSERT( false, json_type_mismatch, "Unknown encoding prefix", () );
@@ -273,15 +285,15 @@ inline void from_json( json& j, array< T, N >& v, uint32_t depth )
 
 // fixed length blob
 template< size_t N >
-inline void to_json( json& j, const fl_blob< N >& v )
+inline void to_json( json& j, const fixed_blob< N >& v )
 {
    string base58;
-   util::encode_base58( base58, v.data );
+   util::encode_base58( base58, v );
    j = std::move( 'z' + base58 );
 }
 
 template< size_t N >
-inline void from_json( json& j, fl_blob< N >& v, uint32_t depth )
+inline void from_json( json& j, fixed_blob< N >& v, uint32_t depth )
 {
    KOINOS_ASSERT( j.is_string(), json_type_mismatch, "Unexpected JSON type: String Expected", () );
 
@@ -293,7 +305,7 @@ inline void from_json( json& j, fl_blob< N >& v, uint32_t depth )
          break;
       case 'z':
          // Base58
-         KOINOS_ASSERT( util::decode_base58( encoded_str.c_str() + 1, v.data ), json_decode_error, "Error decoding base58 string", () );
+         KOINOS_ASSERT( util::decode_base58( encoded_str.c_str() + 1, v ), json_decode_error, "Error decoding base58 string", () );
          break;
       default:
          KOINOS_ASSERT( false, json_type_mismatch, "Unknown encoding prefix", () );
@@ -403,7 +415,7 @@ inline void from_json( json& j, multihash_type& v, uint32_t depth )
 inline void to_json( json& j, const multihash_vector& v )
 {
    j[ "hash" ] = v.hash_id;
-      for( const vl_blob& d : v.digests )
+      for( const auto& d : v.digests )
    {
       json tmp;
       to_json( tmp, d );
@@ -423,7 +435,7 @@ inline void from_json( json& j, multihash_vector& v, uint32_t depth )
    KOINOS_ASSERT( digests.is_array(), json_type_mismatch, "MultihashVector field 'digest' must be an array", () );
    for( json& d : digests )
    {
-      vl_blob tmp;
+      variable_blob tmp;
       from_json( d, tmp );
       v.digests.emplace_back( std::move( tmp ) );
    }

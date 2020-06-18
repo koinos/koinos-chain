@@ -44,7 +44,7 @@ struct active_block_data
    /**
     * Vector of opaque transactions in the block.
     */
-   std::vector< vl_blob >              transactions;
+   std::vector< variable_blob >              transactions;
 
    /**
     * A zero byte at the end, reserved for protocol expansion.
@@ -61,7 +61,7 @@ struct passive_block_data
 struct block_header
 {
    // Block data that can read and write state
-   vl_blob            active_bytes;
+   variable_blob      active_bytes;
 
    // Block data that can only read state
    multihash_type     passive_merkle_root;
@@ -80,7 +80,7 @@ struct nop_operation
 struct create_system_contract_operation
 {
    contract_id_type               contract_id;
-   vl_blob                        bytecode;
+   variable_blob                  bytecode;
    unused_extensions_type         extensions;
 };
 
@@ -88,7 +88,7 @@ struct contract_call_operation
 {
    contract_id_type               contract_id;
    uint32                         entrypoint;
-   vl_blob                        args;
+   variable_blob                  args;
    unused_extensions_type         extensions;
 };
 
@@ -109,7 +109,7 @@ struct transaction_type
    /**
     * Vector of opaque operations in this transation
     */
-   std::vector< vl_blob >         operations;
+   std::vector< variable_blob >   operations;
 
    /**
     * A zero byte at the end, reserved for protocol expansion.
@@ -150,7 +150,7 @@ struct contract_source_segwit
 struct custom_segwit
 {
    multihash_type                 world;
-   vl_blob                        custom_data;
+   variable_blob                  custom_data;
    unused_extensions_type         extensions;
 };
 
