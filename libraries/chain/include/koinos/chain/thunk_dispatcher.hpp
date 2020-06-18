@@ -102,7 +102,7 @@ namespace detail
     */
    template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
-   call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
+   call_thunk_impl( std::function< ThunkReturn(apply_context&, ThunkArgs...) >&& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
       auto thunk_args = std::tuple_cat( std::make_tuple( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       std::apply( thunk, thunk_args );
@@ -111,7 +111,7 @@ namespace detail
 
    template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, int >::type
-   call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
+   call_thunk_impl( std::function< ThunkReturn(apply_context&, ThunkArgs...) >&& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
       auto thunk_args = std::tuple_cat( std::make_tuple( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       pack::to_c_str< ThunkReturn >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
@@ -143,21 +143,22 @@ class thunk_dispatcher
       {
          auto it = _pass_through_map.find( id );
          KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
+         //LOG(info) << id;
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
       template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
       void register_thunk( thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
       {
-         std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
-         _dispatch_map.emplace( id, [thunk]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+         _dispatch_map.emplace( id, [thunk_ptr]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
          {
             //std::function< ThunkReturn(apply_context&, ThunkArgs...) > thunk = thunk_ptr;
             ArgStruct args;
             koinos::pack::from_c_str( arg_ptr, arg_len, args );
-            detail::call_thunk_impl( thunk, ctx, ret_ptr, ret_len, args );
+            detail::call_thunk_impl( std::function< ThunkReturn(apply_context&, ThunkArgs...) >( thunk_ptr ), ctx, ret_ptr, ret_len, args );
          });
-         _pass_through_map.emplace( id, std::any( thunk ) );
+         //std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
+         _pass_through_map.insert_or_assign( id, std::any( std::function<ThunkReturn(apply_context&, ThunkArgs...)>( thunk_ptr ) ) );
       }
 
       static const thunk_dispatcher& instance();
