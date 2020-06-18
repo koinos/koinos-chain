@@ -4,7 +4,7 @@
 
 #include <vector>
 
-#include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/host.hpp>
 #include <koinos/exception.hpp>
 
 #include <mira/database_configuration.hpp>

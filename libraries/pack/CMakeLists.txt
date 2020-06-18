@@ -13,8 +13,8 @@ set(KOINOS_REFLECT_SOURCES
    "${KOINOS_REFLECT_SRC_DIR}/types.hpp"
    "${KOINOS_REFLECT_SRC_DIR}/block.hpp"
    "${KOINOS_REFLECT_SRC_DIR}/submit.hpp"
+   "${KOINOS_REFLECT_SRC_DIR}/system_calls.hpp"
    "${KOINOS_REFLECT_SRC_DIR}/thunks.hpp"
-   "${KOINOS_REFLECT_SRC_DIR}/xcalls.hpp"
    )
 
 set(KOINOS_SCHEMA_DIR

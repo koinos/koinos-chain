@@ -160,7 +160,7 @@ class chain_controller_impl
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
       chain::system_call_table                                                 _syscall_table;
-      std::unique_ptr< chain::system_api >                                     _sys_api;
+      std::unique_ptr< chain::host_api >                                       _host_api;
       std::unique_ptr< chain::apply_context >                                  _ctx;
 
       // Item lifetime:
@@ -199,7 +199,7 @@ chain_controller_impl::chain_controller_impl()
 {
    _ctx = std::make_unique< chain::apply_context >( _syscall_table );
    _ctx->privilege_level = chain::privilege::kernel_mode;
-   _sys_api = std::make_unique< chain::system_api >( *_ctx );
+   _host_api = std::make_unique< chain::host_api >( *_ctx );
 }
 
 chain_controller_impl::~chain_controller_impl()
@@ -342,7 +342,7 @@ void chain_controller_impl::process_submit_block( submit_return_block& ret, subm
    pack::from_binary( in_sig, sig );
 
    crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data.data(), block.header.active_bytes.data.size() );
-   KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
+   KOINOS_ASSERT( thunk::verify_block_header( _ctx, sig, digest ), invalid_signature, "invalid block signature" );
 
 
    KOINOS_TODO( "Apply block" )

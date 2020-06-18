@@ -1,7 +1,7 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/thunks.hpp>
-#include <koinos/chain/xcalls.hpp>
+#include <koinos/chain/system_calls.hpp>
 
 namespace koinos::chain {
 
@@ -23,24 +23,17 @@ REGISTER_THUNKS(
 
 namespace thunk {
 
-// When defining a thunk, define it here
-void hello( apply_context& ctx, hello_thunk_ret& ret, const hello_thunk_args& arg )
-{
-   ret.c = arg.a + arg.b;
-   ret.d = arg.a - arg.b;
-}
-
-SYSTEM_CALL_DEFINE( void, prints, ((const std::string&) str) )
+THUNK_DEFINE( void, prints, ((const std::string&) str) )
 {
    context.console_append( str );
 }
 
-SYSTEM_CALL_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
+THUNK_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
 {
    return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
 }
 
-SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
+THUNK_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
 {
    for ( auto& t : b.transactions )
    {
@@ -48,7 +41,7 @@ SYSTEM_CALL_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) 
    }
 }
 
-SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
+THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
 {
    for ( auto& o : t.operations )
    {
@@ -67,14 +60,14 @@ SYSTEM_CALL_DEFINE( void, apply_transaction, ((const protocol::transaction_type&
    }
 }
 
-SYSTEM_CALL_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
+THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    protocol::uint256_t contract_id = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
    db_put_object( context, 0, contract_id, o.bytecode );
 }
 
-SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
+THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
    protocol::uint256_t contract_key = pack::from_fl_blob< protocol::uint160_t >( o.contract_id );
    auto bytecode = db_get_object( context, 0, contract_key );
@@ -89,55 +82,7 @@ SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::co
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
-/*SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )*/
-bool db_put_object( apply_context& context, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj )
-{
-   using koinos::protocol::thunk_id_type;
-   using koinos::protocol::contract_id_type;
-
-   uint32_t _xid = db_put_object_thunk_id;
-
-   /* TODO Do we need to invoke serialization here? */
-   statedb::object_key _key = _xid;
-
-   koinos::protocol::vl_blob _vl_target =
-      db_get_object_thunk( context, XCALL_DISPATCH_TABLE_SPACE_ID, _key, XCALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );
-
-   if( _vl_target.data.size() == 0 )
-   {
-      _vl_target = get_default_xcall_entry( _xid );
-      KOINOS_ASSERT( _vl_target.data.size() > 0,
-         unknown_xcall,
-         "xcall table dispatch entry ${xid} does not exist",
-         ("xid", _xid)
-         );
-   }
-
-   bool _ret;
-
-   auto _target = koinos::pack::from_vl_blob< protocol::xcall_target >( _vl_target );
-
-   std::visit(
-      koinos::overloaded{
-         [&]( thunk_id_type& _tid ) {
-            _ret =
-            thunk_dispatcher::instance().call_thunk<
-               bool >(
-                  _tid,
-                  context,
-                  space, key, obj );
-         },
-         [&]( contract_id_type& _cid ) {
-            /* Need xcall syscall handler */
-         },
-         [&]( auto& _a ) {
-            KOINOS_THROW( unknown_xcall, "xcall table dispatch entry ${xid} has unimplemented type ${tag}",
-               ("xid", _xid)("tag", _target.index()) );
-         } }, _target );
-   return _ret;
-}
-
-bool db_put_object_thunk( apply_context& context, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj )
+THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )
 {
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
@@ -153,7 +98,7 @@ bool db_put_object_thunk( apply_context& context, const statedb::object_space& s
    return put_res.object_existed;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
@@ -177,7 +122,7 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) spac
    return object_buffer;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
@@ -201,7 +146,7 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_next_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
-SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );

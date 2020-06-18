@@ -4,7 +4,7 @@
 
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/host.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 
 #include <koinos/pack/rt/binary.hpp>
@@ -22,7 +22,7 @@ using namespace std::string_literals;
 struct thunk_fixture
 {
    thunk_fixture() :
-      sys_api( ctx )
+      host_api( ctx )
    {
       temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( temp );
@@ -30,6 +30,7 @@ struct thunk_fixture
 
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
+      ctx.privilege_level = koinos::chain::privilege::kernel_mode;
       koinos::chain::register_host_functions();
    }
 
@@ -47,7 +48,7 @@ struct thunk_fixture
    boost::filesystem::path temp;
    koinos::statedb::state_db db;
    koinos::chain::apply_context ctx;
-   koinos::chain::system_api sys_api;
+   koinos::chain::host_api host_api;
 };
 
 BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
@@ -157,49 +158,41 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_CASE( thunk_test )
-{
+{ try {
    BOOST_TEST_MESSAGE( "thunk test" );
 
    using namespace koinos::chain;
    using koinos::protocol::vl_blob;
 
-   hello_thunk_args args;
-   hello_thunk_ret ret;
+   prints_args args;
 
-   args.a = 5;
-   args.b = 3;
+   args.message = "Hello World";
 
    vl_blob vl_args, vl_ret;
-   vl_ret.data.resize( 8 );
    koinos::pack::to_vl_blob( vl_args, args );
-   sys_api.invoke_thunk( 1234, vl_ret.data.data(), vl_ret.data.size(), vl_args.data.data(), vl_args.data.size() );
-   koinos::pack::from_vl_blob( vl_ret, ret );
+   host_api.invoke_thunk( prints_thunk_id, vl_ret.data.data(), vl_ret.data.size(), vl_args.data.data(), vl_args.data.size() );
 
-   BOOST_CHECK_EQUAL( ret.c, 8 );
-   BOOST_CHECK_EQUAL( ret.d, 2 );
-}
+   BOOST_CHECK_EQUAL( vl_ret.data.size(), 0 );
+   BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
+} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_CASE( xcall_test )
-{
+{ try {
    BOOST_TEST_MESSAGE( "xcall test" );
 
    using namespace koinos::chain;
    using koinos::protocol::vl_blob;
 
-   hello_thunk_args args;
-   hello_thunk_ret ret;
+   prints_args args;
 
-   args.a = 5;
-   args.b = 3;
+   args.message = "Hello World";
 
    vl_blob vl_args, vl_ret;
-   vl_ret.data.resize( 8 );
    koinos::pack::to_vl_blob( vl_args, args );
-   sys_api.invoke_xcall( 2345, vl_ret.data.data(), vl_ret.data.size(), vl_args.data.data(), vl_args.data.size() );
-   koinos::pack::from_vl_blob( vl_ret, ret );
+   host_api.invoke_xcall( prints_thunk_id, vl_ret.data.data(), vl_ret.data.size(), vl_args.data.data(), vl_args.data.size() );
 
-   BOOST_CHECK_EQUAL( ret.c, 8 );
-   BOOST_CHECK_EQUAL( ret.d, 2 );
-}
+   BOOST_CHECK_EQUAL( vl_ret.data.size(), 0 );
+   BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
+} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_SUITE_END()

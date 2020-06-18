@@ -1,37 +1,21 @@
 #pragma once
-#include <cstdint>
-#include <optional>
-#include <map>
-#include <vector>
-#include <cstring>
 
-#include <compiler_builtins.hpp>
 #include <koinos/exception.hpp>
-#include <koinos/chain/apply_context.hpp>
-#include <koinos/chain/types.hpp>
-#include <koinos/chain/system_call_utils.hpp>
-#include <koinos/chain/wasm/common.hpp>
-#include <koinos/crypto/elliptic.hpp>
-#include <koinos/crypto/multihash.hpp>
-#include <koinos/pack/classes.hpp>
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/pack/rt/basetypes.hpp>
 
+#include <koinos/statedb/statedb_types.hpp>
 
 namespace koinos::chain {
 
-struct system_api final
-{
-   system_api( apply_context& ctx );
-   apply_context& context;
+DECLARE_KOINOS_EXCEPTION( unknown_system_call );
 
-   void invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len );
-   void invoke_xcall( uint32_t xid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len );
-};
+using koinos::protocol::vl_blob;
 
-inline void register_host_functions()
-{
-   registrar_type::add< system_api, &system_api::invoke_thunk, wasm_allocator_type >( "env", "invoke_thunk" );
-   registrar_type::add< system_api, &system_api::invoke_xcall, wasm_allocator_type >( "env", "invoke_xcall" );
-}
+// First 160 bits are obtained by 160-bit truncation of sha256("object_space:xcall")
+const statedb::object_space SYS_CALL_DISPATCH_TABLE_SPACE_ID = protocol::uint256_t("0xd34ee9149a24c052cfad6fefea6b6d2b2b08a840000000000000000000000001");
+// 20 bytes contract ID + 1 byte variant
+const int64_t SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE = 21;
+
+vl_blob get_default_sys_call_entry( uint32_t sid );
 
 } // koinos::chain

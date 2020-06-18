@@ -17,7 +17,7 @@ struct hello_thunk_ret
 
 struct prints_args
 {
-   std::string str;
+   std::string message;
 };
 
 typedef void_type prints_ret;

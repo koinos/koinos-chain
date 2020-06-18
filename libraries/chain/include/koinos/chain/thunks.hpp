@@ -1,6 +1,6 @@
 #pragma once
 
-#include <koinos/chain/system_call_utils.hpp>
+#include <koinos/chain/thunk_utils.hpp>
 
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/wasm/common.hpp>
@@ -57,18 +57,18 @@ namespace thunk {
 
 void hello( apply_context& ctx, hello_thunk_ret& ret, const hello_thunk_args& arg );
 
-SYSTEM_CALL_DECLARE( void, prints, const std::string& str );
+THUNK_DECLARE( void, prints, const std::string& str );
 
-SYSTEM_CALL_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
+THUNK_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
 
-SYSTEM_CALL_DECLARE( void, apply_block, const protocol::active_block_data& b );
-SYSTEM_CALL_DECLARE( void, apply_transaction, const protocol::transaction_type& t );
-SYSTEM_CALL_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
-SYSTEM_CALL_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
+THUNK_DECLARE( void, apply_block, const protocol::active_block_data& b );
+THUNK_DECLARE( void, apply_transaction, const protocol::transaction_type& t );
+THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
+THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
 
-SYSTEM_CALL_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj );
-SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj );
+THUNK_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 
 } } // koinos::chain::thunk
