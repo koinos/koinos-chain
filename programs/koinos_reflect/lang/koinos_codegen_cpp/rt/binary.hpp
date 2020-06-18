@@ -267,7 +267,26 @@ inline void from_binary( Stream& s, variable_blob& v, uint32_t depth )
    v.resize( size.value );
    s.read( v.data(), size.value );
    KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
+}
 
+// std::string serializes identically to vector< char >
+template< typename Stream >
+inline void to_binary( Stream& s, const std::string& v )
+{
+   to_binary( s, unsigned_int( v.size() ) );
+   s.write( v.c_str(), v.size() );
+}
+
+template< typename Stream >
+inline void from_binary( Stream& s, std::string& v, uint32_t depth )
+{
+   unsigned_int size;
+   from_binary( s, size );
+   KOINOS_ASSERT( size.value < KOINOS_PACK_MAX_ARRAY_ALLOC_SIZE, allocation_violation, "Vector allocation exceeded", () );
+
+   v.resize( size.value );
+   s.read( v.data(), size.value );
+   KOINOS_ASSERT( s.good(), stream_error, "Error reading from stream" );
 }
 
 /* Array< T, N >:
@@ -846,7 +865,7 @@ inline T from_c_str( const char* c, size_t l )
    return t;
 }
 
-} // koinos::raw
+} // koinos::pack
 
 #undef KOINOS_NATIVE_INT_SERIALIZER
 #undef KOINOS_BOOST_INT_SERIALIZER

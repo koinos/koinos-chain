@@ -3,7 +3,10 @@
 
 #include <boost/program_options.hpp>
 
+#include <koinos/chain/register_thunks.hpp>
 #include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
 
 #include <mira/database_configuration.hpp>
@@ -36,7 +39,6 @@ int main( int argc, char** argv, char** envp )
          return EXIT_FAILURE;
       }
 
-      koinos::chain::register_syscalls();
       koinos::chain::wasm_allocator_type wa;
       std::vector< uint8_t > wasm_bin = koinos::chain::backend_type::read_wasm( vmap[ CONTRACT_OPTION ].as< std::string >() );
       koinos::chain::backend_type backend( wasm_bin, koinos::chain::registrar_type{} );
@@ -44,8 +46,7 @@ int main( int argc, char** argv, char** envp )
       backend.set_wasm_allocator( &wa );
       backend.initialize();
 
-      koinos::chain::system_call_table t;
-      koinos::chain::apply_context ctx( t );
+      koinos::chain::apply_context ctx;
 
       backend( &ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 

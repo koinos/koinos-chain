@@ -1,10 +1,17 @@
 #include <boost/test/unit_test.hpp>
 
-#include <koinos/chain/system_calls.hpp>
-#include <koinos/chain/exceptions.hpp>
 #include <koinos/log.hpp>
+
+#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/host.hpp>
+#include <koinos/chain/thunk_dispatcher.hpp>
+
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
+#include <koinos/pack/classes.hpp>
+
+#include <koinos/pack/rt/binary.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -12,10 +19,10 @@
 
 using namespace std::string_literals;
 
-struct system_fixture
+struct thunk_fixture
 {
-   system_fixture() :
-      ctx( t ), sys_api( ctx )
+   thunk_fixture() :
+      host_api( ctx )
    {
       temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( temp );
@@ -23,10 +30,11 @@ struct system_fixture
 
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
-      koinos::chain::register_syscalls();
+      ctx.privilege_level = koinos::chain::privilege::kernel_mode;
+      koinos::chain::register_host_functions();
    }
 
-   ~system_fixture()
+   ~thunk_fixture()
    {
       db.close();
       boost::filesystem::remove_all( temp );
@@ -39,37 +47,13 @@ struct system_fixture
 
    boost::filesystem::path temp;
    koinos::statedb::state_db db;
-   koinos::chain::system_call_table t;
    koinos::chain::apply_context ctx;
-   koinos::chain::system_api sys_api;
+   koinos::chain::host_api host_api;
 };
 
-BOOST_FIXTURE_TEST_SUITE( system_tests, system_fixture )
+BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
 
-BOOST_AUTO_TEST_CASE( system_tests )
-{
-   BOOST_TEST_MESSAGE( "basic system slot tests" );
-
-   koinos::chain::system_call_table t;
-   koinos::chain::apply_context ctx( t );
-   koinos::chain::system_api sys_api( ctx );
-
-   char print_str[] = "message";
-   koinos::chain::null_terminated_ptr p_print_str(print_str);
-
-   BOOST_TEST_MESSAGE( "call the public system slot" );
-   // This should end up calling the private native implementation and throwing `abort_called`
-   sys_api.prints( p_print_str );
-
-   BOOST_TEST_MESSAGE( "call the private system slot in user mode" );
-   // We should not be able to bypass the public system slot in user_mode
-   BOOST_CHECK_THROW( sys_api.internal_prints( p_print_str ), koinos::chain::insufficient_privileges );
-
-   BOOST_TEST_MESSAGE( "call the private system slot in kernel mode" );
-   // If we are in kernel mode, we can call the private implementation and it should throw `abort_called`
-   ctx.privilege_level = koinos::chain::privilege::kernel_mode;
-   sys_api.internal_prints( p_print_str );
-}
+using namespace koinos::chain;
 
 BOOST_AUTO_TEST_CASE( db_crud )
 { try {
@@ -79,10 +63,10 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
    koinos::protocol::variable_blob object_data;
-   BOOST_REQUIRE_THROW( sys_api.db_put_object( 0, 0, object_data ), koinos::chain::database_exception );
-   BOOST_REQUIRE_THROW( sys_api.db_get_object( 0, 0 ), koinos::chain::database_exception );
-   BOOST_REQUIRE_THROW( sys_api.db_get_next_object( 0, 0 ), koinos::chain::database_exception );
-   BOOST_REQUIRE_THROW( sys_api.db_get_prev_object( 0, 0 ), koinos::chain::database_exception );
+   BOOST_REQUIRE_THROW( thunk::db_put_object( ctx, 0, 0, object_data ), koinos::chain::database_exception );
+   BOOST_REQUIRE_THROW( thunk::db_get_object( ctx, 0, 0 ), koinos::chain::database_exception );
+   BOOST_REQUIRE_THROW( thunk::db_get_next_object( ctx, 0, 0 ), koinos::chain::database_exception );
+   BOOST_REQUIRE_THROW( thunk::db_get_prev_object( ctx, 0, 0 ), koinos::chain::database_exception );
 
    ctx.set_state_node( node );
 
@@ -90,58 +74,58 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE( sys_api.db_put_object( 0, 1, object_data ) == false );
-   auto obj_blob = sys_api.db_get_object( 0, 1 );
+   BOOST_REQUIRE( thunk::db_put_object( ctx, 0, 1, object_data ) == false );
+   auto obj_blob = thunk::db_get_object( ctx, 0, 1 );
    BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object1" );
 
    BOOST_TEST_MESSAGE( "Testing getting a non-existent object" );
 
-   obj_blob = sys_api.db_get_object( 0, 2 );
+   obj_blob = thunk::db_get_object( ctx, 0, 2 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test iteration" );
 
    koinos::pack::to_variable_blob( object_data, "object2"s );
-   sys_api.db_put_object( 0, 2, object_data );
+   thunk::db_put_object( ctx, 0, 2, object_data );
    koinos::pack::to_variable_blob( object_data, "object3"s );
-   sys_api.db_put_object( 0, 3, object_data );
+   thunk::db_put_object( ctx, 0, 3, object_data );
 
-   obj_blob = sys_api.db_get_next_object( 0, 2, 8 );
+   obj_blob = thunk::db_get_next_object( ctx, 0, 2, 8 );
    BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object3" );
 
-   obj_blob = sys_api.db_get_prev_object( 0, 2, 8 );
+   obj_blob = thunk::db_get_prev_object( ctx, 0, 2, 8 );
    BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object1" );
 
    BOOST_TEST_MESSAGE( "Test iterator overrun" );
 
-   obj_blob = sys_api.db_get_next_object( 0, 3 );
+   obj_blob = thunk::db_get_next_object( ctx, 0, 3 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = sys_api.db_get_next_object( 0, 4 );
+   obj_blob = thunk::db_get_next_object( ctx, 0, 4 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = sys_api.db_get_prev_object( 0, 1 );
+   obj_blob = thunk::db_get_prev_object( ctx, 0, 1 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = sys_api.db_get_prev_object( 0, 0 );
+   obj_blob = thunk::db_get_prev_object( ctx, 0, 0 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    koinos::pack::to_variable_blob( object_data, "space1.object1"s );
-   sys_api.db_put_object( 1, 1, object_data );
-   obj_blob = sys_api.db_get_next_object( 0, 3 );
+   thunk::db_put_object( ctx, 1, 1, object_data );
+   obj_blob = thunk::db_get_next_object( ctx, 0, 3 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = sys_api.db_get_next_object( 1, 1 );
+   obj_blob = thunk::db_get_next_object( ctx, 1, 1 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = sys_api.db_get_prev_object( 1, 1 );
+   obj_blob = thunk::db_get_prev_object( ctx, 1, 1 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test object modification" );
    koinos::pack::to_variable_blob( object_data, "object1.1"s );
-   BOOST_REQUIRE( sys_api.db_put_object( 0, 1, object_data ) == true );
-   obj_blob = sys_api.db_get_object( 0, 1, 10 );
+   BOOST_REQUIRE( thunk::db_put_object( ctx, 0, 1, object_data ) == true );
+   obj_blob = thunk::db_get_object( ctx, 0, 1, 10 );
    BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE( sys_api.db_put_object( 0, 1, object_data ) == true );
-   obj_blob = sys_api.db_get_object( 0, 1, 10 );
+   BOOST_REQUIRE( thunk::db_put_object( ctx, 0, 1, object_data ) == true );
+   obj_blob = thunk::db_get_object( ctx, 0, 1, 10 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
@@ -156,10 +140,10 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
 
-   sys_api.apply_upload_contract_operation( op );
+   thunk::apply_upload_contract_operation( ctx, op );
 
    koinos::protocol::uint256_t contract_key = koinos::pack::from_fixed_blob< koinos::protocol::uint160_t >( op.contract_id );
-   auto stored_bytecode = sys_api.db_get_object( 0, contract_key, bytecode.size() );
+   auto stored_bytecode = thunk::db_get_object( ctx, 0, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
    BOOST_REQUIRE( memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
@@ -168,9 +152,49 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    koinos::protocol::contract_call_operation op2;
    memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   sys_api.apply_execute_contract_operation( op2 );
+   thunk::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+
+BOOST_AUTO_TEST_CASE( thunk_test )
+{ try {
+   BOOST_TEST_MESSAGE( "thunk test" );
+
+   using namespace koinos::chain;
+   using koinos::protocol::variable_blob;
+
+   prints_args args;
+
+   args.message = "Hello World";
+
+   variable_blob vl_args, vl_ret;
+   koinos::pack::to_variable_blob( vl_args, args );
+   host_api.invoke_thunk( prints_thunk_id, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+
+   BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
+   BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
+} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+
+BOOST_AUTO_TEST_CASE( system_call_test )
+{ try {
+   BOOST_TEST_MESSAGE( "system call test" );
+
+   using namespace koinos::chain;
+   using koinos::protocol::variable_blob;
+
+   prints_args args;
+
+   args.message = "Hello World";
+
+   variable_blob vl_args, vl_ret;
+   koinos::pack::to_variable_blob( vl_args, args );
+   host_api.invoke_system_call( prints_thunk_id, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+
+   BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
+   BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
+} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+
+KOINOS_TODO( "Test overriding a thunk" )
 
 BOOST_AUTO_TEST_SUITE_END()

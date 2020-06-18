@@ -6,15 +6,14 @@
 
 #include <string>
 
-namespace koinos { namespace chain {
+namespace koinos::chain {
 
 using koinos::statedb::state_node_ptr;
 
-class system_call_table;
 class apply_context
 {
    public:
-      apply_context( system_call_table& sct );
+      apply_context() {}
 
    /// Console methods:
       void console_append( const std::string& val ) {
@@ -37,7 +36,6 @@ class apply_context
 
    /// Fields:
    public:
-      system_call_table&            syscalls;
       privilege                     privilege_level = privilege::user_mode;
 
    private:
@@ -46,4 +44,4 @@ class apply_context
       protocol::variable_blob       contract_call_args;
 };
 
-} } // koinos::chain
+} // koinos::chain

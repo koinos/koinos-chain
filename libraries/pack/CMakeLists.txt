@@ -13,6 +13,8 @@ set(KOINOS_REFLECT_SOURCES
    "${KOINOS_REFLECT_SRC_DIR}/types.hpp"
    "${KOINOS_REFLECT_SRC_DIR}/block.hpp"
    "${KOINOS_REFLECT_SRC_DIR}/submit.hpp"
+   "${KOINOS_REFLECT_SRC_DIR}/system_calls.hpp"
+   "${KOINOS_REFLECT_SRC_DIR}/thunks.hpp"
    )
 
 set(KOINOS_SCHEMA_DIR
@@ -29,9 +31,11 @@ set(KOINOS_PACK_GEN_FILES
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/basetypes.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/binary_fwd.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/binary.hpp"
+   "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/binary_serializer.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/exceptions.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/json_fwd.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/json.hpp"
+   "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/pack_fwd.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/reflect.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/string_fwd.hpp"
    "${KOINOS_PACK_GEN_DIR}/koinos/pack/rt/string.hpp"

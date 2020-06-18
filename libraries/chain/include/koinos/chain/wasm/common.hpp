@@ -6,7 +6,7 @@ namespace eosio::vm {
    struct aligned_array_wrapper;
 }
 
-namespace koinos { namespace chain {
+namespace koinos::chain {
 
    class apply_context;
    class transaction_context;
@@ -57,7 +57,7 @@ namespace koinos { namespace chain {
     */
    template<typename T>
    struct array_ptr {
-      explicit array_ptr (T * value) : value(value) {}
+      array_ptr (T * value) : value(value) {}
 
       template< size_t Align >
       array_ptr( const eosio::vm::aligned_array_wrapper< T, Align >& w ) :
@@ -80,6 +80,8 @@ namespace koinos { namespace chain {
    };
 
    struct null_terminated_ptr {
+      null_terminated_ptr() = default;
+
       explicit null_terminated_ptr(char* value) : value(value) {}
 
       typename std::add_lvalue_reference<char>::type operator*() const {
@@ -94,7 +96,7 @@ namespace koinos { namespace chain {
          return value;
       }
 
-      char *value;
+      char *value = nullptr;
    };
 
-} } // koinos::chain
+} // koinos::chain

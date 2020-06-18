@@ -12,7 +12,9 @@
 
 #include <koinos/pack/rt/string_fwd.hpp>
 
+#include <koinos/chain/host.hpp>
 #include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/thunks.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -21,6 +23,7 @@
 
 #include <koinos/chain/controller.hpp>
 
+#include <koinos/crypto/elliptic.hpp>
 #include <koinos/crypto/multihash.hpp>
 
 #include <koinos/exception.hpp>
@@ -143,8 +146,7 @@ class controller_impl
 
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
-      chain::system_call_table                                                 _syscall_table;
-      std::unique_ptr< chain::system_api >                                     _sys_api;
+      std::unique_ptr< chain::host_api >                                       _host_api;
       std::unique_ptr< chain::apply_context >                                  _ctx;
 
       // Item lifetime:
@@ -168,10 +170,10 @@ class controller_impl
 
 controller_impl::controller_impl()
 {
-   koinos::chain::register_syscalls();
-   _ctx = std::make_unique< chain::apply_context >( _syscall_table );
+   koinos::chain::register_host_functions();
+   _ctx = std::make_unique< chain::apply_context >();
    _ctx->privilege_level = chain::privilege::kernel_mode;
-   _sys_api = std::make_unique< chain::system_api >( *_ctx );
+   _host_api = std::make_unique< chain::host_api >( *_ctx );
 }
 
 controller_impl::~controller_impl() = default;
@@ -296,10 +298,9 @@ void controller_impl::process_submission( block_submission_result& ret, block_su
    pack::from_binary( in_sig, sig );
 
    crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
-   KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
+   KOINOS_ASSERT( chain::thunk::verify_block_header( *_ctx, sig, digest ), invalid_signature, "invalid block signature" );
 
-
-   _sys_api->apply_block(pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ));
+   thunk::apply_block( *_ctx, pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ) );
    auto output = _ctx->get_pending_console_output();
 
    if (output.length() > 0) { LOG(info) << output; }

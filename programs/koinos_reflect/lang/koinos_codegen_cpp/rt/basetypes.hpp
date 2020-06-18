@@ -46,6 +46,7 @@ namespace koinos::protocol {
       >
    > int160_t;
 
+   typedef bool      boolean;
    typedef int8_t    int8;
    typedef uint8_t   uint8;
    typedef int16_t   int16;
