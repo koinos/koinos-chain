@@ -33,6 +33,9 @@ DEFAULT_SYSTEM_CALLS(
    (db_get_object)
    (db_get_next_object)
    (db_get_prev_object)
+
+   (get_contract_args_size)
+   (get_contract_args)
 )
 
 } // koinos::chain

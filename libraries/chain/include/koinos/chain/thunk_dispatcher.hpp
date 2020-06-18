@@ -51,6 +51,7 @@ namespace detail
       pack::to_c_str< ThunkReturn >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
       return 0;
    }
+
 } // detail
 
 /**
