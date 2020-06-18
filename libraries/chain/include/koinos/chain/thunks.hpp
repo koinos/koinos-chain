@@ -72,6 +72,6 @@ THUNK_DECLARE( variable_blob, db_get_object, const statedb::object_space& space,
 THUNK_DECLARE( variable_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 THUNK_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 
-THUNK_DECLARE( uint32_t, get_contract_args );
+THUNK_DECLARE( variable_blob, get_contract_args );
 
 } } // koinos::chain::thunk
