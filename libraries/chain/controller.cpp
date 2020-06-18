@@ -168,6 +168,7 @@ class controller_impl
 
 controller_impl::controller_impl()
 {
+   koinos::chain::register_syscalls();
    _ctx = std::make_unique< chain::apply_context >( _syscall_table );
    _ctx->privilege_level = chain::privilege::kernel_mode;
    _sys_api = std::make_unique< chain::system_api >( *_ctx );
@@ -298,11 +299,10 @@ void controller_impl::process_submission( block_submission_result& ret, block_su
    KOINOS_ASSERT( _sys_api->verify_block_header( sig, digest ), invalid_signature, "invalid block signature" );
 
 
-   KOINOS_TODO( "Apply block" )
+   _sys_api->apply_block(pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ));
+   auto output = _ctx->get_pending_console_output();
 
-   // Apply block
-   // Apply transaction
-   // Apply operation
+   if (output.length() > 0) { LOG(info) << output; }
 
    _ctx->clear_state_node();
    _state_db.finalize_node( block_node->id() );
