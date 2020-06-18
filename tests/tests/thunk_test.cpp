@@ -195,4 +195,6 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
+KOINOS_TODO( "Test overriding a thunk" )
+
 BOOST_AUTO_TEST_SUITE_END()

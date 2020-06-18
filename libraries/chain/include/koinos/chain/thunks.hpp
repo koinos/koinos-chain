@@ -35,18 +35,18 @@ namespace thunk {
  * overridden and is the default implement if no override is provided.
  *
  * The internal version is called a thunk, and the external version is called a system
- * call. Thunks cannot be overridden are bound at compile time. System calls are bound
- * in bound via VM code and can be changed.
+ * call. Thunks are bound at compile time and cannot be overridden. System calls are
+ * bound via VM code and can be changed.
  *
  * Use the macro THUNK_DECLARE to simultaneously declare both the thunk and syscall.
- * In thunks.cpp using THUNK_DEFINE to define the thunk implementation. The syscall
+ * In thunks.cpp use THUNK_DEFINE to define the thunk implementation. The syscall
  * implementation is automatically generated to respect the syscall override.
  *
  * When calling a thunk natively, you can call either version but the choice is important.
  * Calling `_thunk` will mean the called function will never change. This should be
  * reserved for low level, necessary implementations (e.g. I/O). Nearly every other
  * native call should be done to the syscall version (no suffix) so that if the call
- * needs to be upgraded later, the thunk will respect the override and properly call
+ * needs to be upgraded later, the syscall will respect the override and properly call
  * to it.
  *
  * Some thunks may not need a syscall override (e.g. fixing a buggy thunk). In that

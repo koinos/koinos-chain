@@ -30,6 +30,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
    vl_blob vl_target =
       thunk::db_get_object_thunk( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );
 
+KOINOS_TODO( "Change get_default_sys_call_entry() API to return std::variant, not vl_blob" )
    if( vl_target.data.size() == 0 )
    {
       vl_target = get_default_sys_call_entry( sid );
