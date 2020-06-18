@@ -25,14 +25,14 @@ data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( BOOST_PP_CAT(elem,_T
 case(BOOST_PP_CAT(call,_THUNK_ID_SUFFIX)):                        \
 {                                                                 \
    target = thunk_id_type(BOOST_PP_CAT(call,_THUNK_ID_SUFFIX));   \
-   koinos::pack::to_vl_blob( ret, target );                       \
+   koinos::pack::to_variable_blob( ret, target );                 \
    break;                                                         \
 }
 
 #define DEFAULT_SYSTEM_CALLS( args )                              \
-vl_blob get_default_sys_call_entry( uint32_t sid )                \
+variable_blob get_default_sys_call_entry( uint32_t sid )          \
 {                                                                 \
-   vl_blob ret;                                                   \
+   variable_blob ret;                                             \
    sys_call_target target;                                        \
    switch( sid )                                                  \
    {                                                              \
@@ -79,13 +79,13 @@ vl_blob get_default_sys_call_entry( uint32_t sid )                \
       /* TODO Do we need to invoke serialization here? */                                                            \
       statedb::object_key _key = _sid;                                                                               \
                                                                                                                      \
-      koinos::protocol::vl_blob _vl_target = db_get_object_thunk(                                                    \
+      koinos::protocol::variable_blob _vl_target = db_get_object_thunk(                                              \
          context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, _key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );                 \
                                                                                                                      \
-      if( _vl_target.data.size() == 0 )                                                                              \
+      if( _vl_target.size() == 0 )                                                                                   \
       {                                                                                                              \
          _vl_target = get_default_sys_call_entry( _sid );                                                            \
-         KOINOS_ASSERT( _vl_target.data.size() > 0,                                                                  \
+         KOINOS_ASSERT( _vl_target.size() > 0,                                                                       \
             unknown_system_call,                                                                                     \
             "system call table dispatch entry ${sid} does not exist",                                                \
             ("sid", _sid)                                                                                            \
@@ -94,7 +94,7 @@ vl_blob get_default_sys_call_entry( uint32_t sid )                \
                                                                                                                      \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                    \
                                                                                                                      \
-      auto _target = koinos::pack::from_vl_blob< protocol::sys_call_target >( _vl_target );                          \
+      auto _target = koinos::pack::from_variable_blob< protocol::sys_call_target >( _vl_target );                    \
                                                                                                                      \
       std::visit(                                                                                                    \
          koinos::overloaded{                                                                                         \

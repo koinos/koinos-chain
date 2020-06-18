@@ -29,7 +29,7 @@ namespace crypto {
 
 using koinos::protocol::multihash_type;
 using koinos::protocol::multihash_vector;
-using koinos::protocol::vl_blob;
+using koinos::protocol::variable_blob;
 
 DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
 DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
@@ -55,6 +55,11 @@ namespace multihash
 
    inline bool validate_sha256( const multihash_type& mh )    { return validate( mh,  CRYPTO_SHA2_256_ID, 32 ); }
    inline bool validate_sha256( const multihash_vector& mhv ) { return validate( mhv, CRYPTO_SHA2_256_ID, 32 ); }
+
+   inline bool is_zero( const multihash_type& mh )
+   {
+      return std::all_of( mh.digest.begin(), mh.digest.end(), []( char c ) { return (c == 0); } );
+   }
 } // multihash
 
 struct encoder
@@ -65,7 +70,7 @@ struct encoder
    void write( const char* d, size_t len );
    void put( char c ) { write( &c, 1 ); }
    void reset();
-   void get_result( vl_blob& v );
+   void get_result( variable_blob& v );
    inline void get_result( multihash_type& mh )
    {
       get_result( mh.digest );

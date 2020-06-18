@@ -43,13 +43,16 @@ KOINOS_DECLARE_BASE_SERIALIZER( signed_int )
 KOINOS_DECLARE_BASE_SERIALIZER( multihash_type )
 KOINOS_DECLARE_BASE_SERIALIZER( multihash_vector )
 
+KOINOS_DECLARE_BASE_SERIALIZER( block_height_type )
+KOINOS_DECLARE_BASE_SERIALIZER( timestamp_type )
+
 KOINOS_DECLARE_BASE_SERIALIZER( std::string )
-KOINOS_DECLARE_BASE_SERIALIZER( vl_blob )
+KOINOS_DECLARE_BASE_SERIALIZER( variable_blob )
 
 template< typename Stream, size_t N >
-inline void to_binary( Stream& s, const fl_blob< N >& v );
+inline void to_binary( Stream& s, const fixed_blob< N >& v );
 template< typename Stream, size_t N >
-inline void from_binary( Stream& s, fl_blob< N >& v, uint32_t depth = 0 );
+inline void from_binary( Stream& s, fixed_blob< N >& v, uint32_t depth = 0 );
 
 template< typename Stream, typename T >
 inline void to_binary( Stream& s, const std::vector< T >& v );

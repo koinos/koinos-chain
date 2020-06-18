@@ -107,7 +107,7 @@ inline void binary_serializer::from_binary( Stream& s, T& t, uint32_t depth )
 template<typename T>
 inline std::vector<char> binary_serializer::to_binary_vector( const T& v )
 {
-   #pragma message "TODO: Replace with to_vl_blob"
+   #pragma message "TODO: Replace with to_variable_blob"
    vectorstream stream;
    binary_serializer::to_binary(stream, v);
    return stream.vector();
@@ -116,7 +116,7 @@ inline std::vector<char> binary_serializer::to_binary_vector( const T& v )
 template<typename T>
 inline void binary_serializer::from_binary_vector( const std::vector<char>& v, T& t )
 {
-   #pragma message "TODO: Replace with from_vl_blob"
+   #pragma message "TODO: Replace with from_variable_blob"
    vectorstream stream(v);
    binary_serializer::from_binary(stream, t, 0);
 }
@@ -132,7 +132,7 @@ inline T binary_serializer::from_binary_vector( const std::vector<char>& v )
 template<typename T>
 inline void binary_serializer::from_binary_array( const char* data, const size_t size, T& t )
 {
-   #pragma message "TODO: Replace with from_vl_blob"
+   #pragma message "TODO: Replace with from_variable_blob"
    std::vector<char> v(data,data+size);
    binary_serializer::from_binary_vector<T>(v, t);
 }
@@ -148,7 +148,7 @@ inline T binary_serializer::from_binary_array( const char* data, const size_t si
 template<typename T>
 inline size_t binary_serializer::binary_size( const T& v )
 {
-   #pragma message "TODO: Replace with to_vl_blob"
+   #pragma message "TODO: Replace with to_variable_blob"
    vectorstream stream;
    binary_serializer::to_binary(stream, v);
    return stream.tellp();

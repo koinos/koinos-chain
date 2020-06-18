@@ -48,13 +48,6 @@ namespace koinos::chain {
       }
    };
 
-   template<>
-   struct class_from_wasm<protocol::vl_blob> {
-      static auto &value(protocol::vl_blob& v) {
-         return v;
-      }
-   };
-
    /**
     * class to represent an in-wasm-memory array
     * it is a hint to the transcriber that the next parameter will

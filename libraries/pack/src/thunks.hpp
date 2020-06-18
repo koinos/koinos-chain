@@ -24,8 +24,8 @@ typedef void_type prints_ret;
 
 struct verify_block_header_args
 {
-   protocol::fl_blob< 65 >  sig;
-   protocol::multihash_type digest;
+   protocol::fixed_blob< 65 > sig;
+   protocol::multihash_type   digest;
 };
 
 typedef protocol::boolean verify_block_header_ret;
@@ -60,9 +60,9 @@ typedef void_type apply_execute_contract_operation_ret;
 
 struct db_put_object_args
 {
-   protocol::uint256 space;
-   protocol::uint256 key;
-   protocol::vl_blob   obj;
+   protocol::uint256       space;
+   protocol::uint256       key;
+   protocol::variable_blob obj;
 };
 
 typedef protocol::boolean db_put_object_ret;
@@ -74,7 +74,7 @@ struct db_get_object_args
    protocol::int32   object_size_hint;
 };
 
-typedef protocol::vl_blob db_get_object_ret;
+typedef protocol::variable_blob db_get_object_ret;
 
 typedef db_get_object_args db_get_next_object_args;
 

@@ -7,12 +7,12 @@
 namespace koinos::crypto {
 
    using koinos::protocol::multihash_type;
-   using koinos::protocol::fl_blob;
+   using koinos::protocol::fixed_blob;
 
-   typedef fl_blob<65>                       recoverable_signature; ///< A 65 byte recoverable ECDSA siganture
-   typedef fl_blob<sizeof(secp256k1_pubkey)> public_key_data;       ///< The full non-compressed ECDSA public key point
-   typedef fl_blob<33>                       compressed_public_key; ///< The 33 byte compressed ECDSA public key
-   typedef fl_blob<32>                       private_key_secret;    ///< The 32 byte ECDSA prvate key secret
+   typedef fixed_blob<65>                       recoverable_signature; ///< A 65 byte recoverable ECDSA siganture
+   typedef fixed_blob<sizeof(secp256k1_pubkey)> public_key_data;       ///< The full non-compressed ECDSA public key point
+   typedef fixed_blob<33>                       compressed_public_key; ///< The 33 byte compressed ECDSA public key
+   typedef fixed_blob<32>                       private_key_secret;    ///< The 32 byte ECDSA prvate key secret
 
    DECLARE_KOINOS_EXCEPTION( key_serialization_error );
    DECLARE_KOINOS_EXCEPTION( key_recovery_error );
@@ -64,7 +64,7 @@ namespace koinos::crypto {
 
          inline friend bool operator ==( const public_key& a, const public_key& b )
          {
-            return memcmp( a._key.data.data(), b._key.data.data(), sizeof(public_key_data) ) == 0;
+            return std::memcmp( a._key.data(), b._key.data(), sizeof(public_key_data) ) == 0;
          }
 
          inline friend bool operator !=( const public_key& a, const public_key& b )
@@ -126,7 +126,7 @@ namespace koinos::crypto {
 
          inline friend bool operator==( const private_key& a, const private_key& b )
          {
-            return memcmp( a.get_secret().data.data(), b.get_secret().data.data(), 32 ) == 0;
+            return std::memcmp( a.get_secret().data(), b.get_secret().data(), 32 ) == 0;
          }
 
          inline friend bool operator!=( const private_key& a, const private_key& b )
@@ -136,7 +136,7 @@ namespace koinos::crypto {
 
          inline friend bool operator<( const private_key& a, const private_key& b )
          {
-            return memcmp( a.get_secret().data.data(), b.get_secret().data.data(), 32 ) < 0;
+            return std::memcmp( a.get_secret().data(), b.get_secret().data(), 32 ) < 0;
          }
 
          unsigned int fingerprint() const { return get_public_key().fingerprint(); }
