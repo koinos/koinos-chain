@@ -15,7 +15,7 @@
 #define _THUNK_ARGS_SUFFIX _args
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-td.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( BOOST_PP_CAT(elem,_THUNK_ID_SUFFIX), thunk::elem );
+td.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( BOOST_PP_CAT(elem,_THUNK_ID_SUFFIX), thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
 
 #define REGISTER_THUNKS( args )                             \
 void register_thunks( thunk_dispatcher& td )                \
@@ -23,10 +23,10 @@ void register_thunks( thunk_dispatcher& td )                \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, =>, args ) \
 }
 
-#define _DEFAULT_SYS_CALL_ENTRY( r, data, call ) \
+#define _DEFAULT_SYS_CALL_ENTRY( xid, data, call ) \
 case(BOOST_PP_CAT(call,_THUNK_ID_SUFFIX)): \
 { \
-   target = thunk_id_type(r); \
+   target = thunk_id_type(BOOST_PP_CAT(call,_THUNK_ID_SUFFIX)); \
    koinos::pack::to_vl_blob( ret, target ); \
    break; \
 } \

@@ -89,7 +89,55 @@ SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::co
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
-SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )
+/*SYSTEM_CALL_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const vl_blob&) obj) )*/
+bool db_put_object( apply_context& context, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj )
+{
+   using koinos::protocol::thunk_id_type;
+   using koinos::protocol::contract_id_type;
+
+   uint32_t _xid = db_put_object_thunk_id;
+
+   /* TODO Do we need to invoke serialization here? */
+   statedb::object_key _key = _xid;
+
+   koinos::protocol::vl_blob _vl_target =
+      db_get_object_thunk( context, XCALL_DISPATCH_TABLE_SPACE_ID, _key, XCALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );
+
+   if( _vl_target.data.size() == 0 )
+   {
+      _vl_target = get_default_xcall_entry( _xid );
+      KOINOS_ASSERT( _vl_target.data.size() > 0,
+         unknown_xcall,
+         "xcall table dispatch entry ${xid} does not exist",
+         ("xid", _xid)
+         );
+   }
+
+   bool _ret;
+
+   auto _target = koinos::pack::from_vl_blob< protocol::xcall_target >( _vl_target );
+
+   std::visit(
+      koinos::overloaded{
+         [&]( thunk_id_type& _tid ) {
+            _ret =
+            thunk_dispatcher::instance().call_thunk<
+               bool >(
+                  _tid,
+                  context,
+                  space, key, obj );
+         },
+         [&]( contract_id_type& _cid ) {
+            /* Need xcall syscall handler */
+         },
+         [&]( auto& _a ) {
+            KOINOS_THROW( unknown_xcall, "xcall table dispatch entry ${xid} has unimplemented type ${tag}",
+               ("xid", _xid)("tag", _target.index()) );
+         } }, _target );
+   return _ret;
+}
+
+bool db_put_object_thunk( apply_context& context, const statedb::object_space& space, const statedb::object_key& key, const vl_blob& obj )
 {
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );

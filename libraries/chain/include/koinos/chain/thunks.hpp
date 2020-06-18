@@ -12,7 +12,7 @@
 namespace koinos::chain {
 class apply_context;
 
-enum thunk_ids
+enum thunk_ids : uint32_t
 {
    prints_thunk_id,
    verify_block_header_thunk_id,

@@ -9,6 +9,8 @@
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 
+#include <koinos/log.hpp>
+
 #include <boost/container/flat_map.hpp>
 
 #include <any>
@@ -141,7 +143,7 @@ class thunk_dispatcher
       {
          auto it = _pass_through_map.find( id );
          KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
-         return std::any_cast< const std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
+         return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
       template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
