@@ -22,6 +22,8 @@ koinos::chain::registrar_type::add< system_api, &system_api::elem, koinos::chain
 inline void register_syscalls()                                   \
 {                                                                 \
    koinos::chain::registrar_type::add< system_api, &system_api::prints, koinos::chain::wasm_allocator_type >( "env", "prints" ); \
+   koinos::chain::registrar_type::add< system_api, &system_api::read_contract_args, koinos::chain::wasm_allocator_type >( "env", "read_contract_args" ); \
+   koinos::chain::registrar_type::add< system_api, &system_api::contract_args_size, koinos::chain::wasm_allocator_type >( "env", "contract_args_size" ); \
 }                                                                 \
 enum class system_call_slot : uint32_t                            \
 {                                                                 \

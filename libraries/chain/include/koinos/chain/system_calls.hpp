@@ -173,6 +173,9 @@ struct system_api final
    SYSTEM_CALL_DECLARE( vl_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
    SYSTEM_CALL_DECLARE( vl_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
    SYSTEM_CALL_DECLARE( vl_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+
+   SYSTEM_CALL_DECLARE( uint32_t, contract_args_size );
+   SYSTEM_CALL_DECLARE( uint32_t, read_contract_args, array_ptr<char> memory, uint32_t buffer_size );
 };
 
 // For any given system call, two slots are used. The first definition
@@ -301,6 +304,9 @@ SYSTEM_CALL_SLOTS(
    (db_get_object)
    (db_get_next_object)
    (db_get_prev_object)
+
+   (contract_args_size)
+   (read_contract_args)
 );
 
 struct system_call_bundle

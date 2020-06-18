@@ -1,8 +1,8 @@
 #pragma once
 
 #include <koinos/chain/privilege.hpp>
-
 #include <koinos/statedb/statedb.hpp>
+#include <koinos/pack/rt/basetypes.hpp>
 
 #include <string>
 
@@ -32,6 +32,9 @@ class apply_context
       state_node_ptr get_state_node() const;
       void clear_state_node();
 
+      void set_contract_call_args(const protocol::vl_blob& args);
+      const protocol::vl_blob& get_contract_call_args();
+
    /// Fields:
    public:
       system_call_table&            syscalls;
@@ -40,6 +43,7 @@ class apply_context
    private:
       std::string                   pending_console_output;
       state_node_ptr                current_state_node;
+      protocol::vl_blob             contract_call_args;
 };
 
 } } // koinos::chain

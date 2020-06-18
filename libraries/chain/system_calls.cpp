@@ -1144,6 +1144,8 @@ SYSTEM_CALL_DEFINE( void, apply_execute_contract_operation, ((const protocol::co
    backend.set_wasm_allocator( &wa );
    backend.initialize();
 
+   // Set the given call arguments on context
+   context.set_contract_call_args(o.args);
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
@@ -1241,6 +1243,25 @@ SYSTEM_CALL_DEFINE( vl_blob, db_get_prev_object, ((const statedb::object_space&)
       object_buffer.data.clear();
 
    return object_buffer;
+}
+
+SYSTEM_CALL_DEFINE( uint32_t, read_contract_args, ((array_ptr<char>) memory, (uint32_t) buffer_size) )
+{
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
+   KOINOS_TODO("Properly validate (and maybe clear) the args")
+   // if( buffer_size == 0 ) return s;
+
+   auto s = (uint32_t)context.get_contract_call_args().data.size();
+   auto copy_size = std::min( buffer_size, s );
+   memcpy( (char*)memory.value, context.get_contract_call_args().data.data(), copy_size );
+
+   return copy_size;
+}
+
+SYSTEM_CALL_DEFINE( uint32_t, contract_args_size )
+{
+   SYSTEM_CALL_ENFORCE_KERNEL_MODE();
+   return (uint32_t)context.get_contract_call_args().data.size();
 }
 
 } // koinos::chain
