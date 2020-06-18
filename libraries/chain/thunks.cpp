@@ -1,11 +1,14 @@
 #include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/register_thunks.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/thunks.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 namespace koinos::chain {
 
-REGISTER_THUNKS(
+void register_thunks( thunk_dispatcher& td )
+{
+   REGISTER_THUNKS( td,
    (prints)
 
    (verify_block_header)
@@ -19,7 +22,8 @@ REGISTER_THUNKS(
    (db_get_object)
    (db_get_next_object)
    (db_get_prev_object)
-)
+   )
+}
 
 namespace thunk {
 

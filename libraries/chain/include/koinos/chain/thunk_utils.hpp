@@ -16,13 +16,10 @@
 #define _THUNK_ARGS_SUFFIX _args
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-td.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( BOOST_PP_CAT(elem,_THUNK_ID_SUFFIX), thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( BOOST_PP_CAT(elem,_THUNK_ID_SUFFIX), thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
 
-#define REGISTER_THUNKS( args )                             \
-void register_thunks( thunk_dispatcher& td )                \
-{                                                           \
-   BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, =>, args ) \
-}
+#define REGISTER_THUNKS( dispatcher, args )                       \
+   BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
 
 #define _DEFAULT_SYS_CALL_ENTRY( sid, data, call )                \
 case(BOOST_PP_CAT(call,_THUNK_ID_SUFFIX)):                        \

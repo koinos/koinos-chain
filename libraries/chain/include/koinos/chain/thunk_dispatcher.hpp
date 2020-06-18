@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/register_thunks.hpp>
 #include <koinos/chain/thunks.hpp>
 #include <koinos/exception.hpp>
 
@@ -55,7 +56,7 @@ namespace detail
 /**
  * A registry for thunks.
  *
- * - A thunk is one-dimensional:  It's a call from WASM to native C++ code.
+ * - A thunk is one-directional:  It's a call from WASM to native C++ code.
  * - A thunk is immutable:  A thunk always points to a particular native function.
  *
  * In particular, a semantically inequivalent upgrade to a thunk should never occur.
@@ -65,7 +66,7 @@ namespace detail
  * System governance should instead replace the system code that calls a particular
  * thunk ID with system code that calls a different thunk ID.
  *
- * When upgrading system calls from one thunk to another, those new thunk **MUST**
+ * When upgrading a system call from one thunk to another, the new thunk **MUST**
  * have identical function signature to the existing thunk.
  */
 class thunk_dispatcher
@@ -104,7 +105,5 @@ class thunk_dispatcher
       boost::container::flat_map< thunk_id, generic_thunk_handler >  _dispatch_map;
       boost::container::flat_map< thunk_id, std::any >               _pass_through_map;
 };
-
-void register_thunks( thunk_dispatcher& td );
 
 } // koinos::chain
