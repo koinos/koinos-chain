@@ -44,9 +44,13 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
 
 #define VA_ARGS(...) , ##__VA_ARGS__
 
-#define THUNK_DECLARE(return_type, name, ...)                                                                                                                  \
+#define THUNK_DECLARE(return_type, name, ...)                                          \
    return_type name( apply_context& VA_ARGS(__VA_ARGS__) );                            \
    return_type BOOST_PP_CAT(name,_THUNK_SUFFIX)( apply_context& VA_ARGS(__VA_ARGS__))
+
+#define THUNK_DECLARE_VOID(return_type, name)                                          \
+   return_type name( apply_context& );                                                 \
+   return_type BOOST_PP_CAT(name,_THUNK_SUFFIX)( apply_context& )
 
 #define _THUNK_RET_TYPE_void 1)(1
 #define _THUNK_IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(_THUNK_RET_TYPE_,type))),2)
@@ -70,8 +74,8 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
 #pragma message( "TODO:  Invoke smart contract sys call handler" )
-#define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \
-   RETURN_TYPE SYSCALL( apply_context& context VA_ARGS(_THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__)) )                     \
+#define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
+   RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
       using koinos::protocol::thunk_id_type;                                                                         \
       using koinos::protocol::contract_id_type;                                                                      \
@@ -104,10 +108,10 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
                thunk_dispatcher::instance().call_thunk<                                                              \
                   RETURN_TYPE                                                                                        \
-                  VA_ARGS(_THUNK_DETAIL_DEFINE_TYPES(__VA_ARGS__)) >(                                                \
+                  TYPES >(                                                                                           \
                      _tid,                                                                                           \
                      context                                                                                         \
-                     VA_ARGS(_THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__)) );                                           \
+                     FWD );                                                                                          \
             },                                                                                                       \
             [&]( contract_id_type& _cid ) {                                                                          \
                /* Need syscall handler */                                                                            \
@@ -119,4 +123,13 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
             } }, _target );                                                                                          \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret;)                                                         \
    }                                                                                                                 \
-   RETURN_TYPE BOOST_PP_CAT(SYSCALL,_THUNK_SUFFIX)( apply_context& context VA_ARGS(_THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__)) )
+   RETURN_TYPE BOOST_PP_CAT(SYSCALL,_THUNK_SUFFIX)( apply_context& context ARGS )
+
+#define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \
+   _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \
+      VA_ARGS(_THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__)),                                                               \
+      VA_ARGS(_THUNK_DETAIL_DEFINE_TYPES(__VA_ARGS__)),                                                              \
+      VA_ARGS(_THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__)) )                                                           \
+
+#define THUNK_DEFINE_VOID( RETURN_TYPE, SYSCALL )                                                                    \
+   _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, , , )
