@@ -40,6 +40,6 @@ namespace koinos::chain {
    using registrar_type      = eosio::vm::registered_host_functions< apply_context >;
    using wasm_code_ptr       = eosio::vm::wasm_code_ptr;
 
-   struct void_t{};
+   using thunk_id = uint32_t;
 
 } // koinos::chain

@@ -115,7 +115,7 @@ THUNK_DEFINE( vl_blob, db_get_object, ((const statedb::object_space&) space, (co
    statedb::get_object_result get_res;
    state->get_object( get_res, get_args );
 
-   if( get_res.key == get_args.key )
+   if( get_res.key == get_args.key && get_res.size > 0 )
       object_buffer.data.resize( get_res.size );
    else
       object_buffer.data.clear();

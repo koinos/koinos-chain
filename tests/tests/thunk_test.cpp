@@ -176,9 +176,9 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
-BOOST_AUTO_TEST_CASE( xcall_test )
+BOOST_AUTO_TEST_CASE( system_call_test )
 { try {
-   BOOST_TEST_MESSAGE( "xcall test" );
+   BOOST_TEST_MESSAGE( "system call test" );
 
    using namespace koinos::chain;
    using koinos::protocol::vl_blob;
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE( xcall_test )
 
    vl_blob vl_args, vl_ret;
    koinos::pack::to_vl_blob( vl_args, args );
-   host_api.invoke_xcall( prints_thunk_id, vl_ret.data.data(), vl_ret.data.size(), vl_args.data.data(), vl_args.data.size() );
+   host_api.invoke_system_call( prints_thunk_id, vl_ret.data.data(), vl_ret.data.size(), vl_args.data.data(), vl_args.data.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.data.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );

@@ -70,7 +70,7 @@ vl_blob get_default_sys_call_entry( uint32_t sid )                \
 #define _THUNK_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
-#pragma message( "TODO:  Invoke smart contract xcall handler" )
+#pragma message( "TODO:  Invoke smart contract sys call handler" )
 #define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \
    RETURN_TYPE SYSCALL( apply_context& context, _THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__) )                             \
    {                                                                                                                 \
@@ -111,7 +111,7 @@ vl_blob get_default_sys_call_entry( uint32_t sid )                \
                      _THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__) );                                                    \
             },                                                                                                       \
             [&]( contract_id_type& _cid ) {                                                                          \
-               /* Need xcall syscall handler */                                                                      \
+               /* Need syscall handler */                                                                            \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \
                KOINOS_THROW( unknown_system_call,                                                                    \

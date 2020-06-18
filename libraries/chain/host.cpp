@@ -19,7 +19,7 @@ void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t r
    thunk_dispatcher::instance().call_thunk( thunk_id(tid), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-void host_api::invoke_xcall( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
+void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    using protocol::thunk_id_type;
    using protocol::contract_id_type;

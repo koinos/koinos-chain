@@ -23,8 +23,6 @@ namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( unknown_thunk );
 
-typedef uint32_t thunk_id;
-
 namespace detail
 {
    /*
@@ -39,7 +37,7 @@ namespace detail
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      auto thunk_args = std::tuple_cat( std::make_tuple( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
+      auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       std::apply( thunk, thunk_args );
       return 0;
    }
@@ -48,7 +46,7 @@ namespace detail
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      auto thunk_args = std::tuple_cat( std::make_tuple( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
+      auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       pack::to_c_str< ThunkReturn >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
       return 0;
    }
