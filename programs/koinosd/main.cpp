@@ -40,7 +40,6 @@ const char* BANNER = R"BANNER(
 
 int main( int argc, char** argv )
 {
-   try
    {
       splash();
 

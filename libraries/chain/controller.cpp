@@ -170,7 +170,7 @@ class controller_impl
 
 controller_impl::controller_impl()
 {
-   koinos::chain::register_syscalls();
+   koinos::chain::register_host_functions();
    _ctx = std::make_unique< chain::apply_context >();
    _ctx->privilege_level = chain::privilege::kernel_mode;
    _host_api = std::make_unique< chain::host_api >( *_ctx );
@@ -300,8 +300,7 @@ void controller_impl::process_submission( block_submission_result& ret, block_su
    crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
    KOINOS_ASSERT( chain::thunk::verify_block_header( *_ctx, sig, digest ), invalid_signature, "invalid block signature" );
 
-
-   _sys_api->apply_block(pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ));
+   thunk::apply_block( *_ctx, pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ) );
    auto output = _ctx->get_pending_console_output();
 
    if (output.length() > 0) { LOG(info) << output; }

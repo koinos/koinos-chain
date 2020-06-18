@@ -24,8 +24,7 @@ enum thunk_ids : thunk_id
    db_get_object_thunk_id,
    db_get_next_object_thunk_id,
    db_get_prev_object_thunk_id,
-   contact_args_size_thunk_id,
-   read_contract_args_thunk_id
+   get_contract_args_thunk_id
 };
 
 namespace thunk {
