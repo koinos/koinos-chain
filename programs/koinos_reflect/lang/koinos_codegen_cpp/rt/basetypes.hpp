@@ -15,12 +15,6 @@
 #include <variant>
 #include <vector>
 
-template< class, class = std::void_t<> >
-struct has_t : std::false_type { };
-
-template< class T >
-struct has_t<T, std::void_t<typename T::type>> : std::true_type { };
-
 namespace koinos::protocol {
 
    using std::array;
