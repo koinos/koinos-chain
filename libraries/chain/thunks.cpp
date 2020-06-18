@@ -174,6 +174,11 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
+THUNK_DEFINE( uint32_t, get_contract_args_size, ((void_type) v) )
+{
+   return (uint32_t)context.get_contract_call_args().size();
+}
+
 THUNK_DEFINE( variable_blob, get_contract_args, ((void_type) v) )
 {
    return context.get_contract_call_args();

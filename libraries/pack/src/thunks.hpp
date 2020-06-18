@@ -84,6 +84,10 @@ typedef db_get_object_args db_get_prev_object_args;
 
 typedef db_get_object_ret db_get_prev_object_ret;
 
+typedef void_type get_contract_args_size_args;
+
+typedef protocol::int32 get_contract_args_size_ret;
+
 typedef void_type get_contract_args_args;
 
 typedef protocol::variable_blob get_contract_args_ret;
