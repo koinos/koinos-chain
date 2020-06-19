@@ -57,8 +57,6 @@ namespace thunk {
  * unique, thunk_id.
  */
 
-void hello( apply_context& ctx, hello_thunk_ret& ret, const hello_thunk_args& arg );
-
 THUNK_DECLARE( void, prints, const std::string& str );
 
 THUNK_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
