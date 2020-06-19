@@ -86,6 +86,7 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
    backend.set_wasm_allocator( &wa );
    backend.initialize();
 
+   context.set_contract_call_args(o.args);
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
@@ -102,7 +103,6 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
    statedb::put_object_result put_res;
    state->put_object( put_res, put_args );
 
-   context.set_contract_call_args(o.args);
    return put_res.object_existed;
 }
 
