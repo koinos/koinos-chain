@@ -86,6 +86,7 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
    backend.set_wasm_allocator( &wa );
    backend.initialize();
 
+   context.set_contract_call_args( o.args );
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
