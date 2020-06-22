@@ -22,7 +22,7 @@ void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t r
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    using protocol::thunk_id_type;
-   using protocol::contract_id_type;
+   using protocol::system_call_bundle;
 
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
@@ -50,7 +50,7 @@ KOINOS_TODO( "Change get_default_sys_call_entry() API to return std::variant, no
          [&]( thunk_id_type& tid ) {
             thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
          },
-         [&]( contract_id_type& cid ) {
+         [&]( system_call_bundle& scb ) {
 #pragma message( "TODO:  Invoke smart contract sys call handler" )
          },
          [&]( auto& ) {
