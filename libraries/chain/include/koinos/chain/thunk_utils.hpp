@@ -78,7 +78,7 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
       using koinos::protocol::thunk_id_type;                                                                         \
-      using koinos::protocol::contract_id_type;                                                                      \
+      using koinos::protocol::system_call_bundle;                                                                    \
                                                                                                                      \
       uint32_t _sid = BOOST_PP_CAT(SYSCALL,_THUNK_ID_SUFFIX);                                                        \
                                                                                                                      \
@@ -113,7 +113,7 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \
-            [&]( contract_id_type& _cid ) {                                                                          \
+            [&]( system_call_bundle& _scb ) {                                                                        \
                /* Need syscall handler */                                                                            \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \
