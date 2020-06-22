@@ -53,7 +53,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
    for ( auto& o : t.operations )
    {
       std::visit( koinos::overloaded {
-         [&]( const protocol::reserved_operation& op ) { /* intentional fallthrough */ },
+         [&]( const protocol::reserved_operation& op ) { KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" ); },
          [&]( const protocol::nop_operation& op ) { /* intentional fallthrough */ },
          [&]( const protocol::create_system_contract_operation& op )
          {
