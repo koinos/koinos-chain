@@ -57,7 +57,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
          [&]( koinos::chain::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
             topology.previous = head_info.id;
-            topology.block_num = active_data.height;
+            topology.height = active_data.height;
          },
          []( auto& ){}
       }, q );
