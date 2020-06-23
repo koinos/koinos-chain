@@ -86,6 +86,7 @@ struct create_system_contract_operation
 
 struct set_system_call_operation
 {
+   uint32                         call_id;
    contract_id_type               contract_id;
    uint32                         entrypoint;
    unused_extensions_type         extensions;
