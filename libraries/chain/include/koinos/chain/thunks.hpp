@@ -20,6 +20,7 @@ enum thunk_ids : thunk_id
    apply_transaction_thunk_id,
    apply_upload_contract_operation_thunk_id,
    apply_execute_contract_operation_thunk_id,
+   apply_set_system_call_operation_thunk_id,
    db_put_object_thunk_id,
    db_get_object_thunk_id,
    db_get_next_object_thunk_id,
@@ -65,6 +66,7 @@ THUNK_DECLARE( void, apply_block, const protocol::active_block_data& b );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction_type& t );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
+THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 
 THUNK_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const variable_blob& obj );
 THUNK_DECLARE( variable_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );

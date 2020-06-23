@@ -17,6 +17,7 @@ void register_thunks( thunk_dispatcher& td )
    (apply_transaction)
    (apply_upload_contract_operation)
    (apply_execute_contract_operation)
+   (apply_set_system_call_operation)
 
    (db_put_object)
    (db_get_object)
@@ -63,6 +64,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
          {
             apply_execute_contract_operation( context, op );
          },
+         [&]( const protocol::set_system_call_operation& op )
+         {
+            apply_set_system_call_operation( context, op );
+         },
       }, pack::from_variable_blob< pack::operation >( o ) );
    }
 }
@@ -88,6 +93,11 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
 
    context.set_contract_call_args( o.args );
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+}
+
+THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
+{
+
 }
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
