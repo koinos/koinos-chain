@@ -27,16 +27,16 @@ case(system_call_id::CALL):                                       \
    break;                                                         \
 }
 
-#define DEFAULT_SYSTEM_CALLS( args )                                       \
+#define DEFAULT_SYSTEM_CALLS( args )                                           \
 std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
-{                                                                          \
-   std::optional< thunk_id > retval;                                       \
-   switch( sid )                                                           \
-   {                                                                       \
-      BOOST_PP_SEQ_FOR_EACH( _DEFAULT_SYS_CALL_ENTRY, sid, args )          \
-      default: {} /* Do Nothing */                                         \
-   }                                                                       \
-   return retval;                                                          \
+{                                                                              \
+   std::optional< thunk_id > retval;                                           \
+   switch( sid )                                                               \
+   {                                                                           \
+      BOOST_PP_SEQ_FOR_EACH( _DEFAULT_SYS_CALL_ENTRY, sid, args )              \
+      default: {} /* Do Nothing */                                             \
+   }                                                                           \
+   return retval;                                                              \
 }
 
 #define VA_ARGS(...) , ##__VA_ARGS__
