@@ -16,7 +16,7 @@ inline void from_json( json& s, type& t, uint32_t depth = 0 );\
 
 namespace koinos::pack {
 
-using namespace koinos::protocol;
+using namespace koinos::types;
 
 using json = nlohmann::json;
 

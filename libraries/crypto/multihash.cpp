@@ -7,7 +7,7 @@
 #include <iostream>
 #include <map>
 
-namespace koinos { namespace protocol {
+namespace koinos { namespace types {
 
 bool operator ==( const multihash_type& mha, const multihash_type& mhb )
 {
@@ -53,7 +53,7 @@ bool operator >=( const multihash_type& mha, const multihash_type& mhb )
    return !(mha < mhb);
 }
 
-} // protocol
+} // types
 
 namespace crypto {
 

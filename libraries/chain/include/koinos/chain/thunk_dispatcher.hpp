@@ -16,10 +16,6 @@
 #include <functional>
 #include <type_traits>
 
-namespace koinos::protocol {
-struct vl_blob;
-} // koinos::protocol
-
 namespace koinos::chain {
 
 DECLARE_KOINOS_EXCEPTION( unknown_thunk );

@@ -1,5 +1,5 @@
 
-namespace koinos { namespace protocol {
+namespace koinos { namespace types { namespace system {
 
 typedef uint32 thunk_id_type;
 
@@ -17,4 +17,4 @@ typedef std::variant<
    system_call_bundle
    > sys_call_target;
 
-} }
+} } } // koinos::types::system

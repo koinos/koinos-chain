@@ -77,15 +77,15 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
-      using koinos::protocol::thunk_id_type;                                                                         \
-      using koinos::protocol::system_call_bundle;                                                                    \
+      using koinos::types::system::thunk_id_type;                                                                    \
+      using koinos::types::system::system_call_bundle;                                                               \
                                                                                                                      \
       uint32_t _sid = BOOST_PP_CAT(SYSCALL,_THUNK_ID_SUFFIX);                                                        \
                                                                                                                      \
       /* TODO Do we need to invoke serialization here? */                                                            \
       statedb::object_key _key = _sid;                                                                               \
                                                                                                                      \
-      koinos::protocol::variable_blob _vl_target = db_get_object_thunk(                                              \
+      koinos::types::variable_blob _vl_target = db_get_object_thunk(                                                 \
          context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, _key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );                 \
                                                                                                                      \
       if( _vl_target.size() == 0 )                                                                                   \
@@ -100,7 +100,7 @@ variable_blob get_default_sys_call_entry( uint32_t sid )          \
                                                                                                                      \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                    \
                                                                                                                      \
-      auto _target = koinos::pack::from_variable_blob< protocol::sys_call_target >( _vl_target );                    \
+      auto _target = koinos::pack::from_variable_blob< types::system::sys_call_target >( _vl_target );               \
                                                                                                                      \
       std::visit(                                                                                                    \
          koinos::overloaded{                                                                                         \

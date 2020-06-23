@@ -7,6 +7,8 @@
 
 namespace koinos::plugins::chain {
 
+using namespace appbase;
+
 namespace detail {
 
 class chain_plugin_impl
@@ -44,7 +46,7 @@ bfs::path chain_plugin::state_dir() const
    return my->state_dir;
 }
 
-void chain_plugin::set_program_options(options_description& cli, options_description& cfg)
+void chain_plugin::set_program_options( options_description& cli, options_description& cfg )
 {
    cfg.add_options()
          ("state-dir", bpo::value<bfs::path>()->default_value("blockchain"),
@@ -56,7 +58,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ;
 }
 
-void chain_plugin::plugin_initialize(const variables_map& options)
+void chain_plugin::plugin_initialize( const variables_map& options )
 {
    my->state_dir = app().data_dir() / "blockchain";
 

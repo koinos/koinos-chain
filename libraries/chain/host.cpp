@@ -21,8 +21,8 @@ void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t r
 
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
-   using protocol::thunk_id_type;
-   using protocol::system_call_bundle;
+   using types::system::thunk_id_type;
+   using types::system::system_call_bundle;
 
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
@@ -41,7 +41,7 @@ KOINOS_TODO( "Change get_default_sys_call_entry() API to return std::variant, no
          );
    }
 
-   protocol::sys_call_target target;
+   types::system::sys_call_target target;
 
    koinos::pack::from_variable_blob( vl_target, target );
 

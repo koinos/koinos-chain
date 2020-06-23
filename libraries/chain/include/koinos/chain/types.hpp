@@ -33,7 +33,7 @@ namespace koinos::chain {
    using std::pair;
    using std::make_pair;
 
-   using variable_blob = koinos::protocol::variable_blob;
+   using koinos::types::variable_blob;
 
    using wasm_allocator_type = eosio::vm::wasm_allocator;
    using backend_type        = eosio::vm::backend< apply_context >;

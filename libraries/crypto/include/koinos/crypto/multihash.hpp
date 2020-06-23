@@ -14,7 +14,7 @@
 #define CRYPTO_SHA2_512_ID    uint64_t(0x13)
 #define CRYPTO_RIPEMD160_ID   uint64_t(0x1053)
 
-namespace koinos { namespace protocol {
+namespace koinos { namespace types {
 
 bool operator ==( const multihash_type& mha, const multihash_type& mhb );
 bool operator !=( const multihash_type& mha, const multihash_type& mhb );
@@ -27,9 +27,9 @@ bool operator >=( const multihash_type& mha, const multihash_type& mhb );
 
 namespace crypto {
 
-using koinos::protocol::multihash_type;
-using koinos::protocol::multihash_vector;
-using koinos::protocol::variable_blob;
+using koinos::types::multihash_type;
+using koinos::types::multihash_vector;
+using koinos::types::variable_blob;
 
 DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
 DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
