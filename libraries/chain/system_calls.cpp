@@ -8,8 +8,8 @@
 
 namespace koinos::chain {
 
-using koinos::types::system::thunk_id_type;
-using koinos::types::system::sys_call_target;
+using namespace koinos::types::system;
+using namespace koinos::types::thunks;
 
 /*
  * This is a list of syscalls registered at genesis.

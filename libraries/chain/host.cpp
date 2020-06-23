@@ -11,47 +11,56 @@
 
 namespace koinos::chain {
 
+using namespace koinos::types;
+
 host_api::host_api( apply_context& _ctx ) : context( _ctx ) {}
 
 void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
-   thunk_dispatcher::instance().call_thunk( thunk_id(tid), context, ret_ptr, ret_len, arg_ptr, arg_len );
+   thunk_dispatcher::instance().call_thunk( thunks::thunk_id(tid), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    using types::system::thunk_id_type;
    using types::system::system_call_bundle;
+   using types::system::system_call_target;
 
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
 
-   variable_blob vl_target =
-      thunk::db_get_object_thunk( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );
+   variable_blob blob_target = thunk::db_get_object_thunk(
+      context,
+      SYS_CALL_DISPATCH_TABLE_SPACE_ID,
+      key,
+      SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE
+   );
 
-KOINOS_TODO( "Change get_default_sys_call_entry() API to return std::variant, not variable_blob" )
-   if( vl_target.size() == 0 )
+   system_call_target target;
+
+   if( blob_target.size() == 0 )
    {
-      vl_target = get_default_sys_call_entry( sid );
-      KOINOS_ASSERT( vl_target.size() > 0,
+      auto maybe_thunk_id = get_default_system_call_entry( system::system_call_id(sid) );
+      KOINOS_ASSERT( maybe_thunk_id,
          unknown_system_call,
          "system call table dispatch entry ${sid} does not exist",
          ("sid", sid)
-         );
+      );
+      target = static_cast< thunk_id_type >( *maybe_thunk_id );
    }
-
-   types::system::sys_call_target target;
-
-   koinos::pack::from_variable_blob( vl_target, target );
+   else
+   {
+      koinos::pack::from_variable_blob( blob_target, target );
+   }
 
    std::visit(
       koinos::overloaded{
          [&]( thunk_id_type& tid ) {
-            thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
+            thunk_dispatcher::instance().call_thunk( thunks::thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
          },
          [&]( system_call_bundle& scb ) {
-#pragma message( "TODO:  Invoke smart contract sys call handler" )
+            KOINOS_TODO( "Invoke smart contract sys call handler" )
          },
          [&]( auto& ) {
             KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",

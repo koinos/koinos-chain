@@ -10,24 +10,8 @@
 #include <koinos/statedb/statedb.hpp>
 
 namespace koinos::chain {
-class apply_context;
 
-enum thunk_ids : thunk_id
-{
-   prints_thunk_id,
-   verify_block_header_thunk_id,
-   apply_block_thunk_id,
-   apply_transaction_thunk_id,
-   apply_reserved_operation_thunk_id,
-   apply_upload_contract_operation_thunk_id,
-   apply_execute_contract_operation_thunk_id,
-   db_put_object_thunk_id,
-   db_get_object_thunk_id,
-   db_get_next_object_thunk_id,
-   db_get_prev_object_thunk_id,
-   get_contract_args_size_thunk_id,
-   get_contract_args_thunk_id
-};
+class apply_context;
 
 namespace thunk {
 

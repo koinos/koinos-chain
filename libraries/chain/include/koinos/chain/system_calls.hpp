@@ -8,6 +8,9 @@
 
 namespace koinos::chain {
 
+using koinos::types::system::system_call_id;
+using koinos::types::thunks::thunk_id;
+
 DECLARE_KOINOS_EXCEPTION( unknown_system_call );
 
 // First 160 bits are obtained by 160-bit truncation of sha256("object_space:system_call")
@@ -15,6 +18,6 @@ const statedb::object_space SYS_CALL_DISPATCH_TABLE_SPACE_ID = types::uint256_t(
 // 20 bytes contract ID + 1 byte variant
 const int64_t SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE = 21;
 
-variable_blob get_default_sys_call_entry( uint32_t sid );
+std::optional< thunk_id > get_default_system_call_entry( system_call_id sid );
 
 } // koinos::chain
