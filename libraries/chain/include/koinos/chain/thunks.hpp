@@ -18,6 +18,7 @@ enum thunk_ids : thunk_id
    verify_block_header_thunk_id,
    apply_block_thunk_id,
    apply_transaction_thunk_id,
+   apply_reserved_operation_thunk_id,
    apply_upload_contract_operation_thunk_id,
    apply_execute_contract_operation_thunk_id,
    db_put_object_thunk_id,
@@ -63,6 +64,7 @@ THUNK_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& s
 
 THUNK_DECLARE( void, apply_block, const protocol::active_block_data& b );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction_type& t );
+THUNK_DECLARE( void, apply_reserved_operation, const protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
 

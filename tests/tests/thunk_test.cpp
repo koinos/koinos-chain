@@ -155,6 +155,8 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    thunk::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
+   BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::protocol::reserved_operation() ), reserved_operation_exception );
+
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_CASE( thunk_test )
