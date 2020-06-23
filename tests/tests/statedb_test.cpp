@@ -27,13 +27,13 @@ using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char 
 struct test_block
 {
    multihash_type previous;
-   uint64_t       block_num = 0;
+   uint64_t       height = 0;
    uint64_t       nonce = 0;
 
    void get_id( multihash_type& mh ) const;
 };
 
-KOINOS_REFLECT( test_block, (previous)(block_num)(nonce) )
+KOINOS_REFLECT( test_block, (previous)(height)(nonce) )
 
 struct book
 {
@@ -260,11 +260,11 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    for( uint64_t i = 1; i <= 2000; ++i )
    {
       b.previous = prev_id;
-      b.block_num = i;
+      b.height = i;
       b.get_id( id );
 
       auto new_block = db.create_writable_node( prev_id, id );
-      BOOST_CHECK_EQUAL( b.block_num, new_block->revision() );
+      BOOST_CHECK_EQUAL( b.height, new_block->revision() );
       db.finalize_node( id );
 
       prev_id = id;
@@ -290,7 +290,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    BOOST_TEST_MESSAGE( "Test discard" );
    b.previous = db.get_head()->id();
-   b.block_num = db.get_head()->revision() + 1;
+   b.height = db.get_head()->revision() + 1;
    b.get_id( id );
    db.create_writable_node( b.previous, id );
    auto new_block = db.get_node( id );
@@ -328,11 +328,11 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    for( uint64_t i = 1; i <= 5; ++i )
    {
       b.previous = prev_id;
-      b.block_num = fork_node->revision() + i;
+      b.height = fork_node->revision() + i;
       b.get_id( id );
 
       auto new_block = db.create_writable_node( prev_id, id );
-      BOOST_CHECK_EQUAL( b.block_num, new_block->revision() );
+      BOOST_CHECK_EQUAL( b.height, new_block->revision() );
       db.finalize_node( id );
 
       BOOST_CHECK( db.get_head()->id() == head_id );
@@ -342,12 +342,12 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    }
 
    b.previous = prev_id;
-   b.block_num = head_rev + 1;
+   b.height = head_rev + 1;
    b.get_id( id );
 
    // When this node finalizes, it will be the longest path and should become head
    new_block = db.create_writable_node( prev_id, id );
-   BOOST_CHECK_EQUAL( b.block_num, new_block->revision() );
+   BOOST_CHECK_EQUAL( b.height, new_block->revision() );
 
    BOOST_CHECK( db.get_head()->id() == head_id );
    BOOST_CHECK( db.get_head()->revision() == head_rev );
@@ -355,7 +355,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    db.finalize_node( id );
 
    BOOST_CHECK( db.get_head()->id() == id );
-   BOOST_CHECK( db.get_head()->revision() == b.block_num );
+   BOOST_CHECK( db.get_head()->revision() == b.height );
 
 } catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 

@@ -26,6 +26,7 @@ DEFAULT_SYSTEM_CALLS(
 
    (apply_block)
    (apply_transaction)
+   (apply_reserved_operation)
    (apply_upload_contract_operation)
    (apply_execute_contract_operation)
    (apply_set_system_call_operation)

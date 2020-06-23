@@ -3,18 +3,6 @@ namespace koinos { namespace chain {
 
 struct void_type {};
 
-struct hello_thunk_args
-{
-   protocol::uint64 a;
-   protocol::uint64 b;
-};
-
-struct hello_thunk_ret
-{
-   protocol::uint64 c;
-   protocol::uint64 d;
-};
-
 struct prints_args
 {
    std::string message;
@@ -50,6 +38,13 @@ struct apply_upload_contract_operation_args
 };
 
 typedef void_type apply_upload_contract_operation_ret;
+
+struct apply_reserved_operation_args
+{
+   protocol::reserved_operation op;
+};
+
+typedef void_type apply_reserved_operation_ret;
 
 struct apply_execute_contract_operation_args
 {
