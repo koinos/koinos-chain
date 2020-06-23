@@ -285,7 +285,7 @@ void controller_impl::process_submission( block_submission_result& ret, block_su
    if( crypto::multihash::is_zero( block.submission.topology.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.submission.topology.block_num == 1, root_height_mismatch, "First block must have height of 1", () );
+      KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1", () );
    }
 
    auto block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );

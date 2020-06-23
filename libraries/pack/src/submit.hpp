@@ -6,7 +6,7 @@ namespace koinos { namespace chain {
 struct block_topology
 {
    protocol::multihash_type                 id;
-   protocol::block_height_type              block_num;
+   protocol::block_height_type              height;
    protocol::multihash_type                 previous;
 };
 
