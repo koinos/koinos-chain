@@ -72,7 +72,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
          {
             apply_execute_contract_operation( context, op );
          },
-      }, pack::from_variable_blob< protocol::operation >( o ) );
+      }, pack::from_variable_blob< operation >( o ) );
    }
 }
 
