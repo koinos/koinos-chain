@@ -9,6 +9,8 @@ DECLARE_DERIVED_KOINOS_EXCEPTION( chain_type_exception, chain_exception );
 
 DECLARE_DERIVED_KOINOS_EXCEPTION( name_type_exception, chain_type_exception );
 
+DECLARE_DERIVED_KOINOS_EXCEPTION( reserved_operation_exception, chain_type_exception );
+
 DECLARE_DERIVED_KOINOS_EXCEPTION( public_key_type_exception, chain_type_exception );
 
 DECLARE_DERIVED_KOINOS_EXCEPTION( private_key_type_exception, chain_type_exception );

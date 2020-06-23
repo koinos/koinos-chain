@@ -15,6 +15,7 @@ void register_thunks( thunk_dispatcher& td )
 
    (apply_block)
    (apply_transaction)
+   (apply_reserved_operation)
    (apply_upload_contract_operation)
    (apply_execute_contract_operation)
 
@@ -53,8 +54,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
    for ( auto& o : t.operations )
    {
       std::visit( koinos::overloaded {
-         [&]( const protocol::reserved_operation& op ) { /* intentional fallthrough */ },
          [&]( const protocol::nop_operation& op ) { /* intentional fallthrough */ },
+         [&]( const protocol::reserved_operation& op )
+         {
+            apply_reserved_operation( context, op );
+         },
          [&]( const protocol::create_system_contract_operation& op )
          {
             apply_upload_contract_operation( context, op );
@@ -65,6 +69,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
          },
       }, pack::from_variable_blob< pack::operation >( o ) );
    }
+}
+
+THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
+{
+   KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" );
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
