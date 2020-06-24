@@ -106,10 +106,11 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   protocol::system_call_bundle sys_call;
-   sys_call.contract_id = o.contract_id;
-   sys_call.entry_point = o.entrypoint;
-   db_put_object( context, 1, o.call_id, pack::to_variable_blob( sys_call ) );
+   protocol::system_call_bundle bundle;
+   bundle.contract_id = o.contract_id;
+   bundle.entry_point = o.entrypoint;
+   protocol::system_call_target s;
+   db_put_object( context, 1, o.call_id, pack::to_variable_blob( bundle ) );
 }
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
