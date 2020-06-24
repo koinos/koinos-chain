@@ -51,6 +51,7 @@ THUNK_DECLARE( void, apply_transaction, const types::protocol::transaction_type&
 THUNK_DECLARE( void, apply_reserved_operation, const types::protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const types::protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const types::protocol::contract_call_operation& op );
+THUNK_DECLARE( void, apply_set_system_call_operation, const types::protocol::set_system_call_operation& op );
 
 THUNK_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const types::variable_blob& obj );
 THUNK_DECLARE( variable_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );

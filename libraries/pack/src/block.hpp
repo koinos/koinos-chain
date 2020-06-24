@@ -84,10 +84,18 @@ struct create_system_contract_operation
    unused_extensions_type         extensions;
 };
 
+struct set_system_call_operation
+{
+   uint32                         call_id;
+   contract_id_type               contract_id;
+   uint32                         entry_point;
+   unused_extensions_type         extensions;
+};
+
 struct contract_call_operation
 {
    contract_id_type               contract_id;
-   uint32                         entrypoint;
+   uint32                         entry_point;
    variable_blob                  args;
    unused_extensions_type         extensions;
 };
@@ -96,7 +104,8 @@ typedef std::variant<
    reserved_operation,
    nop_operation,
    create_system_contract_operation,
-   contract_call_operation
+   contract_call_operation,
+   set_system_call_operation
    > operation;
 
 struct reserved_block_header

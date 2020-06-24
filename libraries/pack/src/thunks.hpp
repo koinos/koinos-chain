@@ -53,6 +53,13 @@ struct apply_execute_contract_operation_args
 
 typedef void_type apply_execute_contract_operation_ret;
 
+struct apply_set_system_call_operation_args
+{
+   protocol::set_system_call_operation op;
+};
+
+typedef void_type apply_set_system_call_operation_ret;
+
 struct db_put_object_args
 {
    types::uint256       space;

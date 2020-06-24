@@ -29,6 +29,7 @@ DEFAULT_SYSTEM_CALLS(
    (apply_reserved_operation)
    (apply_upload_contract_operation)
    (apply_execute_contract_operation)
+   (apply_set_system_call_operation)
 
    (db_put_object)
    (db_get_object)
