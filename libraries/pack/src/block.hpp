@@ -1,4 +1,4 @@
-namespace koinos { namespace protocol {
+namespace koinos { namespace types { namespace protocol {
 
 enum class header_hash_index
 {
@@ -171,4 +171,4 @@ typedef std::variant<
    contract_source_segwit,
    custom_segwit > segwit_type;
 
-} } // koinos::protocol
+} } } // koinos::types::protocol

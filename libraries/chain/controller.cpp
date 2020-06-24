@@ -51,10 +51,10 @@ namespace koinos::chain {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
-using koinos::protocol::block_header;
-using koinos::protocol::variable_blob;
 using koinos::statedb::state_db;
+
 using namespace std::string_literals;
+using namespace koinos::types;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
@@ -62,9 +62,9 @@ namespace detail {
 
 struct block_submission_impl
 {
-   block_submission_impl( const block_submission& s ) : submission( s ) {}
+   block_submission_impl( const rpc::block_submission& s ) : submission( s ) {}
 
-   block_submission               submission;
+   rpc::block_submission          submission;
 
    protocol::block_header         header;
    std::vector< variable_blob >   transactions;
@@ -73,16 +73,16 @@ struct block_submission_impl
 
 struct transaction_submission_impl
 {
-   transaction_submission_impl( const transaction_submission& s ) : submission( s ) {}
+   transaction_submission_impl( const rpc::transaction_submission& s ) : submission( s ) {}
 
-   transaction_submission   submission;
+   rpc::transaction_submission   submission;
 };
 
 struct query_submission_impl
 {
-   query_submission_impl( const query_submission& s ) : submission( s ) {}
+   query_submission_impl( const rpc::query_submission& s ) : submission( s ) {}
 
-   query_submission         submission;
+   rpc::query_submission         submission;
 };
 
 using item_submission_impl = std::variant< block_submission_impl, transaction_submission_impl, query_submission_impl >;
@@ -94,9 +94,9 @@ struct work_item
    std::chrono::nanoseconds                            work_begin_time;
    std::chrono::nanoseconds                            work_end_time;
 
-   std::promise< std::shared_ptr< submission_result > >    prom_work_done;   // Promise set when work is done
-   std::future< std::shared_ptr< submission_result > >     fut_work_done;    // Future corresponding to prom_work_done
-   std::promise< std::shared_ptr< submission_result > >    prom_output;      // Promise that was returned to submit() caller
+   std::promise< std::shared_ptr< rpc::submission_result > >    prom_work_done;   // Promise set when work is done
+   std::future< std::shared_ptr< rpc::submission_result > >     fut_work_done;    // Future corresponding to prom_work_done
+   std::promise< std::shared_ptr< rpc::submission_result > >    prom_output;      // Promise that was returned to submit() caller
 };
 
 // We need to do some additional work, we need to index blocks by all accepted hash algorithms.
@@ -128,16 +128,16 @@ class controller_impl
       void start_threads();
       void stop_threads();
 
-      std::future< std::shared_ptr< submission_result > > submit( const submission_item& item );
+      std::future< std::shared_ptr< rpc::submission_result > > submit( const rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const boost::any& o );
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
    private:
-      std::shared_ptr< submission_result > process_item( std::shared_ptr< item_submission_impl > item );
+      std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
-      void process_submission( block_submission_result& ret,       block_submission_impl& block );
-      void process_submission( transaction_submission_result& ret, transaction_submission_impl& tx );
-      void process_submission( query_submission_result& ret,       query_submission_impl& query );
+      void process_submission( rpc::block_submission_result& ret,       block_submission_impl& block );
+      void process_submission( rpc::transaction_submission_result& ret, transaction_submission_impl& tx );
+      void process_submission( rpc::query_submission_result& ret,       query_submission_impl& query );
 
       void feed_thread_main();
       void work_thread_main();
@@ -196,23 +196,23 @@ struct create_impl_item_visitor
       KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" );
    }
 
-   item_submission_impl operator()( const block_submission& sub ) const
+   item_submission_impl operator()( const rpc::block_submission& sub ) const
    {
       return block_submission_impl( sub );
    }
 
-   item_submission_impl operator()( const transaction_submission& sub ) const
+   item_submission_impl operator()( const rpc::transaction_submission& sub ) const
    {
       return transaction_submission_impl( sub );
    }
 
-   item_submission_impl operator()( const query_submission& sub ) const
+   item_submission_impl operator()( const rpc::query_submission& sub ) const
    {
       return query_submission_impl( sub );
    }
 };
 
-std::future< std::shared_ptr< submission_result > > controller_impl::submit( const submission_item& item )
+std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit( const rpc::submission_item& item )
 {
    create_impl_item_visitor vtor;
    std::shared_ptr< item_submission_impl > impl_item = std::make_shared< item_submission_impl >( std::visit( vtor, item ) );
@@ -220,7 +220,7 @@ std::future< std::shared_ptr< submission_result > > controller_impl::submit( con
    work->item = impl_item;
    work->submit_time = std::chrono::duration_cast< std::chrono::nanoseconds >( std::chrono::system_clock::now().time_since_epoch() );
    work->fut_work_done = work->prom_work_done.get_future();
-   std::future< std::shared_ptr< submission_result > > fut_output = work->prom_output.get_future();
+   std::future< std::shared_ptr< rpc::submission_result > > fut_output = work->prom_output.get_future();
    try
    {
       _input_queue.push_back( work );
@@ -277,7 +277,7 @@ void decode_block( block_submission_impl& block )
       decode_canonical( block.passives[i], block.passives[i] );
 }
 
-void controller_impl::process_submission( block_submission_result& ret, block_submission_impl& block )
+void controller_impl::process_submission( rpc::block_submission_result& ret, block_submission_impl& block )
 {
    decode_block( block );
 
@@ -311,33 +311,33 @@ void controller_impl::process_submission( block_submission_result& ret, block_su
    KOINOS_TODO( "Report success / failure to caller" )
 }
 
-void controller_impl::process_submission( transaction_submission_result& ret, transaction_submission_impl& tx )
+void controller_impl::process_submission( rpc::transaction_submission_result& ret, transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void controller_impl::process_submission( query_submission_result& ret, query_submission_impl& query )
+void controller_impl::process_submission( rpc::query_submission_result& ret, query_submission_impl& query )
 {
-   query_param_item params;
+   rpc::query_param_item params;
    vectorstream in( query.submission.query );
    pack::from_binary( in, params );
 
-   query_item_result result;
+   rpc::query_item_result result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    std::visit( koinos::overloaded {
-      [&]( get_head_info_params& p )
+      [&]( rpc::get_head_info_params& p )
       {
          auto head = _state_db.get_head();
          if( head )
          {
-            get_head_info_result res;
+            rpc::get_head_info_result res;
             res.id = head->id();
             res.height = head->revision();
             result = res;
          }
          else
          {
-            result = query_error{ pack::to_variable_blob( "Could not find head block"s ) };
+            result = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }
       }
    }, params);
@@ -347,32 +347,32 @@ void controller_impl::process_submission( query_submission_result& ret, query_su
    ret.result = out.vector();
 }
 
-std::shared_ptr< submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
+std::shared_ptr< rpc::submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
 {
-   submission_result result;
+   rpc::submission_result result;
 
    std::visit( koinos::overloaded {
       [&]( query_submission_impl& s )
       {
-         query_submission_result qres;
+         rpc::query_submission_result qres;
          process_submission( qres, s );
-         result.emplace< query_submission_result >( std::move( qres ) );
+         result.emplace< rpc::query_submission_result >( std::move( qres ) );
       },
       [&]( transaction_submission_impl& s )
       {
-         transaction_submission_result tres;
+         rpc::transaction_submission_result tres;
          process_submission( tres, s );
-         result.emplace< transaction_submission_result >( std::move( tres ) );
+         result.emplace< rpc::transaction_submission_result >( std::move( tres ) );
       },
       [&]( block_submission_impl& s )
       {
-         block_submission_result bres;
+         rpc::block_submission_result bres;
          process_submission( bres, s );
-         result.emplace< block_submission_result >( std::move( bres ) );
+         result.emplace< rpc::block_submission_result >( std::move( bres ) );
       }
    }, *item );
 
-   return std::make_shared< submission_result >( result );
+   return std::make_shared< rpc::submission_result >( result );
 }
 
 void controller_impl::feed_thread_main()
@@ -396,7 +396,7 @@ void controller_impl::feed_thread_main()
       // We will probably also want to either set prom_output.set_value() in the worker thread,
       // or a dedicated output handling thread.
       work->fut_work_done.wait();
-      std::shared_ptr< submission_result > result = work->fut_work_done.get();
+      std::shared_ptr< rpc::submission_result > result = work->fut_work_done.get();
       work->prom_output.set_value( result );
    }
 }
@@ -416,7 +416,7 @@ void controller_impl::work_thread_main()
       }
 
       std::optional< std::string > maybe_err;
-      std::shared_ptr< submission_result > result;
+      std::shared_ptr< rpc::submission_result > result;
 
       try
       {
@@ -438,9 +438,9 @@ void controller_impl::work_thread_main()
       if( maybe_err )
       {
          LOG(error) << "err in work_thread: " << (*maybe_err) << std::endl;
-         result = std::make_shared< submission_result >();
-         result->emplace< submission_error_result >();
-         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< submission_error_result >( *result ).error_text ) );
+         result = std::make_shared< rpc::submission_result >();
+         result->emplace< rpc::submission_error_result >();
+         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< rpc::submission_error_result >( *result ).error_text ) );
       }
 
       work->prom_work_done.set_value( result );
@@ -485,7 +485,7 @@ controller::controller() : _my( std::make_unique< detail::controller_impl >() ) 
 
 controller::~controller() = default;
 
-std::future< std::shared_ptr< submission_result > > controller::submit( const submission_item& item )
+std::future< std::shared_ptr< rpc::submission_result > > controller::submit( const rpc::submission_item& item )
 {
    return _my->submit( item );
 }

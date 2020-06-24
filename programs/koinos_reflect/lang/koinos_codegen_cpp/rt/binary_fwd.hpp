@@ -17,7 +17,7 @@ inline void from_binary( Stream& s, type& t, uint32_t depth = 0 );\
 
 namespace koinos::pack {
 
-using namespace koinos::protocol;
+using namespace koinos::types;
 
 KOINOS_DECLARE_PRIMITIVE_SERIALIZER( int8_t )
 KOINOS_DECLARE_PRIMITIVE_SERIALIZER( uint8_t )

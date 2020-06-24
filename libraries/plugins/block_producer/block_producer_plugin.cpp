@@ -17,14 +17,16 @@
 
 namespace koinos::plugins::block_producer {
 
-typedef boost::interprocess::basic_vectorstream< std::vector<char> > vectorstream;
+using namespace koinos::types;
 
-static protocol::timestamp_type timestamp_now()
+using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+
+static types::timestamp_type timestamp_now()
 {
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    auto ticks = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
 
-   protocol::timestamp_type t;
+   types::timestamp_type t;
    t = ticks;
    return t;
 }
@@ -39,22 +41,22 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    active_data.timestamp = timestamp_now();
 
    // Get previous block data
-   koinos::chain::block_topology topology;
-   koinos::chain::query_param_item p = koinos::chain::get_head_info_params();
+   rpc::block_topology topology;
+   rpc::query_param_item p = rpc::get_head_info_params();
    vectorstream ostream;
    pack::to_binary( ostream, p );
    crypto::variable_blob query_bytes{ ostream.vector() };
-   koinos::chain::query_submission query{ query_bytes };
+   rpc::query_submission query{ query_bytes };
    auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
-   auto r = controller.submit( koinos::chain::submission_item( query ) );
-   koinos::chain::query_item_result q;
+   auto r = controller.submit( rpc::submission_item( query ) );
+   rpc::query_item_result q;
    try
    {
-      auto w = std::get< koinos::chain::query_submission_result >( *(r.get()) );
+      auto w = std::get< rpc::query_submission_result >( *(r.get()) );
       vectorstream istream( w.result );
       pack::from_binary( istream, q );
       std::visit( koinos::overloaded {
-         [&]( koinos::chain::get_head_info_result& head_info ) {
+         [&]( rpc::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
             topology.previous = head_info.id;
             topology.height = active_data.height;
@@ -98,14 +100,14 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    crypto::variable_blob passive_data_bytes{ passive_stream.vector() };
 
    // Create the submit block object
-   koinos::chain::block_submission block_submission;
+   rpc::block_submission block_submission;
    block_submission.topology = topology;
    block_submission.header_bytes = block_header_bytes;
    block_submission.passives_bytes.push_back( passive_data_bytes );
 
 
    // Submit the block
-   koinos::chain::submission_item si = block_submission;
+   rpc::submission_item si = block_submission;
    r = controller.submit( si );
    try
    {
@@ -124,7 +126,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 block_producer_plugin::block_producer_plugin() {}
 block_producer_plugin::~block_producer_plugin() {}
 
-void block_producer_plugin::plugin_initialize( const variables_map& options )
+void block_producer_plugin::plugin_initialize( const appbase::variables_map& options )
 {
    std::string seed = "test seed";
 

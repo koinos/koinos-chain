@@ -33,13 +33,11 @@ namespace koinos::chain {
    using std::pair;
    using std::make_pair;
 
-   using variable_blob = koinos::protocol::variable_blob;
+   using koinos::types::variable_blob;
 
    using wasm_allocator_type = eosio::vm::wasm_allocator;
    using backend_type        = eosio::vm::backend< apply_context >;
    using registrar_type      = eosio::vm::registered_host_functions< apply_context >;
    using wasm_code_ptr       = eosio::vm::wasm_code_ptr;
-
-   using thunk_id = uint32_t;
 
 } // koinos::chain

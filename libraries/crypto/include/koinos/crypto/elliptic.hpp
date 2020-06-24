@@ -6,13 +6,13 @@
 
 namespace koinos::crypto {
 
-   using koinos::protocol::multihash_type;
-   using koinos::protocol::fixed_blob;
+   using koinos::types::multihash_type;
+   using koinos::types::fixed_blob;
 
-   typedef fixed_blob<65>                       recoverable_signature; ///< A 65 byte recoverable ECDSA siganture
-   typedef fixed_blob<sizeof(secp256k1_pubkey)> public_key_data;       ///< The full non-compressed ECDSA public key point
-   typedef fixed_blob<33>                       compressed_public_key; ///< The 33 byte compressed ECDSA public key
-   typedef fixed_blob<32>                       private_key_secret;    ///< The 32 byte ECDSA prvate key secret
+   using recoverable_signature = fixed_blob< 65 >;                         ///< A 65 byte recoverable ECDSA siganture
+   using public_key_data       = fixed_blob< sizeof( secp256k1_pubkey ) >; ///< The full non-compressed ECDSA public key point
+   using compressed_public_key = fixed_blob< 33 >;                         ///< The 33 byte compressed ECDSA public key
+   using private_key_secret    = fixed_blob< 32 >;                         ///< The 32 byte ECDSA prvate key secret
 
    DECLARE_KOINOS_EXCEPTION( key_serialization_error );
    DECLARE_KOINOS_EXCEPTION( key_recovery_error );
@@ -30,7 +30,7 @@ namespace koinos::crypto {
    {
       public:
          public_key();
-         public_key(const public_key& k);
+         public_key( const public_key& k );
          public_key( public_key&& pk );
 
          ~public_key();

@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
-   koinos::protocol::variable_blob object_data;
+   koinos::types::variable_blob object_data;
    BOOST_REQUIRE_THROW( thunk::db_put_object( ctx, 0, 0, object_data ), koinos::chain::database_exception );
    BOOST_REQUIRE_THROW( thunk::db_get_object( ctx, 0, 0 ), koinos::chain::database_exception );
    BOOST_REQUIRE_THROW( thunk::db_get_next_object( ctx, 0, 0 ), koinos::chain::database_exception );
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
-   koinos::protocol::create_system_contract_operation op;
+   koinos::types::protocol::create_system_contract_operation op;
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
    memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    thunk::apply_upload_contract_operation( ctx, op );
 
-   koinos::protocol::uint256_t contract_key = koinos::pack::from_fixed_blob< koinos::protocol::uint160_t >( op.contract_id );
+   koinos::types::uint256_t contract_key = koinos::pack::from_fixed_blob< koinos::types::uint160_t >( op.contract_id );
    auto stored_bytecode = thunk::db_get_object( ctx, 0, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
@@ -150,12 +150,12 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   koinos::protocol::contract_call_operation op2;
+   koinos::types::protocol::contract_call_operation op2;
    memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
    thunk::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
-   BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::protocol::reserved_operation() ), reserved_operation_exception );
+   BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::types::protocol::reserved_operation() ), reserved_operation_exception );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
@@ -190,15 +190,15 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_TEST_MESSAGE( "thunk test" );
 
    using namespace koinos::chain;
-   using koinos::protocol::variable_blob;
+   using namespace koinos::types;
 
-   prints_args args;
+   thunks::prints_args args;
 
    args.message = "Hello World";
 
    variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_thunk( prints_thunk_id, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_thunk( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
@@ -209,15 +209,15 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    BOOST_TEST_MESSAGE( "system call test" );
 
    using namespace koinos::chain;
-   using koinos::protocol::variable_blob;
+   using namespace koinos::types;
 
-   prints_args args;
+   thunks::prints_args args;
 
    args.message = "Hello World";
 
    variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_system_call( prints_thunk_id, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_system_call( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
