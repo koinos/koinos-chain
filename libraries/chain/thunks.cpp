@@ -114,8 +114,9 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    // Ensure contract exists.
    types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
    auto contract = db_get_object(context, CONTRACT_SPACE_ID, contract_key);
-   KOINOS_ASSERT( contract.size(), invalid_contract, "Current state node does not exist", () );
+   KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist", () );
 
+   // Store the system call bundle in the database
    types::system::system_call_bundle bundle;
    bundle.contract_id = o.contract_id;
    bundle.entry_point = o.entry_point;
