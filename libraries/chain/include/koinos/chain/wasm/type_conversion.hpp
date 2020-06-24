@@ -23,7 +23,7 @@ namespace eosio::vm {
    template<typename T>
    struct wasm_type_converter<T&> : linear_memory_access {
       auto from_wasm(uint32_t val) {
-         KOINOS_ASSERT( val != 0, koinos::chain::chain_exception, "references cannot be created for null pointers" );
+         KOINOS_ASSERT( val != 0, koinos::chain::wasm_type_conversion_exception, "references cannot be created for null pointers" );
          void* ptr = get_ptr(val);
          validate_ptr<T>(ptr, 1);
          return eosio::vm::aligned_ref_wrapper<T, alignof(T)>{ptr};
