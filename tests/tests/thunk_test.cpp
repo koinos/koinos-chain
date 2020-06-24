@@ -6,6 +6,7 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/system_calls.hpp>
 
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
@@ -143,7 +144,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    thunk::apply_upload_contract_operation( ctx, op );
 
    koinos::types::uint256_t contract_key = koinos::pack::from_fixed_blob< koinos::types::uint160_t >( op.contract_id );
-   auto stored_bytecode = thunk::db_get_object( ctx, 0, contract_key, bytecode.size() );
+   auto stored_bytecode = thunk::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
    BOOST_REQUIRE( memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
@@ -162,9 +163,10 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 BOOST_AUTO_TEST_CASE( override_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test set system call operation" );
+   using namespace koinos::types;
 
    // Upload a test contract to use as override
-   koinos::protocol::create_system_contract_operation op;
+   protocol::create_system_contract_operation op;
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
    memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
@@ -172,16 +174,22 @@ BOOST_AUTO_TEST_CASE( override_tests )
    thunk::apply_upload_contract_operation( ctx, op );
 
    // Set the system call
-   koinos::protocol::set_system_call_operation call_op;
+   protocol::set_system_call_operation call_op;
    call_op.call_id = 11;
    call_op.contract_id = op.contract_id;
-   call_op.entrypoint = 0;
+   call_op.entry_point = 0;
    thunk::apply_set_system_call_operation( ctx, call_op );
 
    // Fetch the created call bundle from the database and check it
-   auto call_bundle = koinos::pack::from_variable_blob< koinos::protocol::system_call_bundle >( thunk::db_get_object( ctx, 1, call_op.call_id ) );
+   auto call_target = koinos::pack::from_variable_blob< system::system_call_target >( thunk::db_get_object( ctx, SYS_CALL_DISPATCH_TABLE_SPACE_ID, call_op.call_id ) );
+   auto call_bundle = std::get< system::system_call_bundle >( call_target );
    BOOST_REQUIRE( call_bundle.contract_id == call_op.contract_id );
-   BOOST_REQUIRE( call_bundle.entry_point == call_op.entrypoint );
+   BOOST_REQUIRE( call_bundle.entry_point == call_op.entry_point );
+
+   // Ensure exception thrown on invalid contract
+   auto false_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1234 );
+   memcpy( call_op.contract_id.data(), false_id.digest.data(), call_op.contract_id.size() );
+   BOOST_REQUIRE_THROW( thunk::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
