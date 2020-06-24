@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace koinos::protocol {
+namespace koinos::types {
 
    using std::array;
    using std::optional;
@@ -82,4 +82,48 @@ namespace koinos::protocol {
       std::vector< variable_blob > digests;
    };
 
-} // koinos::protocol
+} // koinos::types
+
+// thunk_id and syscall_id should be moved to be language agnostic
+
+namespace koinos::types::thunks {
+
+enum class thunk_id : uint32_t
+{
+   prints,
+   verify_block_header,
+   apply_block,
+   apply_transaction,
+   apply_reserved_operation,
+   apply_upload_contract_operation,
+   apply_execute_contract_operation,
+   db_put_object,
+   db_get_object,
+   db_get_next_object,
+   db_get_prev_object,
+   get_contract_args_size,
+   get_contract_args
+};
+
+} // koinos::types::thunks
+
+namespace koinos::types::system {
+
+enum class system_call_id : uint32_t
+{
+   prints,
+   verify_block_header,
+   apply_block,
+   apply_transaction,
+   apply_reserved_operation,
+   apply_upload_contract_operation,
+   apply_execute_contract_operation,
+   db_put_object,
+   db_get_object,
+   db_get_next_object,
+   db_get_prev_object,
+   get_contract_args_size,
+   get_contract_args
+};
+
+} // koinos::types::system

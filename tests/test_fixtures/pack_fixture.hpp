@@ -7,10 +7,10 @@ struct extensions {};
 
 struct test_object
 {
-   koinos::protocol::fixed_blob< 8 > id;
-   koinos::protocol::multihash_type  key;
-   std::vector< uint32_t >           vals;
-   extensions                        ext;
+   koinos::types::fixed_blob< 8 > id;
+   koinos::types::multihash_type  key;
+   std::vector< uint32_t >        vals;
+   extensions                     ext;
 };
 
 KOINOS_REFLECT( test_object, (id)(key)(vals)(ext) )

@@ -6,6 +6,9 @@
 
 namespace koinos::chain {
 
+using namespace koinos::types;
+using namespace koinos::types::thunks;
+
 void register_thunks( thunk_dispatcher& td )
 {
    REGISTER_THUNKS( td,
@@ -51,23 +54,25 @@ THUNK_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
 {
+   using namespace koinos::types::protocol;
+
    for ( auto& o : t.operations )
    {
       std::visit( koinos::overloaded {
-         [&]( const protocol::nop_operation& op ) { /* intentional fallthrough */ },
-         [&]( const protocol::reserved_operation& op )
+         [&]( const nop_operation& op ) { /* intentional fallthrough */ },
+         [&]( const reserved_operation& op )
          {
             apply_reserved_operation( context, op );
          },
-         [&]( const protocol::create_system_contract_operation& op )
+         [&]( const create_system_contract_operation& op )
          {
             apply_upload_contract_operation( context, op );
          },
-         [&]( const protocol::contract_call_operation& op )
+         [&]( const contract_call_operation& op )
          {
             apply_execute_contract_operation( context, op );
          },
-      }, pack::from_variable_blob< pack::operation >( o ) );
+      }, pack::from_variable_blob< operation >( o ) );
    }
 }
 
@@ -79,13 +84,13 @@ THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operati
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
-   protocol::uint256_t contract_id = pack::from_fixed_blob< protocol::uint160_t >( o.contract_id );
+   types::uint256_t contract_id = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
    db_put_object( context, 0, contract_id, o.bytecode );
 }
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
-   protocol::uint256_t contract_key = pack::from_fixed_blob< protocol::uint160_t >( o.contract_id );
+   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
    auto bytecode = db_get_object( context, 0, contract_key );
    wasm_allocator_type wa;
 

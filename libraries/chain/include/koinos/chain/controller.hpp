@@ -30,7 +30,7 @@ class controller
       controller();
       virtual ~controller();
 
-      std::future< std::shared_ptr< submission_result > > submit( const submission_item& item );
+      std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
       void open( const boost::filesystem::path& p, const boost::any& o );
 

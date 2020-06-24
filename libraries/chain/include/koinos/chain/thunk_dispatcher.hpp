@@ -16,11 +16,9 @@
 #include <functional>
 #include <type_traits>
 
-namespace koinos::protocol {
-struct vl_blob;
-} // koinos::protocol
-
 namespace koinos::chain {
+
+using koinos::types::thunks::thunk_id;
 
 DECLARE_KOINOS_EXCEPTION( unknown_thunk );
 
@@ -76,10 +74,10 @@ class thunk_dispatcher
       void call_thunk( thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
 
       template< typename ThunkReturn, typename... ThunkArgs >
-      auto call_thunk( uint32_t id, apply_context& ctx, ThunkArgs&... args ) const
+      auto call_thunk( thunk_id id, apply_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< types::system::thunk_id_type >( id ) ) );
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 

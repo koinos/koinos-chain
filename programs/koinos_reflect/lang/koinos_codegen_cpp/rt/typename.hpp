@@ -44,7 +44,7 @@ namespace detail {
 
 } // detail
 
-using namespace koinos::protocol;
+using namespace koinos::types;
 
 KOINOS_DEFINE_SIMPLE_TYPENAME( int8_t )
 KOINOS_DEFINE_SIMPLE_TYPENAME( uint8_t )

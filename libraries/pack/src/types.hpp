@@ -1,5 +1,5 @@
 
-namespace koinos { namespace protocol {
+namespace koinos { namespace types {
 
 struct unused_extensions_type { };
 
