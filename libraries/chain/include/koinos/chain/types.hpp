@@ -1,9 +1,4 @@
 #pragma once
-#include <koinos/chain/types_fwd.hpp>
-
-#include <koinos/chain/exceptions.hpp>
-
-#include <koinos/exception.hpp>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -18,6 +13,8 @@
 #include <eosio/vm/error_codes.hpp>
 #include <eosio/vm/host_function.hpp>
 #include <eosio/vm/exceptions.hpp>
+
+#include <koinos/chain/types_fwd.hpp>
 #include <koinos/chain/wasm/type_conversion.hpp>
 
 #include <memory>

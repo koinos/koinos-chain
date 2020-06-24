@@ -1,7 +1,7 @@
 #pragma once
 
-#define DO_PRAGMA(x) _Pragma (#x)
-#define KOINOS_TODO(msg) DO_PRAGMA(message("TODO: " msg))
+#define KOINOS_DO_PRAGMA(x) _Pragma (#x)
+#define KOINOS_TODO(msg) KOINOS_DO_PRAGMA(message("TODO: " msg))
 
 namespace koinos {
 

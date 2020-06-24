@@ -1,10 +1,10 @@
 #pragma once
 #include <cstdint>
-#include <koinos/exception.hpp>
+#include <koinos/chain/exceptions.hpp>
 
 namespace koinos::chain {
 
-DECLARE_KOINOS_EXCEPTION( insufficient_privileges );
+KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_privileges, chain_exception );
 
 enum class privilege : uint8_t
 {

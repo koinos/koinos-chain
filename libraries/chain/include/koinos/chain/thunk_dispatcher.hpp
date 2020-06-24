@@ -3,9 +3,9 @@
 #include <cstdint>
 
 #include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/register_thunks.hpp>
 #include <koinos/chain/thunks.hpp>
-#include <koinos/exception.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -20,7 +20,7 @@ namespace koinos::chain {
 
 using koinos::types::thunks::thunk_id;
 
-DECLARE_KOINOS_EXCEPTION( unknown_thunk );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_thunk, chain_exception );
 
 namespace detail
 {

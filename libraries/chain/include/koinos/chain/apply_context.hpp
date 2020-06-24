@@ -13,10 +13,11 @@ using koinos::statedb::state_node_ptr;
 class apply_context
 {
    public:
-      apply_context() {}
+      apply_context() = default;
 
-   /// Console methods:
-      void console_append( const std::string& val ) {
+      /// Console methods:
+      void console_append( const std::string& val )
+      {
          pending_console_output += val;
       }
 
