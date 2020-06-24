@@ -60,16 +60,12 @@ struct reflector{
 
 void inline throw_bad_enum_cast( int64_t i, const char* e )
 {
-   KOINOS_ASSERT( false, bad_cast_exception,
-                       "invalid index '${key}' in enum '${enum}'",
-                       ("key",i)("enum",e) );
+  throw bad_cast_exception( "invalid enum index" );
 }
 
 void inline throw_bad_enum_cast( const char* k, const char* e )
 {
-   KOINOS_ASSERT( false, bad_cast_exception,
-                       "invalid index '${key}' in enum '${enum}'",
-                       ("key",k)("enum",e) );
+   throw bad_cast_exception( "invalid enum index" );
 }
 
 } // namespace koinos::pack
