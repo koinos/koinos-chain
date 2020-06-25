@@ -7,49 +7,59 @@
 
 namespace koinos::pack {
 
+#define DECLARE_PACK_EXCEPTION( exception )  \
+struct exception final : std::runtime_error  \
+{                                            \
+   exception( const char* what_arg ) :       \
+      std::runtime_error( what_arg ) {};     \
+   virtual ~exception() override {}          \
+}
+
 /*
  * Generic serialization error. Any uses should consider being replaced
  * with a more specific/descriptire exception.
  */
-DECLARE_KOINOS_EXCEPTION( parse_error );
+DECLARE_PACK_EXCEPTION( parse_error );
 
 /*
  * Parsing input recursed too deep.
  */
-DECLARE_KOINOS_EXCEPTION( depth_violation );
+DECLARE_PACK_EXCEPTION( depth_violation );
 
 /*
  * Parsing input would require allocation too much memory
  */
-DECLARE_KOINOS_EXCEPTION( allocation_violation );
+DECLARE_PACK_EXCEPTION( allocation_violation );
 
 /*
  * Unexpected end of stream while packing/unpacking binary.
  */
-DECLARE_KOINOS_EXCEPTION( stream_error );
+DECLARE_PACK_EXCEPTION( stream_error );
 
 /*
  * JSON parsing is out of bounds for the destination integer type.
  */
-DECLARE_KOINOS_EXCEPTION( json_int_out_of_bounds );
+DECLARE_PACK_EXCEPTION( json_int_out_of_bounds );
 
 /*
  * There was a problem serializing to the JSON object. This is probably
  * caused by programmer error.
  */
-DECLARE_KOINOS_EXCEPTION( json_serialization_error );
+DECLARE_PACK_EXCEPTION( json_serialization_error );
 
 /*
  * Incoming JSON type does not match expected type.
  */
-DECLARE_KOINOS_EXCEPTION( json_type_mismatch );
+DECLARE_PACK_EXCEPTION( json_type_mismatch );
 
 /*
  * There was a problem decoding an encoded byte string
  */
-DECLARE_KOINOS_EXCEPTION( json_decode_error );
+DECLARE_PACK_EXCEPTION( json_decode_error );
 
 
-DECLARE_KOINOS_EXCEPTION( bad_cast_exception );
+DECLARE_PACK_EXCEPTION( bad_cast_exception );
 
 } // koinos::pack
+
+#undef DECLARE_PACK_EXCEPTION

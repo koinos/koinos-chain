@@ -35,7 +35,7 @@ namespace koinos::pack::util {
       {
          if( n == N ) v = std::variant< Ts... >( std::in_place_index< N > );
          else if constexpr ( N > 0 ) init_variant< N - 1 >( v, n );
-         else KOINOS_ASSERT( false, parse_error, "Unexpected variant tag" );
+         else if( !(false) ) throw parse_error( "Unexpected variant tag" );
       }
 
       template< size_t N = sizeof...(Ts) - 1 >
@@ -43,7 +43,7 @@ namespace koinos::pack::util {
       {
          if( n == N ) s = get_typename< typename type_at< N, Ts... >::type >::name();
          else if constexpr( N > 0 ) get_typename_at< N - 1 >( n, s );
-         else KOINOS_ASSERT( false, parse_error, "Unexpected variant index" );
+         else if( !(false) ) throw parse_error( "Unexpected variant index" );
       }
    };
 

@@ -13,33 +13,31 @@
 #define JSON_MAX_SAFE_INTEGER ((1ll<<53)-1)  // 2^53-1
 #define JSON_MIN_SAFE_INTEGER (-((1ll<<53)-1)) // -(2^53-1)
 
-#define JSON_SIGNED_INT_SERIALIZER( int_type )                                            \
-inline void to_json( json& j, int_type v )                                                \
-{                                                                                         \
-   j = int64_t( v );                                                                      \
-}                                                                                         \
-inline void from_json( json& j, int_type& v, uint32_t depth )                             \
-{                                                                                         \
-   int64_t tmp = j.template get< int64_t >();                                             \
-   KOINOS_ASSERT( tmp <= static_cast< int64_t >( std::numeric_limits< int_type >::max() ) \
-      && tmp >= static_cast< int64_t >( std::numeric_limits< int_type >::min() ),         \
-      json_int_out_of_bounds, "Over/underflow when parsing " #int_type " from JSON",      \
-      () );                                                                               \
-   v = static_cast< int_type >( tmp );                                                    \
+#define JSON_SIGNED_INT_SERIALIZER( int_type )                                               \
+inline void to_json( json& j, int_type v )                                                   \
+{                                                                                            \
+   j = int64_t( v );                                                                         \
+}                                                                                            \
+inline void from_json( json& j, int_type& v, uint32_t depth )                                \
+{                                                                                            \
+   int64_t tmp = j.template get< int64_t >();                                                \
+   if( !(tmp <= static_cast< int64_t >( std::numeric_limits< int_type >::max() )             \
+      && tmp >= static_cast< int64_t >( std::numeric_limits< int_type >::min() )) )          \
+      throw json_int_out_of_bounds( "Over/underflow when parsing " #int_type " from JSON" ); \
+   v = static_cast< int_type >( tmp );                                                       \
 }
 
-#define JSON_UNSIGNED_INT_SERIALIZER( int_type )                                          \
-inline void to_json( json& j, int_type v )                                                \
-{                                                                                         \
-   j = uint64_t( v );                                                                     \
-}                                                                                         \
-inline void from_json( json& j, int_type& v, uint32_t depth )                             \
-{                                                                                         \
-   uint64_t tmp = j.template get< uint64_t >();                                           \
-   KOINOS_ASSERT( tmp <= static_cast< uint64_t >( std::numeric_limits< int_type >::max() ), \
-      json_int_out_of_bounds, "Over/underflow when parsing " #int_type " from JSON",      \
-      () );                                                                               \
-   v = static_cast< int_type >( tmp );                                                    \
+#define JSON_UNSIGNED_INT_SERIALIZER( int_type )                                             \
+inline void to_json( json& j, int_type v )                                                   \
+{                                                                                            \
+   j = uint64_t( v );                                                                        \
+}                                                                                            \
+inline void from_json( json& j, int_type& v, uint32_t depth )                                \
+{                                                                                            \
+   uint64_t tmp = j.template get< uint64_t >();                                              \
+   if( !(tmp <= static_cast< uint64_t >( std::numeric_limits< int_type >::max())) )          \
+      throw json_int_out_of_bounds( "Over/underflow when parsing " #int_type " from JSON" ); \
+   v = static_cast< int_type >( tmp );                                                       \
 }
 
 #define JSON_SIGNED_BOOST_INT_SERIALIZER( int_type )              \
@@ -192,8 +190,8 @@ template< typename T >
 inline void from_json( json& j, vector< T >& v, uint32_t depth )
 {
    depth++;
-   KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
-   KOINOS_ASSERT( j.is_array(), json_type_mismatch, "Unexpected JSON type: Array Expected", () );
+   if( !(depth <= KOINOS_PACK_MAX_RECURSION_DEPTH) ) throw depth_violation( "Unpack depth exceeded" );
+   if( !(j.is_array()) ) throw json_type_mismatch( "Unexpected JSON type: Array Expected" );
    v.clear();
    for( json& obj : j )
    {
@@ -213,7 +211,7 @@ inline void to_json( json& j, const variable_blob& v )
 
 inline void from_json( json& j, variable_blob& v, uint32_t depth )
 {
-   KOINOS_ASSERT( j.is_string(), json_type_mismatch, "Unexpected JSON type: String Expected", () );
+   if( !(j.is_string()) ) throw json_type_mismatch( "Unexpected JSON type: String Expected" );
    v.clear();
    string encoded_str = j.template get< string >();
    switch( encoded_str.c_str()[0] )
@@ -223,10 +221,10 @@ inline void from_json( json& j, variable_blob& v, uint32_t depth )
          break;
       case 'z':
          // Base58
-         KOINOS_ASSERT( util::decode_base58( encoded_str.c_str() + 1, v ), json_decode_error, "Error decoding base58 string", () );
+         if( !(util::decode_base58( encoded_str.c_str() + 1, v )) ) throw json_decode_error( "Error decoding base58 string" );
          break;
       default:
-         KOINOS_ASSERT( false, json_type_mismatch, "Unknown encoding prefix", () );
+         if( !(false) ) throw json_type_mismatch( "Unknown encoding prefix" );
    }
 }
 
@@ -246,15 +244,15 @@ template< typename T >
 inline void from_json( json& j, set< T >& v, uint32_t depth )
 {
    depth++;
-   KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
-   KOINOS_ASSERT( j.is_array(), json_type_mismatch, "Unexpected JSON type: Array Expected", () );
+   if( !(depth <= KOINOS_PACK_MAX_RECURSION_DEPTH) ) throw depth_violation( "Unpack depth exceeded" );
+   if( !(j.is_array()) ) throw json_type_mismatch( "Unexpected JSON type: Array Expected" );
    v.clear();
    for( json& obj : j )
    {
       T tmp;
       from_json( obj, tmp, depth );
       auto res = v.emplace( std::move( tmp ) );
-      KOINOS_ASSERT( res.second, parse_error, "Duplicate value detected deserializing set", () );
+      if( !(res.second) ) throw parse_error( "Duplicate value detected deserializing set" );
    }
 }
 
@@ -274,9 +272,9 @@ template< typename T, size_t N >
 inline void from_json( json& j, array< T, N >& v, uint32_t depth )
 {
    depth++;
-   KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
-   KOINOS_ASSERT( j.is_array(), json_type_mismatch, "Unexpected JSON type: Array Expected", () );
-   KOINOS_ASSERT( j.size() == N, json_type_mismatch, "JSON array is incorrect size", () );
+   if( !(depth <= KOINOS_PACK_MAX_RECURSION_DEPTH) ) throw depth_violation( "Unpack depth exceeded" );
+   if( !(j.is_array()) ) throw json_type_mismatch( "Unexpected JSON type: Array Expected" );
+   if( !(j.size() == N) ) throw json_type_mismatch( "JSON array is incorrect size" );
    for( size_t i = 0; i < N; ++i )
    {
       from_json( j[i], v[i], depth );
@@ -295,7 +293,7 @@ inline void to_json( json& j, const fixed_blob< N >& v )
 template< size_t N >
 inline void from_json( json& j, fixed_blob< N >& v, uint32_t depth )
 {
-   KOINOS_ASSERT( j.is_string(), json_type_mismatch, "Unexpected JSON type: String Expected", () );
+   if( !(j.is_string()) ) throw json_type_mismatch( "Unexpected JSON type: String Expected" );
 
    string encoded_str = j.template get< string >();
    switch( encoded_str.c_str()[0] )
@@ -305,10 +303,10 @@ inline void from_json( json& j, fixed_blob< N >& v, uint32_t depth )
          break;
       case 'z':
          // Base58
-         KOINOS_ASSERT( util::decode_base58( encoded_str.c_str() + 1, v ), json_decode_error, "Error decoding base58 string", () );
+         if( !(util::decode_base58( encoded_str.c_str() + 1, v )) ) throw json_decode_error( "Error decoding base58 string" );
          break;
       default:
-         KOINOS_ASSERT( false, json_type_mismatch, "Unknown encoding prefix", () );
+         if( !(false) ) throw json_type_mismatch( "Unknown encoding prefix" );
    }
 }
 
@@ -339,11 +337,11 @@ inline void from_json( json& j, variant< Ts... >& v, uint32_t depth )
    }();
 
    depth++;
-   KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
-   KOINOS_ASSERT( j.is_object(), json_type_mismatch, "Unexpected JSON type: object expected", () );
-   KOINOS_ASSERT( j.size() == 2, json_type_mismatch, "Variant JSON type must only contain two fields", () );
-   KOINOS_ASSERT( j.contains( "type" ), json_type_mismatch, "Variant JSON type must contain field 'type'", () );
-   KOINOS_ASSERT( j.contains( "value" ), json_type_mismatch, "Variant JSON type must contain field 'value'", () );
+   if( !(depth <= KOINOS_PACK_MAX_RECURSION_DEPTH) ) throw depth_violation( "Unpack depth exceeded" );
+   if( !(j.is_object()) ) throw json_type_mismatch( "Unexpected JSON type: object expected" );
+   if( !(j.size() == 2) ) throw json_type_mismatch( "Variant JSON type must only contain two fields" );
+   if( !(j.contains( "type" )) ) throw json_type_mismatch( "Variant JSON type must contain field 'type'" );
+   if( !(j.contains( "value" )) ) throw json_type_mismatch( "Variant JSON type must contain field 'value'" );
 
    auto type = j[ "type" ];
    int64_t index = -1;
@@ -355,12 +353,12 @@ inline void from_json( json& j, variant< Ts... >& v, uint32_t depth )
    else if( type.is_string() )
    {
       auto itr = to_tag.find( type.get< string >() );
-      KOINOS_ASSERT( itr != to_tag.end(), json_type_mismatch, "Invalid type name in JSON variant" );
+      if( !(itr != to_tag.end()) ) throw json_type_mismatch( "Invalid type name in JSON variant" );
       index = itr->second;
    }
    else
    {
-      KOINOS_ASSERT( false, json_type_mismatch, "Variant JSON 'type' must be an unsigned integer or string", () );
+      if( !(false) ) throw json_type_mismatch( "Variant JSON 'type' must be an unsigned integer or string" );
    }
 
    util::variant_helper< Ts... >::init_variant( v, index );
@@ -378,7 +376,7 @@ template< typename T >
 inline void from_json( json& j, optional< T >& v, uint32_t depth )
 {
    depth++;
-   KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
+   if( !(depth <= KOINOS_PACK_MAX_RECURSION_DEPTH) ) throw depth_violation( "Unpack depth exceeded" );
    if( j.is_null() )
    {
       v.reset();
@@ -402,10 +400,10 @@ inline void to_json( json& j, const multihash_type& v )
 
 inline void from_json( json& j, multihash_type& v, uint32_t depth )
 {
-   KOINOS_ASSERT( j.is_object(), json_type_mismatch, "Unexpected JSON type: object exptected", () );
-   KOINOS_ASSERT( j.size() == 2, json_type_mismatch, "Multihash JSON type must only contain two fields", () );
-   KOINOS_ASSERT( j.contains( "hash" ), json_type_mismatch, "Multihash JSON type must contain field 'hash'", () );
-   KOINOS_ASSERT( j.contains( "digest" ), json_type_mismatch, "Multihash JSON type must contain field 'digest'", () );
+   if( !(j.is_object()) ) throw json_type_mismatch( "Unexpected JSON type: object exptected" );
+   if( !(j.size() == 2) ) throw json_type_mismatch( "Multihash JSON type must only contain two fields" );
+   if( !(j.contains( "hash" )) ) throw json_type_mismatch( "Multihash JSON type must contain field 'hash'" );
+   if( !(j.contains( "digest" )) ) throw json_type_mismatch( "Multihash JSON type must contain field 'digest'" );
 
    v.hash_id = j[ "hash" ].get< uint64_t >();
    from_json( j[ "digest" ], v.digest );
@@ -425,14 +423,14 @@ inline void to_json( json& j, const multihash_vector& v )
 
 inline void from_json( json& j, multihash_vector& v, uint32_t depth )
 {
-   KOINOS_ASSERT( j.is_object(), json_type_mismatch, "Unexpected JSON type: object exptected", () );
-   KOINOS_ASSERT( j.size() == 2, json_type_mismatch, "MultihashVector JSON type must only contain two fields", () );
-   KOINOS_ASSERT( j.contains( "hash" ), json_type_mismatch, "MultihashVector JSON type must contain field 'hash'", () );
-   KOINOS_ASSERT( j.contains( "digests" ), json_type_mismatch, "MultihashVector JSON type must contain field 'digests'", () );
+   if( !(j.is_object()) ) throw json_type_mismatch( "Unexpected JSON type: object exptected" );
+   if( !(j.size() == 2) ) throw json_type_mismatch( "MultihashVector JSON type must only contain two fields" );
+   if( !(j.contains( "hash" )) ) throw json_type_mismatch( "MultihashVector JSON type must contain field 'hash'" );
+   if( !(j.contains( "digests" )) ) throw json_type_mismatch( "MultihashVector JSON type must contain field 'digests'" );
 
    json& digests = j[ "digests" ];
 
-   KOINOS_ASSERT( digests.is_array(), json_type_mismatch, "MultihashVector field 'digest' must be an array", () );
+   if( !(digests.is_array()) ) throw json_type_mismatch( "MultihashVector field 'digest' must be an array" );
    for( json& d : digests )
    {
       variable_blob tmp;
@@ -547,7 +545,7 @@ namespace detail::json {
       static inline void from_json( Json& j, T& v, uint32_t depth )
       {
          depth++;
-         KOINOS_ASSERT( depth <= KOINOS_PACK_MAX_RECURSION_DEPTH, depth_violation, "Unpack depth exceeded", () );
+         if( !(depth <= KOINOS_PACK_MAX_RECURSION_DEPTH) ) throw depth_violation( "Unpack depth exceeded" );
          int64_t temp;
          from_json(j, temp, depth);
          v = (T)temp;
