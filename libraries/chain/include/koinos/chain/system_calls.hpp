@@ -1,7 +1,8 @@
 #pragma once
 
+#include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/types.hpp>
-#include <koinos/exception.hpp>
+
 #include <koinos/pack/rt/basetypes.hpp>
 
 #include <koinos/statedb/statedb_types.hpp>
@@ -11,8 +12,8 @@ namespace koinos::chain {
 using koinos::types::system::system_call_id;
 using koinos::types::thunks::thunk_id;
 
-DECLARE_KOINOS_EXCEPTION( unknown_system_call );
-DECLARE_KOINOS_EXCEPTION( invalid_contract );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_system_call, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_contract, chain_exception );
 
 // First 160 bits are obtained by 160-bit truncation of sha256("object_space::contract")
 const statedb::object_space CONTRACT_SPACE_ID = types::uint256_t( "0x3e5bb9473a9187e1be1c8321fd2a44b9b85510a0000000000000000000000001" );

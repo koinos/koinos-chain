@@ -7,14 +7,14 @@
    throw exc_name( STRPOL( msg, __VA_ARGS__("file", __FILE__)("line", __LINE__)("exc", #exc_name) ) )
 
 #define KOINOS_ASSERT( cond, exc_name, msg, ... )     \
-   do {                                             \
-      if( !(cond) )                                 \
-      {                                             \
+   do {                                               \
+      if( !(cond) )                                   \
+      {                                               \
          KOINOS_THROW( exc_name, msg, __VA_ARGS__ );  \
-      }                                             \
+      }                                               \
    } while (0)
 
-#define DECLARE_KOINOS_EXCEPTION( exc_name )                     \
+#define KOINOS_DECLARE_EXCEPTION( exc_name )                     \
    class exc_name : public koinos::exception                     \
    {                                                             \
       public:                                                    \
@@ -27,7 +27,7 @@
          {  result = #exc_name;           }                      \
    }
 
-#define DECLARE_DERIVED_KOINOS_EXCEPTION( exc_name, base )       \
+#define KOINOS_DECLARE_DERIVED_EXCEPTION( exc_name, base )       \
    class exc_name : public base                                  \
    {                                                             \
       public:                                                    \

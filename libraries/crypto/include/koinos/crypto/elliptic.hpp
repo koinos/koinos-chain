@@ -14,10 +14,10 @@ namespace koinos::crypto {
    using compressed_public_key = fixed_blob< 33 >;                         ///< The 33 byte compressed ECDSA public key
    using private_key_secret    = fixed_blob< 32 >;                         ///< The 32 byte ECDSA prvate key secret
 
-   DECLARE_KOINOS_EXCEPTION( key_serialization_error );
-   DECLARE_KOINOS_EXCEPTION( key_recovery_error );
-   DECLARE_KOINOS_EXCEPTION( key_manipulation_error );
-   DECLARE_KOINOS_EXCEPTION( signing_error );
+   KOINOS_DECLARE_EXCEPTION( key_serialization_error );
+   KOINOS_DECLARE_EXCEPTION( key_recovery_error );
+   KOINOS_DECLARE_EXCEPTION( key_manipulation_error );
+   KOINOS_DECLARE_EXCEPTION( signing_error );
 
    /**
     *  @class public_key

@@ -1,6 +1,6 @@
 
+#include <koinos/chain/exceptions.hpp>
 #include <koinos/pack/classes.hpp>
-#include <koinos/exception.hpp>
 #include <koinos/util.hpp>
 
 #include <boost/any.hpp>
@@ -12,15 +12,15 @@
 
 namespace koinos::chain {
 
-DECLARE_KOINOS_EXCEPTION( unknown_submission_type );
-DECLARE_KOINOS_EXCEPTION( decode_exception );
-DECLARE_KOINOS_EXCEPTION( block_header_empty );
-DECLARE_KOINOS_EXCEPTION( cannot_switch_root );
-DECLARE_KOINOS_EXCEPTION( root_height_mismatch );
-DECLARE_KOINOS_EXCEPTION( unknown_previous_block );
-DECLARE_KOINOS_EXCEPTION( block_height_mismatch );
-DECLARE_KOINOS_EXCEPTION( previous_id_mismatch );
-DECLARE_KOINOS_EXCEPTION( invalid_signature );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_submission_type, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( decode_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_header_empty, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( cannot_switch_root, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( root_height_mismatch, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_height_mismatch, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( previous_id_mismatch, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, chain_exception );
 
 namespace detail { class controller_impl; }
 

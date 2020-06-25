@@ -31,10 +31,10 @@ using koinos::types::multihash_type;
 using koinos::types::multihash_vector;
 using koinos::types::variable_blob;
 
-DECLARE_KOINOS_EXCEPTION( unknown_hash_algorithm );
-DECLARE_KOINOS_EXCEPTION( multihash_size_mismatch );
-DECLARE_KOINOS_EXCEPTION( multihash_size_limit_exceeded );
-DECLARE_KOINOS_EXCEPTION( multihash_vector_mismatch );
+KOINOS_DECLARE_EXCEPTION( unknown_hash_algorithm );
+KOINOS_DECLARE_EXCEPTION( multihash_size_mismatch );
+KOINOS_DECLARE_EXCEPTION( multihash_size_limit_exceeded );
+KOINOS_DECLARE_EXCEPTION( multihash_vector_mismatch );
 
 namespace multihash
 {
