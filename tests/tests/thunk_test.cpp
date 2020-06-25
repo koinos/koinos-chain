@@ -191,6 +191,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    memcpy( call_op.contract_id.data(), false_id.digest.data(), call_op.contract_id.size() );
    BOOST_REQUIRE_THROW( thunk::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
 
+   // Test invoking the overridden system call
    variable_blob vl_args, vl_ret;
    host_api.invoke_system_call( 11, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
    BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
