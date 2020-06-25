@@ -36,6 +36,8 @@ DEFAULT_SYSTEM_CALLS(
    (db_get_next_object)
    (db_get_prev_object)
 
+   (execute_contract)
+
    (get_contract_args_size)
    (get_contract_args)
 )

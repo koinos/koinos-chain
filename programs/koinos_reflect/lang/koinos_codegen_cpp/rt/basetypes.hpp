@@ -102,6 +102,7 @@ enum class thunk_id : uint32_t
    db_get_object,
    db_get_next_object,
    db_get_prev_object,
+   execute_contract,
    get_contract_args_size,
    get_contract_args
 };
@@ -124,6 +125,7 @@ enum class system_call_id : uint32_t
    db_get_object,
    db_get_next_object,
    db_get_prev_object,
+   execute_contract,
    get_contract_args_size,
    get_contract_args
 };

@@ -78,6 +78,15 @@ struct db_get_object_args
 
 typedef types::variable_blob db_get_object_ret;
 
+struct execute_contract_args
+{
+   types::contract_id_type contract_id;
+   types::uint32           entry_point;
+   types::variable_blob    args;
+};
+
+typedef void_type execute_contract_ret;
+
 typedef db_get_object_args db_get_next_object_args;
 
 typedef db_get_object_ret db_get_next_object_ret;

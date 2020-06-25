@@ -28,6 +28,8 @@ void register_thunks( thunk_dispatcher& td )
    (db_get_next_object)
    (db_get_prev_object)
 
+   (execute_contract)
+
    (get_contract_args_size)
    (get_contract_args)
    )
@@ -95,18 +97,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
-   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
-   auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
-   wasm_allocator_type wa;
-
-   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
-   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
-
-   backend.set_wasm_allocator( &wa );
-   backend.initialize();
-
-   context.set_contract_call_args( o.args );
-   backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+   execute_contract( context, o.contract_id, o.entry_point, o.args );
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
@@ -210,6 +201,22 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
       object_buffer.clear();
 
    return object_buffer;
+}
+
+THUNK_DEFINE( void, execute_contract, ((const types::contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
+{
+   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( contract_id );
+   auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+   wasm_allocator_type wa;
+
+   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
+   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
+
+   backend.set_wasm_allocator( &wa );
+   backend.initialize();
+
+   context.set_contract_call_args( args );
+   backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 }
 
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
