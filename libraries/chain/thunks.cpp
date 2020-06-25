@@ -21,6 +21,7 @@ void register_thunks( thunk_dispatcher& td )
    (apply_reserved_operation)
    (apply_upload_contract_operation)
    (apply_execute_contract_operation)
+   (apply_set_system_call_operation)
 
    (db_put_object)
    (db_get_object)
@@ -72,6 +73,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
          {
             apply_execute_contract_operation( context, op );
          },
+         [&]( const protocol::set_system_call_operation& op )
+         {
+            apply_set_system_call_operation( context, op );
+         },
       }, pack::from_variable_blob< operation >( o ) );
    }
 }
@@ -85,13 +90,13 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 {
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    types::uint256_t contract_id = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
-   db_put_object( context, 0, contract_id, o.bytecode );
+   db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
 }
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
    types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
-   auto bytecode = db_get_object( context, 0, contract_key );
+   auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
    wasm_allocator_type wa;
 
    wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
@@ -102,6 +107,21 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
 
    context.set_contract_call_args( o.args );
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+}
+
+THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
+{
+   // Ensure contract exists.
+   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
+   auto contract = db_get_object(context, CONTRACT_SPACE_ID, contract_key);
+   KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist", () );
+
+   // Store the system call bundle in the database
+   types::system::system_call_bundle bundle;
+   bundle.contract_id = o.contract_id;
+   bundle.entry_point = o.entry_point;
+   types::system::system_call_target sys_call = bundle;
+   db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( sys_call ) );
 }
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
