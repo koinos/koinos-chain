@@ -60,7 +60,8 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
             thunk_dispatcher::instance().call_thunk( thunks::thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
          },
          [&]( system_call_bundle& scb ) {
-            KOINOS_TODO( "Invoke smart contract sys call handler" )
+            variable_blob args;
+            thunk::execute_contract( context, scb.contract_id, scb.entry_point, args );
          },
          [&]( auto& ) {
             KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",

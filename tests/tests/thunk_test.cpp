@@ -191,6 +191,10 @@ BOOST_AUTO_TEST_CASE( override_tests )
    memcpy( call_op.contract_id.data(), false_id.digest.data(), call_op.contract_id.size() );
    BOOST_REQUIRE_THROW( thunk::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
 
+   variable_blob vl_args, vl_ret;
+   host_api.invoke_system_call( 11, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
+
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
 
 BOOST_AUTO_TEST_CASE( thunk_test )
@@ -230,8 +234,6 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
-
-KOINOS_TODO( "Test overriding a thunk" )
 
 
 BOOST_AUTO_TEST_SUITE_END()

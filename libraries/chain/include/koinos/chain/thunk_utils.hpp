@@ -70,7 +70,6 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
-KOINOS_TODO( "Invoke smart contract sys call handler" )
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
@@ -118,7 +117,8 @@ KOINOS_TODO( "Invoke smart contract sys call handler" )
                      FWD );                                                                                          \
             },                                                                                                       \
             [&]( system_call_bundle& _scb ) {                                                                        \
-               /* Need syscall handler */                                                                            \
+               variable_blob _args;                                                                                  \
+               thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );                        \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \
                KOINOS_THROW( unknown_system_call,                                                                    \
