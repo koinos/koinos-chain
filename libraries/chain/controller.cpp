@@ -424,7 +424,7 @@ void controller_impl::work_thread_main()
       }
       catch( const koinos::exception& e )
       {
-         maybe_err = e.to_string();
+         maybe_err = e.what();
       }
       catch( const std::exception& e )
       {

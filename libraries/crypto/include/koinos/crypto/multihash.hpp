@@ -110,7 +110,7 @@ multihash_type zero_hash( uint64_t code, uint64_t size = 0 );
 void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in );
 void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in );
 
-inline constexpr uint64_t get_standard_size( uint64_t code )
+inline uint64_t get_standard_size( uint64_t code )
 {
    switch( code )
    {

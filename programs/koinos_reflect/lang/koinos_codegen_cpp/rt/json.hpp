@@ -111,6 +111,10 @@ JSON_SIGNED_INT_SERIALIZER( int16_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint16_t )
 JSON_SIGNED_INT_SERIALIZER( int32_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint32_t )
+
+JSON_SIGNED_INT_SERIALIZER( long )
+JSON_UNSIGNED_INT_SERIALIZER( unsigned long )
+
 JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( block_height_type )
 JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( timestamp_type )
 
@@ -226,6 +230,17 @@ inline void from_json( json& j, variable_blob& v, uint32_t depth )
       default:
          if( !(false) ) throw json_type_mismatch( "Unknown encoding prefix" );
    }
+}
+
+inline void to_json( json& j, const std::string& s )
+{
+   j = s;
+}
+
+inline void from_json( json& j, std::string& s )
+{
+   if( !(j.is_string()) ) throw json_type_mismatch( "Unexpected JSON type: String Expected" );
+   s = j.template get< string >();
 }
 
 // set< T >

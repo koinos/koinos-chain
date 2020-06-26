@@ -7,12 +7,12 @@
 #include <ostream>
 
 #define KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( type )      \
-inline void to_json( json& s, type t );                       \
-inline void from_json( json& s, type& t, uint32_t depth = 0 );\
+inline void to_json( json& j, type t );                       \
+inline void from_json( json& j, type& t, uint32_t depth = 0 );\
 
 #define KOINOS_DECLARE_BASE_JSON_SERIALIZER( type )           \
-inline void to_json( json& s, const type& t );                \
-inline void from_json( json& s, type& t, uint32_t depth = 0 );\
+inline void to_json( json& j, const type& t );                \
+inline void from_json( json& j, type& t, uint32_t depth = 0 );\
 
 namespace koinos::pack {
 
@@ -20,6 +20,7 @@ using namespace koinos::types;
 
 using json = nlohmann::json;
 
+// Explicit bit length integers
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( int8_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( uint8_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( int16_t )
@@ -28,6 +29,10 @@ KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( int32_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( uint32_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( int64_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( uint64_t )
+
+// Native integer types
+KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( long )
+KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( unsigned long )
 
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( int128_t )
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( uint128_t )
@@ -45,6 +50,7 @@ KOINOS_DECLARE_BASE_JSON_SERIALIZER( block_height_type )
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( timestamp_type )
 
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( variable_blob )
+KOINOS_DECLARE_BASE_JSON_SERIALIZER( std::string )
 
 template< size_t N >
 inline void to_json( json& s, const fixed_blob< N >& v );

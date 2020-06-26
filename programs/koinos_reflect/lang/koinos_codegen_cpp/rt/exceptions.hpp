@@ -1,7 +1,5 @@
 #pragma once
 
-#include <koinos/exception.hpp>
-
 #define KOINOS_PACK_MAX_ARRAY_ALLOC_SIZE (1024*1024*10)
 #define KOINOS_PACK_MAX_RECURSION_DEPTH  (20)
 
