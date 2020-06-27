@@ -112,16 +112,6 @@ JSON_UNSIGNED_INT_SERIALIZER( uint16_t )
 JSON_SIGNED_INT_SERIALIZER( int32_t )
 JSON_UNSIGNED_INT_SERIALIZER( uint32_t )
 
-inline void to_json( json& j, size_t v )
-{
-   to_json( j, (uint32_t)v );
-}
-
-inline void from_json( json& j, size_t& v, uint32_t depth )
-{
-   from_json( j, (uint32_t&)v, depth );
-}
-
 JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( block_height_type )
 JSON_BOOST_STRONG_TYPEDEF_SERIALIZER( timestamp_type )
 
