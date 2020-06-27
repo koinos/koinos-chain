@@ -245,7 +245,7 @@ template< typename T > void decode_canonical( const variable_blob& bin, T& targe
    boost::interprocess::ibufferstream s( bin.data(), bin.size() );
    pack::from_binary( s, target );
    // No-padding check:  Enforce that bin doesn't have extra bytes that were unread
-   KOINOS_ASSERT( size_t( s.tellg() ) == bin.size(), decode_exception, "Data does not deserialize (extra padding)", () );
+   KOINOS_ASSERT( size_t( s.tellg() ) == bin.size(), decode_exception, "Data does not deserialize (extra padding)" );
 
    // Canonicity check:
    // Re-serialize the data and ensure it is the same as the input
@@ -256,14 +256,14 @@ template< typename T > void decode_canonical( const variable_blob& bin, T& targe
 
    pack::to_binary( s2, target );
 
-   KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)", () );
-   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.size(), decode_exception, "Data does not reserialize (size mismatch)", () );
-   KOINOS_ASSERT( bin == tmp, decode_exception, "Data does not reserialize", () );
+   KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)" );
+   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.size(), decode_exception, "Data does not reserialize (size mismatch)" );
+   KOINOS_ASSERT( bin == tmp, decode_exception, "Data does not reserialize" );
 }
 
 void decode_block( block_submission_impl& block )
 {
-   KOINOS_ASSERT( block.submission.header_bytes.size() >= 1, block_header_empty, "Block has empty header", () );
+   KOINOS_ASSERT( block.submission.header_bytes.size() >= 1, block_header_empty, "Block has empty header" );
 
    decode_canonical( block.submission.header_bytes, block.header );
 
@@ -285,11 +285,11 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, blo
    if( crypto::multihash::is_zero( block.submission.topology.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1", () );
+      KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1" );
    }
 
    auto block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );
-   KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block", () );
+   KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
    _ctx->set_state_node( block_node );
 

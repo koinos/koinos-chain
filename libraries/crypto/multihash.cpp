@@ -190,7 +190,7 @@ void encoder::get_result( variable_blob& v )
    KOINOS_ASSERT(
       EVP_DigestFinal_ex(
          mdctx, (unsigned char*)( v.data() ), &size ),
-      koinos::exception, "EVP_DigestFinal_ex returned failure", () );
+      koinos::exception, "EVP_DigestFinal_ex returned failure" );
    KOINOS_ASSERT( size == _size,
       multihash_size_mismatch,
       "OpenSSL EVP_DigestFinal_ex returned hash size ${size}, does not match expected hash size ${_size}",

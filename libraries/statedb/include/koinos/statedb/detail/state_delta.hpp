@@ -228,9 +228,9 @@ namespace koinos::statedb::detail {
 
          void commit()
          {
-            KOINOS_ASSERT( !is_root(), internal_error, "Cannot commit root.", () );
+            KOINOS_ASSERT( !is_root(), internal_error, "Cannot commit root." );
             auto root = get_root();
-            KOINOS_ASSERT( root, internal_error, "Could not get root", () );
+            KOINOS_ASSERT( root, internal_error, "Could not get root" );
 
             squash( 0 );
 

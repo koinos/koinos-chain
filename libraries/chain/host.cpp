@@ -64,7 +64,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          },
          [&]( auto& ) {
             KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",
-               ("sid", sid)("tag", target.index()) );
+               ("sid", sid)("tag", (uint64_t)target.index()) );
          } }, target );
 }
 
