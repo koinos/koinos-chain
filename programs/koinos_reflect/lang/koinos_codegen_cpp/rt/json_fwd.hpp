@@ -31,19 +31,6 @@ KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( uint32_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( int64_t )
 KOINOS_DECLARE_PRIMITIVE_JSON_SERIALIZER( uint64_t )
 
-// On gcc, size_t is identical to unsigned int. On clang, it isn't? This makes it work... /sigh
-inline typename std::enable_if< !std::is_same< size_t, unsigned int >::value, void >::type
-to_json( json& j, size_t v )
-{
-   to_json( j, (uint32_t)v );
-}
-
-inline typename std::enable_if< !std::is_same< size_t, unsigned int >::value, void >::type
-from_json( json& j, size_t& v, uint32_t depth )
-{
-   from_json( j, (uint32_t&)v, depth );
-}
-
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( int128_t )
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( uint128_t )
 KOINOS_DECLARE_BASE_JSON_SERIALIZER( int160_t )
