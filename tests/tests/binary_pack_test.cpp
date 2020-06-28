@@ -4,7 +4,6 @@
 #include "../test_fixtures/pack_fixture.hpp"
 
 #include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/varint.hpp>
 #include <koinos/util.hpp>
 
 #define REQUIRE_DEEP_EQUAL( s, v )                         \

@@ -119,7 +119,7 @@ state_node_ptr state_db_impl::get_empty_node()
    // So the caller needs to be very careful to only call this method if deleting the database is desirable!
    //
 
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    // Wipe and start over from empty database!
    _root->impl->_state->clear();
    close();
@@ -150,7 +150,7 @@ void state_db_impl::close()
 
 void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list, uint64_t limit )
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    node_list.clear();
    node_list.reserve( limit );
    auto node_itr = _index.find( _head->id() );
@@ -166,7 +166,7 @@ void state_db_impl::get_recent_states( std::vector< state_node_ptr >& node_list,
 
 state_node_ptr state_db_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    KOINOS_ASSERT( revision >= _root->revision(), illegal_argument,
       "Cannot ask for node with revision less than root. root rev: ${root}, requested: ${req}",
       ("root", _root->revision())("req", revision) );
@@ -191,7 +191,7 @@ state_node_ptr state_db_impl::get_node_at_revision( uint64_t revision, const sta
 
 state_node_ptr state_db_impl::get_node( const state_node_id& node_id )const
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
 
    auto node_itr = _index.find( node_id );
    return node_itr != _index.end() ? *node_itr : state_node_ptr();
@@ -199,7 +199,7 @@ state_node_ptr state_db_impl::get_node( const state_node_id& node_id )const
 
 state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_id, const state_node_id& new_id )
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
 
    auto parent_state = _index.find( parent_id );
    if( parent_state != _index.end() && !(*parent_state)->is_writable() )
@@ -216,7 +216,7 @@ state_node_ptr state_db_impl::create_writable_node( const state_node_id& parent_
 
 void state_db_impl::finalize_node( const state_node_id& node_id )
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    auto node = get_node( node_id );
    KOINOS_ASSERT( node, illegal_argument, "Node ${n} not found.", ("n", node_id) );
 
@@ -230,7 +230,7 @@ void state_db_impl::finalize_node( const state_node_id& node_id )
 
 void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< state_node_id >& whitelist )
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    auto node = get_node( node_id );
 
    if( !node ) return;
@@ -243,7 +243,7 @@ void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< 
 
    for( uint32_t i = 0; i < remove_queue.size(); ++i )
    {
-      KOINOS_ASSERT( remove_queue[ i ] != head_id, cannot_discard, "Cannot discard a node that would result in discarding of head", () );
+      KOINOS_ASSERT( remove_queue[ i ] != head_id, cannot_discard, "Cannot discard a node that would result in discarding of head" );
 
       auto previtr = previdx.lower_bound( remove_queue[ i ] );
       while ( previtr != previdx.end() && (*previtr)->parent_id() == remove_queue[ i ] )
@@ -268,7 +268,7 @@ void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< 
 
 void state_db_impl::commit_node( const state_node_id& node_id )
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "Cannot commit root node. Root node already committed." );
    auto node = get_node( node_id );
    KOINOS_ASSERT( node, illegal_argument, "Node ${n} not found.", ("n", node_id) );
@@ -283,13 +283,13 @@ void state_db_impl::commit_node( const state_node_id& node_id )
 
 state_node_ptr state_db_impl::get_head()const
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    return _head;
 }
 
 state_node_ptr state_db_impl::get_root()const
 {
-   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open", () );
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    return _root;
 }
 
@@ -365,7 +365,7 @@ void state_node_impl::get_prev_object( get_object_result& result, const get_obje
 
 void state_node_impl::put_object( put_object_result& result, const put_object_args& args )
 {
-   KOINOS_ASSERT( _is_writable, node_finalized, "Cannot write to a finalized node", () );
+   KOINOS_ASSERT( _is_writable, node_finalized, "Cannot write to a finalized node" );
    auto idx = merge_index< state_object_index, by_key >( _state );
    auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
    if( pobj != nullptr )

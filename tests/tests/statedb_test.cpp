@@ -247,7 +247,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_REQUIRE_EQUAL( get_book.a, 5 );
    BOOST_REQUIRE_EQUAL( get_book.b, 6 );
 
-} catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
@@ -357,7 +357,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_CHECK( db.get_head()->id() == id );
    BOOST_CHECK( db.get_head()->revision() == b.height );
 
-} catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( merge_iterator )
 { try {
@@ -1384,6 +1384,6 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
       BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
    }
-} catch( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()

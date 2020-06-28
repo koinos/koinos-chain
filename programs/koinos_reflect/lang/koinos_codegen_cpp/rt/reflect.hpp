@@ -2,8 +2,6 @@
 
 #include <koinos/pack/rt/exceptions.hpp>
 
-#include <koinos/exception.hpp>
-
 #include <boost/lexical_cast.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/seq/enum.hpp>

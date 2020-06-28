@@ -114,7 +114,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    // Ensure contract exists.
    types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
    auto contract = db_get_object(context, CONTRACT_SPACE_ID, contract_key);
-   KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist", () );
+   KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
 
    // Store the system call bundle in the database
    types::system::system_call_bundle bundle;
@@ -127,7 +127,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
+   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
    statedb::put_object_args put_args;
    put_args.space = space;
    put_args.key = key;
@@ -143,7 +143,7 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
+   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
 
    statedb::get_object_args get_args;
    get_args.space = space;
@@ -167,7 +167,7 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
 THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
+   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
@@ -191,7 +191,7 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
 THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist", () );
+   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;

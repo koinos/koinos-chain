@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
    obj_blob = thunk::db_get_object( ctx, 0, 1, 10 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
-} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::types::protocol::reserved_operation() ), reserved_operation_exception );
 
-} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( override_tests )
 { try {
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    memcpy( call_op.contract_id.data(), false_id.digest.data(), call_op.contract_id.size() );
    BOOST_REQUIRE_THROW( thunk::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
 
-} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( thunk_test )
 { try {
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
-} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
 { try {
@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
-} catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 KOINOS_TODO( "Test overriding a thunk" )
 
