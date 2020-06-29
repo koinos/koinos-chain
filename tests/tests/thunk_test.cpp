@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( override_tests )
-{ try {
+{
    BOOST_TEST_MESSAGE( "Test set system call operation" );
    using namespace koinos::types;
 
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    variable_blob vl_args, vl_ret;
    host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
    BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
-} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+}
 
 BOOST_AUTO_TEST_CASE( thunk_test )
 { try {
