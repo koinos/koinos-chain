@@ -22,4 +22,10 @@ void thunk_dispatcher::call_thunk( thunk_id id, apply_context& ctx, char* ret_pt
    it->second( ctx, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
+bool thunk_dispatcher::thunk_exists( thunk_id id ) const
+{
+   auto it = _dispatch_map.find( id );
+   return it != _dispatch_map.end();
+}
+
 } // koinos::chain

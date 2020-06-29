@@ -94,6 +94,7 @@ class thunk_dispatcher
          _pass_through_map.emplace( id, thunk );
       }
 
+      bool thunk_exists( thunk_id id ) const;
       static const thunk_dispatcher& instance();
 
    private:

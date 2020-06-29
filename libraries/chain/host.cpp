@@ -24,8 +24,8 @@ void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t r
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    using types::system::thunk_id_type;
-   using types::system::system_call_bundle;
-   using types::system::system_call_target;
+   using types::system::contract_call_bundle;
+   using types::protocol::system_call_target;
 
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
@@ -59,7 +59,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          [&]( thunk_id_type& tid ) {
             thunk_dispatcher::instance().call_thunk( thunks::thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
          },
-         [&]( system_call_bundle& scb ) {
+         [&]( contract_call_bundle& scb ) {
             variable_blob args;
             KOINOS_TODO( "Brainstorm how to avoid arg copy." )
             args.resize( arg_len );

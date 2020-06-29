@@ -102,17 +102,26 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   // Ensure contract exists.
-   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
-   auto contract = db_get_object(context, CONTRACT_SPACE_ID, contract_key);
-   KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist", () );
+   // Ensure override exists
+   std::visit(
+   koinos::overloaded{
+      [&]( types::system::thunk_id_type& tid ) {
+         KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), unknown_thunk, "Thunk ${tid} does not exist", ("tid", tid) );
+      },
+      [&]( types::system::contract_call_bundle& scb ) {
+         types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( scb.contract_id );
+         auto contract = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+         KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
+         KOINOS_TODO( "Make a better exception for execute_contract" );
+         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), invalid_contract, "Cannot override execute_contract." );
+      },
+      [&]( auto& ) {
+         KOINOS_THROW( unknown_system_call, "system call replace called with unimplemented type ${tag}",
+                      ("tag", o.target.index()) );
+      } }, o.target );
 
-   // Store the system call bundle in the database
-   types::system::system_call_bundle bundle;
-   bundle.contract_id = o.contract_id;
-   bundle.entry_point = o.entry_point;
-   types::system::system_call_target sys_call = bundle;
-   db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( sys_call ) );
+   // Place the override in the database
+   db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
