@@ -6,7 +6,7 @@ from dataclasses_json import dataclass_json
 
 from dataclasses import dataclass, field
 from typing import List, Tuple, Union
-from collections import OrderedDict
+from collections import deque, OrderedDict
 
 from .parser import *
 
@@ -133,6 +133,61 @@ class ReferenceChecker(NamespaceStacker):
         node.name = fqn
         yield
 
+# Immediate dependencies of a node
+class FindDepsWalker(TreeListener):
+    def __init__(self, typemap=None):
+        super().__init__()
+        self.typemap = typemap
+        self.dep_set = set()
+        self.dep_list = []
+
+    def process_typeref(self, node):
+        name = tuple(node.name)
+        if name not in self.dep_set:
+            self.dep_set.add(name)
+            self.dep_list.append(name)
+        yield
+
+def find_immediate_deps(typemap, name):
+    finder = FindDepsWalker(typemap)
+    walk(finder, typemap[name])
+    return finder.dep_list
+
+class TopologicalSorter:
+    def __init__(self, deps, max_depth):
+        self.deps = deps
+        self.max_depth = max_depth
+        self.emitted_set = set()
+        self.emitted_list = list()
+
+    def process_item(self, item, depth=0):
+        if item in self.emitted_set:
+            return
+        next_depth = depth+1
+        for d in self.deps(item):
+            if d in self.emitted_set:
+                continue
+            if next_depth >= self.max_depth:
+                raise AnalyzeError("Topological sort depth exceeded, circular dependency on {}".format(item))
+            self.process_item(d, next_depth)
+            self.emit(d)
+        self.emit(item)
+
+    def emit(self, item):
+        if item not in self.emitted_set:
+            self.emitted_set.add(item)
+            self.emitted_list.append(item)
+
+def topological_sort(items, deps, max_depth=20):
+    #
+    # Topological sort:  Given a set of items, and a function deps(item)
+    # which gives the dependencies of an item, sort the items such that an item's dependencies precede it.
+    #
+    sorter = TopologicalSorter(deps, max_depth)
+    for item in items:
+        sorter.process_item(item)
+    return sorter.emitted_list
+
 @dataclass_json
 @dataclass
 class Schema:
@@ -165,6 +220,16 @@ class Schemanator:
         walk(listener, self.tree)
         print("typerefs:", typerefs)
 
+    def sort_typemap(self):
+        finder = FindDepsWalker(self.typemap)
+        tuple_names = [tuple(name) for name in self.typemap.keys()]
+        deps = lambda x : find_immediate_deps(self.typemap, x)
+        sorted_tuple_names = topological_sort(tuple_names, deps)
+        new_typemap = OrderedDict()
+        for name in sorted_tuple_names:
+            new_typemap[name] = self.typemap[name]
+        self.typemap = new_typemap
+
     def create_schema(self):
         decls = []
         for k, v in self.typemap.items():
@@ -174,4 +239,5 @@ class Schemanator:
     def schemanate(self):
         self.build_typemap()
         self.check_references()
+        self.sort_typemap()
         self.create_schema()
