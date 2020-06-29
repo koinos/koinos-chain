@@ -1,6 +1,7 @@
-[submodule "libraries/vendor/nlohmann_json"]
-	path = libraries/vendor/nlohmann_json
-	url = https://github.com/nlohmann/json.git
 [submodule "libraries/vendor/eos-vm"]
 	path = libraries/vendor/eos-vm
 	url = https://github.com/EOSIO/eos-vm.git
+[submodule "libraries/vendor/koinos-types"]
+	path = libraries/vendor/koinos-types
+	url = git@github.com:open-orchard/koinos-types.git
+	branch = master

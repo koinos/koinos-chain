@@ -1,2 +1,0 @@
-
-from .genpy import setup
