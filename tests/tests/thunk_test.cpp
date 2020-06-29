@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Set the system call
    protocol::set_system_call_operation call_op;
-   call_op.call_id = 11;
+   call_op.call_id = 11675754;
    call_op.contract_id = op.contract_id;
    call_op.entry_point = 0;
    thunk::apply_set_system_call_operation( ctx, call_op );
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Test invoking the overridden system call
    variable_blob vl_args, vl_ret;
-   host_api.invoke_system_call( 11, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
    BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
 
 } catch ( const koinos::exception& e ) { LOG(info) << e.to_string(); throw e; } }
