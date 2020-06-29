@@ -137,7 +137,7 @@ namespace koinos::statedb::detail {
          template< typename Initializer >
          merge_iterator( state_delta_ptr head, Initializer&& init )
          {
-            KOINOS_ASSERT( head, internal_error, "Cannot create a merge iterator on an null delta.", () );
+            KOINOS_ASSERT( head, internal_error, "Cannot create a merge iterator on an null delta." );
             auto current_delta = head;
 
             do
@@ -333,9 +333,9 @@ namespace koinos::statedb::detail {
          merge_iterator& operator =( const merge_iterator& other )
          {
             KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
-            KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques.", () );
-            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots", () );
-            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads", () );
+            KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques." );
+            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots" );
+            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads" );
 
             _iter_rev_index = other._iter_rev_index;
 
@@ -345,9 +345,9 @@ namespace koinos::statedb::detail {
          merge_iterator& operator =( merge_iterator&& other )
          {
             KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
-            KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques.", () );
-            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots", () );
-            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads", () );
+            KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques." );
+            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots" );
+            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads" );
 
             _iter_rev_index = std::move( other._iter_rev_index );
 

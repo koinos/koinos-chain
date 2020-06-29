@@ -50,21 +50,21 @@ int main( int argc, char** argv, char** envp )
 
       backend( &ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
 
-      std::cout << ctx.get_pending_console_output() << std::endl;
+      LOG(info) << ctx.get_pending_console_output();
    }
    catch( const eosio::vm::exception& e )
    {
-      std::cerr << e.what() << ": " << e.detail() << std::endl;
+      LOG(fatal) << e.what() << ": " << e.detail();
       return EXIT_FAILURE;
    }
    catch( const koinos::exception& e )
    {
-      std::cerr << e.to_string() << std::endl;
+      LOG(fatal) << boost::diagnostic_information( e );
       return EXIT_FAILURE;
    }
    catch (...)
    {
-      std::cerr << "unknown error" << std::endl;
+      LOG(fatal) << "unknown error";
       return EXIT_FAILURE;
    }
 

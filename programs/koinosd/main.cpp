@@ -73,10 +73,6 @@ int main( int argc, char** argv )
 
       return EXIT_SUCCESS;
    }
-   catch ( const koinos::exception& e )
-   {
-      LOG(fatal) << e.to_string() << std::endl;
-   }
    catch ( const boost::exception& e )
    {
       LOG(fatal) << boost::diagnostic_information( e ) << std::endl;

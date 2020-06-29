@@ -5,10 +5,9 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/serialization/strong_typedef.hpp>
 
-#include <koinos/exception.hpp>
-
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <optional>
 #include <set>
