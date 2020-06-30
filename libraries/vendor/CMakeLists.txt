@@ -1,7 +1,7 @@
 add_subdirectory(appbase)
 add_subdirectory(builtins)
 add_subdirectory(eos-vm)
-add_subdirectory(nlohmann_json)
+add_subdirectory(koinos-types)
 add_subdirectory(mira)
 
 #Configure needed build options of RocksDB.
