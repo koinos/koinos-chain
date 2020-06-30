@@ -11,15 +11,15 @@
 
 #define _DETAIL_KOINOS_INIT_VA_ARGS( ... ) init __VA_ARGS__
 
-#define KOINOS_THROW( exception, msg, ... ) \
-do {  \
-   exception e(msg);                         \
-   koinos::detail::json_initializer init(e);\
-   _DETAIL_KOINOS_INIT_VA_ARGS( __VA_ARGS__ ); \
-   BOOST_THROW_EXCEPTION( \
-      e \
+#define KOINOS_THROW( exception, msg, ... )                                      \
+do {                                                                             \
+   exception e(msg);                                                             \
+   koinos::detail::json_initializer init(e);                                     \
+   _DETAIL_KOINOS_INIT_VA_ARGS( __VA_ARGS__ );                                   \
+   BOOST_THROW_EXCEPTION(                                                        \
+      e                                                                          \
       << koinos::detail::exception_stacktrace( boost::stacktrace::stacktrace() ) \
-   ); \
+   );                                                                            \
 } while(0)
 
 #define KOINOS_ASSERT( cond, exc_name, msg, ... )     \
@@ -154,7 +154,7 @@ struct json_initializer
    }
 
    template< typename T >
-   typename std::enable_if< !std::is_trivial< T >::value, json_initializer& >::type operator()( const T& t )
+   typename std::enable_if_t< !std::is_trivial_v< T >, json_initializer& > operator()( const T& t )
    {
       nlohmann::json obj_json;
       koinos::pack::to_json( obj_json, t );
@@ -164,7 +164,7 @@ struct json_initializer
    }
 
    template< typename T >
-   typename std::enable_if< !std::is_trivial< T >::value, json_initializer& >::type operator()( T&& t )
+   typename std::enable_if_t< !std::is_trivial_v< T >, json_initializer& > operator()( T&& t )
    {
       nlohmann::json obj_json;
       koinos::pack::to_json( obj_json, t );
