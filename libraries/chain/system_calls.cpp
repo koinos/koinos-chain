@@ -40,6 +40,8 @@ DEFAULT_SYSTEM_CALLS(
 
    (get_contract_args_size)
    (get_contract_args)
+
+   (set_contract_return)
 )
 
 } // koinos::chain

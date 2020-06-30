@@ -85,7 +85,7 @@ struct execute_contract_args
    types::variable_blob    args;
 };
 
-typedef void_type execute_contract_ret;
+typedef types::variable_blob execute_contract_ret;
 
 typedef db_get_object_args db_get_next_object_args;
 
@@ -102,5 +102,12 @@ typedef types::int32 get_contract_args_size_ret;
 typedef void_type get_contract_args_args;
 
 typedef types::variable_blob get_contract_args_ret;
+
+struct set_contract_return_args
+{
+   types::variable_blob ret;
+};
+
+typedef void_type set_contract_return_ret;
 
 } } } // koinos::types::thunks

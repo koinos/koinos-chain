@@ -61,10 +61,13 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          },
          [&]( contract_call_bundle& scb ) {
             variable_blob args;
-            KOINOS_TODO( "Brainstorm how to avoid arg copy." )
+            KOINOS_TODO( "Brainstorm how to avoid arg/ret copy" )
+            KOINOS_TODO( "Pointer validation" )
             args.resize( arg_len );
             std::memcpy( args.data(), arg_ptr.value, arg_len );
-            thunk::execute_contract( context, scb.contract_id, scb.entry_point, args );
+            auto ret = thunk::execute_contract( context, scb.contract_id, scb.entry_point, args );
+            KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "Return buffer too small" );
+            std::memcpy( ret.data(), ret_ptr.value, ret.size() );
          },
          [&]( auto& ) {
             KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",

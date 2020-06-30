@@ -78,7 +78,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
       using koinos::types::system::thunk_id_type;                                                                    \
       using koinos::types::system::contract_call_bundle;                                                             \
       using koinos::types::system::system_call_id;                                                                   \
-      using koinos::types::protocol::system_call_target;                                                               \
+      using koinos::types::protocol::system_call_target;                                                             \
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( system_call_id::SYSCALL );                                            \
                                                                                                                      \
@@ -118,7 +118,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \
-            [&]( contract_call_bundle& _scb ) {                                                                        \
+            [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
                BOOST_PP_LIST_FOR_EACH(_THUNK_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST(FWD))                           \
                thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );                        \

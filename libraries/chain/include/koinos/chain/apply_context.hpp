@@ -35,6 +35,9 @@ class apply_context
       void set_contract_call_args( const types::variable_blob& args );
       const types::variable_blob& get_contract_call_args();
 
+      types::variable_blob get_contract_return();
+      void set_contract_return( const types::variable_blob& ret );
+
    /// Fields:
    public:
       privilege                     privilege_level = privilege::user_mode;
@@ -43,6 +46,7 @@ class apply_context
       std::string                   pending_console_output;
       state_node_ptr                current_state_node;
       types::variable_blob          contract_call_args;
+      types::variable_blob          contract_return;
 };
 
 } // koinos::chain

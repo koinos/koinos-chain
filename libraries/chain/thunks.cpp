@@ -32,6 +32,8 @@ void register_thunks( thunk_dispatcher& td )
 
    (get_contract_args_size)
    (get_contract_args)
+
+   (set_contract_return)
    )
 }
 
@@ -212,7 +214,7 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
-THUNK_DEFINE( void, execute_contract, ((const types::contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
+THUNK_DEFINE( variable_blob, execute_contract, ((const types::contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
 {
    types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( contract_id );
    auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
@@ -226,6 +228,8 @@ THUNK_DEFINE( void, execute_contract, ((const types::contract_id_type&) contract
 
    context.set_contract_call_args( args );
    backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+
+   return context.get_contract_return();
 }
 
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
@@ -236,6 +240,11 @@ THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
 THUNK_DEFINE_VOID( variable_blob, get_contract_args )
 {
    return context.get_contract_call_args();
+}
+
+THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
+{
+   context.set_contract_return( ret );
 }
 
 } } // koinos::chain::thunk

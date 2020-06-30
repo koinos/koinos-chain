@@ -60,9 +60,11 @@ THUNK_DECLARE( variable_blob, db_get_object, const statedb::object_space& space,
 THUNK_DECLARE( variable_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 THUNK_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
 
-THUNK_DECLARE( void, execute_contract, const types::contract_id_type& contract_id, uint32_t entry_point, const variable_blob& args);
+THUNK_DECLARE( variable_blob, execute_contract, const types::contract_id_type& contract_id, uint32_t entry_point, const variable_blob& args);
 
 THUNK_DECLARE_VOID( uint32_t, get_contract_args_size );
 THUNK_DECLARE_VOID( variable_blob, get_contract_args );
+
+THUNK_DECLARE( void, set_contract_return, const variable_blob& ret );
 
 } } // koinos::chain::thunk
