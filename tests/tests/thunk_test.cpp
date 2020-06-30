@@ -169,6 +169,9 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    auto ret = ctx.get_contract_return();
    BOOST_REQUIRE( ret.size() == ret_val.size() );
    BOOST_REQUIRE( std::equal( ret.begin(), ret.begin()+ret.size(), ret_val.begin() ) );
+   // Ensure the return was cleared
+   ret = ctx.get_contract_return();
+   BOOST_REQUIRE( ret.size() == 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

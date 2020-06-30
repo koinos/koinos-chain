@@ -121,7 +121,8 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
                BOOST_PP_LIST_FOR_EACH(_THUNK_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST(FWD))                           \
-               thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );                        \
+               auto _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );   \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \
                KOINOS_THROW( unknown_system_call,                                                                    \
