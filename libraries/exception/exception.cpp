@@ -80,14 +80,14 @@ json_initializer::json_initializer( exception& e ) :
 json_initializer& json_initializer::operator()( const std::string& key, const char* c )
 {
    _j[key] = c;
-   _e.check_message_substitution();
+   _e.do_message_substitution();
    return *this;
 }
 
 json_initializer& json_initializer::operator()( const std::string& key, size_t v )
 {
    koinos::pack::to_json( _j[key], (uint64_t)v );
-   _e.check_message_substitution();
+   _e.do_message_substitution();
    return *this;
 }
 
@@ -128,7 +128,7 @@ const std::string& exception::get_message() const
    return msg;
 }
 
-void exception::check_message_substitution()
+void exception::do_message_substitution()
 {
    msg = detail::json_strpolate( msg, *boost::get_error_info< koinos::detail::json_info >( *this ) );
 }

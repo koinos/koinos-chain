@@ -25,6 +25,7 @@ BOOST_AUTO_TEST_CASE( exception_test )
    exception_json["x"] = "foo";
    exception_json["y"] = "bar";
 
+   BOOST_TEST_MESSAGE( "Throw an exception with an initial capture and a caught capture." );
    try
    {
       try
@@ -36,10 +37,12 @@ BOOST_AUTO_TEST_CASE( exception_test )
    catch( koinos::exception& e )
    {
       auto j = e.get_json();
-      BOOST_REQUIRE( exception_json == j );
+      BOOST_REQUIRE_EQUAL( exception_json, j );
       BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test foo bar" );
+      BOOST_REQUIRE_EQUAL( e.what(), e.get_message() );
    }
 
+   BOOST_TEST_MESSAGE( "Throw an exception with no initial capture and a caught capture." );
    try
    {
       try
@@ -51,10 +54,12 @@ BOOST_AUTO_TEST_CASE( exception_test )
    catch( koinos::exception& e )
    {
       auto j = e.get_json();
-      BOOST_REQUIRE( exception_json == j );
+      BOOST_REQUIRE_EQUAL( exception_json, j );
       BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test foo bar" );
+      BOOST_REQUIRE_EQUAL( e.what(), e.get_message() );
    }
 
+   BOOST_TEST_MESSAGE( "Throw an exception with an initial capture and a caught extra capture." );
    try
    {
       try
@@ -67,10 +72,12 @@ BOOST_AUTO_TEST_CASE( exception_test )
    {
       exception_json["z"] = 10;
       auto j = e.get_json();
-      BOOST_REQUIRE( exception_json == j );
+      BOOST_REQUIRE_EQUAL( exception_json, j );
       BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test foo bar" );
+      BOOST_REQUIRE_EQUAL( e.what(), e.get_message() );
    }
 
+   BOOST_TEST_MESSAGE( "Throw an exception with an initial object capture and a missing capture." );
    try
    {
       try
@@ -88,8 +95,23 @@ BOOST_AUTO_TEST_CASE( exception_test )
       exception_json["z"]["x"] = 3;
       exception_json["z"]["y"] = 4;
       auto j = e.get_json();
-      BOOST_REQUIRE( exception_json == j );
+      BOOST_REQUIRE_EQUAL( exception_json, j );
       BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test {\"x\":1,\"y\":2} ${y}" );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with an initial implicit object capture." );
+   try
+   {
+      exception_test_object obj = {1,2};
+      KOINOS_THROW( my_exception, "exception_test ${x} ${y}", (obj) );
+   }
+   catch( koinos::exception& e )
+   {
+      exception_json.clear();
+      exception_json["x"] = 1;
+      exception_json["y"] = 2;
+      BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test 1 2" );
+      BOOST_REQUIRE_EQUAL( e.get_message(), e.what() );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

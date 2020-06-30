@@ -109,9 +109,9 @@ struct exception : virtual boost::exception, virtual std::exception
       const std::string& get_message() const;
 
    private:
-      friend class detail::json_initializer;
+      friend struct detail::json_initializer;
 
-      void check_message_substitution();
+      void do_message_substitution();
 };
 
 
@@ -141,7 +141,7 @@ struct json_initializer
    json_initializer& operator()( const std::string& key, T&& t )
    {
       koinos::pack::to_json( _j[key], t );
-      _e.check_message_substitution();
+      _e.do_message_substitution();
       return *this;
    }
 
@@ -149,7 +149,27 @@ struct json_initializer
    json_initializer& operator()( const std::string& key, const T& t )
    {
       koinos::pack::to_json( _j[key], t );
-      _e.check_message_substitution();
+      _e.do_message_substitution();
+      return *this;
+   }
+
+   template< typename T >
+   typename std::enable_if< !std::is_trivial< T >::value, json_initializer& >::type operator()( const T& t )
+   {
+      nlohmann::json obj_json;
+      koinos::pack::to_json( obj_json, t );
+      _j.merge_patch( obj_json );
+      _e.do_message_substitution();
+      return *this;
+   }
+
+   template< typename T >
+   typename std::enable_if< !std::is_trivial< T >::value, json_initializer& >::type operator()( T&& t )
+   {
+      nlohmann::json obj_json;
+      koinos::pack::to_json( obj_json, t );
+      _j.merge_patch( obj_json );
+      _e.do_message_substitution();
       return *this;
    }
 };
