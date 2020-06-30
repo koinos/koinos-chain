@@ -19,32 +19,32 @@ The lookup table is implemented in a class called `thunk_dispatcher`. The LUT is
 - An entry in the thunk lookup table is permanent.
 - If you create a new native function, it gets a new thunk ID.
 
-### Sysytem Calls
+### System Calls
 
 Now we have a separate problem. What is our plan for an in-band upgrade of functionality that's initially implemented in native code?
 
-Another layer of table-based call dispatching, `sysem_call`, is implemented to solve this problem.
+Another layer of table-based call dispatching, `system_call`, is implemented to solve this problem.
 
-User smart contracts cannot call thunks directly. Instead, smart contracts call thunks by specifying a key which points into the system call translation table. The keys of the xcall translation table are integers, values are of type `xcall_target` which is an `std::variant` which can contain a `thunk_id_type` or a `contract_id_type`.
+User smart contracts cannot call thunks directly. Instead, smart contracts call thunks by specifying a key which points into the system call translation table. The keys of the system call translation table are integers, values are of type `system_call_target` which is an `std::variant` which can contain a `thunk_id_type` or a `contract_id_type`.
 
 A system call can be upgraded by writing a different `system_call_target` to the state.
 
 ### Native-to-native code updates
 
-Here's how to make (semantically inequivalent, potentially consensus-breaking) updates to a native xcall handler as native code:
+Here's how to make (semantically inequivalent, potentially consensus-breaking) updates to a native system call handler as native code:
 
 - Treat the updated function *as if you're creating a new native function*.
 - Register the new function under a brand-new thunk ID.
 - Keep the old function registered under the old thunk ID.
-- When business logic determines switchover should occur, write the thunk ID into the xcall.
+- When business logic determines switchover should occur, write the thunk ID into the system call.
 
 WASM code can call thunks directly via the `invoke_thunk` syscall. Code which calls a thunk directly can only be upgraded by replacing it with different code. Therefore, only system code should be allowed to call `invoke_thunk`.
 
 ### Calling thunk functions
 
-Let's consider the upgrade path for a natively implemented system call handler. Let's use `prints()` as an example, but really it applies to any xcall.
+Let's consider the upgrade path for a natively implemented system call handler. Let's use `prints()` as an example, but really it applies to any system call.
 
-For a more concrete example, let's say `prints()` is an xcall that (for consensus purposes) is a no-op at launch (prints may put its output somewhere that may be seen by a debugging tool, or literally log it to the console if you run koinosd with full verbosity, but that's irrelevant to consensus). But then we want to have a hardfork to hash the `prints()` output and put the hash somewhere (perhaps in passive data).
+For a more concrete example, let's say `prints()` is an system call that (for consensus purposes) is a no-op at launch (prints may put its output somewhere that may be seen by a debugging tool, or literally log it to the console if you run koinosd with full verbosity, but that's irrelevant to consensus). But then we want to have a hardfork to hash the `prints()` output and put the hash somewhere (perhaps in passive data).
 
 Re-writing the new version of `prints()` is straightforward. Let's instead focus on other natively implemented system calls that call `prints()`.
 
