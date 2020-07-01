@@ -253,8 +253,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Now test that the message has been modified
    host_api.invoke_system_call( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
-   //auto new_message = host_api.context.get_pending_console_output();
-   //BOOST_REQUIRE( original_message != new_message );
+   auto new_message = host_api.context.get_pending_console_output();
+   BOOST_REQUIRE( original_message != new_message );
+   BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
 
 
 
