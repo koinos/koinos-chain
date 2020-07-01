@@ -13,6 +13,7 @@ void register_thunks( thunk_dispatcher& td )
 {
    REGISTER_THUNKS( td,
    (prints)
+   (exit_contract)
 
    (verify_block_header)
 
@@ -106,7 +107,11 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
    backend.initialize();
 
    context.set_contract_call_args( o.args );
-   backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+   try
+   {
+      backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+   }
+   catch( const exit_success& ) {}
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
@@ -220,6 +225,19 @@ THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
 THUNK_DEFINE_VOID( variable_blob, get_contract_args )
 {
    return context.get_contract_call_args();
+}
+
+THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
+{
+   switch( exit_code )
+   {
+      case KOINOS_EXIT_SUCCESS:
+          KOINOS_THROW( exit_success, "" );
+      case KOINOS_EXIT_FAILURE:
+          KOINOS_THROW( exit_failure, "" );
+      default:
+          KOINOS_THROW( unknown_exit_code, "Contract specified unknown exit code" );
+   }
 }
 
 } } // koinos::chain::thunk
