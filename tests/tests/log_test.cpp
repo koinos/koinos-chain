@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE( log_tests )
 
    std::vector<std::string> results;
    auto stream_str = stream.str();
-   boost::split( results, stream.str(), boost::is_any_of("\n") );
+   boost::split( results, stream.str(), boost::is_any_of( "\n" )  );
    results.pop_back();
 
    auto pos2 = stream.str().find( "<" );
