@@ -10,8 +10,6 @@
 #include <boost/thread/future.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
-#include <koinos/pack/rt/string_fwd.hpp>
-
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunks.hpp>
@@ -19,7 +17,6 @@
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
-#include <koinos/pack/rt/string.hpp>
 
 #include <koinos/chain/controller.hpp>
 

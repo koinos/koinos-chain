@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/preprocessor.hpp>
 #include <boost/preprocessor/punctuation/comma.hpp>
+#include <boost/vmd/is_empty.hpp>
 
 #include <koinos/util.hpp>
 
@@ -70,7 +71,8 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
-#define _THUNK_ARG_PACK(r, blob, elem) to_variable_blob( blob, elem, true );
+#define _THUNK_DETAIL_ARG_PACK(r, blob, elem) koinos::pack::to_variable_blob( blob, elem, true );
+#define _THUNK_ARG_PACK( ... ) BOOST_PP_LIST_FOR_EACH(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
@@ -116,11 +118,11 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                   TYPES >(                                                                                           \
                      koinos::types::thunks::thunk_id(_tid),                                                          \
                      context                                                                                         \
-                     FWD );                                                                                          \
+                     VA_ARGS(FWD) );                                                                                 \
             },                                                                                                       \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
-               BOOST_PP_LIST_FOR_EACH(_THUNK_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST(FWD))                           \
+               BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
                auto _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );   \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
@@ -137,7 +139,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \
       VA_ARGS(_THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__)),                                                               \
       VA_ARGS(_THUNK_DETAIL_DEFINE_TYPES(__VA_ARGS__)),                                                              \
-      VA_ARGS(_THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__)) )                                                           \
+      _THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__) )                                                                    \
 
 #define THUNK_DEFINE_VOID( RETURN_TYPE, SYSCALL )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, , , )

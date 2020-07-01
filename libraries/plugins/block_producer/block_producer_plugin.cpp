@@ -3,14 +3,12 @@
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread.hpp>
 
-#include <koinos/pack/rt/string_fwd.hpp>
 #include <koinos/pack/rt/json_fwd.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
-#include <koinos/pack/rt/string.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>

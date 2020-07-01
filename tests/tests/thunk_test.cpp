@@ -195,9 +195,11 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    contract_op.bytecode.insert( contract_op.bytecode.end(), return_bytecode.begin(), return_bytecode.end() );
    thunk::apply_upload_contract_operation( ctx, contract_op );
 
-   variable_blob args = koinos::pack::to_variable_blob( "echo"s );
+   std::string arg_str = "echo";
+   variable_blob args = koinos::pack::to_variable_blob( arg_str );
    auto contract_ret = thunk::execute_contract(ctx, contract_op.contract_id, 0, args);
-   BOOST_REQUIRE( std::equal( args.begin(), args.begin()+args.size(), contract_ret.begin() ) );
+   auto return_str = koinos::pack::from_variable_blob< std::string >( contract_ret );
+   BOOST_REQUIRE_EQUAL( arg_str, return_str );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -270,6 +272,12 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto new_message = host_api.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
+
+   thunk::prints( host_api.context, original_message );
+   new_message = host_api.context.get_pending_console_output();
+   BOOST_REQUIRE( original_message != new_message );
+   BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( thunk_test )

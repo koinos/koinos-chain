@@ -4,8 +4,6 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <koinos/pack/rt/string.hpp>
-
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>
 
