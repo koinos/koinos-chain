@@ -11,7 +11,7 @@ void prints( char* msg )
 
    int i = 0;
 
-   while( i < sizeof(prepend) )
+   while( i < 6 )
    {
       args[i+1] = prepend[i];
       i++;
@@ -19,16 +19,15 @@ void prints( char* msg )
 
    i = 0;
 
-   while( msg[i] && i < 127 )
+   while( msg[i] && i < 129 - 6 - 1 )
    {
       // Purposefully OBO to overwrite 0 at the end of prepend
-      args[i + sizeof(prepend)] = msg[i];
+      args[i + 6 + 1] = msg[i];
       i++;
    }
-   args[i] = 0;
-   args[0] = (uint8_t)i + sizeof(prepend);
+   args[0] = (uint8_t)i + 6 + 1;
 
-   invoke_thunk( 0, 0, 0, args, i + sizeof(prepend) + 1 );
+   invoke_thunk( 0, 0, 0, args, i + 6 + 1 );
 }
 
 __attribute__( (visibility("default")) )
