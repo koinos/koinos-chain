@@ -49,6 +49,16 @@ struct thunk_fixture
       return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
    }
 
+   std::vector< uint8_t > get_return_wasm()
+   {
+      return std::vector< uint8_t >();
+   }
+
+   std::vector< uint8_t > get_print_override_wasm()
+   {
+      return std::vector< uint8_t >();
+   }
+
    boost::filesystem::path temp;
    koinos::statedb::state_db db;
    koinos::chain::apply_context ctx;
@@ -181,17 +191,18 @@ BOOST_AUTO_TEST_CASE( override_tests )
    using namespace koinos::types;
 
    // Upload a test contract to use as override
-   protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
-   memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
+   protocol::create_system_contract_operation contract_op;
    auto bytecode = get_hello_wasm();
-   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   thunk::apply_upload_contract_operation( ctx, op );
+   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
+   memcpy( contract_op.contract_id.data(), id.digest.data(), contract_op.contract_id.size() );
+
+   op.bytecode.insert( contract_op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   thunk::apply_upload_contract_operation( ctx, contract_op );
 
    // Set the system call
    protocol::set_system_call_operation call_op;
    koinos::types::system::contract_call_bundle bundle;
-   bundle.contract_id = op.contract_id;
+   bundle.contract_id = contract_op.contract_id;
    bundle.entry_point = 0;
    call_op.call_id = 11675754;
    call_op.target = bundle;
@@ -213,6 +224,22 @@ BOOST_AUTO_TEST_CASE( override_tests )
    variable_blob vl_args, vl_ret;
    host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
    BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
+
+   // Override prints with a contract that prepends a message before printing
+   protocol::create_system_contract_operation contract_op2;
+   auto bytecode2 = get_hello_wasm();
+   auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode2 );
+   memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
+
+   protocol::set_system_call_operation call_op2;
+   koinos::types::system::contract_call_bundle bundle2;
+   bundle2.contract_id = contract_op2.contract_id;
+   bundle2.entry_point = 0;
+   call_op2.call_id = 11675754;
+   call_op2.target = bundle2;
+   thunk::apply_set_system_call_operation( ctx, call_op2 );
+
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( thunk_test )
