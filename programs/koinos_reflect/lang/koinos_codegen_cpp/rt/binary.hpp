@@ -520,11 +520,7 @@ namespace detail
          size_t         _write_pos = 0;
 
       public:
-         output_blobstream( variable_blob& d, bool append ) : _data(d)
-         {
-            if( append )
-               _write_pos = _data.size();
-         }
+         output_blobstream( variable_blob& d ) : _data(d) {}
 
          output_blobstream& write( const char* s, size_t n )
          {
@@ -763,14 +759,13 @@ inline void from_binary( Stream& s, T& v, uint32_t depth )
    detail::binary::if_enum< typename reflector< T >::is_enum >::from_binary( s, v, depth );
 }
 
-inline void to_variable_blob( variable_blob& v, const std::string& s, bool append = false )
+inline void to_variable_blob( variable_blob& v, const std::string& s )
 {
-   if( !append )
-      v.clear();
+   v.clear();
    v.insert( v.end(), s.begin(), s.end() );
 }
 
-inline void to_variable_blob( variable_blob& v, const std::string&& s, bool append = false )
+inline void to_variable_blob( variable_blob& v, const std::string&& s )
 {
    to_variable_blob( v, s );
 }
@@ -790,11 +785,10 @@ inline variable_blob to_variable_blob( const std::string&& s )
 }
 
 template< typename T >
-inline void to_variable_blob( variable_blob& v, const T& t, bool append = false )
+inline void to_variable_blob( variable_blob& v, const T& t )
 {
-   if( !append )
-      v.clear();
-   detail::output_blobstream vs( v, append );
+   v.clear();
+   detail::output_blobstream vs( v );
    to_binary( vs, t );
 }
 
