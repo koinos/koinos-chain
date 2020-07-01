@@ -14,7 +14,7 @@ void prints( char* msg )
    }
    args[0] = (uint8_t)i;
 
-   invoke_system_call( 12, 0, 0, args, i + 1 );
+   invoke_system_call( 15, 0, 0, args, i + 1 );
 }
 
 __attribute__( (visibility("default")) )
@@ -22,5 +22,5 @@ void apply( uint64_t a, uint64_t b, uint64_t c )
 {
    char message[64];
    invoke_system_call( 14, message, 63, 0, 0 );
-   prints( message + 1 );
+   prints( message + 2 );
 }
