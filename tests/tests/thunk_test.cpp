@@ -14,9 +14,10 @@
 
 #include <koinos/pack/rt/binary.hpp>
 
+#include <koinos/test/wasm/hello_wasm.hpp>
+
 #include <mira/database_configuration.hpp>
 
-#include "../test_fixtures/wasm/hello_wasm.hpp"
 
 using namespace std::string_literals;
 

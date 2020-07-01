@@ -50,7 +50,7 @@ if (COVERAGE)
      NAME coverage
      LCOV_ARGS "--no-external"
      EXECUTABLE koinos_tests
-     EXCLUDE "libraries/vendor/*")
+     EXCLUDE "libraries/vendor/*" "build/libraries/vendor/*")
 endif()
 
 add_subdirectory(programs)
