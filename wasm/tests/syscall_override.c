@@ -14,6 +14,7 @@ void prints( char* msg )
    while( i < sizeof(prepend) )
    {
       args[i+1] = prepend[i];
+      i++;
    }
 
    i = 0;
