@@ -3,7 +3,7 @@ language: c++
 cache:
 - ccache
 - pip
-  directories:
+- directories:
     - $HOME/Library/Caches/Homebrew
     - /usr/local/Homebrew
 
