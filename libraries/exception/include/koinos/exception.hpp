@@ -11,16 +11,15 @@
 
 #define _DETAIL_KOINOS_INIT_VA_ARGS( ... ) init __VA_ARGS__
 
-#define KOINOS_THROW( exception, msg, ... ) \
-do {  \
-   nlohmann::json j; \
-   koinos::detail::json_initializer init(j);\
-   _DETAIL_KOINOS_INIT_VA_ARGS( __VA_ARGS__ ); \
-   BOOST_THROW_EXCEPTION( \
-      exception( msg ) \
-      << koinos::detail::json_info( std::move(j) ) \
+#define KOINOS_THROW( exception, msg, ... )                                      \
+do {                                                                             \
+   exception e(msg);                                                             \
+   koinos::detail::json_initializer init(e);                                     \
+   _DETAIL_KOINOS_INIT_VA_ARGS( __VA_ARGS__ );                                   \
+   BOOST_THROW_EXCEPTION(                                                        \
+      e                                                                          \
       << koinos::detail::exception_stacktrace( boost::stacktrace::stacktrace() ) \
-   ); \
+   );                                                                            \
 } while(0)
 
 #define KOINOS_ASSERT( cond, exc_name, msg, ... )     \
@@ -31,45 +30,38 @@ do {  \
       }                                               \
    } while (0)
 
-#define KOINOS_CAPTURE_CATCH_AND_RETHROW( ... )                                        \
-catch( std::exception& e )                                                             \
-{                                                                                      \
-   nlohmann::json* maybe_json = boost::get_error_info< koinos::detail::json_info >(e); \
-   if( maybe_json )                                                                    \
-   {                                                                                   \
-      koinos::detail::json_initializer init(*maybe_json);                              \
-      _DETAIL_KOINOS_INIT_VA_ARGS( __VA_ARGS__ );                                      \
-   }                                                                                   \
-                                                                                       \
-   throw;                                                                              \
+#define KOINOS_CAPTURE_CATCH_AND_RETHROW( ... ) \
+catch( koinos::exception& e )                   \
+{                                               \
+   koinos::detail::json_initializer init(e);    \
+   _DETAIL_KOINOS_INIT_VA_ARGS( __VA_ARGS__ );  \
+   throw;                                       \
 }
 
 #define KOINOS_CATCH_LOG_AND_RETHROW( log_level )           \
-catch( std::exception& e )                                  \
+catch( koinos::exception& e )                               \
 {                                                           \
    LOG( log_level ) << boost::diagnostic_information( e );  \
    throw;                                                   \
 }
 
 #define KOINOS_CATCH_AND_LOG( log_level )                   \
-catch( std::exception& e )                                  \
+catch( koinos::exception& e )                               \
 {                                                           \
    LOG( log_level ) << boost::diagnostic_information( e );  \
 }
 
-#define KOINOS_CATCH_AND_GET_JSON( j )                                                 \
-catch( std::exception& e )                                                             \
-{                                                                                      \
-   nlohmann::json* maybe_json = boost::get_error_info< koinos::detail::json_info >(e); \
-   if( maybe_json ) j = *maybe_json;                                                   \
+#define KOINOS_CATCH_AND_GET_JSON( j ) \
+catch( koinos::exception& e )          \
+{                                      \
+   j = e.get_json();                   \
 }
 
-#define KOINOS_CATCH_LOG_AND_GET_JSON( log_level, j )                                  \
-catch( std::exception& e )                                                             \
-{                                                                                      \
-   LOG( log_level ) << boost::diagnostic_information( e );                             \
-   nlohmann::json* maybe_json = boost::get_error_info< koinos::detail::json_info >(e); \
-   if( maybe_json ) j = *maybe_json;                                                   \
+#define KOINOS_CATCH_LOG_AND_GET_JSON( log_level, j )       \
+catch( koinos::exception& e )                               \
+{                                                           \
+   LOG( log_level ) << boost::diagnostic_information( e );  \
+   j = e.get_json();                                        \
 }
 
 #define KOINOS_DECLARE_EXCEPTION( exc_name )                         \
@@ -92,41 +84,11 @@ catch( std::exception& e )                                                      
       virtual ~exc_name() {};                               \
    };
 
-namespace koinos { namespace detail {
+namespace koinos {
 
-using json_info = boost::error_info< struct json_tag, nlohmann::json >;
-using exception_stacktrace = boost::error_info< struct stacktrace_tag, boost::stacktrace::stacktrace >;
+// Forward declaration
+namespace detail { struct json_initializer; }
 
-std::string json_strpolate( const std::string& format_str, const nlohmann::json& j );
-
-/**
- * Initializes a json object using a bubble list of key value pairs.
- */
-struct json_initializer
-{
-   nlohmann::json& _j;
-
-   json_initializer() = delete;
-   json_initializer( nlohmann::json& j );
-
-   template< typename T >
-   json_initializer& operator()( const std::string& key, T&& t )
-   {
-      koinos::pack::to_json( _j[key], t );
-      return *this;
-   }
-
-   template< typename T >
-   json_initializer& operator()( const std::string& key, const T& t )
-   {
-      koinos::pack::to_json( _j[key], t );
-      return *this;
-   }
-
-   json_initializer& operator()();
-};
-
-} // detail
 
 struct exception : virtual boost::exception, virtual std::exception
 {
@@ -144,6 +106,72 @@ struct exception : virtual boost::exception, virtual std::exception
 
       std::string get_stacktrace() const;
       const nlohmann::json& get_json() const;
+      const std::string& get_message() const;
+
+   private:
+      friend struct detail::json_initializer;
+
+      void do_message_substitution();
 };
 
-} // koinos
+
+namespace detail {
+
+using json_info = boost::error_info< struct json_tag, nlohmann::json >;
+using exception_stacktrace = boost::error_info< struct stacktrace_tag, boost::stacktrace::stacktrace >;
+
+std::string json_strpolate( const std::string& format_str, const nlohmann::json& j );
+
+/**
+ * Initializes a json object using a bubble list of key value pairs.
+ */
+struct json_initializer
+{
+   exception& _e;
+   nlohmann::json& _j;
+
+   json_initializer() = delete;
+   json_initializer( exception& e );
+
+   json_initializer& operator()( const std::string& key, const char* c );
+   json_initializer& operator()( const std::string& key, size_t v );
+   json_initializer& operator()();
+
+   template< typename T >
+   json_initializer& operator()( const std::string& key, T&& t )
+   {
+      koinos::pack::to_json( _j[key], t );
+      _e.do_message_substitution();
+      return *this;
+   }
+
+   template< typename T >
+   json_initializer& operator()( const std::string& key, const T& t )
+   {
+      koinos::pack::to_json( _j[key], t );
+      _e.do_message_substitution();
+      return *this;
+   }
+
+   template< typename T >
+   typename std::enable_if_t< !std::is_trivial_v< T >, json_initializer& > operator()( const T& t )
+   {
+      nlohmann::json obj_json;
+      koinos::pack::to_json( obj_json, t );
+      _j.merge_patch( obj_json );
+      _e.do_message_substitution();
+      return *this;
+   }
+
+   template< typename T >
+   typename std::enable_if_t< !std::is_trivial_v< T >, json_initializer& > operator()( T&& t )
+   {
+      nlohmann::json obj_json;
+      koinos::pack::to_json( obj_json, t );
+      _j.merge_patch( obj_json );
+      _e.do_message_substitution();
+      return *this;
+   }
+};
+
+} } // koinos::detail

@@ -98,7 +98,7 @@ compressed_public_key public_key::serialize()const
          SECP256K1_EC_COMPRESSED ),
       key_serialization_error, "Unknown error during public key serialization" );
    KOINOS_ASSERT( len == cpk.size(), key_serialization_error,
-      "Serialized key does not match expected size of ${n} bytes", ("n", (uint64_t)cpk.size()) );
+      "Serialized key does not match expected size of ${n} bytes", ("n", cpk.size()) );
 
    return cpk;
 }
