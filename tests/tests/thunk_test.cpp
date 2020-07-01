@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    contract_op.bytecode.insert( contract_op.bytecode.end(), return_bytecode.begin(), return_bytecode.end() );
    thunk::apply_upload_contract_operation( ctx, contract_op );
 
-   variable_blob args = vector< char >{ 'e','c','h','o' };
+   variable_blob args = koinos::pack::to_variable_blob( "echo"s );
    auto contract_ret = thunk::execute_contract(ctx, contract_op.contract_id, 0, args);
    BOOST_REQUIRE( std::equal( args.begin(), args.begin()+args.size(), contract_ret.begin() ) );
 
