@@ -198,7 +198,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
    memcpy( contract_op.contract_id.data(), id.digest.data(), contract_op.contract_id.size() );
 
-   op.bytecode.insert( contract_op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   contract_op.bytecode.insert( contract_op.bytecode.end(), bytecode.begin(), bytecode.end() );
    thunk::apply_upload_contract_operation( ctx, contract_op );
 
    // Set the system call
@@ -227,19 +227,35 @@ BOOST_AUTO_TEST_CASE( override_tests )
    host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
    BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
 
+   // Call stock prints and save the message
+   thunks::prints_args args;
+   args.message = "Hello World";
+   variable_blob vl_args2, vl_ret2;
+   koinos::pack::to_variable_blob( vl_args2, args );
+   host_api.invoke_system_call( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
+   auto original_message = host_api.context.get_pending_console_output();
+
    // Override prints with a contract that prepends a message before printing
    protocol::create_system_contract_operation contract_op2;
-   auto bytecode2 = get_hello_wasm();
+   auto bytecode2 = get_syscall_override_wasm();
    auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode2 );
    memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
+   contract_op2.bytecode.insert( contract_op2.bytecode.end(), bytecode2.begin(), bytecode2.end() );
+   thunk::apply_upload_contract_operation( ctx, contract_op2 );
 
    protocol::set_system_call_operation call_op2;
    koinos::types::system::contract_call_bundle bundle2;
    bundle2.contract_id = contract_op2.contract_id;
    bundle2.entry_point = 0;
-   call_op2.call_id = 11675754;
+   call_op2.call_id = static_cast< system::thunk_id_type >( thunks::thunk_id::prints );
    call_op2.target = bundle2;
    thunk::apply_set_system_call_operation( ctx, call_op2 );
+
+   // Now test that the message has been modified
+   host_api.invoke_system_call( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
+   //auto new_message = host_api.context.get_pending_console_output();
+   //BOOST_REQUIRE( original_message != new_message );
+
 
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
