@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
-#include "../test_fixtures/crypto_fixture.hpp"
+#include <crypto_fixture.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
 
