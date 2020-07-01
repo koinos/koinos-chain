@@ -198,7 +198,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    thunk::apply_set_system_call_operation( ctx, call_op );
 
    // Fetch the created call bundle from the database and check it
-   auto call_target = koinos::pack::from_variable_blob< protocol::system_call_target >( thunk::db_get_object( ctx, SYS_CALL_DISPATCH_TABLE_SPACE_ID, call_op.call_id ) );
+   auto call_target = koinos::pack::from_variable_blob< system::system_call_target >( thunk::db_get_object( ctx, SYS_CALL_DISPATCH_TABLE_SPACE_ID, call_op.call_id ) );
    auto call_bundle = std::get< system::contract_call_bundle >( call_target );
    BOOST_REQUIRE( call_bundle.contract_id == bundle.contract_id );
    BOOST_REQUIRE( call_bundle.entry_point == bundle.entry_point );
