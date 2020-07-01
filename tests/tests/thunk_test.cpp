@@ -19,7 +19,9 @@
 
 #include <mira/database_configuration.hpp>
 
-#include "../test_fixtures/wasm/hello_wasm.hpp"
+#include "../test_fixtures/wasm/contract_return.hpp"
+#include "../test_fixtures/wasm/hello.hpp"
+#include "../test_fixtures/wasm/syscall_override.hpp"
 
 using namespace std::string_literals;
 
@@ -49,14 +51,14 @@ struct thunk_fixture
       return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
    }
 
-   std::vector< uint8_t > get_return_wasm()
+   std::vector< uint8_t > get_contract_return_wasm()
    {
-      return std::vector< uint8_t >();
+      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
    }
 
-   std::vector< uint8_t > get_print_override_wasm()
+   std::vector< uint8_t > get_syscall_override_wasm()
    {
-      return std::vector< uint8_t >();
+      return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
    }
 
    boost::filesystem::path temp;
