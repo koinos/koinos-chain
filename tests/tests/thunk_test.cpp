@@ -185,6 +185,20 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    ret = ctx.get_contract_return();
    BOOST_REQUIRE( ret.size() == 0 );
 
+   BOOST_TEST_MESSAGE( "Test contract return" );
+
+   // Upload the return test contract
+   koinos::pack::protocol::create_system_contract_operation contract_op;
+   auto return_bytecode = get_contract_return_wasm();
+   auto return_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, return_bytecode );
+   memcpy( contract_op.contract_id.data(), return_id.digest.data(), contract_op.contract_id.size() );
+   contract_op.bytecode.insert( contract_op.bytecode.end(), return_bytecode.begin(), return_bytecode.end() );
+   thunk::apply_upload_contract_operation( ctx, contract_op );
+
+   variable_blob args = vector< char >{ 'e','c','h','o',0 };
+   auto contract_ret = thunk::execute_contract(ctx, contract_op.contract_id, 0, args);
+   //BOOST_REQUIRE( std::equal( args.begin(), args.begin()+args.size(), contract_ret.begin() ) );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( override_tests )
@@ -256,9 +270,6 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto new_message = host_api.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
-
-
-
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( thunk_test )
