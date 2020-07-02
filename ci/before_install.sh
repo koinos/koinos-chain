@@ -3,7 +3,7 @@
 if [ "$TRAVIS_OS_NAME" = "linux" ]; then
    sudo apt-get update -qq
 elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
-   ./travis_osx_brew_cache.sh
+   source ci/travis_osx_brew_cache.sh
    TAPS="$(brew --repository)/Library/Taps"
    if [ -e "$TAPS/caskroom/homebrew-cask" -a -e "$TAPS/homebrew/homebrew-cask" ]; then
          rm -rf "$TAPS/caskroom/homebrew-cask"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-   ./travis_osx_brew_cache.sh
+   source ci/travis_osx_brew_cache.sh
    set -e; set -x
    if [ -n "$IS_OSX" ]; then
          # When Taps is cached, this dir causes "Error: file exists" on `brew update`
