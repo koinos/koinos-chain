@@ -3,7 +3,8 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/types.hpp>
 
-#include <koinos/pack/rt/basetypes.hpp>
+#include <koinos/pack/system_call_ids.hpp>
+#include <koinos/pack/thunk_ids.hpp>
 
 #include <koinos/statedb/statedb_types.hpp>
 

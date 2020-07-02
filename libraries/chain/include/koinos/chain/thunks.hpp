@@ -11,11 +11,18 @@
 
 #include <koinos/statedb/statedb.hpp>
 
+#define KOINOS_EXIT_SUCCESS 0
+#define KOINOS_EXIT_FAILURE 1
+
 namespace koinos::chain {
 
 class apply_context;
 
 namespace thunk {
+
+KOINOS_DECLARE_EXCEPTION( exit_success );
+KOINOS_DECLARE_EXCEPTION( exit_failure );
+KOINOS_DECLARE_EXCEPTION( unknown_exit_code );
 
 /*
  * When defining a new thunk, we have essentially two different implementations.
@@ -45,6 +52,7 @@ namespace thunk {
  */
 
 THUNK_DECLARE( void, prints, const std::string& str );
+THUNK_DECLARE( void, exit_contract, uint8_t exit_code );
 
 THUNK_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
 

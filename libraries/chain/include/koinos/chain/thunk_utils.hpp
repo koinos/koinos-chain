@@ -3,6 +3,9 @@
 #include <boost/preprocessor/punctuation/comma.hpp>
 #include <boost/vmd/is_empty.hpp>
 
+#include <koinos/pack/system_call_ids.hpp>
+#include <koinos/pack/thunk_ids.hpp>
+
 #include <koinos/util.hpp>
 
 // This file exposes seven public macros for consumption

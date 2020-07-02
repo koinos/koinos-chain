@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 
    variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_system_call( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_system_call( static_cast< uint32_t >( system::system_call_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
