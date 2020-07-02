@@ -2,7 +2,7 @@
 
 #include <koinos/crypto/elliptic.hpp>
 
-#include <koinos/test/crypto_fixture.hpp>
+#include <koinos/tests/crypto_fixture.hpp>
 
 #include <iostream>
 

@@ -19,9 +19,9 @@
 
 #include <mira/database_configuration.hpp>
 
-#include "../test_fixtures/wasm/contract_return.hpp"
-#include "../test_fixtures/wasm/hello.hpp"
-#include "../test_fixtures/wasm/syscall_override.hpp"
+#include <koinos/tests/wasm/contract_return.hpp>
+#include <koinos/tests/wasm/hello.hpp>
+#include <koinos/tests/wasm/syscall_override.hpp>
 
 using namespace std::string_literals;
 
