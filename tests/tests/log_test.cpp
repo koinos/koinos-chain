@@ -64,7 +64,12 @@ BOOST_AUTO_TEST_CASE( log_tests )
 
    // setting std out back to normal
    std::cout.rdbuf( buf );
+   // when building in release mode trace and debug are filtered out
+#ifdef NDEBUG
    BOOST_REQUIRE_EQUAL( "<info>: test", expected_string );
+#else
+   BOOST_REQUIRE_EQUAL( "<trace>: test", expected_string );
+#endif
    BOOST_REQUIRE_EQUAL( results.size(), logtypes.size() );
    for ( int i = 0; i < results.size(); i++ )
    {
