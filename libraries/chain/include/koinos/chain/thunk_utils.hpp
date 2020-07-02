@@ -72,7 +72,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
 #define _THUNK_DETAIL_ARG_PACK(r, blob, elem) koinos::pack::to_variable_blob( blob, elem, true );
-#define _THUNK_ARG_PACK( ... ) BOOST_PP_LIST_FOR_EACH(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
+#define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
@@ -118,7 +118,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                   TYPES >(                                                                                           \
                      koinos::types::thunks::thunk_id(_tid),                                                          \
                      context                                                                                         \
-                     VA_ARGS(FWD) );                                                                                 \
+                     FWD );                                                                                          \
             },                                                                                                       \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
@@ -139,7 +139,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \
       VA_ARGS(_THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__)),                                                               \
       VA_ARGS(_THUNK_DETAIL_DEFINE_TYPES(__VA_ARGS__)),                                                              \
-      _THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__) )                                                                    \
+      VA_ARGS(_THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__)))                                                            \
 
 #define THUNK_DEFINE_VOID( RETURN_TYPE, SYSCALL )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, , , )
