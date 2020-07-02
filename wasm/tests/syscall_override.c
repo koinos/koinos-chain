@@ -1,5 +1,8 @@
 #include <stdint.h>
 
+#define KOINOS_SYSTEM_CALL_ID_get_contract_args 0x8e189d86
+#define KOINOS_THUNK_ID_prints 0x9b229941
+
 char prepend[] = "test: ";
 #define PREPEND_LEN sizeof(prepend) - 1
 
@@ -27,14 +30,14 @@ void prints( char* msg )
    }
    args[0] = (uint8_t)(i + PREPEND_LEN);
 
-   invoke_thunk( 0, 0, 0, args, i + PREPEND_LEN + 1 );
+   invoke_thunk( KOINOS_THUNK_ID_prints, 0, 0, args, i + PREPEND_LEN + 1 );
 }
 
 __attribute__( (visibility("default")) )
 void apply( uint64_t a, uint64_t b, uint64_t c )
 {
    char message[65];
-   invoke_system_call( 14, message, 63, 0, 0 );
+   invoke_system_call( KOINOS_SYSTEM_CALL_ID_get_contract_args, message, 63, 0, 0 );
    message[ message[0] + 1 ] = 0;
    prints( message + 2 );
 }
