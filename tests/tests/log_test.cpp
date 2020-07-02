@@ -43,11 +43,10 @@ BOOST_AUTO_TEST_CASE( log_tests )
 
    std::vector<std::string> log_lines;
    std::string line;
-   while ( std::getline( file, line ) )
+   while ( std::getline( file, line ) )
    {
       log_lines.push_back( line );
    }
-
    std::string &line_one = log_lines[0];
    auto pos = line_one.find( "<" );
    std::string expected_string = line_one.substr( pos );
