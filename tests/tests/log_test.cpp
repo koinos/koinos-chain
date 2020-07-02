@@ -19,20 +19,23 @@ BOOST_AUTO_TEST_CASE( log_tests )
    std::stringstream stream;
    auto buf = std::cout.rdbuf();
    std::cout.rdbuf( stream.rdbuf() );
-   std::vector<std::string> logtypes{
-       "<\033[32minfo\033[0m>",
+   std::vector< std::string > logtypes{
+#ifndef NDEBUG
        "<\033[32mtrace\033[0m>",
-       "<\033[32mdebug\033[0m>",
+       "<\033[32mdebug\033[0m>", 
+#endif            
+       "<\033[32minfo\033[0m>",
        "<\033[33mwarning\033[0m>",
        "<\033[31merror\033[0m>",
        "<\033[31mfatal\033[0m>"};
 
+
    auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
    boost::filesystem::create_directory( temp );
    koinos::initialize_logging( temp, "log_test_%3N.log" );
-   LOG( info ) << "test";
    LOG( trace ) << "test";
-   LOG( debug ) << "test";
+   LOG( debug ) << "test";   
+   LOG( info ) << "test";
    LOG( warning ) << "test";
    LOG( error ) << "test";
    LOG( fatal ) << "test";
@@ -41,19 +44,19 @@ BOOST_AUTO_TEST_CASE( log_tests )
    std::ifstream file( file_path.string() );
    BOOST_REQUIRE( file.is_open() );
 
-   std::vector<std::string> log_lines;
+   std::vector< std::string > log_lines;
    std::string line;
    while ( std::getline( file, line ) )
    {
       log_lines.push_back( line );
    }
-   std::string &line_one = log_lines[0];
+   std::string& line_one = log_lines[0];
    auto pos = line_one.find( "<" );
    std::string expected_string = line_one.substr( pos );
 
-   std::vector<std::string> results;
+   std::vector< std::string > results;
    auto stream_str = stream.str();
-   boost::split( results, stream.str(), boost::is_any_of( "\n" )  );
+   boost::split( results, stream_str, boost::is_any_of( "\n" )  );
    results.pop_back();
 
    auto pos2 = stream.str().find( "<" );
