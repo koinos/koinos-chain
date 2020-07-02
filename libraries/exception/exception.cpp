@@ -3,6 +3,19 @@
 
 namespace koinos { namespace detail {
 
+// nlohmann still has quotes around strings in json. For prettification, we want to
+// remove those when replacing in a format string.
+std::string trim_quotes( std::string&& s )
+{
+   if( s.size() >= 2 )
+   {
+      if( *(s.begin())  == '"' ) s.erase( 0, 1 );
+      if( *(s.rbegin()) == '"' ) s.erase( s.size() - 1, s.size() );
+   }
+
+   return s;
+}
+
 std::string json_strpolate( const std::string& format_str, const nlohmann::json& j )
 {
    size_t i, n = j.size();
@@ -46,7 +59,7 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
          auto it = j.find(key);
          if( it != j.end() )
          {
-            result += it->dump();
+            result += trim_quotes(it->dump());
             i += consumed;
             continue;
          }
@@ -59,7 +72,24 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
    return result;
 }
 
-json_initializer::json_initializer( nlohmann::json& j ) : _j(j) {}
+json_initializer::json_initializer( exception& e ) :
+   _e(e),
+   _j(*boost::get_error_info< koinos::detail::json_info >(e))
+{}
+
+json_initializer& json_initializer::operator()( const std::string& key, const char* c )
+{
+   _j[key] = c;
+   _e.do_message_substitution();
+   return *this;
+}
+
+json_initializer& json_initializer::operator()( const std::string& key, size_t v )
+{
+   koinos::pack::to_json( _j[key], (uint64_t)v );
+   _e.do_message_substitution();
+   return *this;
+}
 
 json_initializer& json_initializer::operator()()
 {
@@ -78,7 +108,6 @@ exception::~exception() {}
 
 const char* exception::what() const noexcept
 {
-   const_cast< std::string& >(msg) = detail::json_strpolate( msg, *boost::get_error_info< koinos::detail::json_info >( *this ) );
    return msg.c_str();
 }
 
@@ -92,6 +121,16 @@ std::string exception::get_stacktrace() const
 const nlohmann::json& exception::get_json() const
 {
    return *boost::get_error_info< koinos::detail::json_info >( *this );
+}
+
+const std::string& exception::get_message() const
+{
+   return msg;
+}
+
+void exception::do_message_substitution()
+{
+   msg = detail::json_strpolate( msg, *boost::get_error_info< koinos::detail::json_info >( *this ) );
 }
 
 } // koinos

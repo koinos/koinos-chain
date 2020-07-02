@@ -129,7 +129,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             [&]( auto& _a ) {                                                                                        \
                KOINOS_THROW( unknown_system_call,                                                                    \
                   "system call table dispatch entry ${sid} has unimplemented type ${tag}",                           \
-                  ("sid", _sid)("tag", (uint64_t)_target.index()) );                                                 \
+                  ("sid", _sid)("tag", _target.index()) );                                                           \
             } }, _target );                                                                                          \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret;)                                                         \
    }                                                                                                                 \
