@@ -17,8 +17,6 @@
 
 #include <koinos/pack/rt/binary.hpp>
 
-#include <koinos/test/wasm/hello_wasm.hpp>
-
 #include <mira/database_configuration.hpp>
 
 #include "../test_fixtures/wasm/contract_return.hpp"
