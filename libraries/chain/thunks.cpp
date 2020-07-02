@@ -12,29 +12,28 @@ using namespace koinos::types::thunks;
 void register_thunks( thunk_dispatcher& td )
 {
    REGISTER_THUNKS( td,
-   (prints)
-   (exit_contract)
+      (prints)
+      (exit_contract)
 
-   (verify_block_header)
+      (verify_block_header)
 
-   (apply_block)
-   (apply_transaction)
-   (apply_reserved_operation)
-   (apply_upload_contract_operation)
-   (apply_execute_contract_operation)
-   (apply_set_system_call_operation)
+      (apply_block)
+      (apply_transaction)
+      (apply_reserved_operation)
+      (apply_upload_contract_operation)
+      (apply_execute_contract_operation)
+      (apply_set_system_call_operation)
 
-   (db_put_object)
-   (db_get_object)
-   (db_get_next_object)
-   (db_get_prev_object)
+      (db_put_object)
+      (db_get_object)
+      (db_get_next_object)
+      (db_get_prev_object)
 
-   (execute_contract)
+      (execute_contract)
 
-   (get_contract_args_size)
-   (get_contract_args)
-
-   (set_contract_return)
+      (get_contract_args_size)
+      (get_contract_args)
+      (set_contract_return)
    )
 }
 
@@ -230,7 +229,7 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
 
 THUNK_DEFINE( variable_blob, execute_contract, ((const types::contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
 {
-   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
+   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( contract_id );
    auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
    wasm_allocator_type wa;
 
@@ -240,12 +239,14 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const types::contract_id_type&)
    backend.set_wasm_allocator( &wa );
    backend.initialize();
 
-   context.set_contract_call_args( o.args );
+   context.set_contract_call_args( args );
    try
    {
       backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
    }
    catch( const exit_success& ) {}
+
+   return context.get_contract_return();
 }
 
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )

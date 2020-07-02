@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#define KOINOS_SYSTEM_CALL_ID_get_contract_args 0x8e189d86
-#define KOINOS_SYSTEM_CALL_ID_set_contract_return 0x86b86275
+#define KOINOS_SYSTEM_CALL_ID_get_contract_args 0x9fbba198
+#define KOINOS_SYSTEM_CALL_ID_set_contract_return 0x9f49cdea
 
 void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
 
