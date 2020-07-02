@@ -11,5 +11,5 @@ elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
    done
 
    brew cleanup
-   brew update --merge
+   brew update
 fi
