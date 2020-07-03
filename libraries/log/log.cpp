@@ -110,6 +110,8 @@ void initialize_logging( const boost::filesystem::path& p, const std::string& fi
 
    auto file_name = p.string() + "/" + file_pattern;
 
+   boost::log::register_simple_formatter_factory< boost::log::trivial::severity_level, char >("Severity");
+
    // Output message to file, rotates when file reached 1mb or at midnight every day. Each log file
    // is capped at 1mb and total is 20mb
    boost::log::add_file_log (
