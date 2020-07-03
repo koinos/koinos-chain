@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/preprocessor.hpp>
 #include <boost/preprocessor/punctuation/comma.hpp>
+#include <boost/vmd/is_empty.hpp>
 
 #include <koinos/pack/system_call_ids.hpp>
 #include <koinos/pack/thunk_ids.hpp>
@@ -73,12 +74,14 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
-KOINOS_TODO( "Invoke smart contract sys call handler" )
+#define _THUNK_DETAIL_ARG_PACK(r, blob, elem) koinos::pack::to_variable_blob( blob, elem, true );
+#define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
+
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
       using koinos::types::system::thunk_id_type;                                                                    \
-      using koinos::types::system::system_call_bundle;                                                               \
+      using koinos::types::system::contract_call_bundle;                                                             \
       using koinos::types::system::system_call_id;                                                                   \
       using koinos::types::system::system_call_target;                                                               \
                                                                                                                      \
@@ -120,8 +123,11 @@ KOINOS_TODO( "Invoke smart contract sys call handler" )
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \
-            [&]( system_call_bundle& _scb ) {                                                                        \
-               /* Need syscall handler */                                                                            \
+            [&]( contract_call_bundle& _scb ) {                                                                      \
+               variable_blob _args;                                                                                  \
+               BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
+               auto _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );   \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \
                KOINOS_THROW( unknown_system_call,                                                                    \
@@ -136,7 +142,7 @@ KOINOS_TODO( "Invoke smart contract sys call handler" )
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \
       VA_ARGS(_THUNK_DETAIL_DEFINE_ARGS(__VA_ARGS__)),                                                               \
       VA_ARGS(_THUNK_DETAIL_DEFINE_TYPES(__VA_ARGS__)),                                                              \
-      VA_ARGS(_THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__)) )                                                           \
+      VA_ARGS(_THUNK_DETAIL_DEFINE_FORWARD(__VA_ARGS__)))                                                            \
 
 #define THUNK_DEFINE_VOID( RETURN_TYPE, SYSCALL )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, , , )

@@ -28,4 +28,16 @@ const variable_blob& apply_context::get_contract_call_args()
    return contract_call_args;
 }
 
+types::variable_blob apply_context::get_contract_return()
+{
+   auto ret = contract_return;
+   contract_return = types::variable_blob();
+   return ret;
+}
+
+void apply_context::set_contract_return( const types::variable_blob& ret )
+{
+   contract_return = ret;
+}
+
 } // koinos::chain

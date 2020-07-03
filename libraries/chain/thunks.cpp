@@ -12,25 +12,28 @@ using namespace koinos::types::thunks;
 void register_thunks( thunk_dispatcher& td )
 {
    REGISTER_THUNKS( td,
-   (prints)
-   (exit_contract)
+      (prints)
+      (exit_contract)
 
-   (verify_block_header)
+      (verify_block_header)
 
-   (apply_block)
-   (apply_transaction)
-   (apply_reserved_operation)
-   (apply_upload_contract_operation)
-   (apply_execute_contract_operation)
-   (apply_set_system_call_operation)
+      (apply_block)
+      (apply_transaction)
+      (apply_reserved_operation)
+      (apply_upload_contract_operation)
+      (apply_execute_contract_operation)
+      (apply_set_system_call_operation)
 
-   (db_put_object)
-   (db_get_object)
-   (db_get_next_object)
-   (db_get_prev_object)
+      (db_put_object)
+      (db_get_object)
+      (db_get_next_object)
+      (db_get_prev_object)
 
-   (get_contract_args_size)
-   (get_contract_args)
+      (execute_contract)
+
+      (get_contract_args_size)
+      (get_contract_args)
+      (set_contract_return)
    )
 }
 
@@ -39,6 +42,19 @@ namespace thunk {
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
 {
    context.console_append( str );
+}
+
+THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
+{
+   switch( exit_code )
+   {
+      case KOINOS_EXIT_SUCCESS:
+          KOINOS_THROW( exit_success, "" );
+      case KOINOS_EXIT_FAILURE:
+          KOINOS_THROW( exit_failure, "" );
+      default:
+          KOINOS_THROW( unknown_exit_code, "Contract specified unknown exit code" );
+   }
 }
 
 THUNK_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
@@ -96,37 +112,31 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
-   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
-   auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
-   wasm_allocator_type wa;
-
-   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
-   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
-
-   backend.set_wasm_allocator( &wa );
-   backend.initialize();
-
-   context.set_contract_call_args( o.args );
-   try
-   {
-      backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
-   }
-   catch( const exit_success& ) {}
+   execute_contract( context, o.contract_id, o.entry_point, o.args );
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   // Ensure contract exists.
-   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
-   auto contract = db_get_object(context, CONTRACT_SPACE_ID, contract_key);
-   KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
+   // Ensure override exists
+   std::visit(
+   koinos::overloaded{
+      [&]( const types::system::thunk_id_type& tid ) {
+         KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), unknown_thunk, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
+      },
+      [&]( const koinos::types::system::contract_call_bundle& scb ) {
+         types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( scb.contract_id );
+         auto contract = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+         KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
+         KOINOS_TODO( "Make a better exception for execute_contract" );
+         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), invalid_contract, "Cannot override execute_contract." );
+      },
+      [&]( const auto& ) {
+         KOINOS_THROW( unknown_system_call, "set_system_call invoked with unimplemented type ${tag}",
+                      ("tag", (uint64_t)o.target.index()) );
+      } }, o.target );
 
-   // Store the system call bundle in the database
-   types::system::system_call_bundle bundle;
-   bundle.contract_id = o.contract_id;
-   bundle.entry_point = o.entry_point;
-   types::system::system_call_target sys_call = bundle;
-   db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( sys_call ) );
+   // Place the override in the database
+   db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
@@ -217,6 +227,28 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
+THUNK_DEFINE( variable_blob, execute_contract, ((const types::contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
+{
+   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( contract_id );
+   auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+   wasm_allocator_type wa;
+
+   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
+   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
+
+   backend.set_wasm_allocator( &wa );
+   backend.initialize();
+
+   context.set_contract_call_args( args );
+   try
+   {
+      backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+   }
+   catch( const exit_success& ) {}
+
+   return context.get_contract_return();
+}
+
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
 {
    return (uint32_t)context.get_contract_call_args().size();
@@ -227,17 +259,9 @@ THUNK_DEFINE_VOID( variable_blob, get_contract_args )
    return context.get_contract_call_args();
 }
 
-THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
+THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 {
-   switch( exit_code )
-   {
-      case KOINOS_EXIT_SUCCESS:
-          KOINOS_THROW( exit_success, "" );
-      case KOINOS_EXIT_FAILURE:
-          KOINOS_THROW( exit_failure, "" );
-      default:
-          KOINOS_THROW( unknown_exit_code, "Contract specified unknown exit code" );
-   }
+   context.set_contract_return( ret );
 }
 
 } } // koinos::chain::thunk

@@ -5,6 +5,8 @@
 
 namespace koinos::chain {
 
+KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_return_buffer, chain_exception );
+
 struct host_api final
 {
    host_api( apply_context& ctx );
