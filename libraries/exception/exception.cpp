@@ -18,18 +18,17 @@ std::string trim_quotes( std::string&& s )
 
 std::string json_strpolate( const std::string& format_str, const nlohmann::json& j )
 {
-   size_t i, n = j.size();
    std::string key;
    bool has_key;
    std::string result;
 
-   auto maybe_get_key = [&]( const std::string& str, size_t start, size_t end ) -> size_t
+   auto maybe_get_key = [&]( const std::string& str, std::size_t start, std::size_t end ) -> std::size_t
    {
       // Consume at least one character
       // Return number of characters consumed
       // If key is found, set has_key, key
       has_key = false;
-      size_t key_start = start+2;
+      std::size_t key_start = start+2;
       if( key_start >= end )
          return (end-start);
       if( str[start  ] != '$' )
@@ -38,7 +37,7 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
          return 1;
       if( str[key_start] == '$' )    // Use ${$ to escape a literal ${
          return 3;
-      for( size_t i=key_start; i<end; i++ )
+      for( std::size_t i = key_start; i < end; i++ )
       {
          if( str[i] == '}' )
          {
@@ -50,10 +49,10 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
       return 0;
    };
 
-   n = format_str.length();
-   for( i=0; i<n; )
+   std::size_t n = format_str.length();
+   for( std::size_t i = 0; i < n; )
    {
-      size_t consumed = maybe_get_key( format_str, i, n );
+      std::size_t consumed = maybe_get_key( format_str, i, n );
       if( has_key )
       {
          auto it = j.find(key);
@@ -64,7 +63,7 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
             continue;
          }
       }
-      for( size_t j=0; j<consumed; j++ )
+      for( std::size_t j = 0; j < consumed; j++ )
          result += format_str[i+j];
       i += consumed;
    }
