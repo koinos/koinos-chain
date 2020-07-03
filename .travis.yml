@@ -3,6 +3,11 @@ language: c++
 cache:
 - ccache
 - pip
+- directories:
+  - $HOME/Library/Caches/Homebrew
+  - /usr/local/Homebrew/
+  # used in OSX custom build script dealing with local bottle caching
+  - $HOME/local_bottle_metadata
 
 jobs:
   include:
@@ -19,7 +24,6 @@ jobs:
       compiler: clang
       env: RUN_TYPE=test
 
-
 before_install:
   - ci/before_install.sh
 
@@ -31,6 +35,9 @@ script:
 
 after_success:
   - ci/after_success.sh
+
+before_cache:
+  - ci/before_cache.sh
 
 notifications:
   slack:
