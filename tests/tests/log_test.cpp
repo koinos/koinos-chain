@@ -83,6 +83,8 @@ BOOST_AUTO_TEST_CASE( log_color_tests )
       std::string expected_result = results[i].substr( pos );
       BOOST_REQUIRE_EQUAL( logtypes[i] + ": test", expected_result );
    }
+
+   boost::log::core::get()->remove_all_sinks();
 }
 
 BOOST_AUTO_TEST_CASE( log_no_color_tests )
@@ -156,6 +158,8 @@ BOOST_AUTO_TEST_CASE( log_no_color_tests )
       std::string expected_result = results[i].substr( pos );
       BOOST_REQUIRE_EQUAL( logtypes[i] + ": test", expected_result );
    }
+
+   boost::log::core::get()->remove_all_sinks();
 }
 
 BOOST_AUTO_TEST_SUITE_END()
