@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE( log_color_tests )
 
    auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
    boost::filesystem::create_directory( temp );
-   koinos::initialize_logging( temp, "log_test_%3N.log" );
+   koinos::initialize_logging( temp, "log_test_color_%3N.log" );
 
    LOG( trace )   << "test";
    LOG( debug )   << "test";
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE( log_color_tests )
       << boost::log::add_value("Line", __LINE__)
       << boost::log::add_value("File", boost::filesystem::path(__FILE__).filename().string()) << "test";
 
-   auto file_path = temp / "log_test_000.log";
+   auto file_path = temp / "log_test_color_000.log";
    std::ifstream file( file_path.string() );
    BOOST_REQUIRE( file.is_open() );
 
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE( log_no_color_tests )
 
    auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
    boost::filesystem::create_directory( temp );
-   koinos::initialize_logging( temp, "log_test_%3N.log", false /* no color */ );
+   koinos::initialize_logging( temp, "log_test_no_color_%3N.log", false /* no color */ );
 
    LOG( trace )   << "test";
    LOG( debug )   << "test";
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE( log_no_color_tests )
       << boost::log::add_value("Line", __LINE__)
       << boost::log::add_value("File", boost::filesystem::path(__FILE__).filename().string()) << "test";
 
-   auto file_path = temp / "log_test_000.log";
+   auto file_path = temp / "log_test_no_color_000.log";
    std::ifstream file( file_path.string() );
    BOOST_REQUIRE( file.is_open() );
 
