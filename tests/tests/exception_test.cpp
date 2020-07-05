@@ -118,6 +118,7 @@ BOOST_AUTO_TEST_CASE( exception_test )
    try
    {
       std::string msg = "moved exception message";
+      throw koinos::exception( std::move( msg ) );
    }
    catch( koinos::exception& e )
    {
@@ -127,12 +128,12 @@ BOOST_AUTO_TEST_CASE( exception_test )
    BOOST_TEST_MESSAGE( "Throw an exception with an escaped message." );
    try
    {
-      std::string msg = "An escaped message ${$escaped!}";
+      std::string msg = "An escaped message ${$escaped}";
       KOINOS_THROW( my_exception, std::move( msg ), ("escaped", 1) );
    }
    catch( koinos::exception& e )
    {
-      BOOST_REQUIRE_EQUAL( "An escaped message ${$escaped!}", e.what() );
+      BOOST_REQUIRE_EQUAL( "An escaped message ${$escaped}", e.what() );
    }
 
    BOOST_TEST_MESSAGE( "Throw an exception with an embedded dollar sign." );
