@@ -114,6 +114,59 @@ BOOST_AUTO_TEST_CASE( exception_test )
       BOOST_REQUIRE_EQUAL( e.get_message(), e.what() );
    }
 
+   BOOST_TEST_MESSAGE( "Throw an exception with a message that has been moved." );
+   try
+   {
+      std::string msg = "moved exception message";
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "moved exception message", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with an escaped message." );
+   try
+   {
+      std::string msg = "An escaped message ${$escaped!}";
+      KOINOS_THROW( my_exception, std::move( msg ), ("escaped", 1) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "An escaped message ${$escaped!}", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with an embedded dollar sign." );
+   try
+   {
+      std::string msg = "A dollar signed $ within a message";
+      throw koinos::exception( std::move( msg ) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "A dollar signed $ within a message", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with a std::size_t replacement." );
+   try
+   {
+      std::string msg = "My std::size_t value is ${s}";
+      KOINOS_THROW( my_exception, std::move( msg ), ("s", std::size_t(20)) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "My std::size_t value is 20", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception and test for the existence of a stacktrace." );
+   try
+   {
+      KOINOS_THROW( my_exception, "An exception that should contain a stacktrace" );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE( e.get_stacktrace().size() > 0 );
+   }
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -20,30 +20,26 @@ class console_sink_impl : public boost::log::sinks::basic_formatted_sink_backend
 
    static std::string colorize( const std::string& s, color c )
    {
+      if constexpr ( !Color )
+         return s;
+
       std::string val = "";
 
-      if ( Color )
+      switch ( c )
       {
-         switch ( c )
-         {
-            case color::green:
-               val += "\033[32m";
-               break;
-            case color::yellow:
-               val += "\033[33m";
-               break;
-            case color::red:
-               val += "\033[31m";
-               break;
-         }
+         case color::green:
+            val += "\033[32m";
+            break;
+         case color::yellow:
+            val += "\033[33m";
+            break;
+         case color::red:
+            val += "\033[31m";
+            break;
       }
 
       val += s;
-
-      if ( Color )
-      {
-         val += "\033[0m";
-      }
+      val += "\033[0m";
 
       return val;
    }

@@ -101,7 +101,7 @@ exception::exception() { *this << koinos::detail::json_info( nlohmann::json() );
 
 exception::exception( const std::string& m ) : exception() { msg = m; }
 
-exception::exception( std::string&& m ) : exception() { msg = m; }
+exception::exception( std::string&& m ) : exception() { msg = std::move( m ); }
 
 exception::~exception() {}
 
