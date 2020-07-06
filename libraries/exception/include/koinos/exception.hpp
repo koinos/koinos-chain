@@ -140,7 +140,7 @@ struct json_initializer
    template< typename T >
    json_initializer& operator()( const std::string& key, T&& t )
    {
-      koinos::pack::to_json( _j[key], t );
+      koinos::pack::to_json( _j[key], std::forward< T >( t ) );
       _e.do_message_substitution();
       return *this;
    }
@@ -167,7 +167,7 @@ struct json_initializer
    typename std::enable_if_t< !std::is_trivial_v< T >, json_initializer& > operator()( T&& t )
    {
       nlohmann::json obj_json;
-      koinos::pack::to_json( obj_json, t );
+      koinos::pack::to_json( obj_json, std::forward< T >( t ) );
       _j.merge_patch( obj_json );
       _e.do_message_substitution();
       return *this;

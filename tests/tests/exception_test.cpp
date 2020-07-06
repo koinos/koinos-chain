@@ -77,6 +77,28 @@ BOOST_AUTO_TEST_CASE( exception_test )
       BOOST_REQUIRE_EQUAL( e.what(), e.get_message() );
    }
 
+   BOOST_TEST_MESSAGE( "Throw an exception with an initial const object capture and a missing capture." );
+   try
+   {
+      try
+      {
+         const exception_test_object obj = {1,2};
+         KOINOS_THROW( my_exception, "exception_test ${x} ${y}", ("x", obj) );
+      }
+      KOINOS_CAPTURE_CATCH_AND_RETHROW( ("z",exception_test_object{3,4}) )
+   }
+   catch( koinos::exception& e )
+   {
+      exception_json.clear();
+      exception_json["x"]["x"] = 1;
+      exception_json["x"]["y"] = 2;
+      exception_json["z"]["x"] = 3;
+      exception_json["z"]["y"] = 4;
+      auto j = e.get_json();
+      BOOST_REQUIRE_EQUAL( exception_json, j );
+      BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test {\"x\":1,\"y\":2} ${y}" );
+   }
+
    BOOST_TEST_MESSAGE( "Throw an exception with an initial object capture and a missing capture." );
    try
    {
@@ -99,6 +121,21 @@ BOOST_AUTO_TEST_CASE( exception_test )
       BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test {\"x\":1,\"y\":2} ${y}" );
    }
 
+   BOOST_TEST_MESSAGE( "Throw an exception with an initial implicit const object capture." );
+   try
+   {
+      const exception_test_object obj = {1,2};
+      KOINOS_THROW( my_exception, "exception_test ${x} ${y}", (obj) );
+   }
+   catch( koinos::exception& e )
+   {
+      exception_json.clear();
+      exception_json["x"] = 1;
+      exception_json["y"] = 2;
+      BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test 1 2" );
+      BOOST_REQUIRE_EQUAL( e.get_message(), e.what() );
+   }
+
    BOOST_TEST_MESSAGE( "Throw an exception with an initial implicit object capture." );
    try
    {
@@ -112,6 +149,70 @@ BOOST_AUTO_TEST_CASE( exception_test )
       exception_json["y"] = 2;
       BOOST_REQUIRE_EQUAL( e.get_message(), "exception_test 1 2" );
       BOOST_REQUIRE_EQUAL( e.get_message(), e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with a message that has been moved." );
+   try
+   {
+      std::string msg = "moved exception message";
+      throw koinos::exception( std::move( msg ) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "moved exception message", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with an escaped message." );
+   try
+   {
+      std::string msg = "An escaped message ${$escaped}";
+      KOINOS_THROW( my_exception, std::move( msg ), ("escaped", 1) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "An escaped message ${$escaped}", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with an embedded dollar sign." );
+   try
+   {
+      std::string msg = "A dollar signed $ within a message";
+      KOINOS_THROW( my_exception, std::move( msg ), ()("x", 1) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "A dollar signed $ within a message", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with a std::size_t replacement." );
+   try
+   {
+      std::string msg = "My std::size_t value is ${s}";
+      KOINOS_THROW( my_exception, std::move( msg ), ("s", std::size_t(20)) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "My std::size_t value is 20", e.what() );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception and test for the existence of a stacktrace." );
+   try
+   {
+      KOINOS_THROW( my_exception, "An exception that should contain a stacktrace" );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE( e.get_stacktrace().size() > 0 );
+   }
+
+   BOOST_TEST_MESSAGE( "Throw an exception with a malformed token." );
+   try
+   {
+      KOINOS_THROW( my_exception, "An exception ${with a malformed token", ("w", 1) );
+   }
+   catch( koinos::exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( "An exception ${with a malformed token", e.what() );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

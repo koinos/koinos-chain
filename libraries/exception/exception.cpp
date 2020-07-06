@@ -46,7 +46,7 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
             return (i-start)+1;
          }
       }
-      return 0;
+      return end - start;
    };
 
    std::size_t n = format_str.length();
@@ -101,7 +101,7 @@ exception::exception() { *this << koinos::detail::json_info( nlohmann::json() );
 
 exception::exception( const std::string& m ) : exception() { msg = m; }
 
-exception::exception( std::string&& m ) : exception() { msg = m; }
+exception::exception( std::string&& m ) : exception() { msg = std::move( m ); }
 
 exception::~exception() {}
 
