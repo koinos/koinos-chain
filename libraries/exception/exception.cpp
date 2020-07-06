@@ -46,7 +46,7 @@ std::string json_strpolate( const std::string& format_str, const nlohmann::json&
             return (i-start)+1;
          }
       }
-      return 0;
+      return end - start;
    };
 
    std::size_t n = format_str.length();
