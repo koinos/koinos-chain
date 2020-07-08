@@ -16,7 +16,7 @@ jobs:
       compiler: clang
       env: RUN_TYPE=coverage
     - os: linux
-      dist: bionic
+      dist: focal
       compiler: gcc
       env: RUN_TYPE=test
     - os: osx
