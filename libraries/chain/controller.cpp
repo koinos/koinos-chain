@@ -328,7 +328,7 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, que
             res.height = head.height;
             result = res;
          }
-         catch ( thunk::null_state_pointer& e)
+         catch ( koinos::chain::database_exception e)
          {
             result = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }

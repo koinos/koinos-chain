@@ -269,7 +269,6 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 THUNK_DEFINE_VOID( types::protocol::head_info, get_head_info )
 {
    auto head = context.get_state_node();
-   if( !head ) { KOINOS_THROW( null_state_pointer, "Apply context state node is null" ); }
 
    types::protocol::head_info hi;
    hi.id = head->id();

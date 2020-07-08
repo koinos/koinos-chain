@@ -23,7 +23,6 @@ namespace thunk {
 KOINOS_DECLARE_EXCEPTION( exit_success );
 KOINOS_DECLARE_EXCEPTION( exit_failure );
 KOINOS_DECLARE_EXCEPTION( unknown_exit_code );
-KOINOS_DECLARE_EXCEPTION( null_state_pointer );
 
 /*
  * When defining a new thunk, we have essentially two different implementations.
