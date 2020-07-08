@@ -319,15 +319,16 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, que
    std::visit( koinos::overloaded {
       [&]( rpc::get_head_info_params& p )
       {
-         auto head = _state_db.get_head();
-         if( head )
+         try
          {
+            _ctx->set_state_node( _state_db.get_head() );
+            auto head = thunk::get_head_info( *_ctx );
             rpc::get_head_info_result res;
-            res.id = head->id();
-            res.height = head->revision();
+            res.id = head.id;
+            res.height = head.height;
             result = res;
          }
-         else
+         catch ( thunk::null_state_pointer& e)
          {
             result = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }
