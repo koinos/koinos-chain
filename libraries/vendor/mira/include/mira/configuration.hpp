@@ -1,8 +1,8 @@
 #pragma once
-#include <boost/any.hpp>
 
 #include <nlohmann/json.hpp>
 
+#include <any>
 #include <stdexcept>
 #include <string>
 
@@ -28,9 +28,9 @@ class configuration
 {
    configuration() = delete;
 public:
-   static ::rocksdb::Options get_options( const boost::any& cfg, std::string type_name );
-   static bool gather_statistics( const boost::any& cfg );
-   static size_t get_object_count( const boost::any& cfg );
+   static ::rocksdb::Options get_options( const std::any& cfg, std::string type_name );
+   static bool gather_statistics( const std::any& cfg );
+   static size_t get_object_count( const std::any& cfg );
 };
 
 } // mira

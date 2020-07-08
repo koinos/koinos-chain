@@ -32,7 +32,7 @@ struct thunk_fixture
    {
       temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( temp );
-      boost::any cfg = mira::utilities::default_database_configuration();
+      std::any cfg = mira::utilities::default_database_configuration();
 
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );

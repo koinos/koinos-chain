@@ -71,19 +71,19 @@ const std::vector<char> ENTRY_COUNT_KEY { 'E','N','T','R','Y','_','C','O','U','N
 const std::vector<char> REVISION_KEY { 'R','E','V' };
 const std::vector<uint8_t> NEXT_ID_KEY { 'N','E','X','T','_','I','D' };
 
-template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
+template<typename Value,typename Serializer,typename IndexSpecifierList>
 class multi_index_container:
   public detail::multi_index_base_type<
-    Value,Serializer,IndexSpecifierList,Allocator>::type
+    Value,Serializer,IndexSpecifierList>::type
 {
 
 private:
   BOOST_COPYABLE_AND_MOVABLE(multi_index_container)
 
-  template <typename,typename,typename,typename> friend class  detail::index_base;
+  template <typename,typename,typename> friend class  detail::index_base;
 
   typedef typename detail::multi_index_base_type<
-      Value,Serializer,IndexSpecifierList,Allocator>::type   super;
+      Value,Serializer,IndexSpecifierList>::type   super;
 
    uint64_t                                        _revision = 0;
 
@@ -109,7 +109,6 @@ public:
   typedef typename super::const_iterator_type_list const_iterator_type_list;
   typedef typename super::value_type               value_type;
   typedef typename value_type::id_type             id_type;
-  typedef typename super::final_allocator_type     allocator_type;
   typedef typename super::iterator                 iterator;
   typedef typename super::const_iterator           const_iterator;
 
@@ -139,7 +138,7 @@ public:
       _name = "rocksdb_" + *(split_v.rbegin());
    }
 
-  explicit multi_index_container( const boost::filesystem::path& p, const boost::any& cfg ):
+  explicit multi_index_container( const boost::filesystem::path& p, const std::any& cfg ):
     super(ctor_args_list()),
     _entry_count(0)
    {
@@ -156,7 +155,7 @@ public:
    }
 
    template< typename InputIterator >
-   explicit multi_index_container( InputIterator& first, InputIterator& last, const boost::filesystem::path& p, const boost::any& cfg ):
+   explicit multi_index_container( InputIterator& first, InputIterator& last, const boost::filesystem::path& p, const std::any& cfg ):
     super(ctor_args_list()),
     _entry_count(0)
    {
@@ -228,7 +227,7 @@ public:
       return *this;
    }
 
-   bool open( const boost::filesystem::path& p, const boost::any& cfg = nullptr )
+   bool open( const boost::filesystem::path& p, const std::any& cfg = nullptr )
    {
       assert( p.is_absolute() );
 
@@ -355,11 +354,6 @@ public:
    {
       detail::cache_manager::get()->adjust_capacity();
    }
-
-  allocator_type get_allocator()const BOOST_NOEXCEPT
-  {
-    return allocator_type();
-  }
 
   /* retrieval of indices by number */
 
@@ -597,15 +591,21 @@ primary_iterator erase( primary_iterator position )
   }
 
    template< typename... Args >
-   bool emplace_rocksdb_( Args&&... args )
+   std::any emplace_( Args&&... args )
    {
       Value v( std::forward< Args >(args)... );
-      return insert_( v );
+      bool res = insert_( v );
+
+      return std::pair< primary_iterator, bool >(
+         res ? primary_index_type::iterator_to( v ) :
+               primary_index_type::end(),
+         res
+      );
    }
 
    bool insert_( const value_type& v )
    {
-      bool status = super::insert_rocksdb_( v );
+      bool status = super::insert_( v );
 
       if( !_bulk_load )
       {

@@ -1,11 +1,11 @@
 #pragma once
 
 #include <boost/core/ignore_unused.hpp>
-#include <boost/any.hpp>
+
+#include <any>
 #include <list>
 #include <map>
 #include <memory>
-#include <iostream>
 #include <mutex>
 
 namespace mira { namespace multi_index { namespace detail {
@@ -16,8 +16,8 @@ public:
    abstract_multi_index_cache_manager() = default;
    virtual ~abstract_multi_index_cache_manager() = default;
 
-   virtual bool purgeable( boost::any v ) = 0;
-   virtual void purge( boost::any v ) = 0;
+   virtual bool purgeable( std::any v ) = 0;
+   virtual void purge( std::any v ) = 0;
 };
 
 class lru_cache_manager
@@ -25,7 +25,7 @@ class lru_cache_manager
 public:
    typedef std::list<
       std::pair<
-         boost::any,
+         std::any,
          std::shared_ptr< abstract_multi_index_cache_manager >
       >
    > list_type;
@@ -39,7 +39,7 @@ private:
    std::mutex   _lock;
 
 public:
-   iterator_type insert( boost::any v, std::shared_ptr< abstract_multi_index_cache_manager >&& m )
+   iterator_type insert( std::any v, std::shared_ptr< abstract_multi_index_cache_manager >&& m )
    {
       std::lock_guard< std::mutex > lock( _lock );
       return _lru.insert( _lru.begin(), std::make_pair( v, m ) );
@@ -186,9 +186,9 @@ public:
       _index_caches[ index ] = std::move( index_cache );
    }
 
-   virtual bool purgeable( boost::any v )
+   virtual bool purgeable( std::any v )
    {
-      manager_ptr_type value = boost::any_cast< manager_ptr_type >( v );
+      manager_ptr_type value = std::any_cast< manager_ptr_type >( v );
       assert( !value.expired() );
 
       if ( (size_t)value.use_count() > _index_caches.size() )
@@ -197,9 +197,9 @@ public:
       return true;
    }
 
-   virtual void purge( boost::any v )
+   virtual void purge( std::any v )
    {
-      manager_ptr_type value = boost::any_cast< manager_ptr_type >( v );
+      manager_ptr_type value = std::any_cast< manager_ptr_type >( v );
       assert( !value.expired() );
       invalidate( *value.lock() );
    }

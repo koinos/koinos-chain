@@ -3,9 +3,9 @@
 #include <koinos/pack/classes.hpp>
 #include <koinos/util.hpp>
 
-#include <boost/any.hpp>
 #include <boost/filesystem.hpp>
 
+#include <any>
 #include <chrono>
 #include <future>
 #include <memory>
@@ -32,7 +32,7 @@ class controller
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
-      void open( const boost::filesystem::path& p, const boost::any& o );
+      void open( const boost::filesystem::path& p, const std::any& o );
 
       void start_threads();
       void stop_threads();

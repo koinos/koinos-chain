@@ -39,24 +39,24 @@ struct index_applier
   };
 };
 
-template<int N,typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
+template<int N,typename Value,typename Serializer,typename IndexSpecifierList>
 struct nth_layer
 {
   BOOST_STATIC_CONSTANT(int,length=boost::mpl::size<IndexSpecifierList>::value);
 
   typedef typename  boost::mpl::eval_if_c<
     N==length,
-    boost::mpl::identity<index_base<Value,Serializer,IndexSpecifierList,Allocator> >,
+    boost::mpl::identity<index_base<Value,Serializer,IndexSpecifierList> >,
     boost::mpl::apply2<
       index_applier< Serializer >,
       boost::mpl::at_c<IndexSpecifierList,length-1-N>,
-      nth_layer<N+1,Value,Serializer,IndexSpecifierList,Allocator>
+      nth_layer<N+1,Value,Serializer,IndexSpecifierList>
     >
   >::type type;
 };
 
-template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
-struct multi_index_base_type:nth_layer<0,Value,Serializer,IndexSpecifierList,Allocator>
+template<typename Value,typename Serializer,typename IndexSpecifierList>
+struct multi_index_base_type:nth_layer<0,Value,Serializer,IndexSpecifierList>
 {
   BOOST_STATIC_ASSERT(detail::is_index_list<IndexSpecifierList>::value);
 };

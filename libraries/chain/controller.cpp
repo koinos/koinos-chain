@@ -111,7 +111,7 @@ struct work_item
  *
  * However, the state of C++ support for CSP style multithreading is rather unfortunate.
  * There is no thread-safe queue in the standard library, and the Boost sync_bounded_queue
- * class is marked as experimental.  Some quick Googling suggests that if you want avoid open( const boost::filesystem::path& p, const boost::any& o );
+ * class is marked as experimental.  Some quick Googling suggests that if you want avoid open( const boost::filesystem::path& p, const std::any& o );
  * thread-safe queue class in C++, the accepted practice is to "roll your own" -- ugh.
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
@@ -126,7 +126,7 @@ class controller_impl
       void stop_threads();
 
       std::future< std::shared_ptr< rpc::submission_result > > submit( const rpc::submission_item& item );
-      void open( const boost::filesystem::path& p, const boost::any& o );
+      void open( const boost::filesystem::path& p, const std::any& o );
       void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
    private:
@@ -227,7 +227,7 @@ std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit
    return fut_output;
 }
 
-void controller_impl::open( const boost::filesystem::path& p, const boost::any& o )
+void controller_impl::open( const boost::filesystem::path& p, const std::any& o )
 {
    _state_db.open( p, o );
 }
@@ -482,7 +482,7 @@ std::future< std::shared_ptr< rpc::submission_result > > controller::submit( con
    return _my->submit( item );
 }
 
-void controller::open( const boost::filesystem::path& p, const boost::any& o )
+void controller::open( const boost::filesystem::path& p, const std::any& o )
 {
    _my->open( p, o );
 }

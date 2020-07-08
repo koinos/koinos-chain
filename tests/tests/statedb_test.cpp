@@ -89,7 +89,7 @@ struct statedb_fixture
    {
       temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( temp );
-      boost::any cfg = mira::utilities::default_database_configuration();
+      std::any cfg = mira::utilities::default_database_configuration();
 
       db.open( temp, cfg );
    }
@@ -370,7 +370,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
     */
    boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
    boost::filesystem::create_directory( temp );
-   boost::any cfg = mira::utilities::default_database_configuration();
+   std::any cfg = mira::utilities::default_database_configuration();
 
    using state_delta_type = state_delta< book_index >;
    using state_delta_ptr = std::shared_ptr< state_delta_type >;
