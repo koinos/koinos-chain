@@ -336,7 +336,7 @@ struct multi_index_adapter
       }
    }
 
-   void set_index_type( index_type type, const boost::filesystem::path& p, const boost::any& cfg )
+   void set_index_type( index_type type, const boost::filesystem::path& p, const std::any& cfg )
    {
       if( type == _type ) return;
 
@@ -578,7 +578,7 @@ struct multi_index_adapter
       return boost::make_reverse_iterator( begin() );
    }
 
-   bool open( const boost::filesystem::path& p, const boost::any& o, index_type type = index_type::mira )
+   bool open( const boost::filesystem::path& p, const std::any& o, index_type type = index_type::mira )
    {
       if( type != _type )
       {

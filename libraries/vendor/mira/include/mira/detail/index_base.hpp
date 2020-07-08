@@ -27,6 +27,8 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/utilities/write_batch_with_index.h>
 
+#include <any>
+
 namespace mira{
 
 namespace multi_index{
@@ -154,7 +156,7 @@ protected:
 
 
    template< typename... Args >
-   boost::any final_emplace_( Args&&... args )
+   std::any final_emplace_( Args&&... args )
    {
       return final().emplace_( std::forward<Args>(args)... );
    }

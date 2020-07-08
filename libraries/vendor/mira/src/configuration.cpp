@@ -187,11 +187,11 @@ nlohmann::json& retrieve_active_configuration( nlohmann::json& j, std::string ty
    return j[ BASE ];
 }
 
-size_t configuration::get_object_count( const boost::any& cfg )
+size_t configuration::get_object_count( const std::any& cfg )
 {
    size_t object_count = 0;
 
-   auto j = boost::any_cast< nlohmann::json >( cfg );
+   auto j = std::any_cast< nlohmann::json >( cfg );
    if( !j.is_object() )
       throw mira_config_error( "Expected database configuration to be an object" );
 
@@ -208,11 +208,11 @@ size_t configuration::get_object_count( const boost::any& cfg )
    return object_count;
 }
 
-bool configuration::gather_statistics( const boost::any& cfg )
+bool configuration::gather_statistics( const std::any& cfg )
 {
    bool statistics = false;
 
-   auto j = boost::any_cast< nlohmann::json >( cfg );
+   auto j = std::any_cast< nlohmann::json >( cfg );
    if( !j.is_object() )
       throw mira_config_error( "Expected database configuration to be an object" );
 
@@ -229,11 +229,11 @@ bool configuration::gather_statistics( const boost::any& cfg )
    return statistics;
 }
 
-::rocksdb::Options configuration::get_options( const boost::any& cfg, std::string type_name )
+::rocksdb::Options configuration::get_options( const std::any& cfg, std::string type_name )
 {
    ::rocksdb::Options opts;
 
-   auto j = boost::any_cast< nlohmann::json >( cfg );
+   auto j = std::any_cast< nlohmann::json >( cfg );
    if( !j.is_object() )
       throw mira_config_error( "Expected database configuration to be an object" );
 

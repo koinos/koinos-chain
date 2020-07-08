@@ -330,7 +330,7 @@ public:
    {
       BOOST_MULTI_INDEX_ORD_INDEX_CHECK_INVARIANT;
 
-      return boost::any_cast< emplace_return_type >(
+      return std::any_cast< emplace_return_type >(
          this->final_emplace_( std::forward<Args>(args)... ) );
    }
 

@@ -138,7 +138,7 @@ public:
       _name = "rocksdb_" + *(split_v.rbegin());
    }
 
-  explicit multi_index_container( const boost::filesystem::path& p, const boost::any& cfg ):
+  explicit multi_index_container( const boost::filesystem::path& p, const std::any& cfg ):
     super(ctor_args_list()),
     _entry_count(0)
    {
@@ -155,7 +155,7 @@ public:
    }
 
    template< typename InputIterator >
-   explicit multi_index_container( InputIterator& first, InputIterator& last, const boost::filesystem::path& p, const boost::any& cfg ):
+   explicit multi_index_container( InputIterator& first, InputIterator& last, const boost::filesystem::path& p, const std::any& cfg ):
     super(ctor_args_list()),
     _entry_count(0)
    {
@@ -227,7 +227,7 @@ public:
       return *this;
    }
 
-   bool open( const boost::filesystem::path& p, const boost::any& cfg = nullptr )
+   bool open( const boost::filesystem::path& p, const std::any& cfg = nullptr )
    {
       assert( p.is_absolute() );
 
@@ -591,7 +591,7 @@ primary_iterator erase( primary_iterator position )
   }
 
    template< typename... Args >
-   boost::any emplace_( Args&&... args )
+   std::any emplace_( Args&&... args )
    {
       Value v( std::forward< Args >(args)... );
       bool res = insert_( v );

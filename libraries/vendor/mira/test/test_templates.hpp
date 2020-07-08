@@ -14,12 +14,12 @@ void basic_test( const std::vector< uint64_t >& v,
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      index.emplace( [&] ( Object& o )
-      {
-         o.id = item;
-         call( o );
-         o.val = 100 - item;
-      } );
+      Object o;
+      o.id = item;
+      call( o );
+      o.val = 100 - item;
+
+      index.emplace( std::move( o ) );
    }
 
    BOOST_REQUIRE( v.size() == c.size() );
@@ -37,12 +37,14 @@ void basic_test( const std::vector< uint64_t >& v,
    BOOST_REQUIRE( c.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Creating 1 object" );
-   index.emplace( [&] ( Object& o )
    {
+      Object o;
       o.id = 0;
       call( o );
       o.val = 888;
-   } );
+
+      index.emplace( std::move( o ) );
+   }
 
    BOOST_TEST_MESSAGE( "Modyfing 1 object" );
    index.modify( c.begin(), [] ( Object& o )
@@ -60,12 +62,12 @@ void basic_test( const std::vector< uint64_t >& v,
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      index.emplace( [&] ( Object& o )
-      {
-         o.id = item;
-         call( o );
-         o.val = 100 - item;
-      } );
+      Object o;
+      o.id = item;
+      call( o );
+      o.val = 100 - item;
+
+      index.emplace( std::move( o ) );
    }
 
    BOOST_REQUIRE( v.size() == c.size() );
@@ -95,12 +97,12 @@ void insert_remove_test( const std::vector< uint64_t >& v,
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      index.emplace( [&] ( Object& o )
-      {
-         o.id = item;
-         call( o );
-         o.val = item;
-      } );
+      Object o;
+      o.id = item;
+      call( o );
+      o.val = item;
+
+      index.emplace( std::move( o ) );
 
       ++cnt;
    }
@@ -121,12 +123,12 @@ void insert_remove_test( const std::vector< uint64_t >& v,
    cnt = 0;
    for( const auto& item : v )
    {
-      index.emplace( [&] ( Object& o )
-      {
-         o.id = item;
-         call( o );
-         o.val = cnt;
-      } );
+      Object o;
+      o.id = item;
+      call( o );
+      o.val = cnt;
+
+      index.emplace( std::move( o ) );
 
       if( ++cnt == 2 )
          break;
@@ -139,12 +141,12 @@ void insert_remove_test( const std::vector< uint64_t >& v,
    BOOST_REQUIRE( c.size() == 1 );
 
    BOOST_TEST_MESSAGE( "Adding object with id_key = 0" );
-   index.emplace( [&] ( Object& o )
-   {
-      o.id = v[0];
-      call( o );
-      o.val = 100;
-   } );
+   Object o;
+   o.id = v[0];
+   call( o );
+   o.val = 100;
+
+   index.emplace( std::move( o ) );
 
    BOOST_REQUIRE( c.size() == 2 );
 
@@ -175,16 +177,35 @@ void insert_remove_collision_test( const std::vector< uint64_t >& v,
 
    BOOST_TEST_MESSAGE( "Adding 2 objects with collision - the same id" );
 
-   index.emplace( call1 );
-   BOOST_CHECK( index.emplace( call2 ).second == false );
+   {
+      Object o;
+      call1( o );
+      index.emplace( std::move( o ) );
+   }
+
+   {
+      Object o;
+      call2( o );
+      BOOST_CHECK( index.emplace( std::move( o ) ).second == false );
+   }
 
    BOOST_REQUIRE( c.size() == 1 );
 
    BOOST_TEST_MESSAGE( "Removing object and adding 2 objects with collision - the same name+val" );
    index.erase( c.begin() );
 
-   index.emplace( call3 );
-   BOOST_CHECK( index.emplace( call4 ).second == false );
+   {
+      Object o;
+      call3( o );
+      index.emplace( std::move( o ) );
+   }
+
+   {
+      Object o;
+      call4( o );
+      BOOST_CHECK( index.emplace( std::move( o ) ).second == false );
+   }
+
    BOOST_REQUIRE( c.size() == 1 );
 }
 
@@ -202,12 +223,12 @@ void modify_test( const std::vector< uint64_t >& v,
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      index.emplace( [&] ( Object& o )
-      {
-         o.id = item;
-         call1( o );
-         o.val = item + 100;
-      } );
+      Object o;
+      o.id = item;
+      call1( o );
+      o.val = item + 100;
+
+      index.emplace( std::move( o ) );
    }
    BOOST_REQUIRE( v.size() == c.size() );
 
@@ -248,12 +269,12 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      index.emplace( [&] ( Object& o )
-      {
-         o.id = item;
-         o.name = "any_name";
-         o.val = item + 200;
-      } );
+      Object o;
+      o.id = item;
+      o.name = "any_name";
+      o.val = item + 200;
+
+      index.emplace( std::move( o ) );
    }
    BOOST_REQUIRE( v.size() == c.size() );
 
@@ -315,9 +336,17 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
       };
 
       if( cnt == 0 )
-         index.emplace( constructor );
+      {
+         Object o;
+         constructor( o );
+         index.emplace( std::move( o ) );
+      }
       else
-         BOOST_CHECK( index.emplace( constructor ).second == false );
+      {
+         Object o;
+         constructor( o );
+         BOOST_CHECK( index.emplace( std::move( o ) ).second == false );
+      }
 
       cnt++;
    }
@@ -337,13 +366,12 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects." );
    for( const auto& item : v )
    {
-      auto constructor = [ &item, &cnt ]( Object &obj )
-      {
-         obj.id = item;
-         obj.name = "object nr:" + std::to_string( cnt++ );
-         obj.val = 5000;
-      };
-      index.emplace( constructor );
+      Object o;
+      o.id = item;
+      o.name = "object nr:" + std::to_string( cnt++ );
+      o.val = 5000;
+
+      index.emplace( std::move( o ) );
    }
    BOOST_REQUIRE( c.size() == v.size() );
 
@@ -399,14 +427,13 @@ void misc_test3( const std::vector< uint64_t >& v, IndexType& index )
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for ( const auto& item : v )
    {
-      auto constructor = [ &item ]( Object &obj )
-      {
-         obj.id = item;
-         obj.val = item + 1;
-         obj.val2 = item + 2;
-         obj.val3 = item + 3;
-      };
-      index.emplace( constructor );
+      Object obj;
+      obj.id = item;
+      obj.val = item + 1;
+      obj.val2 = item + 2;
+      obj.val3 = item + 3;
+
+      index.emplace( std::move( obj ) );
    }
    BOOST_REQUIRE( v.size() == c.size() );
 

@@ -25,17 +25,9 @@ struct book
 {
    typedef uint64_t id_type;
 
-   template<typename Constructor, typename Allocator>
-   book( Constructor&& c, Allocator&& a )
-   {
-      c(*this);
-   }
-
-   book() = default;
-
-   id_type id;
-   int a = 0;
-   int b = 1;
+   id_type id = 0;
+   int     a  = 0;
+   int     b  = 1;
 
    int sum()const { return a + b; }
 };
@@ -66,15 +58,7 @@ struct single_index_object
 {
    typedef uint64_t id_type;
 
-   template< typename Constructor, typename Allocator >
-   single_index_object( Constructor&& c, Allocator&& a )
-   {
-      c( *this );
-   }
-
-   single_index_object() = default;
-
-   id_type id;
+   id_type id = 0;
 };
 
 typedef mira::multi_index_adapter<
@@ -89,22 +73,8 @@ struct test_object
 {
    typedef uint64_t id_type;
 
-   template <class Constructor, class Allocator>
-   test_object(Constructor&& c, Allocator a ) : id( 0 ), val( 0 )
-   {
-      c(*this);
-   }
-
-   template <class Constructor, class Allocator>
-   test_object(Constructor&& c, int64_t _id, Allocator a ) : id( _id ), val( 0 ), name( a )
-   {
-      c(*this);
-   }
-
-   test_object() = default;
-
-   id_type id;
-   uint32_t val;
+   id_type     id   = 0;
+   uint32_t    val  = 0;
    std::string name;
 };
 
@@ -129,16 +99,8 @@ struct test_object2
 {
    typedef uint64_t id_type;
 
-   template <class Constructor, class Allocator>
-   test_object2(Constructor&& c, Allocator a ) : id( 0 ), val( 0 )
-   {
-      c(*this);
-   }
-
-   test_object2() = default;
-
-   id_type id;
-   uint32_t val;
+   id_type  id  = 0;
+   uint32_t val = 0;
 };
 
 struct ordered_idx2;
@@ -162,18 +124,10 @@ struct test_object3
 {
    typedef uint64_t id_type;
 
-   template <class Constructor, class Allocator>
-   test_object3(Constructor&& c, Allocator a ) : id( 0 ), val( 0 ), val2( 0 ), val3( 0 )
-   {
-      c(*this);
-   }
-
-   test_object3() = default;
-
-   id_type id;
-   uint32_t val;
-   uint32_t val2;
-   uint32_t val3;
+   id_type  id   = 0;
+   uint32_t val  = 0;
+   uint32_t val2 = 0;
+   uint32_t val3 = 0;
 };
 
 struct ordered_idx3;
@@ -205,15 +159,7 @@ struct account_object
 {
    typedef uint64_t id_type;
 
-   template< typename Constructor, typename Allocator >
-   account_object( Constructor&& c, Allocator&& a )
-   {
-      c( *this );
-   }
-
-   account_object() = default;
-
-   id_type id;
+   id_type     id = 0;
    std::string name;
 };
 

@@ -20,7 +20,7 @@ using mira::multi_index::const_mem_fun;
 
 struct mira_fixture {
    boost::filesystem::path tmp_path;
-   boost::any cfg;
+   std::any cfg;
 
    mira_fixture()
    {
@@ -43,40 +43,48 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    index.open( tmp_path, cfg, index_type::mira );
 
    BOOST_TEST_MESSAGE( "Creating book" );
-   auto new_book_itr = index.emplace( []( book& b )
    {
+      book b;
       b.id = 0;
       b.a = 3;
       b.b = 4;
-   });
 
-   BOOST_REQUIRE( new_book_itr.second );
-   BOOST_REQUIRE_EQUAL( new_book_itr.first->id, 0 );
-   BOOST_REQUIRE_EQUAL( new_book_itr.first->a, 3 );
-   BOOST_REQUIRE_EQUAL( new_book_itr.first->b, 4 );
+      auto new_book_itr = index.emplace( std::move( b ) );
 
-   new_book_itr = index.emplace( []( book& b )
+      BOOST_REQUIRE( new_book_itr.second );
+      BOOST_REQUIRE_EQUAL( new_book_itr.first->id, 0 );
+      BOOST_REQUIRE_EQUAL( new_book_itr.first->a, 3 );
+      BOOST_REQUIRE_EQUAL( new_book_itr.first->b, 4 );
+   }
+
+
+
    {
+      book b;
       b.id = 1;
       b.a = 3;
       b.b = 5;
-   });
 
-   BOOST_REQUIRE( new_book_itr.second == false );
+      BOOST_REQUIRE( index.emplace( std::move( b ) ).second == false );
+   }
 
-   index.emplace( []( book& b )
    {
+      book b;
       b.id = 1;
       b.a = 4;
       b.b = 5;
-   });
 
-   index.emplace( []( book& b )
+      index.emplace( std::move( b ) );
+   }
+
    {
+      book b;
       b.id = 2;
       b.a = 2;
       b.b = 1;
-   });
+
+      index.emplace( std::move( b ) );
+   }
 
    const auto& book_idx = index.get< by_id >();
    auto itr = book_idx.begin();
@@ -539,7 +547,9 @@ BOOST_AUTO_TEST_CASE( single_index_test )
    auto index = single_index_index();
    index.open( tmp_path, cfg, index_type::mira );
 
-   index.emplace( [&]( single_index_object& o ){ o.id = 0; } );
+   single_index_object o;
+   o.id = 0;
+   index.emplace( std::move( o ) );
 
    const auto& sio = *(index.find( 0 ));
 
@@ -556,23 +566,29 @@ BOOST_AUTO_TEST_CASE( variable_length_key_test )
 
    BOOST_REQUIRE( itr == acc_by_name_idx.end() );
 
-   index.emplace( [&]( account_object& a )
    {
+      account_object a;
       a.id = 0;
       a.name = "alice";
-   });
 
-   index.emplace( [&]( account_object& a )
+      index.emplace( std::move( a ) );
+   }
+
    {
+      account_object a;
       a.id = 1;
       a.name = "bob";
-   });
 
-   index.emplace( [&]( account_object& a )
+      index.emplace( std::move( a ) );
+   }
+
    {
+      account_object a;
       a.id = 2;
       a.name = "charlie";
-   });
+
+      index.emplace( std::move( a ) );
+   }
 
    itr = acc_by_name_idx.begin();
 
@@ -600,26 +616,23 @@ BOOST_AUTO_TEST_CASE( sanity_modify_test )
    auto index = book_index();
    index.open( tmp_path, cfg, index_type::mira );
 
-   const auto b1 = index.emplace( []( book& b )
-   {
-      b.id = 0;
-      b.a = 1;
-      b.b = 2;
-   } );
+   book b1_obj;
+   b1_obj.id = 0;
+   b1_obj.a = 1;
+   b1_obj.b = 2;
+   auto b1 = index.emplace( std::move( b1_obj ) );
 
-   const auto b2 = index.emplace( []( book& b )
-   {
-      b.id = 1;
-      b.a = 2;
-      b.b = 3;
-   } );
+   book b2_obj;
+   b2_obj.id = 1;
+   b2_obj.a = 2;
+   b2_obj.b = 3;
+   auto b2 = index.emplace( std::move( b2_obj ) );
 
-   const auto b3 = index.emplace( []( book& b )
-   {
-      b.id = 2;
-      b.a = 4;
-      b.b = 5;
-   } );
+   book b3_obj;
+   b3_obj.id = 2;
+   b3_obj.a = 4;
+   b3_obj.b = 5;
+   auto b3 = index.emplace( std::move( b3_obj ) );
 
    BOOST_REQUIRE( b1.first->a == 1 );
    BOOST_REQUIRE( b1.first->b == 2 );
@@ -671,13 +684,13 @@ BOOST_AUTO_TEST_CASE( range_test )
    {
       for ( uint32_t j = 0; j < 10; j++ )
       {
-         index.emplace( [=] ( test_object3& o )
-         {
-            o.id = i * 10 + j;
-            o.val = i;
-            o.val2 = j;
-            o.val3 = i + j;
-         } );
+         test_object3 o;
+         o.id = i * 10 + j;
+         o.val = i;
+         o.val2 = j;
+         o.val3 = i + j;
+
+         index.emplace( std::move( o ) );
       }
    }
 
@@ -708,13 +721,13 @@ BOOST_AUTO_TEST_CASE( bounds_test )
    {
       for ( uint32_t j = 0; j < 10; j++ )
       {
-         index.emplace( [=] ( test_object3& o )
-         {
-            o.id = i * 10 + j;
-            o.val = i;
-            o.val2 = j;
-            o.val3 = i + j;
-         } );
+         test_object3 o;
+         o.id = i * 10 + j;
+         o.val = i;
+         o.val2 = j;
+         o.val3 = i + j;
+
+         index.emplace( std::move( o ) );
       }
    }
 

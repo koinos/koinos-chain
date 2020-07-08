@@ -4,9 +4,9 @@
 
 #include <koinos/crypto/multihash.hpp>
 
-#include <boost/any.hpp>
 #include <boost/filesystem.hpp>
 
+#include <any>
 #include <memory>
 
 const std::vector< uint8_t > ID_KEY { 'D','E','L','T','A','_','I','D' };
@@ -47,7 +47,7 @@ namespace koinos::statedb::detail {
             _indices = std::make_shared< index_type >( index_type::type_enum::bmic );
          }
 
-         state_delta( const boost::filesystem::path& p, const boost::any& o )
+         state_delta( const boost::filesystem::path& p, const std::any& o )
          {
             _indices = std::make_shared< index_type >( index_type::type_enum::mira );
             _indices->open( p, o );
