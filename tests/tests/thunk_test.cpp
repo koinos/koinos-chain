@@ -318,5 +318,16 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( chain_thunks_test )
+{ try {
+   BOOST_TEST_MESSAGE( "get_head_info test" );
+
+   auto head = thunk::get_head_info( ctx );
+   BOOST_CHECK_EQUAL( head.height, 1 );
+   // Test exception when null state pointer is passed
+   ctx.set_state_node( nullptr );
+   BOOST_REQUIRE_THROW( thunk::get_head_info( ctx ), koinos::chain::database_exception );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
