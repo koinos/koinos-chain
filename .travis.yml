@@ -19,10 +19,6 @@ jobs:
       dist: focal
       compiler: gcc
       env: RUN_TYPE=test
-    - os: linux
-      dist: focal
-      compiler: gcc
-      env: RUN_TYPE=test
     - os: osx
       osx_image: xcode11.4
       compiler: clang
