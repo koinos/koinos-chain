@@ -63,7 +63,7 @@ target_include_directories( mira
    )
 
 # TODO:  Fix tests properly instead of commenting out the build
-# add_subdirectory( test )
+add_subdirectory( test )
 
 INSTALL( TARGETS
    mira
@@ -73,4 +73,3 @@ INSTALL( TARGETS
    ARCHIVE DESTINATION lib
 )
 INSTALL( FILES ${HEADERS} DESTINATION "include/mira" )
-

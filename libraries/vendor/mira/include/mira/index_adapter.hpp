@@ -254,7 +254,10 @@ struct multi_index_adapter
       }
    }
 
-   ~multi_index_adapter() {}
+   ~multi_index_adapter()
+   {
+      close();
+   }
 
    template< typename Tag >
    struct get_index_number
