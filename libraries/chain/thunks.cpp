@@ -34,6 +34,8 @@ void register_thunks( thunk_dispatcher& td )
       (get_contract_args_size)
       (get_contract_args)
       (set_contract_return)
+
+      (get_head_info)
    )
 }
 
@@ -262,6 +264,18 @@ THUNK_DEFINE_VOID( variable_blob, get_contract_args )
 THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 {
    context.set_contract_return( ret );
+}
+
+THUNK_DEFINE_VOID( types::protocol::head_info, get_head_info )
+{
+   auto head = context.get_state_node();
+   if( !head ) { KOINOS_THROW( null_state_pointer, "Apply context state node is null" ); }
+
+   types::protocol::head_info hi;
+   hi.id = head->id();
+   hi.height = head->revision();
+
+   return hi;
 }
 
 } } // koinos::chain::thunk

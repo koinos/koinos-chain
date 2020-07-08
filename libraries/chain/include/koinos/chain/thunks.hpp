@@ -23,6 +23,7 @@ namespace thunk {
 KOINOS_DECLARE_EXCEPTION( exit_success );
 KOINOS_DECLARE_EXCEPTION( exit_failure );
 KOINOS_DECLARE_EXCEPTION( unknown_exit_code );
+KOINOS_DECLARE_EXCEPTION( null_state_pointer );
 
 /*
  * When defining a new thunk, we have essentially two different implementations.
@@ -74,5 +75,7 @@ THUNK_DECLARE_VOID( uint32_t, get_contract_args_size );
 THUNK_DECLARE_VOID( variable_blob, get_contract_args );
 
 THUNK_DECLARE( void, set_contract_return, const variable_blob& ret );
+
+THUNK_DECLARE( types::protocol::head_info, get_head_info );
 
 } } // koinos::chain::thunk
