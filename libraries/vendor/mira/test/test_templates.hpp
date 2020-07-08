@@ -1,6 +1,5 @@
 #pragma once
 
-#include <chainbase/chainbase.hpp>
 #include <vector>
 #include <functional>
 #include <boost/test/unit_test.hpp>
@@ -8,14 +7,14 @@
 template < typename IndexType, typename Object, typename Order >
 void basic_test( const std::vector< uint64_t >& v,
                  std::function< void( Object& ) > call,
-                 chainbase::database& db )
+                 IndexType& index )
 {
-   const auto& c = db.get_index< IndexType, Order >();
+   const auto& c = index.template get< Order >();
 
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      db.create< Object >( [&] ( Object& o )
+      index.emplace( [&] ( Object& o )
       {
          o.id = item;
          call( o );
@@ -31,14 +30,14 @@ void basic_test( const std::vector< uint64_t >& v,
       while ( it != c.end() )
       {
          auto to_remove = it; ++it;
-         db.remove( *to_remove );
+         index.erase( to_remove );
       }
    }
 
    BOOST_REQUIRE( c.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Creating 1 object" );
-   db.create< Object >( [&] ( Object& o )
+   index.emplace( [&] ( Object& o )
    {
       o.id = 0;
       call( o );
@@ -46,7 +45,7 @@ void basic_test( const std::vector< uint64_t >& v,
    } );
 
    BOOST_TEST_MESSAGE( "Modyfing 1 object" );
-   db.modify( *( c.begin() ), [] ( Object& o )
+   index.modify( c.begin(), [] ( Object& o )
    {
       o.val = o.val + 1;
    } );
@@ -54,14 +53,14 @@ void basic_test( const std::vector< uint64_t >& v,
    BOOST_REQUIRE( c.size() == 1 );
 
    BOOST_TEST_MESSAGE( "Removing 1 object" );
-   db.remove( *( c.begin() ) );
+   index.erase( c.begin() );
 
    BOOST_REQUIRE( c.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      db.create< Object >( [&] ( Object& o )
+      index.emplace( [&] ( Object& o )
       {
          o.id = item;
          call( o );
@@ -77,7 +76,7 @@ void basic_test( const std::vector< uint64_t >& v,
       while (it != c.end())
       {
          auto to_remove = it; ++it;
-         db.remove( *to_remove );
+         index.erase( to_remove );
       }
    }
 
@@ -87,16 +86,16 @@ void basic_test( const std::vector< uint64_t >& v,
 template < typename IndexType, typename Object, typename Order >
 void insert_remove_test( const std::vector< uint64_t >& v,
                          std::function< void( Object& ) > call,
-                         chainbase::database& db )
+                         IndexType& index )
 {
-   const auto& c = db.get_index< IndexType, Order >();
+   const auto& c = index.template get< Order >();
 
    int64_t cnt = 0;
 
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      db.create< Object >( [&] ( Object& o )
+      index.emplace( [&] ( Object& o )
       {
          o.id = item;
          call( o );
@@ -113,7 +112,7 @@ void insert_remove_test( const std::vector< uint64_t >& v,
       auto found = c.find( i );
       BOOST_REQUIRE( found != c.end() );
 
-      db.remove( *found );
+      index.erase( found );
       BOOST_REQUIRE( v.size() - i - 1 == c.size() );
    }
    BOOST_REQUIRE( c.size() == 0 );
@@ -122,7 +121,7 @@ void insert_remove_test( const std::vector< uint64_t >& v,
    cnt = 0;
    for( const auto& item : v )
    {
-      db.create< Object >( [&] ( Object& o )
+      index.emplace( [&] ( Object& o )
       {
          o.id = item;
          call( o );
@@ -135,12 +134,12 @@ void insert_remove_test( const std::vector< uint64_t >& v,
    BOOST_REQUIRE( c.size() == 2 );
 
    BOOST_TEST_MESSAGE( "Removing first object" );
-   db.remove( *( c.begin() ) );
+   index.erase( c.begin() );
 
    BOOST_REQUIRE( c.size() == 1 );
 
    BOOST_TEST_MESSAGE( "Adding object with id_key = 0" );
-   db.create< Object >( [&] ( Object& o )
+   index.emplace( [&] ( Object& o )
    {
       o.id = v[0];
       call( o );
@@ -157,10 +156,10 @@ void insert_remove_test( const std::vector< uint64_t >& v,
    auto first = found;
    --first;
 
-   db.remove( *found );
+   index.erase( found );
    BOOST_REQUIRE( c.size() == 1 );
 
-   db.remove( *first );
+   index.erase( first );
    BOOST_REQUIRE( c.size() == 0 );
 }
 
@@ -170,22 +169,22 @@ void insert_remove_collision_test( const std::vector< uint64_t >& v,
                                    std::function< void( Object& ) > call2,
                                    std::function< void( Object& ) > call3,
                                    std::function< void( Object& ) > call4,
-                                   chainbase::database& db )
+                                   IndexType& index )
 {
-   const auto& c = db.get_index< IndexType, Order >();
+   const auto& c = index.template get< Order >();
 
    BOOST_TEST_MESSAGE( "Adding 2 objects with collision - the same id" );
 
-   db.create< Object >( call1 );
-   BOOST_CHECK_THROW( db.create< Object >( call2 ), std::logic_error );
+   index.emplace( call1 );
+   BOOST_CHECK( index.emplace( call2 ).second == false );
 
    BOOST_REQUIRE( c.size() == 1 );
 
    BOOST_TEST_MESSAGE( "Removing object and adding 2 objects with collision - the same name+val" );
-   db.remove( *( c.begin() ) );
+   index.erase( c.begin() );
 
-   db.create< Object >( call3 );
-   BOOST_CHECK_THROW( db.create< Object >( call4 ), std::logic_error );
+   index.emplace( call3 );
+   BOOST_CHECK( index.emplace( call4 ).second == false );
    BOOST_REQUIRE( c.size() == 1 );
 }
 
@@ -196,14 +195,14 @@ void modify_test( const std::vector< uint64_t >& v,
                   std::function< void( const Object& ) > call3,
                   std::function< void( const Object& ) > call4,
                   std::function< void( bool ) > call5,
-                  chainbase::database& db )
+                  IndexType& index )
 {
-   const auto& c = db.get_index< IndexType, Order >();
+   const auto& c = index.template get< Order >();
 
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      db.create< Object >( [&] ( Object& o )
+      index.emplace( [&] ( Object& o )
       {
          o.id = item;
          call1( o );
@@ -216,15 +215,15 @@ void modify_test( const std::vector< uint64_t >& v,
    auto it = c.begin();
    auto end = c.end();
    for( ; it != end; ++it )
-      db.modify( *it, call2 );
+      index.modify( it, call2 );
 
    BOOST_REQUIRE( v.size() == c.size() );
    int32_t cnt = 0;
    for( const auto& item : c )
    {
       BOOST_REQUIRE( item.id == v[ cnt++ ] );
-      db.modify( item, call3 );
-      db.modify( item, call4 );
+      index.modify( index.iterator_to( item ), call3 );
+      index.modify( index.iterator_to( item ), call4 );
    }
 
    BOOST_TEST_MESSAGE( "Modifying 'val' key in order to create collisions for all objects" );
@@ -232,35 +231,27 @@ void modify_test( const std::vector< uint64_t >& v,
    it = std::next( c.begin(), 1 );
    for( ; it != end; ++it )
    {
-      bool result = true;
-      try
+      bool result = index.modify( it, [&] ( Object& o )
       {
-         db.modify( *it, [&] ( Object& o )
-         {
-            o.val = first_val;
-         } );
-      }
-      catch ( const std::logic_error& e )
-      {
-         result = false;
-      }
+         o.val = first_val;
+      });
 
       call5( result );
    }
 }
 
 template < typename IndexType, typename Object, typename SimpleIndex, typename ComplexIndex >
-void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
+void misc_test( const std::vector< uint64_t >& v, IndexType& index )
 {
-   const auto& c = db.get_index< IndexType, SimpleIndex >();
+   const auto& c = index.template get< SimpleIndex >();
 
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for( const auto& item : v )
    {
-      db.create< Object >( [&] ( Object& o )
+      index.emplace( [&] ( Object& o )
       {
          o.id = item;
-         o.name = 454545;
+         o.name = "any_name";
          o.val = item + 200;
       } );
    }
@@ -271,43 +262,43 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
    for( const auto& item : c )
    {
       BOOST_REQUIRE( item.id == v[ cnt++ ] );
-      BOOST_REQUIRE( item.name == 454545 );
-      BOOST_REQUIRE( item.val == item.id._id + 200 );
+      BOOST_REQUIRE( item.name == "any_name" );
+      BOOST_REQUIRE( item.val == item.id + 200 );
    }
 
    BOOST_TEST_MESSAGE( "Removing 2 objects: first and last" );
-   db.remove ( *( c.begin() ) );
+   index.erase( c.begin() );
    {
       auto last = c.end();
       --last;
-      db.remove( *last );
+      index.erase( last );
    }
 
    BOOST_REQUIRE( v.size() - 2 == c.size() );
 
    //Modyfing key `name` in one object.
-   db.modify( *( c.begin() ), [] ( Object& o ) { o.name = 567876; } );
+   index.modify( c.begin(), [] ( Object& o ) { o.name = "completely_different_name"; } );
    auto it1 = c.begin();
-   BOOST_REQUIRE( it1->name == 567876 );
+   BOOST_REQUIRE( it1->name == "completely_different_name" );
    uint32_t val1 = it1->val;
 
    //Creating collision in two objects: [1] and [2]
    auto it2 = it1;
    it2++;
-   BOOST_CHECK_THROW( db.modify( *it2, [ val1 ]( Object& obj ){ obj.name = 567876; obj.val = val1;} ), std::logic_error );
+   BOOST_REQUIRE( index.modify( it2, [ val1 ]( Object& obj ){ obj.name = "completely_different_name"; obj.val = val1;} ) == false );
 
    //Removing object [1].
    it1 = c.begin();
    it1++;
 
-   db.remove( *it1 );
+   index.erase( it1 );
    BOOST_REQUIRE( v.size() - 3 == c.size() );
 
    //Removing all remaining objects
    auto it_erase = c.begin();
    while( it_erase != c.end() )
    {
-      db.remove( *it_erase );
+      index.erase( it_erase );
       it_erase = c.begin();
    }
    BOOST_REQUIRE( c.size() == 0 );
@@ -319,14 +310,14 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
       auto constructor = [ &item ]( Object &obj )
       {
          obj.id = item;
-         obj.name = 1211211;
+         obj.name = "all_objects_have_the_same_name";
          obj.val = 667;
       };
 
       if( cnt == 0 )
-         db.create< Object >( constructor );
+         index.emplace( constructor );
       else
-         BOOST_CHECK_THROW( db.create< Object >( constructor ), std::logic_error );
+         BOOST_CHECK( index.emplace( constructor ).second == false );
 
       cnt++;
    }
@@ -334,12 +325,12 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
 
    auto it_only_one = c.begin();
    BOOST_REQUIRE( it_only_one->id == v[0] );
-   BOOST_REQUIRE( it_only_one->name == 1211211 );
+   BOOST_REQUIRE( it_only_one->name == "all_objects_have_the_same_name" );
    BOOST_REQUIRE( it_only_one->val == 667 );
 
    BOOST_TEST_MESSAGE( "Erasing one objects." );
 
-   db.remove( *it_only_one );
+   index.erase( it_only_one );
    BOOST_REQUIRE( c.size() == 0 );
 
    cnt = 0;
@@ -349,17 +340,17 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
       auto constructor = [ &item, &cnt ]( Object &obj )
       {
          obj.id = item;
-         obj.name = cnt++;
+         obj.name = "object nr:" + std::to_string( cnt++ );
          obj.val = 5000;
       };
-      db.create< Object >( constructor );
+      index.emplace( constructor );
    }
    BOOST_REQUIRE( c.size() == v.size() );
 
    BOOST_TEST_MESSAGE( "Finding some objects according to given index." );
 
-   const auto& ordered_idx = db.get_index< IndexType, SimpleIndex >();
-   const auto& composite_ordered_idx = db.get_index< IndexType, ComplexIndex >();
+   const auto& ordered_idx = index.template get< SimpleIndex >();
+   const auto& composite_ordered_idx = index.template get< ComplexIndex >();
 
    auto found = ordered_idx.find( v.size() - 1 );
    BOOST_REQUIRE( found != ordered_idx.end() );
@@ -371,12 +362,12 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
    found = ordered_idx.find( v[0] );
    BOOST_REQUIRE( found != ordered_idx.end() );
 
-   auto cfound = composite_ordered_idx.find( boost::make_tuple( 444444, 5000 ) );
+   auto cfound = composite_ordered_idx.find( boost::make_tuple( "stupid_name", 5000 ) );
    BOOST_REQUIRE( cfound == composite_ordered_idx.end() );
 
-   cfound = composite_ordered_idx.find( boost::make_tuple( 0, 5000 ) );
+   cfound = composite_ordered_idx.find( boost::make_tuple( "object nr:" + std::to_string( 0 ), 5000 ) );
    auto copy_cfound = cfound;
-   auto cfound2 = composite_ordered_idx.find( boost::make_tuple( 9, 5000 ) );
+   auto cfound2 = composite_ordered_idx.find( boost::make_tuple( "object nr:" + std::to_string( 9 ), 5000 ) );
    BOOST_REQUIRE( cfound == composite_ordered_idx.begin() );
 
    {
@@ -395,15 +386,15 @@ void misc_test( const std::vector< uint64_t >& v, chainbase::database& db )
    {
       auto tmp = copy_cfound;
       ++copy_cfound;
-      db.remove( *tmp );
+      index.erase( index.iterator_to( *tmp ) );
    }
    BOOST_REQUIRE( c.size() == 0 );
 }
 
 template < typename IndexType, typename Object, typename SimpleIndex, typename ComplexIndex, typename AnotherComplexIndex >
-void misc_test3( const std::vector< uint64_t >& v, chainbase::database& db )
+void misc_test3( const std::vector< uint64_t >& v, IndexType& index )
 {
-   const auto& c = db.get_index< IndexType, SimpleIndex >();
+   const auto& c = index.template get< SimpleIndex >();
 
    BOOST_TEST_MESSAGE( "Creating `v.size()` objects" );
    for ( const auto& item : v )
@@ -415,14 +406,14 @@ void misc_test3( const std::vector< uint64_t >& v, chainbase::database& db )
          obj.val2 = item + 2;
          obj.val3 = item + 3;
       };
-      db.create< Object >( constructor );
+      index.emplace( constructor );
    }
    BOOST_REQUIRE( v.size() == c.size() );
 
    BOOST_TEST_MESSAGE( "Finding some objects according to given index." );
-   const auto& ordered_idx = db.get_index< IndexType, SimpleIndex >();
-   const auto& composite_ordered_idx = db.get_index< IndexType, ComplexIndex >();
-   const auto& another_composite_ordered_idx = db.get_index< IndexType, AnotherComplexIndex >();
+   const auto& ordered_idx = index.template get< SimpleIndex >();
+   const auto& composite_ordered_idx = index.template get< ComplexIndex >();
+   const auto& another_composite_ordered_idx = index.template get< AnotherComplexIndex >();
 
    auto found = ordered_idx.lower_bound( 5739854 );
    BOOST_REQUIRE( found == ordered_idx.end() );
@@ -446,7 +437,7 @@ void misc_test3( const std::vector< uint64_t >& v, chainbase::database& db )
    BOOST_REQUIRE( another_cfound != another_composite_ordered_idx.end() );
 
    BOOST_TEST_MESSAGE( "Removing 1 object using iterator from 'AnotherComplexIndex' index");
-   db.remove( *another_cfound );
+   index.erase( index.iterator_to( *another_cfound ) );
    BOOST_REQUIRE( c.size() == v.size() - 1 );
 
    another_cfound = another_composite_ordered_idx.find( boost::make_tuple( 0 + 1, 0 + 3 ) );

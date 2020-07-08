@@ -19,17 +19,19 @@ using mira::multi_index::composite_key_compare;
 using mira::multi_index::const_mem_fun;
 
 struct mira_fixture {
-   boost::filesystem::path tmp;
-   chainbase::database db;
+   boost::filesystem::path tmp_path;
+   boost::any cfg;
+
    mira_fixture()
    {
-      tmp = boost::filesystem::current_path() / boost::filesystem::unique_path();
-      db.open( tmp, 0, mira::utilities::default_database_configuration() );
+      tmp_path = boost::filesystem::current_path() / boost::filesystem::unique_path();
+      boost::filesystem::create_directory( tmp_path );
+      cfg = mira::utilities::default_database_configuration();
    }
 
    ~mira_fixture()
    {
-      chainbase::bfs::remove_all( tmp );
+      boost::filesystem::remove_all( tmp_path );
    }
 };
 
@@ -37,44 +39,46 @@ BOOST_FIXTURE_TEST_SUITE( mira_tests, mira_fixture )
 
 BOOST_AUTO_TEST_CASE( sanity_tests )
 {
-   db.add_index< book_index >();
+   auto index = book_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
    BOOST_TEST_MESSAGE( "Creating book" );
-   const auto& new_book =
-   db.create<book>( []( book& b )
+   auto new_book_itr = index.emplace( []( book& b )
    {
-         b.a = 3;
-         b.b = 4;
+      b.id = 0;
+      b.a = 3;
+      b.b = 4;
    });
 
-   BOOST_REQUIRE( new_book.id._id == 0 );
-   BOOST_REQUIRE( new_book.a == 3 );
-   BOOST_REQUIRE( new_book.b == 4 );
+   BOOST_REQUIRE( new_book_itr.second );
+   BOOST_REQUIRE_EQUAL( new_book_itr.first->id, 0 );
+   BOOST_REQUIRE_EQUAL( new_book_itr.first->a, 3 );
+   BOOST_REQUIRE_EQUAL( new_book_itr.first->b, 4 );
 
-   try
+   new_book_itr = index.emplace( []( book& b )
    {
-      db.create<book>( []( book& b )
-      {
-         b.a = 3;
-         b.b = 5;
-      });
-
-      BOOST_REQUIRE( false );
-   } catch( ... ) {}
-
-   db.create<book>( []( book& b )
-   {
-         b.a = 4;
-         b.b = 5;
+      b.id = 1;
+      b.a = 3;
+      b.b = 5;
    });
 
-   db.create<book>( []( book& b )
+   BOOST_REQUIRE( new_book_itr.second == false );
+
+   index.emplace( []( book& b )
    {
-         b.a = 2;
-         b.b = 1;
+      b.id = 1;
+      b.a = 4;
+      b.b = 5;
    });
 
-   const auto& book_idx = db.get_index< book_index, by_id >();
+   index.emplace( []( book& b )
+   {
+      b.id = 2;
+      b.a = 2;
+      b.b = 1;
+   });
+
+   const auto& book_idx = index.get< by_id >();
    auto itr = book_idx.begin();
 
    BOOST_REQUIRE( itr != book_idx.end() );
@@ -82,7 +86,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 3 );
       BOOST_REQUIRE( tmp_book.b == 4 );
    }
@@ -92,7 +96,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -102,7 +106,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -120,7 +124,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -130,7 +134,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -140,18 +144,18 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 3 );
       BOOST_REQUIRE( tmp_book.b == 4 );
    }
 
-   const auto& book_by_a_idx = db.get_index< book_index, by_a >();
+   const auto& book_by_a_idx = index.get< by_a >();
    auto a_itr = book_by_a_idx.begin();
 
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -161,7 +165,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 3 );
       BOOST_REQUIRE( tmp_book.b == 4 );
    }
@@ -171,7 +175,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -179,7 +183,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *(book_by_a_idx.lower_bound( 3 ));
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 3 );
       BOOST_REQUIRE( tmp_book.b == 4 );
    }
@@ -189,7 +193,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *(book_by_a_idx.upper_bound( 3 ));
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -197,26 +201,26 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    BOOST_REQUIRE( book_by_a_idx.upper_bound( 5 ) == book_by_a_idx.end() );
 
    {
-      const auto& tmp_book = db.get< book, by_id >( 1 );
+      const auto& tmp_book = *(index.get< by_id >().find( 1 ));
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
 
    {
-      const auto* book_ptr = db.find< book, by_a >( 4 );
+      const auto book_ptr = index.get< by_a >().find( 4 );
 
-      BOOST_REQUIRE( book_ptr->id._id == 1 );
+      BOOST_REQUIRE( book_ptr->id == 1 );
       BOOST_REQUIRE( book_ptr->a == 4 );
       BOOST_REQUIRE( book_ptr->b == 5 );
    }
 
-   bool is_found = db.find< book, by_a >( 10 ) != nullptr;
+   bool is_found = index.get< by_a >().find( 10 ) != index.get< by_a >().end();
 
    BOOST_REQUIRE( !is_found );
 
-   const auto& book_by_b_idx = db.get_index< book_index, by_b >();
+   const auto& book_by_b_idx = index.get< by_b >();
    auto b_itr = book_by_b_idx.begin();
 
    BOOST_REQUIRE( b_itr != book_by_b_idx.end() );
@@ -224,7 +228,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -234,7 +238,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 3 );
       BOOST_REQUIRE( tmp_book.b == 4 );
    }
@@ -244,7 +248,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -253,9 +257,9 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
 
    BOOST_REQUIRE( b_itr == book_by_b_idx.end() );
 
-   const auto book_by_b = db.get< book, by_b >( boost::make_tuple( 5, 4 ) );
+   const auto book_by_b = *(index.get< by_b >().find( boost::make_tuple( 5, 4 ) ));
 
-   BOOST_REQUIRE( book_by_b.id._id == 1 );
+   BOOST_REQUIRE( book_by_b.id == 1 );
    BOOST_REQUIRE( book_by_b.a == 4 );
    BOOST_REQUIRE( book_by_b.b == 5 );
 
@@ -264,18 +268,18 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
 
-   const auto& book_by_sum_idx = db.get_index< book_index, by_sum >();
+   const auto& book_by_sum_idx = index.get< by_sum >();
    auto by_sum_itr = book_by_sum_idx.begin();
 
    {
       const auto& tmp_book = *by_sum_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -285,7 +289,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *by_sum_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 3 );
       BOOST_REQUIRE( tmp_book.b == 4 );
    }
@@ -295,7 +299,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *by_sum_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -304,59 +308,52 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
 
    BOOST_REQUIRE( by_sum_itr == book_by_sum_idx.end() );
 
-   const auto& book_by_id = db.get< book, by_id >( 0 );
-   const auto& book_by_a = db.get< book, by_a >( 3 );
+   const auto& book_by_id = *(index.get< by_id >().find( 0 ));
+   const auto& book_by_a = *(index.get< by_a >().find( 3 ));
 
    BOOST_REQUIRE( &book_by_id == &book_by_a );
 
-   db.modify( db.get< book, by_id >( 0 ), []( book& b )
+   index.modify( index.get< by_id >().find( 0 ), []( book& b )
    {
       b.a = 10;
       b.b = 5;
    });
 
    {
-      const auto& tmp_book = db.get< book, by_id >( 0 );
+      const auto& tmp_book = *(index.get< by_id >().find( 0 ));
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
 
-   try
-   {
-      // Failure due to collision on 'a'
-      db.modify( db.get< book, by_id >( 0 ), []( book& b )
+   // Failure due to collision on 'a'
+   BOOST_REQUIRE(
+      index.modify( index.get< by_id >().find( 0 ), []( book& b )
       {
          b.a = 4;
          b.b = 10;
-      });
-      BOOST_REQUIRE( false );
-   }
-   catch( ... )
-   {
-      const auto& tmp_book = db.get< book, by_id >( 0 );
+      }) == false );
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+   {
+      const auto& tmp_book = *(index.get< by_id >().find( 0 ));
+
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
 
-   try
-   {
-      // Failure due to collision on 'sum'
-      db.modify( db.get< book, by_id >( 0 ), []( book& b )
+   // Failure due to collision on 'sum'
+   BOOST_REQUIRE( index.modify( index.get< by_id >().find( 0 ), []( book& b )
       {
          b.a = 6;
          b.b = 3;
-      });
-      BOOST_REQUIRE( false );
-   }
-   catch( ... )
-   {
-      const auto& tmp_book = db.get< book, by_id >( 0 );
+      }) == false );
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+   {
+      const auto& tmp_book = *(index.get< by_id >().find( 0 ));
+
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -368,7 +365,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -378,7 +375,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -388,7 +385,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -404,7 +401,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
 
@@ -415,7 +412,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -425,7 +422,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -439,7 +436,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *b_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -449,7 +446,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *by_sum_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -459,7 +456,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *by_sum_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -469,7 +466,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *by_sum_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 0 );
+      BOOST_REQUIRE( tmp_book.id == 0 );
       BOOST_REQUIRE( tmp_book.a == 10 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -478,9 +475,9 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
 
    BOOST_REQUIRE( by_sum_itr == book_by_sum_idx.end() );
 
-   db.remove( db.get< book, by_id >( 0 ) );
+   index.erase( index.get< by_id >().find( 0 ) );
 
-   is_found = db.find< book, by_id >( 0 ) != nullptr;
+   is_found = index.get< by_id >().find( 0 ) != index.get< by_id >().end();
 
    BOOST_REQUIRE( !is_found );
 
@@ -491,7 +488,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -501,7 +498,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -517,7 +514,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 2 );
+      BOOST_REQUIRE( tmp_book.id == 2 );
       BOOST_REQUIRE( tmp_book.a == 2 );
       BOOST_REQUIRE( tmp_book.b == 1 );
    }
@@ -527,7 +524,7 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
    {
       const auto& tmp_book = *a_itr;
 
-      BOOST_REQUIRE( tmp_book.id._id == 1 );
+      BOOST_REQUIRE( tmp_book.id == 1 );
       BOOST_REQUIRE( tmp_book.a == 4 );
       BOOST_REQUIRE( tmp_book.b == 5 );
    }
@@ -539,133 +536,144 @@ BOOST_AUTO_TEST_CASE( sanity_tests )
 
 BOOST_AUTO_TEST_CASE( single_index_test )
 {
-   db.add_index< single_index_index >();
+   auto index = single_index_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   db.create< single_index_object >( [&]( single_index_object& ){} );
+   index.emplace( [&]( single_index_object& o ){ o.id = 0; } );
 
-   const auto& sio = db.get( single_index_object::id_type() );
+   const auto& sio = *(index.find( 0 ));
 
-   BOOST_REQUIRE( sio.id._id == 0 );
+   BOOST_REQUIRE( sio.id == 0 );
 }
 
 BOOST_AUTO_TEST_CASE( variable_length_key_test )
 {
-   db.add_index< account_index >();
+   auto index = account_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   const auto& acc_by_name_idx = db.get_index< account_index, by_name >();
+   const auto& acc_by_name_idx = index.get< by_name >();
    auto itr = acc_by_name_idx.begin();
 
    BOOST_REQUIRE( itr == acc_by_name_idx.end() );
 
-   db.create< account_object >( [&]( account_object& a )
+   index.emplace( [&]( account_object& a )
    {
-      a.name = 1234;
+      a.id = 0;
+      a.name = "alice";
    });
 
-   db.create< account_object >( [&]( account_object& a )
+   index.emplace( [&]( account_object& a )
    {
-      a.name = 5678;
+      a.id = 1;
+      a.name = "bob";
    });
 
-   db.create< account_object >( [&]( account_object& a )
+   index.emplace( [&]( account_object& a )
    {
-      a.name = 5555;
+      a.id = 2;
+      a.name = "charlie";
    });
 
    itr = acc_by_name_idx.begin();
 
-   BOOST_REQUIRE( itr->name == 1234 );
+   BOOST_REQUIRE( itr->name == "alice" );
 
    ++itr;
 
-   BOOST_REQUIRE( itr->name == 5678 );
+   BOOST_REQUIRE( itr->name == "bob" );
 
    ++itr;
 
-   BOOST_REQUIRE( itr->name == 5555 );
+   BOOST_REQUIRE( itr->name == "charlie" );
 
    ++itr;
 
    BOOST_REQUIRE( itr == acc_by_name_idx.end() );
 
-   itr = acc_by_name_idx.lower_bound( 1345 );
+   itr = acc_by_name_idx.lower_bound( "archibald" );
 
-   BOOST_REQUIRE( itr->name == 5678 );
+   BOOST_REQUIRE( itr->name == "bob" );
 }
 
 BOOST_AUTO_TEST_CASE( sanity_modify_test )
 {
-   db.add_index< book_index >();
+   auto index = book_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   const auto& b1 = db.create<book>( []( book& b )
+   const auto b1 = index.emplace( []( book& b )
    {
-         b.a = 1;
-         b.b = 2;
+      b.id = 0;
+      b.a = 1;
+      b.b = 2;
    } );
 
-   const auto& b2 = db.create<book>( []( book& b )
+   const auto b2 = index.emplace( []( book& b )
    {
-         b.a = 2;
-         b.b = 3;
+      b.id = 1;
+      b.a = 2;
+      b.b = 3;
    } );
 
-   const auto& b3 = db.create<book>( []( book& b )
+   const auto b3 = index.emplace( []( book& b )
    {
-         b.a = 4;
-         b.b = 5;
+      b.id = 2;
+      b.a = 4;
+      b.b = 5;
    } );
 
-   BOOST_REQUIRE( b1.a == 1 );
-   BOOST_REQUIRE( b1.b == 2 );
-   BOOST_REQUIRE( b1.sum() == 3 );
+   BOOST_REQUIRE( b1.first->a == 1 );
+   BOOST_REQUIRE( b1.first->b == 2 );
+   BOOST_REQUIRE( b1.first->sum() == 3 );
 
-   BOOST_REQUIRE( b2.a == 2 );
-   BOOST_REQUIRE( b2.b == 3 );
-   BOOST_REQUIRE( b2.sum() == 5 );
+   BOOST_REQUIRE( b2.first->a == 2 );
+   BOOST_REQUIRE( b2.first->b == 3 );
+   BOOST_REQUIRE( b2.first->sum() == 5 );
 
-   BOOST_REQUIRE( b3.a == 4 );
-   BOOST_REQUIRE( b3.b == 5 );
-   BOOST_REQUIRE( b3.sum() == 9 );
+   BOOST_REQUIRE( b3.first->a == 4 );
+   BOOST_REQUIRE( b3.first->b == 5 );
+   BOOST_REQUIRE( b3.first->sum() == 9 );
 
-   db.modify( b2, [] ( book& b )
+   index.modify( index.iterator_to( *(b2.first) ), [] ( book& b )
    {
       b.a = 10;
       b.b = 20;
    } );
 
-   BOOST_REQUIRE( b2.a == 10 );
-   BOOST_REQUIRE( b2.b == 20 );
-   BOOST_REQUIRE( b2.sum() == 30 );
+   BOOST_REQUIRE( b2.first->a == 10 );
+   BOOST_REQUIRE( b2.first->b == 20 );
+   BOOST_REQUIRE( b2.first->sum() == 30 );
 
-   auto idx_by_a = db.get_index< book_index, by_a >();
+   auto idx_by_a = index.get< by_a >();
    auto bb = idx_by_a.end();
    --bb;
 
    BOOST_REQUIRE( bb->a == 10 );
    BOOST_REQUIRE( bb->b == 20 );
    BOOST_REQUIRE( bb->sum() == 30 );
-   BOOST_REQUIRE( &*bb == &b2 );
+   BOOST_REQUIRE( &*bb == &*(b2.first) );
 
-   auto idx_by_sum = db.get_index< book_index, by_sum >();
+   auto idx_by_sum = index.get< by_sum >();
    auto bb2 = idx_by_sum.end();
    --bb2;
 
    BOOST_REQUIRE( bb2->a == 10 );
    BOOST_REQUIRE( bb2->b == 20 );
    BOOST_REQUIRE( bb2->sum() == 30 );
-   BOOST_REQUIRE( &*bb2 == &b2 );
+   BOOST_REQUIRE( &*bb2 == &*(b2.first) );
 }
 
 BOOST_AUTO_TEST_CASE( range_test )
 {
-   db.add_index< test_object3_index >();
+   auto index = test_object3_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
    for ( uint32_t i = 0; i < 10; i++ )
    {
       for ( uint32_t j = 0; j < 10; j++ )
       {
-         db.create< test_object3 >( [=] ( test_object3& o )
+         index.emplace( [=] ( test_object3& o )
          {
+            o.id = i * 10 + j;
             o.val = i;
             o.val2 = j;
             o.val3 = i + j;
@@ -673,7 +681,7 @@ BOOST_AUTO_TEST_CASE( range_test )
       }
    }
 
-   const auto& idx = db.get_index< test_object3_index, composite_ordered_idx3a >();
+   const auto& idx = index.get< composite_ordered_idx3a >();
 
    auto er = idx.equal_range( 5 );
 
@@ -693,14 +701,16 @@ BOOST_AUTO_TEST_CASE( range_test )
 
 BOOST_AUTO_TEST_CASE( bounds_test )
 {
-   db.add_index< test_object3_index >();
+   auto index = test_object3_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
    for ( uint32_t i = 0; i < 10; i++ )
    {
       for ( uint32_t j = 0; j < 10; j++ )
       {
-         db.create< test_object3 >( [=] ( test_object3& o )
+         index.emplace( [=] ( test_object3& o )
          {
+            o.id = i * 10 + j;
             o.val = i;
             o.val2 = j;
             o.val3 = i + j;
@@ -708,7 +718,7 @@ BOOST_AUTO_TEST_CASE( bounds_test )
       }
    }
 
-   const auto& idx = db.get_index< test_object3_index, composite_ordered_idx3a >();
+   const auto& idx = index.get< composite_ordered_idx3a >();
 
    auto upper_bound_not_found = idx.upper_bound( 10 );
    BOOST_REQUIRE( upper_bound_not_found == idx.end() );
@@ -739,44 +749,59 @@ BOOST_AUTO_TEST_CASE( bounds_test )
 
 BOOST_AUTO_TEST_CASE( basic_tests )
 {
-   db.add_index< test_object_index >();
-   db.add_index< test_object2_index >();
-   db.add_index< test_object3_index >();
+   auto index = test_object_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.name = 6767; };
+   auto index2 = test_object2_index();
+   index2.open( tmp_path, cfg, index_type::mira );
+
+   auto index3 = test_object3_index();
+   index3.open( tmp_path, cfg, index_type::mira );
+
+   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
    auto c1b = []( test_object2& obj ) {};
    auto c1c = []( test_object3& obj ) { obj.val2 = 5; obj.val3 = 5; };
 
-   basic_test< test_object_index, test_object, ordered_idx >( { 0, 1, 2, 3, 4, 5 }, c1, db );
-   basic_test< test_object2_index, test_object2, ordered_idx2 >( { 0, 1, 2 }, c1b, db );
-   basic_test< test_object3_index, test_object3, ordered_idx3 >( { 0, 1, 2, 3, 4 }, c1c, db );
+   basic_test< test_object_index, test_object, ordered_idx >( { 0, 1, 2, 3, 4, 5 }, c1, index );
+   basic_test< test_object2_index, test_object2, ordered_idx2 >( { 0, 1, 2 }, c1b, index2 );
+   basic_test< test_object3_index, test_object3, ordered_idx3 >( { 0, 1, 2, 3, 4 }, c1c, index3 );
 }
 
 BOOST_AUTO_TEST_CASE( insert_remove_tests )
 {
-   db.add_index< test_object_index >();
-   db.add_index< test_object2_index >();
-   db.add_index< test_object3_index >();
+   auto index = test_object_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.name = 6767; };
+   auto index2 = test_object2_index();
+   index2.open( tmp_path, cfg, index_type::mira );
+
+   auto index3 = test_object3_index();
+   index3.open( tmp_path, cfg, index_type::mira );
+
+   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
    auto c1b = []( test_object2& obj ) {};
    auto c1c = []( test_object3& obj ) { obj.val2 = 7; obj.val3 = obj.val2 + 1; };
 
-   insert_remove_test< test_object_index, test_object, ordered_idx >( { 0, 1, 2, 3, 4, 5, 6, 7 }, c1, db );
-   insert_remove_test< test_object2_index, test_object2, ordered_idx2 >( { 0, 1, 2, 3, 4, 5, 6, 7 }, c1b, db );
-   insert_remove_test< test_object3_index, test_object3, ordered_idx3 >( { 0, 1, 2, 3 }, c1c, db );
+   insert_remove_test< test_object_index, test_object, ordered_idx >( { 0, 1, 2, 3, 4, 5, 6, 7 }, c1, index );
+   insert_remove_test< test_object2_index, test_object2, ordered_idx2 >( { 0, 1, 2, 3, 4, 5, 6, 7 }, c1b, index2 );
+   insert_remove_test< test_object3_index, test_object3, ordered_idx3 >( { 0, 1, 2, 3 }, c1c, index3 );
 }
 
 BOOST_AUTO_TEST_CASE( insert_remove_collision_tests )
 {
-   db.add_index< test_object_index >();
-   db.add_index< test_object2_index >();
-   db.add_index< test_object3_index >();
+   auto index = test_object_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.id = 0; obj.name = 7777; obj.val = 7; };
-   auto c2 = []( test_object& obj ) { obj.id = 0; obj.name = 8888; obj.val = 8; };
-   auto c3 = []( test_object& obj ) { obj.id = 0; obj.name = 989898; obj.val = 7; };
-   auto c4 = []( test_object& obj ) { obj.id = 1; obj.name = 989898; obj.val = 7; };
+   auto index2 = test_object2_index();
+   index2.open( tmp_path, cfg, index_type::mira );
+
+   auto index3 = test_object3_index();
+   index3.open( tmp_path, cfg, index_type::mira );
+
+   auto c1 = []( test_object& obj ) { obj.id = 0; obj.name = "_name7"; obj.val = 7; };
+   auto c2 = []( test_object& obj ) { obj.id = 0; obj.name = "_name8"; obj.val = 8; };
+   auto c3 = []( test_object& obj ) { obj.id = 0; obj.name = "the_same_name"; obj.val = 7; };
+   auto c4 = []( test_object& obj ) { obj.id = 1; obj.name = "the_same_name"; obj.val = 7; };
 
    auto c1b = []( test_object2& obj ) { obj.id = 0; obj.val = 7; };
    auto c2b = []( test_object2& obj ) { obj.id = 0; obj.val = 8; };
@@ -788,21 +813,23 @@ BOOST_AUTO_TEST_CASE( insert_remove_collision_tests )
    auto c3c = []( test_object3& obj ) { obj.id = 2; obj.val = 30; obj.val3 = 30; };
    auto c4c = []( test_object3& obj ) { obj.id = 3; obj.val = 30; obj.val3 = 30; };
 
-   insert_remove_collision_test< test_object_index, test_object, ordered_idx >( {}, c1, c2, c3, c4, db );
-   insert_remove_collision_test< test_object2_index, test_object2, ordered_idx2 >( {}, c1b, c2b, c3b, c4b, db );
-   insert_remove_collision_test< test_object3_index, test_object3, ordered_idx3 >( {}, c1c, c2c, c3c, c4c, db );
+   insert_remove_collision_test< test_object_index, test_object, ordered_idx >( {}, c1, c2, c3, c4, index );
+   insert_remove_collision_test< test_object2_index, test_object2, ordered_idx2 >( {}, c1b, c2b, c3b, c4b, index2 );
+   insert_remove_collision_test< test_object3_index, test_object3, ordered_idx3 >( {}, c1c, c2c, c3c, c4c, index3 );
 }
 
 BOOST_AUTO_TEST_CASE( modify_tests )
 {
-   db.add_index< test_object_index >();
-   db.add_index< test_object2_index >();
-   db.add_index< test_object3_index >();
+   auto index = test_object_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.name = 6767; };
-   auto c2 = []( test_object& obj ){ obj.name = 123123; };
-   auto c3 = []( const test_object& obj ){ BOOST_REQUIRE( obj.name == 123123 ); };
-   auto c4 = []( const test_object& obj ){ BOOST_REQUIRE( obj.val == obj.id._id + 100 ); };
+   auto index2 = test_object2_index();
+   index2.open( tmp_path, cfg, index_type::mira );
+
+   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
+   auto c2 = []( test_object& obj ){ obj.name = "new_name"; };
+   auto c3 = []( const test_object& obj ){ BOOST_REQUIRE( obj.name == "new_name" ); };
+   auto c4 = []( const test_object& obj ){ BOOST_REQUIRE( obj.val == obj.id + 100 ); };
    auto c5 = []( bool result ){ BOOST_REQUIRE( result == false ); };
 
    auto c1b = []( test_object2& obj ) { obj.val = 889; };
@@ -811,22 +838,24 @@ BOOST_AUTO_TEST_CASE( modify_tests )
    auto c4b = []( const test_object2& obj ){ /*empty*/ };
    auto c5b = []( bool result ){ BOOST_REQUIRE( result == true ); };
 
-   modify_test< test_object_index, test_object, ordered_idx >( { 0, 1, 2, 3 }, c1, c2, c3, c4, c5, db );
-   modify_test< test_object2_index, test_object2, ordered_idx2 >( { 0, 1, 2, 3, 4, 5 }, c1b, c2b, c3b, c4b, c5b, db );
+   modify_test< test_object_index, test_object, ordered_idx >( { 0, 1, 2, 3 }, c1, c2, c3, c4, c5, index );
+   modify_test< test_object2_index, test_object2, ordered_idx2 >( { 0, 1, 2, 3, 4, 5 }, c1b, c2b, c3b, c4b, c5b, index2 );
 }
 
 BOOST_AUTO_TEST_CASE( misc_tests )
 {
-   db.add_index< test_object_index >();
+   auto index = test_object_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   misc_test< test_object_index, test_object, ordered_idx, composited_ordered_idx >( { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, db );
+   misc_test< test_object_index, test_object, ordered_idx, composited_ordered_idx >( { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, index );
 }
 
 BOOST_AUTO_TEST_CASE( misc_tests3 )
 {
-   db.add_index< test_object3_index >();
+   auto index = test_object3_index();
+   index.open( tmp_path, cfg, index_type::mira );
 
-   misc_test3< test_object3_index, test_object3, ordered_idx3, composite_ordered_idx3a, composite_ordered_idx3b >( { 0, 1, 2 }, db );
+   misc_test3< test_object3_index, test_object3, ordered_idx3, composite_ordered_idx3a, composite_ordered_idx3b >( { 0, 1, 2 }, index );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
