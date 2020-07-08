@@ -94,7 +94,7 @@ public:
    }
 };
 
-void initialize_logging( const boost::filesystem::path& p, const std::string& file_pattern, bool color )
+void initialize_logging( const std::filesystem::path& p, const std::string& file_pattern, bool color )
 {
    using console_sink       = boost::log::sinks::synchronous_sink< console_sink_impl< false > >;
    using color_console_sink = boost::log::sinks::synchronous_sink< console_sink_impl< true > >;

@@ -1,5 +1,4 @@
 #pragma once
-#include <boost/filesystem/path.hpp>
 
 #include <openssl/ec.h>
 #include <openssl/crypto.h>
@@ -10,6 +9,8 @@
 #include <openssl/ecdh.h>
 #include <openssl/sha.h>
 #include <openssl/obj_mac.h>
+
+#include <filesystem>
 
 namespace koinos::crypto
 {
@@ -57,7 +58,7 @@ namespace koinos::crypto
         \warning to be effective this method should be used before any part using OpenSSL, especially
         before init_openssl call
     */
-    void store_configuration_path(const boost::filesystem::path& filePath);
+    void store_configuration_path( const std::filesystem::path& file_path );
     int init_openssl();
 
 } //  koinos::crypto

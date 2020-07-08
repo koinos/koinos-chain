@@ -1,11 +1,11 @@
 #include <appbase/application.hpp>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/asio/signal_set.hpp>
 
-#include <iostream>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 
 namespace appbase {
 
@@ -23,7 +23,7 @@ class application_impl {
       options_description     _cfg_options;
       variables_map           _args;
 
-      bfs::path               _data_dir;
+      std::filesystem::path   _data_dir;
 };
 
 application::application()
@@ -65,13 +65,13 @@ void application::set_program_options()
    options_description app_cfg_opts( "Application Config Options" );
    options_description app_cli_opts( "Application Command Line Options" );
    app_cfg_opts.add_options()
-         ("plugin", bpo::value< vector<string> >()->composing()->default_value( default_plugins, plugins_ss.str() ), "Plugin(s) to enable, may be specified multiple times");
+         ("plugin", bpo::value< vector< string > >()->composing()->default_value( default_plugins, plugins_ss.str() ), "Plugin(s) to enable, may be specified multiple times");
 
    app_cli_opts.add_options()
          ("help,h", "Print this help message and exit.")
          ("version,v", "Print version information.")
-         ("data-dir,d", bpo::value<bfs::path>(), data_dir_ss.str().c_str() )
-         ("config,c", bpo::value<bfs::path>()->default_value( "config.ini" ), "Configuration file name relative to data-dir");
+         ("data-dir,d", bpo::value< std::filesystem::path >(), data_dir_ss.str().c_str() )
+         ("config,c", bpo::value< std::filesystem::path >()->default_value( "config.ini" ), "Configuration file name relative to data-dir");
 
    my->_cfg_options.add(app_cfg_opts);
    my->_app_options.add(app_cfg_opts);
@@ -117,12 +117,12 @@ bool application::initialize_impl(int argc, char** argv, vector<abstract_plugin*
          return false;
       }
 
-      bfs::path data_dir;
+      std::filesystem::path data_dir;
       if( my->_args.count("data-dir") )
       {
-         data_dir = my->_args["data-dir"].as<bfs::path>();
+         data_dir = my->_args["data-dir"].as< std::filesystem::path >();
          if( data_dir.is_relative() )
-            data_dir = bfs::current_path() / data_dir;
+            data_dir = std::filesystem::current_path() / data_dir;
       }
       else
       {
@@ -138,7 +138,7 @@ bool application::initialize_impl(int argc, char** argv, vector<abstract_plugin*
          }
          else
          {
-            data_dir = bfs::current_path();
+            data_dir = std::filesystem::current_path();
          }
 
          std::stringstream app_dir;
@@ -148,15 +148,16 @@ bool application::initialize_impl(int argc, char** argv, vector<abstract_plugin*
       }
       my->_data_dir = data_dir;
 
-      bfs::path config_file_name = data_dir / "config.ini";
+      std::filesystem::path config_file_name = data_dir / "config.ini";
       if( my->_args.count( "config" ) ) {
-         auto config_file_name = my->_args["config"].as<bfs::path>();
+         auto config_file_name = my->_args["config"].as< std::filesystem::path >();
          if( config_file_name.is_relative() )
             config_file_name = data_dir / config_file_name;
       }
 
-      if(!bfs::exists(config_file_name)) {
-         write_default_config(config_file_name);
+      if( !std::filesystem::exists( config_file_name ) )
+      {
+         write_default_config( config_file_name );
       }
 
       bpo::store(bpo::parse_config_file< char >( config_file_name.make_preferred().string().c_str(),
@@ -233,12 +234,13 @@ void application::exec() {
    shutdown(); /// perform synchronous shutdown
 }
 
-void application::write_default_config(const bfs::path& cfg_file) {
-   if(!bfs::exists(cfg_file.parent_path()))
-      bfs::create_directories(cfg_file.parent_path());
+void application::write_default_config( const std::filesystem::path& cfg_file )
+{
+   if( !std::filesystem::exists( cfg_file.parent_path() ) )
+      std::filesystem::create_directories( cfg_file.parent_path() );
 
-   std::ofstream out_cfg( bfs::path(cfg_file).make_preferred().string());
-   for(const boost::shared_ptr<bpo::option_description> od : my->_cfg_options.options())
+   std::ofstream out_cfg( std::filesystem::path(cfg_file).make_preferred().string() );
+   for( const boost::shared_ptr< bpo::option_description > od : my->_cfg_options.options() )
    {
       if(!od->description().empty())
          out_cfg << "# " << od->description() << "\n";
@@ -290,7 +292,7 @@ abstract_plugin& application::get_plugin(const string& name)const {
    return *ptr;
 }
 
-bfs::path application::data_dir()const
+std::filesystem::path application::data_dir()const
 {
    return my->_data_dir;
 }

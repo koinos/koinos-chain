@@ -11,17 +11,17 @@ namespace koinos::crypto
 {
    struct openssl_scope
    {
-      static boost::filesystem::path _configurationFilePath;
+      static std::filesystem::path _config_filepath;
       openssl_scope()
       {
          ERR_load_crypto_strings();
          OpenSSL_add_all_algorithms();
 
-         const boost::filesystem::path& boostPath = _configurationFilePath;
-         if(boostPath.empty() == false)
+         const std::filesystem::path& path = _config_filepath;
+         if( path.empty() == false )
          {
          std::string varSetting("OPENSSL_CONF=");
-         varSetting += _configurationFilePath.generic_string();
+         varSetting += _config_filepath.generic_string();
 #if defined(WIN32)
          _putenv((char*)varSetting.c_str());
 #else
@@ -39,11 +39,11 @@ namespace koinos::crypto
       }
    };
 
-   boost::filesystem::path openssl_scope::_configurationFilePath;
+   std::filesystem::path openssl_scope::_config_filepath;
 
-   void store_configuration_path(const boost::filesystem::path& filePath)
+   void store_configuration_path( const std::filesystem::path& file_path )
    {
-      openssl_scope::_configurationFilePath = filePath;
+      openssl_scope::_config_filepath = file_path;
    }
 
    int init_openssl()

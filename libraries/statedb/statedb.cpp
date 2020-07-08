@@ -12,6 +12,7 @@
 
 #include <cstring>
 #include <deque>
+#include <filesystem>
 #include <optional>
 #include <utility>
 
@@ -84,7 +85,7 @@ class state_db_impl final
       state_db_impl() {}
       ~state_db_impl() { close(); }
 
-      void open( const boost::filesystem::path& p, const std::any& o );
+      void open( const std::filesystem::path& p, const std::any& o );
       void close();
 
       state_node_ptr get_empty_node();
@@ -101,7 +102,7 @@ class state_db_impl final
 
       bool is_open()const;
 
-      boost::filesystem::path      _path;
+      std::filesystem::path        _path;
       std::any                     _options;
 
       state_multi_index_type       _index;
@@ -126,7 +127,7 @@ state_node_ptr state_db_impl::get_empty_node()
    return _head;
 }
 
-void state_db_impl::open( const boost::filesystem::path& p, const std::any& o )
+void state_db_impl::open( const std::filesystem::path& p, const std::any& o )
 {
    auto root = std::make_shared< state_node >();
    root->impl->_state = std::make_shared< state_delta_type >( p, o );
@@ -453,7 +454,7 @@ uint64_t state_node::revision()const
 state_db::state_db() : impl( new detail::state_db_impl() ) {}
 state_db::~state_db() {}
 
-void state_db::open( const boost::filesystem::path& p, const std::any& o )
+void state_db::open( const std::filesystem::path& p, const std::any& o )
 {
    impl->open( p, o );
 }

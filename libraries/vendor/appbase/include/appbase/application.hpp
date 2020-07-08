@@ -1,19 +1,18 @@
 #pragma once
 #include <appbase/plugin.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/core/demangle.hpp>
 #include <boost/asio.hpp>
 #include <boost/throw_exception.hpp>
 
-#include <iostream>
+#include <filesystem>
 #include <functional>
+#include <iostream>
 
 #define APPBASE_VERSION_STRING ("appbase 1.0")
 
 namespace appbase {
 
    namespace bpo = boost::program_options;
-   namespace bfs = boost::filesystem;
 
    class application
    {
@@ -80,7 +79,7 @@ namespace appbase {
             return *ptr;
          }
 
-         bfs::path data_dir()const;
+         std::filesystem::path data_dir()const;
 
          void add_program_options( const bpo::options_description& cli, const bpo::options_description& cfg );
          const bpo::variables_map& get_args() const;
@@ -126,7 +125,7 @@ namespace appbase {
          std::function< void( const std::string& )>         writer = []( const std::string& s ){ std::cout << s << std::endl; };
 
          void set_program_options();
-         void write_default_config( const bfs::path& cfg_file );
+         void write_default_config( const std::filesystem::path& cfg_file );
          std::unique_ptr< class application_impl > my;
 
    };

@@ -2,13 +2,13 @@
 #include <appbase/application.hpp>
 #include <koinos/chain/controller.hpp>
 
+#include <filesystem>
+
 #define KOINOS_CHAIN_PLUGIN_NAME "chain"
 
 namespace koinos::plugins::chain {
 
 namespace detail { class chain_plugin_impl; }
-
-namespace bfs = boost::filesystem;
 
 class chain_plugin : public appbase::plugin< chain_plugin >
 {
@@ -18,7 +18,7 @@ public:
    chain_plugin();
    virtual ~chain_plugin();
 
-   bfs::path state_dir() const;
+   std::filesystem::path state_dir() const;
 
    static const std::string& name() { static std::string name = KOINOS_CHAIN_PLUGIN_NAME; return name; }
 

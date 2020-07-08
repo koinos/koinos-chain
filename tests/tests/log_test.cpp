@@ -1,10 +1,15 @@
 #include <boost/test/unit_test.hpp>
-#include <boost/filesystem.hpp>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
+#include <filesystem>
 #include <fstream>
-#include <vector>
 #include <string>
 #include <sstream>
-#include <boost/algorithm/string.hpp>
+#include <vector>
 
 #include <koinos/log.hpp>
 
@@ -31,8 +36,8 @@ BOOST_AUTO_TEST_CASE( log_color_tests )
        "<\033[31munknown\033[0m>"
    };
 
-   auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-   boost::filesystem::create_directory( temp );
+   auto temp = std::filesystem::temp_directory_path() / boost::lexical_cast< std::string >( boost::uuids::random_generator()() );
+   std::filesystem::create_directory( temp );
    koinos::initialize_logging( temp, "log_test_color_%3N.log" );
 
    LOG( trace )   << "test";
@@ -45,7 +50,7 @@ BOOST_AUTO_TEST_CASE( log_color_tests )
    // We go around our macro in order to invoke an unknown log level
    BOOST_LOG_SEV(::boost::log::trivial::logger::get(), boost::log::trivial::severity_level(10))
       << boost::log::add_value("Line", __LINE__)
-      << boost::log::add_value("File", boost::filesystem::path(__FILE__).filename().string()) << "test";
+      << boost::log::add_value("File", std::filesystem::path(__FILE__).filename().string()) << "test";
 
    auto file_path = temp / "log_test_color_000.log";
    std::ifstream file( file_path.string() );
@@ -106,8 +111,8 @@ BOOST_AUTO_TEST_CASE( log_no_color_tests )
        "<unknown>"
    };
 
-   auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-   boost::filesystem::create_directory( temp );
+   auto temp = std::filesystem::temp_directory_path() / boost::lexical_cast< std::string >( boost::uuids::random_generator()() );
+   std::filesystem::create_directory( temp );
    koinos::initialize_logging( temp, "log_test_no_color_%3N.log", false /* no color */ );
 
    LOG( trace )   << "test";
@@ -120,7 +125,7 @@ BOOST_AUTO_TEST_CASE( log_no_color_tests )
    // We go around our macro in order to invoke an unknown log level
    BOOST_LOG_SEV(::boost::log::trivial::logger::get(), boost::log::trivial::severity_level(10))
       << boost::log::add_value("Line", __LINE__)
-      << boost::log::add_value("File", boost::filesystem::path(__FILE__).filename().string()) << "test";
+      << boost::log::add_value("File", std::filesystem::path(__FILE__).filename().string()) << "test";
 
    auto file_path = temp / "log_test_no_color_000.log";
    std::ifstream file( file_path.string() );

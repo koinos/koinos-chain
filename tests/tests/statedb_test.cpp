@@ -14,7 +14,11 @@
 
 #include <boost/container/deque.hpp>
 #include <boost/interprocess/streams/vectorstream.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
+#include <filesystem>
 #include <iostream>
 
 using namespace koinos::crypto;
@@ -87,8 +91,8 @@ struct statedb_fixture
 {
    statedb_fixture()
    {
-      temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-      boost::filesystem::create_directory( temp );
+      temp = std::filesystem::temp_directory_path() / boost::lexical_cast< std::string >( boost::uuids::random_generator()() );
+      std::filesystem::create_directory( temp );
       std::any cfg = mira::utilities::default_database_configuration();
 
       db.open( temp, cfg );
@@ -97,11 +101,11 @@ struct statedb_fixture
    ~statedb_fixture()
    {
       db.close();
-      boost::filesystem::remove_all( temp );
+      std::filesystem::remove_all( temp );
    }
 
    state_db db;
-   boost::filesystem::path temp;
+   std::filesystem::path temp;
 };
 
 BOOST_FIXTURE_TEST_SUITE( statedb_tests, statedb_fixture )
@@ -368,8 +372,8 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
     * merge iterators only, they will operate directly on state deltas, outside
     * of state_db.
     */
-   boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-   boost::filesystem::create_directory( temp );
+   std::filesystem::path temp = std::filesystem::temp_directory_path() / boost::lexical_cast< std::string >( boost::uuids::random_generator()() );
+   std::filesystem::create_directory( temp );
    std::any cfg = mira::utilities::default_database_configuration();
 
    using state_delta_type = state_delta< book_index >;
