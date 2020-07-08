@@ -45,14 +45,13 @@ namespace detail{
 //struct rvalue_tag{};
 //struct emplaced_tag{};
 
-template<typename Value,typename Serializer,typename IndexSpecifierList,typename Allocator>
+template<typename Value,typename Serializer,typename IndexSpecifierList>
 class index_base
 {
 protected:
    typedef multi_index_container<
-      Value,Serializer,IndexSpecifierList,Allocator>  final_type;
+      Value,Serializer,IndexSpecifierList>  final_type;
    typedef boost::tuples::null_type                   ctor_args_list;
-   typedef typename std::allocator< Value >           final_allocator_type;
    typedef boost::mpl::vector0<>                      index_type_list;
    typedef boost::mpl::vector0<>                      iterator_type_list;
    typedef boost::mpl::vector0<>                      const_iterator_type_list;
@@ -107,7 +106,7 @@ protected:
 
    void flush() {}
 
-   bool insert_rocksdb_( const Value& v )
+   bool insert_( const Value& v )
    {
       return true;
    }
@@ -154,11 +153,10 @@ protected:
    std::size_t final_max_size_()const{return final().max_size_();}
 
 
-   template< BOOST_MULTI_INDEX_TEMPLATE_PARAM_PACK >
-   bool final_emplace_rocksdb_(
-      BOOST_MULTI_INDEX_FUNCTION_PARAM_PACK)
+   template< typename... Args >
+   boost::any final_emplace_( Args&&... args )
    {
-      return final().emplace_rocksdb_(BOOST_MULTI_INDEX_FORWARD_PARAM_PACK);
+      return final().emplace_( std::forward<Args>(args)... );
    }
 
    bool final_insert( value_type& v )

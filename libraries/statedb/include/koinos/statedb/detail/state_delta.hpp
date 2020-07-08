@@ -77,10 +77,7 @@ namespace koinos::statedb::detail {
             if( !is_unique( new_obj ) )
                return std::make_pair( _indices->end(), false );
 
-            auto emplace_result = _indices->emplace( [&]( value_type& v )
-            {
-               v = std::move( new_obj );
-            });
+            auto emplace_result = _indices->emplace( std::move( new_obj ) );
 
             if( emplace_result.second )
             {
@@ -118,12 +115,7 @@ namespace koinos::statedb::detail {
             }
             else
             {
-               _indices->emplace( [&]( value_type& v )
-               {
-                  v = std::move( mod_obj );
-                  m( v );
-               });
-
+               _indices->emplace( std::move( mod_obj ) );
                _modified_objects.insert( obj.id );
             }
 
@@ -185,10 +177,8 @@ namespace koinos::statedb::detail {
                auto itr = _parent->_indices->find( mod_itr->id );
                if( itr == _parent->_indices->end() )
                {
-                  _parent->_indices->emplace( [&]( value_type& v )
-                  {
-                     v = *mod_itr;
-                  });
+                  value_type v = *mod_itr;
+                  _parent->_indices->emplace( std::move( v ) );
                }
                else
                {

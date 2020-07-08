@@ -3,8 +3,8 @@
 
 namespace mira {
 
-template< typename Value, typename IndexSpecifierList, typename Allocator >
-class boost_multi_index_adapter : public boost::multi_index_container< Value, IndexSpecifierList, Allocator >
+template< typename Value, typename IndexSpecifierList >
+class boost_multi_index_adapter : public boost::multi_index_container< Value, IndexSpecifierList >
 {
    private:
       typedef typename Value::id_type id_type;
@@ -12,7 +12,7 @@ class boost_multi_index_adapter : public boost::multi_index_container< Value, In
       id_type _next_id = 0;
 
    public:
-      using boost::multi_index_container< Value, IndexSpecifierList, Allocator >::multi_index_container;
+      using boost::multi_index_container< Value, IndexSpecifierList >::multi_index_container;
       static const size_t node_size = sizeof( Value );
 
       uint64_t revision()

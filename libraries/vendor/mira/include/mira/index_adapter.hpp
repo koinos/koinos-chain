@@ -210,24 +210,22 @@ struct index_adapter
       index_variant _index;
 };
 
-template< typename Value, typename Serializer, typename IndexSpecifierList, typename Allocator = std::allocator< Value > >
+template< typename Value, typename Serializer, typename IndexSpecifierList >
 struct multi_index_adapter
 {
-   typedef Value                                                                                           value_type;
-   typedef typename multi_index::multi_index_container< Value, Serializer, IndexSpecifierList, Allocator > container_type ;
-   typedef typename index_converter< container_type >::mira_type                                           mira_type;
-   typedef typename mira_type::primary_iterator                                                            mira_iter_type;
-   typedef typename index_converter< container_type >::bmic_type                                           bmic_type;
-   typedef typename bmic_type::iterator                                                                    bmic_iter_type;
+   typedef Value                                                                                value_type;
+   typedef typename multi_index::multi_index_container< Value, Serializer, IndexSpecifierList > container_type ;
+   typedef typename index_converter< container_type >::mira_type                                mira_type;
+   typedef typename mira_type::primary_iterator                                                 mira_iter_type;
+   typedef typename index_converter< container_type >::bmic_type                                bmic_type;
+   typedef typename bmic_type::iterator                                                         bmic_iter_type;
    typedef typename value_type::id_type id_type;
 
    typedef iterator_adapter<
       value_type,
       mira_iter_type,
-      bmic_iter_type >                                                                                   iter_type;
-   typedef boost::reverse_iterator< iter_type >                                                          rev_iter_type;
-
-   typedef typename bmic_type::allocator_type                                                            allocator_type;
+      bmic_iter_type >                                                                          iter_type;
+   typedef boost::reverse_iterator< iter_type >                                                 rev_iter_type;
 
    typedef boost::variant<
       mira_type,
@@ -235,14 +233,9 @@ struct multi_index_adapter
 
    typedef index_type type_enum;
 
-   typedef multi_index_adapter< Value, Serializer, IndexSpecifierList, Allocator >                       adapter_type;
+   typedef multi_index_adapter< Value, Serializer, IndexSpecifierList >                         adapter_type;
 
    multi_index_adapter()
-   {
-      _index = mira_type();
-   }
-
-   multi_index_adapter( allocator_type& a )
    {
       _index = mira_type();
    }
@@ -257,20 +250,6 @@ struct multi_index_adapter
             break;
          case bmic:
             _index = bmic_type();
-            break;
-      }
-   }
-
-   multi_index_adapter( index_type type, allocator_type& a ) :
-      _type( type )
-   {
-      switch( _type )
-      {
-         case mira:
-            _index = mira_type();
-            break;
-         case bmic:
-            _index = bmic_type( a );
             break;
       }
    }
@@ -419,14 +398,13 @@ struct multi_index_adapter
       );
    }
 
-   template< typename Constructor >
-   std::pair< iter_type, bool >
-   emplace( Constructor&& con, allocator_type alloc = allocator_type() )
+   template< typename... Args >
+   std::pair< iter_type, bool > emplace( Args&&... args )
    {
       return boost::apply_visitor(
          [&]( auto& index )
          {
-            auto result = index.emplace( std::forward< Constructor >( con ), alloc );
+            auto result = index.emplace( std::forward<Args>(args)... );
             return std::pair< iter_type, bool >( iter_type( std::move( result.first ) ), result.second );
          },
          _index
@@ -661,11 +639,6 @@ struct multi_index_adapter
          []( auto& index ){ return index.size(); },
          _index
       );
-   }
-
-   allocator_type get_allocator()const
-   {
-      return allocator_type();
    }
 
    template< typename MetaKey, typename MetaValue >

@@ -136,17 +136,11 @@ public:
     key_type,
     Compare,
     Serializer >                                     key_compare;
-  typedef boost::tuple<key_from_value,key_compare>          ctor_args;
-  typedef typename super::final_allocator_type       allocator_type;
-#ifdef BOOST_NO_CXX11_ALLOCATOR
-  typedef typename allocator_type::reference         reference;
-  typedef typename allocator_type::const_reference   const_reference;
-#else
+  typedef boost::tuple<key_from_value,key_compare>   ctor_args;
   typedef value_type&                                reference;
   typedef const value_type&                          const_reference;
-#endif
 
-   typedef boost::false_type                          is_terminal_node;
+   typedef boost::false_type                         is_terminal_node;
 
    typedef typename boost::mpl::if_<
       typename super::is_terminal_node,
@@ -204,14 +198,9 @@ public:
 
   typedef std::size_t                                size_type;
   typedef std::ptrdiff_t                             difference_type;
-#ifdef BOOST_NO_CXX11_ALLOCATOR
-  typedef typename allocator_type::pointer           pointer;
-  typedef typename allocator_type::const_pointer     const_pointer;
-#else
-  typedef std::allocator_traits<allocator_type>      allocator_traits;
-  typedef typename allocator_traits::pointer         pointer;
-  typedef typename allocator_traits::const_pointer   const_pointer;
-#endif
+  typedef value_type*                                pointer;
+  typedef const value_type*                          const_pointer;
+
   typedef typename
     boost::reverse_iterator<iterator>                reverse_iterator;
   typedef typename
@@ -273,11 +262,6 @@ public:
    * not supposed to be created on their own. No range ctor either.
    * Assignment operators defined at ordered_index rather than here.
    */
-
-  allocator_type get_allocator()const BOOST_NOEXCEPT
-  {
-    return this->final().get_allocator();
-  }
 
   /* iterators */
 
@@ -341,11 +325,14 @@ public:
 
   /* modifiers */
 
-  BOOST_MULTI_INDEX_OVERLOADS_TO_VARTEMPL(
-    emplace_return_type,emplace,emplace_impl)
+   template< typename... Args >
+   emplace_return_type emplace( Args&&... args )
+   {
+      BOOST_MULTI_INDEX_ORD_INDEX_CHECK_INVARIANT;
 
-  BOOST_MULTI_INDEX_OVERLOADS_TO_VARTEMPL_EXTRA_ARG(
-    iterator,emplace_hint,emplace_hint_impl,iterator,position)
+      return boost::any_cast< emplace_return_type >(
+         this->final_emplace_( std::forward<Args>(args)... ) );
+   }
 
   std::pair<iterator,bool> insert(const value_type& x)
   {
@@ -544,9 +531,9 @@ BOOST_MULTI_INDEX_PROTECTED_IF_MEMBER_TEMPLATE_FRIENDS:
       return const_iterator( ROCKSDB_ITERATOR_PARAM_PACK, s );
    }
 
-   bool insert_rocksdb_( const value_type& v )
+   bool insert_( const value_type& v )
    {
-      if( super::insert_rocksdb_( v ) )
+      if( super::insert_( v ) )
       {
          ::rocksdb::Status s;
          ::rocksdb::PinnableSlice read_buffer;
@@ -797,31 +784,6 @@ private:
   void empty_initialize() {}
 
 
-  /* emplace entry point */
-
-   template< BOOST_MULTI_INDEX_TEMPLATE_PARAM_PACK >
-   std::pair< typename primary_index_type::iterator, bool >
-   emplace_impl( BOOST_MULTI_INDEX_FUNCTION_PARAM_PACK )
-   {
-      BOOST_MULTI_INDEX_ORD_INDEX_CHECK_INVARIANT;
-
-      value_type v( std::forward< Args >(args)... );
-
-      bool res = this->final_emplace_rocksdb_( v );
-
-      if ( res )
-      {
-         std::lock_guard< std::mutex > lock( _cache->get_lock() );
-         _cache->cache( v );
-      }
-
-      return std::pair< typename primary_index_type::iterator, bool >(
-         res ? primary_index_type::iterator_to( v ) :
-               primary_index_type::end(),
-         res
-      );
-  }
-
 protected: /* for the benefit of AugmentPolicy::augmented_interface */
   key_from_value key;
   std::shared_ptr< key_compare >    comp_;
@@ -853,7 +815,6 @@ class ordered_index:
     >::type                                       super;
 public:
   typedef typename super::ctor_args_list          ctor_args_list;
-  typedef typename super::allocator_type          allocator_type;
   typedef typename super::iterator                iterator;
 
    ordered_index()                                   = default;

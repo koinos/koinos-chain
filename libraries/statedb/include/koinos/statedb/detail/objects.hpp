@@ -15,21 +15,13 @@ namespace koinos::statedb::detail {
 
 struct state_object
 {
-      typedef uint64_t id_type;
+   typedef uint64_t id_type;
 
-      state_object() {}
+   id_type           id = 0;
 
-      template< typename Constructor, typename Allocator >
-      state_object( Constructor&& c, Allocator&& a )
-      {
-         c( *this );
-      }
-
-      id_type           id = 0;
-
-      object_space      space;
-      object_key        key;
-      object_value      value;
+   object_space      space;
+   object_key        key;
+   object_value      value;
 };
 
 struct by_id;
