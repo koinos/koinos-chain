@@ -185,34 +185,29 @@ void controller_impl::set_time( std::chrono::time_point< std::chrono::steady_clo
    _now = t;
 }
 
-struct create_impl_item_visitor
-{
-   template< typename T >
-   item_submission_impl operator()( const T& sub ) const
-   {
-      KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" );
-   }
-
-   item_submission_impl operator()( const rpc::block_submission& sub ) const
-   {
-      return block_submission_impl( sub );
-   }
-
-   item_submission_impl operator()( const rpc::transaction_submission& sub ) const
-   {
-      return transaction_submission_impl( sub );
-   }
-
-   item_submission_impl operator()( const rpc::query_submission& sub ) const
-   {
-      return query_submission_impl( sub );
-   }
-};
-
 std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit( const rpc::submission_item& item )
 {
-   create_impl_item_visitor vtor;
-   std::shared_ptr< item_submission_impl > impl_item = std::make_shared< item_submission_impl >( std::visit( vtor, item ) );
+   std::shared_ptr< item_submission_impl > impl_item;
+
+   std::visit( koinos::overloaded {
+      [&]( const rpc::block_submission& sub )
+      {
+         impl_item = std::make_shared< item_submission_impl >( block_submission_impl( sub ) );
+      },
+      [&]( const rpc::transaction_submission& sub )
+      {
+         impl_item = std::make_shared< item_submission_impl >( transaction_submission_impl( sub ) );
+      },
+      [&]( const rpc::query_submission& sub )
+      {
+         impl_item = std::make_shared< item_submission_impl >( query_submission_impl( sub ) );
+      },
+      [&]( const auto& )
+      {
+         KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" );
+      }
+   }, item );
+
    std::shared_ptr< work_item > work = std::make_shared< work_item >();
    work->item = impl_item;
    work->submit_time = std::chrono::duration_cast< std::chrono::nanoseconds >( std::chrono::system_clock::now().time_since_epoch() );
