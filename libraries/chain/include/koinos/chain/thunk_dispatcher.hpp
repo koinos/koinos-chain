@@ -32,7 +32,7 @@ namespace detail
     *
     * Two versions exist of the function, one that serializes the return value and one that does not.
     */
-   template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+   template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
@@ -41,7 +41,7 @@ namespace detail
       return 0;
    }
 
-   template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+   template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
@@ -81,15 +81,16 @@ class thunk_dispatcher
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
-      template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+      template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
       void register_thunk( thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
       {
+         static_assert( std::is_same< RetStruct, ThunkReturn >::value, "Thunk return does not match defined return in koinos-types" );
          std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
          _dispatch_map.emplace( id, [thunk]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
          {
             ArgStruct args;
             koinos::pack::from_c_str( arg_ptr, arg_len, args );
-            detail::call_thunk_impl( thunk, ctx, ret_ptr, ret_len, args );
+            detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );
          });
          _pass_through_map.emplace( id, thunk );
       }

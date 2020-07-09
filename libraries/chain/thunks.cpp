@@ -266,11 +266,11 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
    context.set_contract_return( ret );
 }
 
-THUNK_DEFINE_VOID( types::protocol::head_info, get_head_info )
+THUNK_DEFINE_VOID( types::system::head_info, get_head_info )
 {
    auto head = context.get_state_node();
 
-   types::protocol::head_info hi;
+   types::system::head_info hi;
    hi.id = head->id();
    hi.height = head->revision();
 
