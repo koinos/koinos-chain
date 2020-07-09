@@ -36,6 +36,7 @@ namespace detail
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
+      static_assert( std::is_same< RetStruct, koinos::types::thunks::void_type >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       std::apply( thunk, thunk_args );
       return 0;
@@ -45,6 +46,7 @@ namespace detail
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
+      static_assert( std::is_same< RetStruct, ThunkReturn >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       pack::to_c_str< RetStruct >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
       return 0;
@@ -84,7 +86,6 @@ class thunk_dispatcher
       template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
       void register_thunk( thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
       {
-         static_assert( std::is_same< RetStruct, ThunkReturn >::value, "Thunk return does not match defined return in koinos-types" );
          std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
          _dispatch_map.emplace( id, [thunk]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
          {
