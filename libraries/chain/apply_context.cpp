@@ -40,4 +40,14 @@ void apply_context::set_contract_return( const types::variable_blob& ret )
    contract_return = ret;
 }
 
+void apply_context::set_key_authority( const koinos::crypto::public_key& key )
+{
+   key_auth = key;
+}
+
+void apply_context::clear_authority()
+{
+   key_auth.reset();
+}
+
 } // koinos::chain

@@ -24,6 +24,10 @@ KOINOS_DECLARE_EXCEPTION( exit_success );
 KOINOS_DECLARE_EXCEPTION( exit_failure );
 KOINOS_DECLARE_EXCEPTION( unknown_exit_code );
 KOINOS_DECLARE_EXCEPTION( unknown_hash_code );
+KOINOS_DECLARE_EXCEPTION( empty_block_header );
+KOINOS_DECLARE_EXCEPTION( transaction_root_mismatch );
+KOINOS_DECLARE_EXCEPTION( passive_root_mismatch );
+KOINOS_DECLARE_EXCEPTION( invalid_block_signature );
 
 /*
  * When defining a new thunk, we have essentially two different implementations.
@@ -55,10 +59,15 @@ KOINOS_DECLARE_EXCEPTION( unknown_hash_code );
 THUNK_DECLARE( void, prints, const std::string& str );
 THUNK_DECLARE( void, exit_contract, uint8_t exit_code );
 
-THUNK_DECLARE( bool, verify_block_header, const crypto::recoverable_signature& sig, const crypto::multihash_type& digest );
+THUNK_DECLARE( bool, verify_block_sig, const variable_blob& sig_data, const crypto::multihash_type& digest );
+THUNK_DECLARE( bool, verify_merkle_root, const crypto::multihash_type& root, const std::vector< crypto::multihash_type >& hashes );
 
-THUNK_DECLARE( void, apply_block, const types::protocol::active_block_data& b );
-THUNK_DECLARE( void, apply_transaction, const types::protocol::transaction_type& t );
+THUNK_DECLARE( void, apply_block,
+   const std::vector< types::system::block_part >& block_parts,
+   types::boolean enable_check_passive_data,
+   types::boolean enable_check_block_signature,
+   types::boolean enable_check_transaction_signatures );
+THUNK_DECLARE( void, apply_transaction, const variable_blob& tx_blob );
 THUNK_DECLARE( void, apply_reserved_operation, const types::protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const types::protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const types::protocol::contract_call_operation& op );
