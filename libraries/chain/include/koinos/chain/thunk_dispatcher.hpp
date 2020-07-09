@@ -46,7 +46,7 @@ namespace detail
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
-      pack::to_c_str< ThunkReturn >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
+      pack::to_c_str< RetStruct >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
       return 0;
    }
 
