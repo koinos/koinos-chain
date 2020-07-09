@@ -323,12 +323,9 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, que
          {
             _ctx->set_state_node( _state_db.get_head() );
             auto head = thunk::get_head_info( *_ctx );
-            rpc::get_head_info_result res;
-            res.id = head.id;
-            res.height = head.height;
-            result = res;
+            return head;
          }
-         catch ( koinos::chain::database_exception e)
+         catch ( koinos::chain::database_exception e )
          {
             result = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }
