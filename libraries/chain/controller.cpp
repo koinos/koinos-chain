@@ -322,8 +322,7 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, que
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            auto head = thunk::get_head_info( *_ctx );
-            result = head;
+            result = thunk::get_head_info( *_ctx );
          }
          catch ( const koinos::chain::database_exception& e )
          {
