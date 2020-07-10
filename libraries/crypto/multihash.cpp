@@ -218,7 +218,7 @@ void hash_str_like( multihash_type& result, const multihash_type& old, const cha
 
 void hash_blob( multihash_type& result, uint64_t code, const variable_blob& value, uint64_t size )
 {
-   return hash_str( result, code, value.data(), size, value.size() );
+   return hash_str( result, code, value.data(), value.size(), size );
 }
 
 void hash_blob_like( multihash_type& result, const multihash_type& old, const variable_blob& value )
