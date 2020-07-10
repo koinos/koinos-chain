@@ -60,6 +60,8 @@ namespace multihash
    {
       return std::all_of( mh.digest.begin(), mh.digest.end(), []( char c ) { return (c == 0); } );
    }
+
+   bool is_known_code( uint64_t code );
 } // multihash
 
 struct encoder

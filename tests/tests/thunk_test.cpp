@@ -330,4 +330,32 @@ BOOST_AUTO_TEST_CASE( chain_thunks_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( hash_thunk_test )
+{ try {
+   BOOST_TEST_MESSAGE( "hash thunk test" );
+
+   std::string test_string = "hash::string";
+   koinos::types::variable_blob blob;
+   koinos::pack::to_variable_blob( blob, test_string );
+
+   auto thunk_hash  = thunk::hash( ctx, CRYPTO_SHA2_256_ID, blob );
+   auto native_hash = koinos::crypto::hash( CRYPTO_SHA2_256_ID, test_string );
+
+   BOOST_CHECK_EQUAL( thunk_hash, native_hash );
+
+   koinos::types::rpc::block_topology block_topology;
+   block_topology.height = 100;
+   block_topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::id"s );
+   block_topology.previous = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::previous"s );
+
+   koinos::pack::to_variable_blob( blob, block_topology );
+   thunk_hash = thunk::hash( ctx, CRYPTO_RIPEMD160_ID, blob );
+   native_hash = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, block_topology );
+
+   BOOST_CHECK_EQUAL( thunk_hash, native_hash );
+
+   BOOST_REQUIRE_THROW( thunk::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::thunk::unknown_hash_code );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
