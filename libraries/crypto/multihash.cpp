@@ -300,14 +300,15 @@ void merkle_hash_leaves( std::vector< multihash_type >& hashes, uint64_t code, u
       return;
    }
 
+   encoder enc( code, size );
    while( n_hashes > 1 )
    {
       size_t num_pairs = n_hashes >> 1;
       for( size_t i=0; i<num_pairs; i++ )
       {
-         encoder enc( code, size );
-         pack::to_binary( enc, hashes[i*2  ] );
-         pack::to_binary( enc, hashes[i*2+1] );
+         enc.reset();
+         enc.write( hashes[i*2  ].digest.data(), hashes[i*2  ].digest.size() );
+         enc.write( hashes[i*2+1].digest.data(), hashes[i*2+1].digest.size() );
          enc.get_result( hashes[i] );
       }
       if( (n_hashes&1) != 0 )
