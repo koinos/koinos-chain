@@ -17,9 +17,10 @@
 #define _THUNK_SUFFIX _thunk
 #define _THUNK_TYPE_SUFFIX _type
 #define _THUNK_ARGS_SUFFIX _args
+#define _THUNK_RET_SUFFIX  _ret
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX)>( thunk_id::elem, thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( thunk_id::elem, thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
 
 #define REGISTER_THUNKS( dispatcher, args )                       \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )

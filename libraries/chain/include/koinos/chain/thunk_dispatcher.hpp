@@ -32,21 +32,23 @@ namespace detail
     *
     * Two versions exist of the function, one that serializes the return value and one that does not.
     */
-   template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+   template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
+      static_assert( std::is_same< RetStruct, koinos::types::thunks::void_type >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       std::apply( thunk, thunk_args );
       return 0;
    }
 
-   template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+   template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
+      static_assert( std::is_same< RetStruct, ThunkReturn >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
-      pack::to_c_str< ThunkReturn >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
+      pack::to_c_str< RetStruct >( ret_ptr, ret_len, std::apply( thunk, thunk_args ) );
       return 0;
    }
 
@@ -81,7 +83,7 @@ class thunk_dispatcher
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
-      template< typename ArgStruct, typename ThunkReturn, typename... ThunkArgs >
+      template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
       void register_thunk( thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
       {
          std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
@@ -89,7 +91,7 @@ class thunk_dispatcher
          {
             ArgStruct args;
             koinos::pack::from_c_str( arg_ptr, arg_len, args );
-            detail::call_thunk_impl( thunk, ctx, ret_ptr, ret_len, args );
+            detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );
          });
          _pass_through_map.emplace( id, thunk );
       }

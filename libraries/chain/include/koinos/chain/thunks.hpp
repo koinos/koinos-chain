@@ -75,4 +75,6 @@ THUNK_DECLARE_VOID( variable_blob, get_contract_args );
 
 THUNK_DECLARE( void, set_contract_return, const variable_blob& ret );
 
+THUNK_DECLARE_VOID( types::system::head_info, get_head_info );
+
 } } // koinos::chain::thunk
