@@ -36,6 +36,7 @@ void register_thunks( thunk_dispatcher& td )
       (set_contract_return)
 
       (get_head_info)
+      (hash)
    )
 }
 
@@ -275,6 +276,12 @@ THUNK_DEFINE_VOID( types::system::head_info, get_head_info )
    hi.height = head->revision();
 
    return hi;
+}
+
+THUNK_DEFINE( types::multihash_type, hash, ((uint64_t) code, (const variable_blob&) obj, (uint64_t) size) )
+{
+   KOINOS_ASSERT( crypto::multihash::is_known_code( code ), unknown_hash_code, "Unknown hash code" );
+   return crypto::hash_str( code, obj.data(), obj.size(), size );
 }
 
 } } // koinos::chain::thunk

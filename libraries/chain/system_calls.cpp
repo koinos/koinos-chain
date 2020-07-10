@@ -44,6 +44,7 @@ DEFAULT_SYSTEM_CALLS(
    (set_contract_return)
 
    (get_head_info)
+   (hash)
 )
 
 } // koinos::chain
