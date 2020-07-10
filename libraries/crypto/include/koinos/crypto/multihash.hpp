@@ -23,7 +23,7 @@ bool operator <=( const multihash_type& mha, const multihash_type& mhb );
 bool operator >( const multihash_type& mha, const multihash_type& mhb );
 bool operator >=( const multihash_type& mha, const multihash_type& mhb );
 
-} // protocol
+} // types
 
 namespace crypto {
 
@@ -85,7 +85,7 @@ struct encoder
 };
 
 template< typename T >
-inline void hash( multihash_type& result, uint64_t code, const T& t, size_t size = 0 )
+inline void hash( multihash_type& result, uint64_t code, const T& t, uint64_t size = 0 )
 {
    encoder e(code, size);
    koinos::pack::to_binary( e, t );
@@ -93,19 +93,35 @@ inline void hash( multihash_type& result, uint64_t code, const T& t, size_t size
 }
 
 template< typename T >
-inline multihash_type hash( uint64_t code, const T& t, size_t size = 0 )
+inline multihash_type hash( uint64_t code, const T& t, uint64_t size = 0 )
 {
    multihash_type mh;
    hash( mh, code, t, size );
    return mh;
-};
+}
 
-void hash_str( multihash_type& result, uint64_t code, const char* data, size_t len, size_t size = 0 );
-multihash_type hash_str( uint64_t code, const char* data, size_t len, size_t size = 0 );
+/**
+ * Hash using the same algorithm as an existing multihash_type object.
+ */
+template< typename T >
+inline void hash_like( multihash_type& result, const multihash_type& old, const T& t )
+{
+   hash<T>( result, multihash::get_id( old ), t, multihash::get_size( old ) );
+}
+
+void hash_str( multihash_type& result, uint64_t code, const char* data, size_t len, uint64_t size = 0 );
+multihash_type hash_str( uint64_t code, const char* data, size_t len, uint64_t size = 0 );
+void hash_str_like( multihash_type& result, const multihash_type& old, const char* data, size_t len );
+
+void hash_blob( multihash_type& result, uint64_t code, const variable_blob& value, uint64_t size = 0 );
+void hash_blob_like( multihash_type& result, const multihash_type& old, const variable_blob& value );
 
 void zero_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
-
 multihash_type zero_hash( uint64_t code, uint64_t size = 0 );
+void zero_hash_like( multihash_type& result, const multihash_type& old );
+
+void empty_hash( multihash_type& mh, uint64_t code, uint64_t size = 0 );
+void empty_hash_like( multihash_type& result, const multihash_type& old );
 
 void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash_type >& mh_in );
 void from_multihash_vector( std::vector< multihash_type >& mh_out, const multihash_vector& mhv_in );
@@ -126,5 +142,16 @@ inline uint64_t get_standard_size( uint64_t code )
          KOINOS_ASSERT( false, unknown_hash_algorithm, "Unknown hash id ${i}", ("i", code) );
    }
 }
+
+void merkle_hash( multihash_type& result, uint64_t code, const std::vector< variable_blob >& values, uint64_t size = 0 );
+void merkle_hash_like( multihash_type& result, const multihash_type& old, const std::vector< variable_blob >& values );
+
+/**
+ * Compute Merkle root given leaf hash values.
+ * Computation is in-place, result is stored in hashes[0].
+ * Other hashes values are destroyed.
+ */
+void merkle_hash_leaves( std::vector< multihash_type >& hashes, uint64_t code, uint64_t size = 0 );
+void merkle_hash_leaves_like( std::vector< multihash_type >& hashes, const multihash_type& old );
 
 } } // koinos::crypto
