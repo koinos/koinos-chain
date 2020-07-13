@@ -139,6 +139,22 @@ bool validate( const multihash_vector& mhv, uint64_t code, uint64_t size )
    return true;
 }
 
+bool is_known_code( uint64_t code )
+{
+   switch ( code )
+   {
+      case CRYPTO_SHA1_ID:
+      case CRYPTO_SHA2_256_ID:
+      case CRYPTO_SHA2_512_ID:
+      case CRYPTO_RIPEMD160_ID:
+         return true;
+         break;
+      default:
+         break;
+   }
+   return false;
+}
+
 } // multihash
 
 encoder::encoder( uint64_t code, uint64_t size )
