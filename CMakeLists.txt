@@ -12,6 +12,17 @@ endif()
 
 project( koinos )
 
+option (FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
+
+# This is to force color output when using ccache with Unix Makefiles
+if( ${FORCE_COLORED_OUTPUT} )
+    if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" )
+       add_compile_options (-fdiagnostics-color=always)
+    elseif( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang" )
+       add_compile_options (-fcolor-diagnostics)
+    endif ()
+endif ()
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_STANDARD 17)

@@ -48,7 +48,7 @@ int main( int argc, char** argv, char** envp )
 
       koinos::chain::apply_context ctx;
 
-      backend( &ctx, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+      backend( &ctx, "env", "_start" );
 
       LOG(info) << ctx.get_pending_console_output();
    }

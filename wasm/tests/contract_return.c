@@ -22,7 +22,7 @@ void prints( char* msg )
 }
 
 __attribute__( (visibility("default")) )
-void apply( uint64_t a, uint64_t b, uint64_t c )
+void _start()
 {
    char message[64];
    invoke_system_call( KOINOS_SYSTEM_CALL_ID_get_contract_args, message, 63, 0, 0 );
