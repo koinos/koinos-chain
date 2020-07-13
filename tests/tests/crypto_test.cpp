@@ -4,7 +4,10 @@
 
 #include <koinos/tests/crypto_fixture.hpp>
 
+#include <algorithm>
 #include <iostream>
+#include <iterator>
+#include <vector>
 
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
 
@@ -128,6 +131,89 @@ BOOST_AUTO_TEST_CASE( zerohash )
    zero_hash( mh, CRYPTO_RIPEMD160_ID );
    BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_RIPEMD160_ID );
    BOOST_CHECK( multihash::get_size( mh ) == 160/8 );
+}
+
+BOOST_AUTO_TEST_CASE( emptyhash )
+{
+   multihash_type mh;
+   empty_hash( mh, CRYPTO_SHA2_256_ID );
+   BOOST_CHECK_EQUAL( "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex_string( mh.digest ) );
+}
+
+BOOST_AUTO_TEST_CASE( merkle )
+{
+   multihash_type mh;
+   std::vector< std::string > values {
+      "the", "quick", "brown", "fox", "jumps", "over", "a", "lazy", "dog" };
+   std::vector< std::string > wh_hex {
+      "b9776d7ddf459c9ad5b0e1d6ac61e27befb5e99fd62446677600d7cacef544d0",
+      "22c72aa82ce77c82e2ca65a711c79eaa4b51c57f85f91489ceeacc7b385943ba",
+      "5eb67f9f8409b9c3f739735633cbdf92121393d0e13bd0f464b1b2a6a15ad2dc",
+      "776cb326ab0cd5f0a974c1b9606044d8485201f2db19cf8e3749bdee5f36e200",
+      "ef30940a2d1b943c8007b8a15e45935dc01902b7c0534dc7e27fda30a9b81aef",
+      "5fb6a47e368e12e5d8b19280796e6a3d146fe391ed2e967d5f95c55bfb0f9c2f",
+      "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "81fd67d02f679b818a4df6a50139958aa857eddc4d8f3561630dfb905e6d3c24",
+      "cd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944"
+      };
+   auto h = [&]( const multihash_type& ha, const multihash_type& hb ) -> multihash_type
+   {
+      std::vector<char> temp;
+      std::copy( ha.digest.begin(), ha.digest.end(), std::back_inserter( temp ) );
+      std::copy( hb.digest.begin(), hb.digest.end(), std::back_inserter( temp ) );
+      std::cout << "temp: " << hex_string( temp ) << std::endl;
+      multihash_type result;
+      hash_str( result, CRYPTO_SHA2_256_ID, temp.data(), temp.size() );
+      return result;
+   };
+
+   // Hash of each word
+   std::vector< multihash_type > wh;
+   for( size_t i=0; i<values.size(); i++ )
+   {
+      wh.push_back( hash_str( CRYPTO_SHA2_256_ID, values[i].c_str(), values[i].size() ) );
+      BOOST_CHECK_EQUAL( wh_hex[i], hex_string( wh[i].digest ) );
+   }
+
+   const std::string n01          = "0020397085ab4494829e691c49353a04d3201fda20c6a8a6866cf0f84bb8ce47";
+   const std::string n23          = "78d4e37706320c82b2dd092eeb04b1f271523f86f910bf680ff9afcb2f8a33e1";
+   const std::string n0123        = "e07aa684d91ffcbb89952f5e99b6181f7ee7bd88bd97be1345fc508f1062c050";
+   const std::string n45          = "4185f41c5d7980ae7d14ce248f50e2854826c383671cf1ee3825ea957315c627";
+   const std::string n67          = "b2a6704395c45ad8c99247103b580f7e7a37f06c3d38075ce4b02bc34c6a6754";
+   const std::string n4567        = "2f24a249901ee8392ba0bb3b90c8efd6e2fee6530f45769199ef82d0b091d8ba";
+   const std::string n01234567    = "913b7dce068efc8db6fab0173481f137ce91352b341855a1719aaff926169987";
+   const std::string n8           = "cd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944";
+   const std::string n012345678   = "e24e552e0b6cf8835af179a14a766fb58c23e4ee1f7c6317d57ce39cc578cfac";
+
+   multihash_type h01             = h( wh[0], wh[1] );
+   multihash_type h23             = h( wh[2], wh[3] );
+   multihash_type h0123           = h( h01, h23 );
+   multihash_type h45             = h( wh[4], wh[5] );
+   multihash_type h67             = h( wh[6], wh[7] );
+   multihash_type h4567           = h( h45, h67 );
+   multihash_type h01234567       = h( h0123, h4567 );
+   multihash_type h8              = wh[8];
+   multihash_type h012345678      = h( h01234567, h8 );
+
+   BOOST_CHECK_EQUAL( n01       , hex_string(        h01.digest ) );
+   BOOST_CHECK_EQUAL( n23       , hex_string(        h23.digest ) );
+   BOOST_CHECK_EQUAL( n0123     , hex_string(      h0123.digest ) );
+   BOOST_CHECK_EQUAL( n45       , hex_string(        h45.digest ) );
+   BOOST_CHECK_EQUAL( n67       , hex_string(        h67.digest ) );
+   BOOST_CHECK_EQUAL( n4567     , hex_string(      h4567.digest ) );
+   BOOST_CHECK_EQUAL( n01234567 , hex_string(  h01234567.digest ) );
+   BOOST_CHECK_EQUAL( n012345678, hex_string( h012345678.digest ) );
+
+   multihash_type merkle_root;
+
+   std::vector< variable_blob > blob_values;
+   for( size_t i=0; i<values.size(); i++ )
+   {
+      blob_values.emplace_back( values[i].begin(), values[i].end() );
+   }
+
+   merkle_hash( merkle_root, CRYPTO_SHA2_256_ID, blob_values );
+   BOOST_CHECK_EQUAL( n012345678, hex_string( merkle_root.digest ) );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
