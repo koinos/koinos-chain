@@ -10,6 +10,8 @@
 
 namespace koinos::plugins::block_producer {
 
+using namespace appbase;
+
 class block_producer_plugin : public appbase::plugin< block_producer_plugin >
 {
    public:
@@ -22,7 +24,7 @@ class block_producer_plugin : public appbase::plugin< block_producer_plugin >
 
       std::shared_ptr< types::protocol::block_header > produce_block();
 
-      virtual void set_program_options( appbase::options_description&, appbase::options_description& ) override {}
+      virtual void set_program_options( appbase::options_description&, appbase::options_description& ) override;
 
       virtual void plugin_initialize( const appbase::variables_map& options ) override;
       virtual void plugin_startup() override;
@@ -37,6 +39,7 @@ class block_producer_plugin : public appbase::plugin< block_producer_plugin >
       crypto::private_key block_signing_private_key;
 
       std::shared_ptr< std::thread > block_production_thread;
+      std::optional< bfs::path >     wasm;
 };
 
 } // koinos::plugins::block_producer

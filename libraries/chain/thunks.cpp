@@ -244,7 +244,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const types::contract_id_type&)
    context.set_contract_call_args( args );
    try
    {
-      backend( &context, "env", "apply", (uint64_t)0, (uint64_t)0, (uint64_t)0 );
+      backend( &context, "env", "_start" );
    }
    catch( const exit_success& ) {}
 
