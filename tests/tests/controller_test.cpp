@@ -104,11 +104,12 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
 
    BOOST_TEST_MESSAGE( "Test submit block" );
+   BOOST_TEST_MESSAGE( "Error when first block does not have height of 1" );
 
    koinos::types::protocol::active_block_data active_data;
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    active_data.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-   active_data.height = 1;
+   active_data.height = 2;
 
    koinos::types::rpc::block_topology topology;
    topology.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
@@ -128,7 +129,39 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    future = controller.submit( block_submission );
    submit_res = *(future.get());
-   auto& block_res = std::get< koinos::types::rpc::block_submission_result >( submit_res );
+   auto submit_err = std::get< koinos::types::rpc::submission_error_result >( submit_res );
+   std::string error_str( submit_err.error_text.data(), submit_err.error_text.size() );
+   BOOST_CHECK_EQUAL( error_str, "First block must have height of 1" );
+
+   BOOST_TEST_MESSAGE( "Error when signature does not match" );
+
+   active_data.height = 1;
+   topology.height = active_data.height;
+   koinos::pack::to_variable_blob( block.active_bytes, active_data );
+   koinos::pack::to_variable_blob( block_submission.header_bytes, block );
+   block_submission.topology = topology;
+   block_submission.passives_bytes.clear();
+   block_submission.passives_bytes.emplace_back( koinos::pack::to_variable_blob( passive_data ) );
+
+   future = controller.submit( block_submission );
+   submit_res = *(future.get());
+   submit_err = std::get< koinos::types::rpc::submission_error_result >( submit_res );
+   error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
+   BOOST_CHECK_EQUAL( error_str, "invalid block signature" );
+
+   BOOST_TEST_MESSAGE( "Error when previous block does not match" );
+
+   topology.previous = koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 );
+   passive_data.block_signature = block_signing_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, active_data ) );
+   block_submission.topology = topology;
+   block_submission.passives_bytes.clear();
+   block_submission.passives_bytes.emplace_back( koinos::pack::to_variable_blob( passive_data ) );
+
+   future = controller.submit( block_submission );
+   submit_res = *(future.get());
+   submit_err = std::get< koinos::types::rpc::submission_error_result >( submit_res );
+   error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
+   BOOST_CHECK_EQUAL( error_str, "Unknown previous block" );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
