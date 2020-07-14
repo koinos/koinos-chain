@@ -2,6 +2,7 @@
 
 #include <koinos/chain/controller.hpp>
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/crypto/elliptic.hpp>
 #include <koinos/exception.hpp>
 #include <koinos/pack/rt/binary.hpp>
 
@@ -68,6 +69,66 @@ BOOST_AUTO_TEST_CASE( setup_tests )
    controller.stop_threads();
    future = controller.submit( submit_item );
    BOOST_CHECK_THROW( future.get(), std::future_error );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( submission_tests )
+{ try {
+   std::any cfg = mira::utilities::default_database_configuration();
+   controller.open( temp, cfg );
+   controller.start_threads();
+
+   std::string seed = "test seed";
+   auto block_signing_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+
+   BOOST_TEST_MESSAGE( "Test reserved submission" );
+
+   koinos::types::rpc::submission_item submit_item;
+   submit_item = koinos::types::rpc::reserved_submission();
+
+   BOOST_CHECK_THROW( controller.submit( submit_item ), koinos::chain::unknown_submission_type );
+
+
+   BOOST_TEST_MESSAGE( "Test submit transaction" );
+
+   koinos::types::protocol::operation o = koinos::types::protocol::nop_operation();
+   koinos::types::protocol::transaction_type transaction;
+   transaction.operations.push_back( koinos::pack::to_variable_blob( o ) );
+
+   koinos::types::rpc::transaction_submission trx;
+   koinos::pack::to_variable_blob( trx.active_bytes, transaction );
+
+   auto future = controller.submit( trx );
+   auto submit_res = *(future.get());
+   auto& trx_res = std::get< koinos::types::rpc::transaction_submission_result >( submit_res );
+
+
+   BOOST_TEST_MESSAGE( "Test submit block" );
+
+   koinos::types::protocol::active_block_data active_data;
+   auto duration = std::chrono::system_clock::now().time_since_epoch();
+   active_data.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+   active_data.height = 1;
+
+   koinos::types::rpc::block_topology topology;
+   topology.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   topology.height = active_data.height;
+
+   koinos::types::protocol::passive_block_data passive_data;
+   passive_data.block_signature = block_signing_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, active_data ) );
+
+   koinos::types::protocol::block_header block;
+   koinos::crypto::hash( block.passive_merkle_root, CRYPTO_SHA2_256_ID, passive_data );
+   koinos::pack::to_variable_blob( block.active_bytes, active_data );
+
+   koinos::types::rpc::block_submission block_submission;
+   block_submission.topology = topology;
+   koinos::pack::to_variable_blob( block_submission.header_bytes, block );
+   block_submission.passives_bytes.emplace_back( koinos::pack::to_variable_blob( passive_data ) );
+
+   future = controller.submit( block_submission );
+   submit_res = *(future.get());
+   auto& block_res = std::get< koinos::types::rpc::block_submission_result >( submit_res );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
