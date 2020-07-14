@@ -121,6 +121,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    koinos::types::protocol::block_header block;
    koinos::crypto::hash( block.passive_merkle_root, CRYPTO_SHA2_256_ID, passive_data );
    koinos::pack::to_variable_blob( block.active_bytes, active_data );
+   topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, block );
 
    koinos::types::rpc::block_submission block_submission;
    block_submission.topology = topology;
@@ -139,6 +140,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    topology.height = active_data.height;
    koinos::pack::to_variable_blob( block.active_bytes, active_data );
    koinos::pack::to_variable_blob( block_submission.header_bytes, block );
+   topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, block );
    block_submission.topology = topology;
    block_submission.passives_bytes.clear();
    block_submission.passives_bytes.emplace_back( koinos::pack::to_variable_blob( passive_data ) );
@@ -162,6 +164,15 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    submit_err = std::get< koinos::types::rpc::submission_error_result >( submit_res );
    error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
    BOOST_CHECK_EQUAL( error_str, "Unknown previous block" );
+
+   BOOST_TEST_MESSAGE( "Test succesful block" );
+
+   topology.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   block_submission.topology = topology;
+
+   future = controller.submit( block_submission );
+   submit_res = *(future.get());
+   auto block_res = std::get< koinos::types::rpc::block_submission_result >( submit_res );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
