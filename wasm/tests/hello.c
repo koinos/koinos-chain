@@ -21,7 +21,7 @@ void prints( char* msg )
 }
 
 __attribute__( (visibility("default")) )
-void apply( uint64_t a, uint64_t b, uint64_t c )
+void _start()
 {
    prints( "Greetings from koinos vm" );
 }

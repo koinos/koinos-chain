@@ -124,11 +124,31 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
 block_producer_plugin::block_producer_plugin() {}
 block_producer_plugin::~block_producer_plugin() {}
 
+void block_producer_plugin::set_program_options( options_description& cli, options_description& cfg )
+{
+   cfg.add_options()
+         ("target-wasm", bpo::value<bfs::path>(),
+            "the location of a demo wasm file (absolute path or relative to application data dir)")
+         ;
+}
+
 void block_producer_plugin::plugin_initialize( const appbase::variables_map& options )
 {
    std::string seed = "test seed";
 
    block_signing_private_key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+
+   if( options.count("target-wasm") )
+   {
+      auto wasm_target = options.at("target-wasm").as<bfs::path>();
+      if( !bfs::is_directory( wasm_target ) )
+      {
+         if( wasm_target.is_relative() )
+            wasm = appbase::app().data_dir() / wasm_target;
+         else
+            wasm = wasm_target;
+      }
+   }
 }
 
 void block_producer_plugin::plugin_startup()
