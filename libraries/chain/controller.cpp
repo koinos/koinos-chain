@@ -219,10 +219,9 @@ std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit
    }
    catch( const boost::concurrent::sync_queue_is_closed& e )
    {
-      // Do nothing.  If we're closing down queues, we still return a future for which valid() is true,
-      // but wait() will block forever.  (The caller must cleanly handle the case of a future
-      // whose wait() blocks forever anyway, since this may occur for items that were already
-      // enqueued at the time of shutdown.)
+      // Do nothing. If we're closing down queues, fut_output will return valid() == true() and wait()
+      // will return instantly, but calling get() will throw a std::future_error which needs to be
+      // handled by the caller.
    }
    return fut_output;
 }
