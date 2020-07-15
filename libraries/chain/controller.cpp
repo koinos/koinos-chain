@@ -219,10 +219,9 @@ std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit
    }
    catch( const boost::concurrent::sync_queue_is_closed& e )
    {
-      // Do nothing.  If we're closing down queues, we still return a future for which valid() is true,
-      // but wait() will block forever.  (The caller must cleanly handle the case of a future
-      // whose wait() blocks forever anyway, since this may occur for items that were already
-      // enqueued at the time of shutdown.)
+      // Do nothing. If we're closing down queues, fut_output will return valid() == true() and wait()
+      // will return instantly, but calling get() will throw a std::future_error which needs to be
+      // handled by the caller.
    }
    return fut_output;
 }
@@ -283,22 +282,30 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, blo
    auto block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
-   _ctx->set_state_node( block_node );
+   try
+   {
+      _ctx->set_state_node( block_node );
 
-   crypto::recoverable_signature sig;
-   vectorstream in_sig( block.submission.passives_bytes[ 0 ] );
-   pack::from_binary( in_sig, sig );
+      crypto::recoverable_signature sig;
+      vectorstream in_sig( block.submission.passives_bytes[ 0 ] );
+      pack::from_binary( in_sig, sig );
 
-   crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
-   KOINOS_ASSERT( chain::thunk::verify_block_header( *_ctx, sig, digest ), invalid_signature, "invalid block signature" );
+      crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
+      KOINOS_ASSERT( chain::thunk::verify_block_header( *_ctx, sig, digest ), invalid_signature, "invalid block signature" );
 
-   thunk::apply_block( *_ctx, pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ) );
-   auto output = _ctx->get_pending_console_output();
+      thunk::apply_block( *_ctx, pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ) );
+      auto output = _ctx->get_pending_console_output();
 
-   if (output.length() > 0) { LOG(info) << output; }
+      if (output.length() > 0) { LOG(info) << output; }
 
-   _ctx->clear_state_node();
-   _state_db.finalize_node( block_node->id() );
+      _ctx->clear_state_node();
+      _state_db.finalize_node( block_node->id() );
+   }
+   catch( const koinos::exception& )
+   {
+      _state_db.discard_node( block_node->id() );
+      throw;
+   }
 
    KOINOS_TODO( "Report success / failure to caller" )
 }
@@ -426,7 +433,7 @@ void controller_impl::work_thread_main()
 
       if( maybe_err )
       {
-         LOG(error) << "err in work_thread: " << (*maybe_err) << std::endl;
+         LOG(error) << "err in work_thread: " << (*maybe_err);
          result = std::make_shared< rpc::submission_result >();
          result->emplace< rpc::submission_error_result >();
          std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< rpc::submission_error_result >( *result ).error_text ) );
