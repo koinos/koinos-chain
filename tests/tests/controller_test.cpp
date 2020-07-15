@@ -8,6 +8,8 @@
 
 #include <mira/database_configuration.hpp>
 
+#include <chrono>
+
 struct controller_fixture
 {
    controller_fixture()
@@ -54,6 +56,7 @@ BOOST_AUTO_TEST_CASE( setup_tests )
 
    std::any cfg = mira::utilities::default_database_configuration();
    controller.open( temp, cfg );
+   controller.set_time( std::chrono::steady_clock::now() );
 
    future = controller.submit( submit_item );
    submit_res = *(future.get());
