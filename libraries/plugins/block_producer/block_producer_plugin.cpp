@@ -29,10 +29,10 @@ static types::timestamp_type timestamp_now()
    return t;
 }
 
-std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
+std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
 {
    // Make block header
-   auto block = std::make_shared< protocol::block_header >();
+   auto block = std::make_shared< protocol::block >();
 
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
@@ -67,42 +67,67 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
       LOG(error) << e.what();
    }
 
+   // Add passive data
+   block->passive_data = protocol::passive_block_data();
+
+   //
+   // +-----------+      +--------------+      +-------------------------+      +---------------------+
+   // | Block sig | ---> | Block active | ---> | Transaction merkle root | ---> | Transaction actives |
+   // +-----------+      +--------------+      +-------------------------+      +---------------------+
+   //                           |
+   //                           V
+   //                +----------------------+      +----------------------+
+   //                |                      | ---> |     Block passive    |
+   //                |                      |      +----------------------+
+   //                |                      |
+   //                |                      |      +----------------------+
+   //                | Passives merkle root | ---> | Transaction passives |
+   //                |                      |      +----------------------+
+   //                |                      |
+   //                |                      |      +----------------------+
+   //                |                      | ---> |   Transaction sigs   |
+   //                +----------------------+      +----------------------+
+   //
+
+   std::vector< types::multihash_type > trx_active_hashes( block->transactions.size() );
+   std::vector< types::multihash_type > passive_hashes( block->transactions.size() + 1 );
+
+   // Hash transaction actives, passives, and signatures for merkle roots
+   for( size_t i = 0; i < block->transactions.size(); i++ )
+   {
+      crypto::hash_blob( trx_active_hashes[i], CRYPTO_SHA2_256_ID, block->transactions[i]->active_data );
+      crypto::hash_blob( passive_hashes[(2*i)+1], CRYPTO_SHA2_256_ID, block->transactions[i]->passive_data );
+      crypto::hash_blob( passive_hashes[(2*i)+2], CRYPTO_SHA2_256_ID, block->transactions[i]->signature_data );
+   }
+
+   crypto::hash_blob( passive_hashes[0], CRYPTO_SHA2_256_ID, block->passive_data );
+
+   crypto::merkle_hash_leaves( trx_active_hashes, CRYPTO_SHA2_256_ID );
+   crypto::merkle_hash_leaves( passive_hashes, CRYPTO_SHA2_256_ID );
+
+   active_data.header_hashes.digests.resize(3);
+   active_data.header_hashes.digests[(uint32_t)protocol::header_hash_index::transaction_merkle_root_hash_index] = trx_active_hashes[0].digest;
+   active_data.header_hashes.digests[(uint32_t)protocol::header_hash_index::passive_data_merkle_root_hash_index] = passive_hashes[0].digest;
+   active_data.header_hashes.digests[(uint32_t)protocol::header_hash_index::previous_block_hash_index] = topology.previous.digest;
+   crypto::multihash::set_id( active_data.header_hashes, CRYPTO_SHA2_256_ID );
+   crypto::multihash::set_size( active_data.header_hashes, 32 );
+
    // Serialize active data, store it in block header
-   vectorstream active_stream;
-   pack::to_binary( active_stream, active_data );
-   crypto::variable_blob active_data_bytes{ active_stream.vector() };
-   block->active_bytes = active_data_bytes;
+   block->active_data = active_data;
 
    // Hash active data and use it to sign block
-   protocol::passive_block_data passive_data;
-   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, active_data );
+   multihash_type digest;
+   crypto::hash_blob( digest, CRYPTO_SHA2_256_ID, block->active_data );
    auto signature = block_signing_private_key.sign_compact( digest );
-   passive_data.block_signature = signature;
-
-   // Hash passive data
-   auto passive_hash = crypto::hash( CRYPTO_SHA2_256_ID, passive_data );
-   block->passive_merkle_root = passive_hash;
-   block->active_bytes = active_data_bytes;
-
-   // Serialize the header
-   vectorstream header_stream;
-   pack::to_binary( header_stream, *block );
-   crypto::variable_blob block_header_bytes{ header_stream.vector() };
+   pack::to_variable_blob( block->signature_data, signature );
 
    // Store hash of header as ID
-   topology.id = crypto::hash( CRYPTO_SHA2_256_ID, *block );
-
-   // Serialize the passive data
-   vectorstream passive_stream;
-   pack::to_binary( passive_stream, passive_data );
-   crypto::variable_blob passive_data_bytes{ passive_stream.vector() };
+   topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
 
    // Create the submit block object
    rpc::block_submission block_submission;
    block_submission.topology = topology;
-   block_submission.header_bytes = block_header_bytes;
-   block_submission.passives_bytes.push_back( passive_data_bytes );
-
+   block_submission.block = *block;
 
    // Submit the block
    rpc::submission_item si = block_submission;

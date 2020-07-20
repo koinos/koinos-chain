@@ -298,7 +298,7 @@ void from_multihash_vector( std::vector< multihash_type >& mh_out, const multiha
 {
    const size_t n = mhv_in.digests.size();
    mh_out.resize( n );
-   for( size_t i=0; i<n; i++ )
+   for( size_t i = 0; i < n; i++ )
    {
       mh_out[i].hash_id = mhv_in.hash_id;
       mh_out[i].digest = mhv_in.digests[i];

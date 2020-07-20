@@ -62,10 +62,6 @@ struct block_submission_impl
    block_submission_impl( const rpc::block_submission& s ) : submission( s ) {}
 
    rpc::block_submission          submission;
-
-   protocol::block_header         header;
-   std::vector< variable_blob >   transactions;
-   std::vector< variable_blob >   passives;
 };
 
 struct transaction_submission_impl
@@ -254,6 +250,7 @@ template< typename T > void decode_canonical( const variable_blob& bin, T& targe
 
 void decode_block( block_submission_impl& block )
 {
+   /*
    KOINOS_ASSERT( block.submission.header_bytes.size() >= 1, block_header_empty, "Block has empty header" );
 
    decode_canonical( block.submission.header_bytes, block.header );
@@ -266,11 +263,12 @@ void decode_block( block_submission_impl& block )
    std::size_t n_passives = block.passives.size();
    for( std::size_t i = 0; i < n_passives; i++ )
       decode_canonical( block.passives[i], block.passives[i] );
+   */
 }
 
 void controller_impl::process_submission( rpc::block_submission_result& ret, block_submission_impl& block )
 {
-   decode_block( block );
+   //decode_block( block );
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( crypto::multihash::is_zero( block.submission.topology.previous ) )
@@ -286,14 +284,12 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, blo
    {
       _ctx->set_state_node( block_node );
 
-      crypto::recoverable_signature sig;
-      vectorstream in_sig( block.submission.passives_bytes[ 0 ] );
-      pack::from_binary( in_sig, sig );
-
-      crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
-      KOINOS_ASSERT( chain::thunk::verify_block_header( *_ctx, sig, digest ), invalid_signature, "invalid block signature" );
-
-      thunk::apply_block( *_ctx, pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ) );
+      thunk::apply_block(
+         *_ctx,
+         block.submission.block,
+         block.submission.verify_passive_data,
+         block.submission.verify_block_signature,
+         block.submission.verify_transaction_signatures );
       auto output = _ctx->get_pending_console_output();
 
       if (output.length() > 0) { LOG(info) << output; }

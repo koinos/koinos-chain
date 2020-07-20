@@ -22,7 +22,7 @@ class block_producer_plugin : public appbase::plugin< block_producer_plugin >
 
       static const std::string& name() { static std::string name = KOINOS_BLOCK_PRODUCER_PLUGIN_NAME; return name; }
 
-      std::shared_ptr< types::protocol::block_header > produce_block();
+      std::shared_ptr< types::protocol::block > produce_block();
 
       virtual void set_program_options( appbase::options_description&, appbase::options_description& ) override;
 

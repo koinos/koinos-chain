@@ -16,4 +16,8 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( reserved_operation_exception, operation_except
 KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_type_conversion_exception, wasm_exception );
 
+// Thunk Exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( thunk_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unimplemented, thunk_exception );
+
 } // koinos::chain

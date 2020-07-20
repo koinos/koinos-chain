@@ -63,11 +63,11 @@ THUNK_DECLARE( bool, verify_block_sig, const variable_blob& sig_data, const cryp
 THUNK_DECLARE( bool, verify_merkle_root, const crypto::multihash_type& root, const std::vector< crypto::multihash_type >& hashes );
 
 THUNK_DECLARE( void, apply_block,
-   const std::vector< types::system::block_part >& block_parts,
+   const types::protocol::block& block,
    types::boolean enable_check_passive_data,
    types::boolean enable_check_block_signature,
    types::boolean enable_check_transaction_signatures );
-THUNK_DECLARE( void, apply_transaction, const variable_blob& tx_blob );
+THUNK_DECLARE( void, apply_transaction, const types::variable_blob& trx );
 THUNK_DECLARE( void, apply_reserved_operation, const types::protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const types::protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const types::protocol::contract_call_operation& op );
