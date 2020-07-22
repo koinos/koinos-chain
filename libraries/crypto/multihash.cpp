@@ -7,55 +7,7 @@
 #include <iostream>
 #include <map>
 
-namespace koinos { namespace types {
-
-bool operator ==( const multihash& mha, const multihash& mhb )
-{
-   return ( mha.id == mhb.id )
-       && ( mha.digest.size() == mhb.digest.size() )
-       && ( std::memcmp( mha.digest.data(), mhb.digest.data(), mhb.digest.size() ) == 0 );
-}
-
-bool operator !=( const multihash& mha, const multihash& mhb )
-{
-   return !(mha == mhb);
-}
-
-bool operator <( const multihash& mha, const multihash& mhb )
-{
-   int64_t res = (int64_t)mha.id - (int64_t)mhb.id;
-   if( res < 0 ) return true;
-   if( res > 0 ) return false;
-   res = mha.digest.size() - mhb.digest.size();
-   if( res < 0 ) return true;
-   if( res > 0 ) return false;
-   return std::memcmp( mha.digest.data(), mhb.digest.data(), mha.digest.size() ) < 0;
-}
-
-bool operator <=( const multihash& mha, const multihash& mhb )
-{
-   int64_t res = (int64_t)mha.id - (int64_t)mhb.id;
-   if( res < 0 ) return true;
-   if( res > 0 ) return false;
-   res = mha.digest.size() - mhb.digest.size();
-   if( res < 0 ) return true;
-   if( res > 0 ) return false;
-   return std::memcmp( mha.digest.data(), mhb.digest.data(), mha.digest.size() ) <= 0;
-}
-
-bool operator >( const multihash& mha, const multihash& mhb )
-{
-   return !(mha <= mhb);
-}
-
-bool operator >=( const multihash& mha, const multihash& mhb )
-{
-   return !(mha < mhb);
-}
-
-} // types
-
-namespace crypto {
+namespace koinos::crypto {
 
 const EVP_MD* get_evp_md( uint64_t code )
 {
@@ -300,4 +252,4 @@ void merkle_hash_like( multihash& result, const multihash& old, const std::vecto
    merkle_hash( result, old.id, values, old.digest.size() );
 }
 
-} } // koinos::crypto
+} // koinos::crypto

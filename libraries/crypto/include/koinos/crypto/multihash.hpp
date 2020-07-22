@@ -14,18 +14,7 @@
 #define CRYPTO_SHA2_512_ID    uint64_t(0x13)
 #define CRYPTO_RIPEMD160_ID   uint64_t(0x1053)
 
-namespace koinos { namespace types {
-
-bool operator ==( const multihash& mha, const multihash& mhb );
-bool operator !=( const multihash& mha, const multihash& mhb );
-bool operator <( const multihash& mha, const multihash& mhb );
-bool operator <=( const multihash& mha, const multihash& mhb );
-bool operator >( const multihash& mha, const multihash& mhb );
-bool operator >=( const multihash& mha, const multihash& mhb );
-
-} // types
-
-namespace crypto {
+namespace koinos::crypto {
 
 using koinos::types::multihash;
 using koinos::types::multihash_vector;
@@ -135,4 +124,4 @@ void merkle_hash_like( multihash& result, const multihash& old, const std::vecto
 void merkle_hash_leaves( std::vector< multihash >& hashes, uint64_t code, uint64_t size = 0 );
 void merkle_hash_leaves_like( std::vector< multihash >& hashes, const multihash& old );
 
-} } // koinos::crypto
+} // koinos::crypto
