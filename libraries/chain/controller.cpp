@@ -227,49 +227,8 @@ void controller_impl::open( const boost::filesystem::path& p, const std::any& o 
    _state_db.open( p, o );
 }
 
-template< typename T > void decode_canonical( const variable_blob& bin, T& target )
-{
-   boost::interprocess::ibufferstream s( bin.data(), bin.size() );
-   pack::from_binary( s, target );
-   // No-padding check:  Enforce that bin doesn't have extra bytes that were unread
-   KOINOS_ASSERT( size_t( s.tellg() ) == bin.size(), decode_exception, "Data does not deserialize (extra padding)" );
-
-   // Canonicity check:
-   // Re-serialize the data and ensure it is the same as the input
-   // The binary serialization format is intended to have a canonical serialization,
-   // so if this check ever fails, there is a bug in the serialization spec / code.
-   std::vector< char > tmp( bin.size() );
-   boost::interprocess::bufferstream s2( tmp.data(), tmp.size() );
-
-   pack::to_binary( s2, target );
-
-   KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)" );
-   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.size(), decode_exception, "Data does not reserialize (size mismatch)" );
-   KOINOS_ASSERT( bin == tmp, decode_exception, "Data does not reserialize" );
-}
-
-void decode_block( block_submission_impl& block )
-{
-   /*
-   KOINOS_ASSERT( block.submission.header_bytes.size() >= 1, block_header_empty, "Block has empty header" );
-
-   decode_canonical( block.submission.header_bytes, block.header );
-
-   // Deserialize submitted transactions
-   std::size_t n_transactions = block.transactions.size();
-   for( std::size_t i = 0; i < n_transactions; i++ )
-      decode_canonical( block.transactions[i], block.transactions[i] );
-
-   std::size_t n_passives = block.passives.size();
-   for( std::size_t i = 0; i < n_passives; i++ )
-      decode_canonical( block.passives[i], block.passives[i] );
-   */
-}
-
 void controller_impl::process_submission( rpc::block_submission_result& ret, block_submission_impl& block )
 {
-   //decode_block( block );
-
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( crypto::multihash::is_zero( block.submission.topology.previous ) )
    {

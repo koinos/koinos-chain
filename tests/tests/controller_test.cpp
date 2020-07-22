@@ -174,6 +174,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    future = controller.submit( block_submission );
    submit_res = *(future.get());
+   LOG(info) << std::holds_alternative< types::rpc::block_submission_result >( submit_res );
+   LOG(info) << std::holds_alternative< types::rpc::transaction_submission_result >( submit_res );
+   LOG(info) << std::holds_alternative< types::rpc::query_submission_result >( submit_res );
+   LOG(info) << std::holds_alternative< types::rpc::submission_error_result >( submit_res );
    submit_err = std::get< types::rpc::submission_error_result >( submit_res );
    error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
    BOOST_CHECK_EQUAL( error_str, "Block signature does not match" );
