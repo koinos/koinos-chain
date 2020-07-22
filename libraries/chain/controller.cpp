@@ -230,7 +230,7 @@ void controller_impl::open( const boost::filesystem::path& p, const std::any& o 
 void controller_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   if( crypto::multihash::is_zero( block.submission.topology.previous ) )
+   if( crypto::multihash_is_zero( block.submission.topology.previous ) )
    {
       // Genesis case
       KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1" );

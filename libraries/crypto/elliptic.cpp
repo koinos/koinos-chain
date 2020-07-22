@@ -117,9 +117,9 @@ public_key public_key::deserialize( const compressed_public_key& cpk )
 }
 
 
-public_key public_key::recover( const recoverable_signature& sig, const multihash_type& digest )
+public_key public_key::recover( const recoverable_signature& sig, const multihash& hash )
 {
-   KOINOS_ASSERT( multihash::get_size( digest ) == 32, key_recovery_error, "Digest must be 32 bytes" );
+   KOINOS_ASSERT( hash.digest.size() == 32, key_recovery_error, "Digest must be 32 bytes" );
    KOINOS_ASSERT( is_canonical( sig ), key_recovery_error, "Signature is not canonical" );
    fixed_blob< 65 > internal_sig;
    public_key pk;
@@ -143,22 +143,22 @@ public_key public_key::recover( const recoverable_signature& sig, const multihas
          _get_context(),
          (secp256k1_pubkey*) pk._key.data(),
          (const secp256k1_ecdsa_recoverable_signature*) internal_sig.data(),
-         (unsigned char*) digest.digest.data() ),
+         (unsigned char*) hash.digest.data() ),
       key_recovery_error, "Unknown error recovering public key from signature" );
 
    return pk;
 }
 
-public_key public_key::add( const multihash_type& digest )const
+public_key public_key::add( const multihash& hash )const
 {
-   KOINOS_ASSERT( multihash::get_size( digest ), key_manipulation_error, "Digest must be 32 bytes" );
+   KOINOS_ASSERT( hash.digest.size() == 32, key_manipulation_error, "Digest must be 32 bytes" );
    KOINOS_ASSERT( _key != empty_pub(), key_manipulation_error, "Cannot add to an empty key" );
    public_key new_key( *this );
    KOINOS_ASSERT(
       secp256k1_ec_pubkey_tweak_add(
          _get_context(),
          (secp256k1_pubkey*) new_key._key.data(),
-         (unsigned char*) digest.digest.data() ),
+         (unsigned char*) hash.digest.data() ),
       key_manipulation_error, "Unknown error when adding to public key" );
    return new_key;
 }
@@ -182,8 +182,8 @@ bool public_key::valid()const
 
 unsigned int public_key::fingerprint() const
 {
-   multihash_type sha256 = hash_str( CRYPTO_SHA2_256_ID, _key.data(), _key.size() );
-   multihash_type ripemd160 = hash_str( CRYPTO_RIPEMD160_ID, sha256.digest.data(), sha256.digest.size() );
+   multihash sha256 = hash_str( CRYPTO_SHA2_256_ID, _key.data(), _key.size() );
+   multihash ripemd160 = hash_str( CRYPTO_RIPEMD160_ID, sha256.digest.data(), sha256.digest.size() );
    unsigned char* fp = (unsigned char*) ripemd160.digest.data();
    return (fp[0] << 24) | (fp[1] << 16) | (fp[2] << 8) | fp[3];
 }
@@ -268,15 +268,15 @@ private_key& private_key::operator=( const private_key& pk )
    return *this;
 }
 
-private_key private_key::regenerate( const multihash_type& secret )
+private_key private_key::regenerate( const multihash& secret )
 {
-   multihash::validate_sha256( secret );
+//   multihash::validate_sha256( secret );
    private_key self;
    std::memcpy( self._key.data(), secret.digest.data(), self._key.size() );
    return self;
 }
 
-private_key private_key::generate_from_seed( const multihash_type& seed, const multihash_type& offset )
+private_key private_key::generate_from_seed( const multihash& seed, const multihash& offset )
 {
    // There is non-determinism in this function, perhaps purposefully.
    ssl_bignum z;
@@ -293,9 +293,8 @@ private_key private_key::generate_from_seed( const multihash_type& seed, const m
    BN_add(secexp, secexp, z);
    BN_mod(secexp, secexp, order, ctx);
 
-   multihash_type secret;
-   multihash::set_id( secret, CRYPTO_SHA2_256_ID );
-   multihash::set_size( secret, 32 );
+   multihash secret;
+   secret.id = CRYPTO_SHA2_256_ID;
    secret.digest.resize( 32 );
    assert(BN_num_bytes(secexp) <= int64_t(secret.digest.size()));
    auto shift = secret.digest.size() - BN_num_bytes(secexp);
@@ -308,9 +307,9 @@ private_key_secret private_key::get_secret()const
    return _key;
 }
 
-recoverable_signature private_key::sign_compact( const multihash_type& digest )const
+recoverable_signature private_key::sign_compact( const multihash& digest )const
 {
-   multihash::validate_sha256( digest );
+//   multihash::validate_sha256( digest );
    KOINOS_ASSERT( _key != empty_priv(), signing_error, "Cannot sign with an empty key" );
    fixed_blob< 65 > internal_sig;
    recoverable_signature sig;

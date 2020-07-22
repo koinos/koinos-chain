@@ -6,7 +6,7 @@
 
 namespace koinos::crypto {
 
-   using koinos::types::multihash_type;
+   using koinos::types::multihash;
    using koinos::types::fixed_blob;
 
    using recoverable_signature = fixed_blob< 65 >;                         ///< A 65 byte recoverable ECDSA siganture
@@ -51,11 +51,11 @@ namespace koinos::crypto {
           *
           * @throw koinos_exception a public key could not be recovered from the signature
           */
-         static public_key recover( const recoverable_signature& sig, const multihash_type& digest );
+         static public_key recover( const recoverable_signature& sig, const multihash& digest );
 
          /** Computes new pubkey = regenerate(offset).pubkey + old pubkey
          *                      = offset * G + 1 * old pubkey ?! */
-         public_key add( const multihash_type& offset )const;
+         public_key add( const multihash& offset )const;
 
          bool valid()const;
 
@@ -107,20 +107,20 @@ namespace koinos::crypto {
          private_key& operator=( private_key&& pk );
          private_key& operator=( const private_key& pk );
 
-         static private_key regenerate( const multihash_type& secret );
+         static private_key regenerate( const multihash& secret );
 
          /**
          *  This method of generation enables creating a new private key in a deterministic manner relative to
          *  an initial seed.   A public_key created from the seed can be multiplied by the offset to calculate
          *  the new public key without having to know the private key.
          */
-         static private_key generate_from_seed( const multihash_type& seed, const multihash_type& offset = multihash_type() );
+         static private_key generate_from_seed( const multihash& seed, const multihash& offset = multihash() );
 
          private_key_secret get_secret()const; // get the private key secret
 
          operator private_key_secret ()const { return get_secret(); }
 
-         recoverable_signature sign_compact( const multihash_type& digest )const;
+         recoverable_signature sign_compact( const multihash& digest )const;
 
          public_key get_public_key()const;
 
