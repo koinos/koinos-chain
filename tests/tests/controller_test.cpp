@@ -145,6 +145,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Error when first block does not have height of 1" );
 
    types::rpc::block_submission block_submission;
+   block_submission.verify_passive_data = true;
+   block_submission.verify_block_signature = true;
+   block_submission.verify_transaction_signatures = true;
+
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
    block_submission.block.active_data->height = 2;
@@ -174,10 +178,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    future = controller.submit( block_submission );
    submit_res = *(future.get());
-   LOG(info) << std::holds_alternative< types::rpc::block_submission_result >( submit_res );
-   LOG(info) << std::holds_alternative< types::rpc::transaction_submission_result >( submit_res );
-   LOG(info) << std::holds_alternative< types::rpc::query_submission_result >( submit_res );
-   LOG(info) << std::holds_alternative< types::rpc::submission_error_result >( submit_res );
    submit_err = std::get< types::rpc::submission_error_result >( submit_res );
    error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
    BOOST_CHECK_EQUAL( error_str, "Block signature does not match" );
