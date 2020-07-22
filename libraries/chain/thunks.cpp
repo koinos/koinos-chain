@@ -130,12 +130,13 @@ THUNK_DEFINE( void, apply_block,
       hashes.resize( passive_count );
 
       crypto::hash_blob_like( hashes[0], passive_root, block.passive_data );
+      crypto::empty_hash_like( hashes[0], passive_root );
 
       // We hash in this order so that the two hashes for each transaction have a common Merkle parent
       for( size_t i=0; i<tx_count; i++ )
       {
-         crypto::hash_blob_like( hashes[(2*i)+1], passive_root, block.transactions[i]->passive_data );
-         crypto::hash_blob_like( hashes[(2*i)+2], passive_root, block.transactions[i]->signature_data );
+         crypto::hash_blob_like( hashes[2*(i+1)],   passive_root, block.transactions[i]->passive_data   );
+         crypto::hash_blob_like( hashes[2*(i+1)+1], passive_root, block.transactions[i]->signature_data );
       }
       KOINOS_ASSERT( verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
    }

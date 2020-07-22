@@ -5,7 +5,7 @@ add_library( koinos_block_producer_plugin
 
 target_link_libraries( koinos_block_producer_plugin koinos_chain appbase koinos_types koinos_chain_plugin koinos_crypto koinos_log koinos_util )
 
-target_include_directories( koinos_block_producer_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
+target_include_directories( koinos_block_producer_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/include/util" )
 
 install( TARGETS
    koinos_block_producer_plugin

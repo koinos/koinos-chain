@@ -128,9 +128,9 @@ class controller_impl
    private:
       std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
-      void process_submission( rpc::block_submission_result& ret,       block_submission_impl& block );
-      void process_submission( rpc::transaction_submission_result& ret, transaction_submission_impl& tx );
-      void process_submission( rpc::query_submission_result& ret,       query_submission_impl& query );
+      void process_submission( rpc::block_submission_result& ret,       const block_submission_impl& block );
+      void process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx );
+      void process_submission( rpc::query_submission_result& ret,       const query_submission_impl& query );
 
       void feed_thread_main();
       void work_thread_main();
@@ -227,7 +227,7 @@ void controller_impl::open( const boost::filesystem::path& p, const std::any& o 
    _state_db.open( p, o );
 }
 
-void controller_impl::process_submission( rpc::block_submission_result& ret, block_submission_impl& block )
+void controller_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( crypto::multihash::is_zero( block.submission.topology.previous ) )
@@ -265,37 +265,38 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, blo
    KOINOS_TODO( "Report success / failure to caller" )
 }
 
-void controller_impl::process_submission( rpc::transaction_submission_result& ret, transaction_submission_impl& tx )
+void controller_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void controller_impl::process_submission( rpc::query_submission_result& ret, query_submission_impl& query )
+void controller_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
 {
-   rpc::query_param_item params;
-   vectorstream in( query.submission.query );
-   pack::from_binary( in, params );
+   query.submission.unbox();
+   ret.unbox();
+   ret.unlock();
 
-   rpc::query_item_result result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    std::visit( koinos::overloaded {
-      [&]( rpc::get_head_info_params& p )
+      [&]( const rpc::get_head_info_params& p )
       {
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            result = thunk::get_head_info( *_ctx );
+            ret = thunk::get_head_info( *_ctx );
          }
          catch ( const koinos::chain::database_exception& e )
          {
-            result = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
+            ret = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
          }
+      },
+      [&]( const auto& )
+      {
+         ret = rpc::query_error{ pack::to_variable_blob( "Unimplemented query type"s ) };
       }
-   }, params);
+   }, query.submission.get_const_native() );
 
-   vectorstream out;
-   pack::to_binary( out, result );
-   ret.result = out.vector();
+   ret.lock();
 }
 
 std::shared_ptr< rpc::submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
