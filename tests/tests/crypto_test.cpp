@@ -64,13 +64,13 @@ BOOST_AUTO_TEST_CASE( ecc )
 
    for( uint32_t i = 0; i < 100; ++ i )
    {
-      multihash_type h = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      multihash h = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
       private_key priv = private_key::regenerate( h );
       BOOST_CHECK( nullkey != priv );
       public_key pub = priv.get_public_key();
 
       pass += "1";
-      multihash_type h2 = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      multihash h2 = hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
       public_key  pub1  = pub.add( h2 );
       private_key priv1 = private_key::generate_from_seed(h, h2);
 
@@ -123,26 +123,26 @@ BOOST_AUTO_TEST_CASE( public_address )
 
 BOOST_AUTO_TEST_CASE( zerohash )
 {
-   multihash_type mh;
+   multihash mh;
    zero_hash( mh, CRYPTO_SHA2_256_ID );
-   BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_SHA2_256_ID );
-   BOOST_CHECK( multihash::get_size( mh ) == 256/8 );
+   BOOST_CHECK( mh.id == CRYPTO_SHA2_256_ID );
+   BOOST_CHECK( mh.digest.size() == 256/8 );
 
    zero_hash( mh, CRYPTO_RIPEMD160_ID );
-   BOOST_CHECK( multihash::get_id( mh ) == CRYPTO_RIPEMD160_ID );
-   BOOST_CHECK( multihash::get_size( mh ) == 160/8 );
+   BOOST_CHECK( mh.id == CRYPTO_RIPEMD160_ID );
+   BOOST_CHECK( mh.digest.size() == 160/8 );
 }
 
 BOOST_AUTO_TEST_CASE( emptyhash )
 {
-   multihash_type mh;
+   multihash mh;
    empty_hash( mh, CRYPTO_SHA2_256_ID );
    BOOST_CHECK_EQUAL( "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex_string( mh.digest ) );
 }
 
 BOOST_AUTO_TEST_CASE( merkle )
 {
-   multihash_type mh;
+   multihash mh;
    std::vector< std::string > values {
       "the", "quick", "brown", "fox", "jumps", "over", "a", "lazy", "dog" };
    std::vector< std::string > wh_hex {
@@ -156,20 +156,20 @@ BOOST_AUTO_TEST_CASE( merkle )
       "81fd67d02f679b818a4df6a50139958aa857eddc4d8f3561630dfb905e6d3c24",
       "cd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944"
       };
-   auto h = [&]( const multihash_type& ha, const multihash_type& hb ) -> multihash_type
+   auto h = [&]( const multihash& ha, const multihash& hb ) -> multihash
    {
       std::vector<char> temp;
       std::copy( ha.digest.begin(), ha.digest.end(), std::back_inserter( temp ) );
       std::copy( hb.digest.begin(), hb.digest.end(), std::back_inserter( temp ) );
       std::cout << "temp: " << hex_string( temp ) << std::endl;
-      multihash_type result;
+      multihash result;
       hash_str( result, CRYPTO_SHA2_256_ID, temp.data(), temp.size() );
       return result;
    };
 
    // Hash of each word
-   std::vector< multihash_type > wh;
-   for( size_t i=0; i<values.size(); i++ )
+   std::vector< multihash > wh;
+   for( size_t i = 0; i < values.size(); i++ )
    {
       wh.push_back( hash_str( CRYPTO_SHA2_256_ID, values[i].c_str(), values[i].size() ) );
       BOOST_CHECK_EQUAL( wh_hex[i], hex_string( wh[i].digest ) );
@@ -185,15 +185,15 @@ BOOST_AUTO_TEST_CASE( merkle )
    const std::string n8           = "cd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944";
    const std::string n012345678   = "e24e552e0b6cf8835af179a14a766fb58c23e4ee1f7c6317d57ce39cc578cfac";
 
-   multihash_type h01             = h( wh[0], wh[1] );
-   multihash_type h23             = h( wh[2], wh[3] );
-   multihash_type h0123           = h( h01, h23 );
-   multihash_type h45             = h( wh[4], wh[5] );
-   multihash_type h67             = h( wh[6], wh[7] );
-   multihash_type h4567           = h( h45, h67 );
-   multihash_type h01234567       = h( h0123, h4567 );
-   multihash_type h8              = wh[8];
-   multihash_type h012345678      = h( h01234567, h8 );
+   multihash h01             = h( wh[0], wh[1] );
+   multihash h23             = h( wh[2], wh[3] );
+   multihash h0123           = h( h01, h23 );
+   multihash h45             = h( wh[4], wh[5] );
+   multihash h67             = h( wh[6], wh[7] );
+   multihash h4567           = h( h45, h67 );
+   multihash h01234567       = h( h0123, h4567 );
+   multihash h8              = wh[8];
+   multihash h012345678      = h( h01234567, h8 );
 
    BOOST_CHECK_EQUAL( n01       , hex_string(        h01.digest ) );
    BOOST_CHECK_EQUAL( n23       , hex_string(        h23.digest ) );
@@ -204,10 +204,10 @@ BOOST_AUTO_TEST_CASE( merkle )
    BOOST_CHECK_EQUAL( n01234567 , hex_string(  h01234567.digest ) );
    BOOST_CHECK_EQUAL( n012345678, hex_string( h012345678.digest ) );
 
-   multihash_type merkle_root;
+   multihash merkle_root;
 
    std::vector< variable_blob > blob_values;
-   for( size_t i=0; i<values.size(); i++ )
+   for( size_t i = 0; i < values.size(); i++ )
    {
       blob_values.emplace_back( values[i].begin(), values[i].end() );
    }
