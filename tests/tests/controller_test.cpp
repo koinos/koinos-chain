@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Test reserved query" );
 
    auto future = controller.submit( types::rpc::query_submission( types::rpc::reserved_query_params() ) );
-   auto& submit_res = *future.get();
+   auto submit_res = *(future.get());
    auto& query_err = std::get< types::rpc::query_error >( std::get< types::rpc::query_submission_result >( submit_res ).get_const_native() );
    std::string error_str( query_err.error_text.data(), query_err.error_text.size() );
    BOOST_CHECK_EQUAL( error_str, "Unimplemented query type" );

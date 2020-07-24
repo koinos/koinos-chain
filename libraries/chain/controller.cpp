@@ -287,12 +287,18 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, con
          }
          catch ( const koinos::chain::database_exception& e )
          {
-            ret = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
+            rpc::query_error err;
+            std::string err_msg = "Could not find head block";
+            std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
+            ret = std::move( err );
          }
       },
       [&]( const auto& )
       {
-         ret = rpc::query_error{ pack::to_variable_blob( "Unimplemented query type"s ) };
+         rpc::query_error err;
+         std::string err_msg = "Unimplemented query type";
+         std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
+         ret = std::move( err );
       }
    }, query.submission.get_const_native() );
 
