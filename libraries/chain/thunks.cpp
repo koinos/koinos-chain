@@ -79,11 +79,11 @@ THUNK_DEFINE( bool, verify_merkle_root, ((const multihash&) root, (const std::ve
 
 THUNK_DEFINE( void, apply_block,
    (
-    (const types::protocol::block&) block,
-    (types::boolean) enable_check_passive_data,
-    (types::boolean) enable_check_block_signature,
-    (types::boolean) enable_check_transaction_signatures
-   ))
+      (const types::protocol::block&) block,
+      (types::boolean) enable_check_passive_data,
+      (types::boolean) enable_check_block_signature,
+      (types::boolean) enable_check_transaction_signatures)
+   )
 {
    KOINOS_TODO( "Check previous block hash" );
    KOINOS_TODO( "Check height" );
@@ -92,7 +92,7 @@ THUNK_DEFINE( void, apply_block,
 
    block.active_data.unbox();
    std::vector< multihash > header_hashes;
-   crypto::from_multihash_vector( header_hashes, block.active_data->header_hashes );
+   header_hashes = crypto::from_multihash_vector( block.active_data->header_hashes );
 
    const multihash& tx_root = header_hashes[ (size_t)types::protocol::header_hash_index::transaction_merkle_root_hash_index ];
    size_t tx_count = block.transactions.size();
@@ -102,14 +102,14 @@ THUNK_DEFINE( void, apply_block,
 
    for( size_t i=0; i<tx_count; i++ )
    {
-      crypto::hash_blob_like( hashes[i], tx_root, block.transactions[i]->active_data );
+      hashes[i] = crypto::hash_blob_like( tx_root, block.transactions[i]->active_data );
    }
    KOINOS_ASSERT( verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
 
    if( enable_check_block_signature )
    {
       multihash active_block_hash;
-      crypto::hash_blob_like( active_block_hash, tx_root, block.active_data );
+      active_block_hash = crypto::hash_blob_like( tx_root, block.active_data );
       KOINOS_ASSERT( verify_block_sig( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
@@ -129,15 +129,16 @@ THUNK_DEFINE( void, apply_block,
       size_t passive_count = 2 * block.transactions.size() + 1;
       hashes.resize( passive_count );
 
-      crypto::hash_blob_like( hashes[0], passive_root, block.passive_data );
-      crypto::empty_hash_like( hashes[0], passive_root );
+      hashes[0] = crypto::hash_blob_like( passive_root, block.passive_data );
+      hashes[0] = crypto::empty_hash_like( passive_root );
 
       // We hash in this order so that the two hashes for each transaction have a common Merkle parent
-      for( size_t i=0; i<tx_count; i++ )
+      for ( size_t i = 0; i < tx_count; i++ )
       {
-         crypto::hash_blob_like( hashes[2*(i+1)],   passive_root, block.transactions[i]->passive_data   );
-         crypto::hash_blob_like( hashes[2*(i+1)+1], passive_root, block.transactions[i]->signature_data );
+         hashes[2*(i+1)]   = crypto::hash_blob_like( passive_root, block.transactions[i]->passive_data );
+         hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i]->signature_data );
       }
+
       KOINOS_ASSERT( verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
    }
 
@@ -166,8 +167,7 @@ THUNK_DEFINE( void, apply_block,
       {
          context.clear_authority();
          //check_transaction_signature( tx_blob );
-         multihash tx_hash;
-         crypto::hash_blob_like( tx_hash, tx_root, variable_blob(tx) );
+         multihash tx_hash = crypto::hash_blob_like( tx_root, variable_blob( tx ) );
 
          crypto::recoverable_signature sig;
          pack::from_variable_blob( tx->signature_data, sig );
@@ -392,10 +392,10 @@ THUNK_DEFINE_VOID( types::system::head_info, get_head_info )
    return hi;
 }
 
-THUNK_DEFINE( types::multihash, hash, ((uint64_t) code, (const variable_blob&) obj, (uint64_t) size) )
+THUNK_DEFINE( types::multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
-   KOINOS_ASSERT( crypto::multihash::is_known_code( code ), unknown_hash_code, "Unknown hash code" );
-   return crypto::hash_str( code, obj.data(), obj.size(), size );
+   KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
+   return crypto::hash_str( id, obj.data(), obj.size(), size );
 }
 
 } } // koinos::chain::thunk

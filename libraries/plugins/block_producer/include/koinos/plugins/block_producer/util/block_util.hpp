@@ -31,15 +31,15 @@ void set_block_merkle_roots( types::protocol::block& block, uint64_t code = CRYP
    std::vector< types::multihash_type > passive_hashes( block.transactions.size() + 1 );
 
    // Hash transaction actives, passives, and signatures for merkle roots
-   for( size_t i = 0; i < block.transactions.size(); i++ )
+   for ( size_t i = 0; i < block.transactions.size(); i++ )
    {
-      crypto::hash_blob( trx_active_hashes[i],      code, block.transactions[i]->active_data,    size );
-      crypto::hash_blob( passive_hashes[2*(i+1)],   code, block.transactions[i]->passive_data,   size );
-      crypto::hash_blob( passive_hashes[2*(i+1)+1], code, block.transactions[i]->signature_data, size );
+      trx_active_hashes[i]      = crypto::hash_blob( code, block.transactions[i]->active_data, size );
+      passive_hashes[2*(i+1)]   = crypto::hash_blob( code, block.transactions[i]->passive_data, size );
+      passive_hashes[2*(i+1)+1] = crypto::hash_blob( code, block.transactions[i]->signature_data, size );
    }
 
-   crypto::hash_blob(  passive_hashes[0], code, block.passive_data, size );
-   crypto::empty_hash( passive_hashes[0], code, size );
+   passive_hashes[0] = crypto::hash_blob( code, block.passive_data, size );
+   passive_hashes[0] = crypto::empty_hash( code, size );
 
    crypto::merkle_hash_leaves( trx_active_hashes, code, size );
    crypto::merkle_hash_leaves( passive_hashes,    code, size );
@@ -54,8 +54,7 @@ void set_block_merkle_roots( types::protocol::block& block, uint64_t code = CRYP
 void sign_block( types::protocol::block& block, crypto::private_key& block_signing_key )
 {
    // Signature is on the hash of the active data
-   crypto::multihash_type digest;
-   crypto::hash_blob( digest, CRYPTO_SHA2_256_ID, block.active_data );
+   types::multihash digest = crypto::hash_blob( CRYPTO_SHA2_256_ID, block.active_data );
    auto signature = block_signing_key.sign_compact( digest );
    pack::to_variable_blob( block.signature_data, signature );
 }

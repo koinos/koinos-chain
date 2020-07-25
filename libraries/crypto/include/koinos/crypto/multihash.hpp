@@ -3,6 +3,7 @@
 
 #include <koinos/pack/rt/basetypes.hpp>
 #include <koinos/pack/rt/binary.hpp>
+#include <koinos/pack/rt/opaque.hpp>
 
 #include <openssl/evp.h>
 
@@ -30,7 +31,24 @@ inline bool multihash_is_zero( const multihash& mh )
    return std::all_of( mh.digest.begin(), mh.digest.end(), []( char c ) { return (c == 0); } );
 }
 
-bool is_known_code( uint64_t code );
+inline uint64_t multihash_standard_size( uint64_t id )
+{
+   switch( id )
+   {
+      case CRYPTO_SHA1_ID:
+         return 20;
+      case CRYPTO_SHA2_256_ID:
+         return 32;
+      case CRYPTO_SHA2_512_ID:
+         return 64;
+      case CRYPTO_RIPEMD160_ID:
+         return 20;
+      default:
+         KOINOS_ASSERT( false, unknown_hash_algorithm, "Unknown hash id ${i}", ("i", id) );
+   }
+}
+
+bool multihash_id_is_known( uint64_t id );
 
 struct encoder
 {
@@ -55,66 +73,38 @@ struct encoder
 };
 
 template< typename T >
-inline void hash( multihash& result, uint64_t code, const T& t, uint64_t size = 0 )
+inline multihash hash( uint64_t code, const T& t, uint64_t size = 0 )
 {
+   multihash result;
    encoder e( code, size );
    koinos::pack::to_binary( e, t );
    e.get_result( result );
+   return result;
 }
 
 template< typename T >
-inline multihash hash( uint64_t code, const T& t, uint64_t size = 0 )
+multihash hash_like( const multihash& old, const T& t )
 {
-   multihash mh;
-   hash( mh, code, t, size );
-   return mh;
+   return hash< T >( old.id, t, old.digest.size() );
 }
 
-/**
- * Hash using the same algorithm as an existing multihash_type object.
- */
-template< typename T >
-inline void hash_like( multihash& result, const multihash& old, const T& t )
-{
-   hash<T>( result, old.id, t, old.digest.size() );
-}
-
-void hash_str( multihash& result, uint64_t code, const char* data, size_t len, uint64_t size = 0 );
 multihash hash_str( uint64_t code, const char* data, size_t len, uint64_t size = 0 );
-void hash_str_like( multihash& result, const multihash& old, const char* data, size_t len );
+multihash hash_str_like( const multihash& old, const char* data, size_t len );
 
-void hash_blob( multihash& result, uint64_t code, const variable_blob& value, uint64_t size = 0 );
-void hash_blob_like( multihash& result, const multihash& old, const variable_blob& value );
+multihash hash_blob( uint64_t code, const variable_blob& value, uint64_t size = 0 );
+multihash hash_blob_like( const multihash& old, const variable_blob& value );
 
-void zero_hash( multihash& mh, uint64_t code, uint64_t size = 0 );
 multihash zero_hash( uint64_t code, uint64_t size = 0 );
-void zero_hash_like( multihash& result, const multihash& old );
+multihash zero_hash_like( const multihash& old );
 
-void empty_hash( multihash& mh, uint64_t code, uint64_t size = 0 );
-void empty_hash_like( multihash& result, const multihash& old );
+multihash empty_hash( uint64_t code, uint64_t size = 0 );
+multihash empty_hash_like( const multihash& old );
 
-void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash >& mh_in );
-void from_multihash_vector( std::vector< multihash >& mh_out, const multihash_vector& mhv_in );
+multihash_vector to_multihash_vector( const std::vector< multihash >& mh_in );
+std::vector< multihash > from_multihash_vector( const multihash_vector& mhv_in );
 
-inline uint64_t get_standard_size( uint64_t code )
-{
-   switch( code )
-   {
-      case CRYPTO_SHA1_ID:
-         return 20;
-      case CRYPTO_SHA2_256_ID:
-         return 32;
-      case CRYPTO_SHA2_512_ID:
-         return 64;
-      case CRYPTO_RIPEMD160_ID:
-         return 20;
-      default:
-         KOINOS_ASSERT( false, unknown_hash_algorithm, "Unknown hash id ${i}", ("i", code) );
-   }
-}
-
-void merkle_hash( multihash& result, uint64_t code, const std::vector< variable_blob >& values, uint64_t size = 0 );
-void merkle_hash_like( multihash& result, const multihash& old, const std::vector< variable_blob >& values );
+multihash merkle_hash( uint64_t code, const std::vector< variable_blob >& values, uint64_t size = 0 );
+multihash merkle_hash_like( const multihash& old, const std::vector< variable_blob >& values );
 
 /**
  * Compute Merkle root given leaf hash values.

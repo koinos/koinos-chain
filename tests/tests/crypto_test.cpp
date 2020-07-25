@@ -124,19 +124,18 @@ BOOST_AUTO_TEST_CASE( public_address )
 BOOST_AUTO_TEST_CASE( zerohash )
 {
    multihash mh;
-   zero_hash( mh, CRYPTO_SHA2_256_ID );
+   mh = zero_hash( CRYPTO_SHA2_256_ID );
    BOOST_CHECK( mh.id == CRYPTO_SHA2_256_ID );
    BOOST_CHECK( mh.digest.size() == 256/8 );
 
-   zero_hash( mh, CRYPTO_RIPEMD160_ID );
+   mh = zero_hash( CRYPTO_RIPEMD160_ID );
    BOOST_CHECK( mh.id == CRYPTO_RIPEMD160_ID );
    BOOST_CHECK( mh.digest.size() == 160/8 );
 }
 
 BOOST_AUTO_TEST_CASE( emptyhash )
 {
-   multihash mh;
-   empty_hash( mh, CRYPTO_SHA2_256_ID );
+   multihash mh = empty_hash( CRYPTO_SHA2_256_ID );
    BOOST_CHECK_EQUAL( "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex_string( mh.digest ) );
 }
 
@@ -162,8 +161,7 @@ BOOST_AUTO_TEST_CASE( merkle )
       std::copy( ha.digest.begin(), ha.digest.end(), std::back_inserter( temp ) );
       std::copy( hb.digest.begin(), hb.digest.end(), std::back_inserter( temp ) );
       std::cout << "temp: " << hex_string( temp ) << std::endl;
-      multihash result;
-      hash_str( result, CRYPTO_SHA2_256_ID, temp.data(), temp.size() );
+      multihash result = hash_str( CRYPTO_SHA2_256_ID, temp.data(), temp.size() );
       return result;
    };
 
@@ -212,7 +210,7 @@ BOOST_AUTO_TEST_CASE( merkle )
       blob_values.emplace_back( values[i].begin(), values[i].end() );
    }
 
-   merkle_hash( merkle_root, CRYPTO_SHA2_256_ID, blob_values );
+   merkle_root = merkle_hash( CRYPTO_SHA2_256_ID, blob_values );
    BOOST_CHECK_EQUAL( n012345678, hex_string( merkle_root.digest ) );
 }
 

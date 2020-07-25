@@ -46,7 +46,7 @@ struct crypto_fixture
       multihash mh1 = hash_str( code, to_hash.c_str(), to_hash.size() );
       BOOST_CHECK_EQUAL( expected, hex_string( mh1.digest ) );
       BOOST_CHECK_EQUAL( code, mh1.id );
-      BOOST_CHECK_EQUAL( get_standard_size( code ), mh1.digest.size() );
+      BOOST_CHECK_EQUAL( multihash_standard_size( code ), mh1.digest.size() );
 
       // TODO: This check is not currently working, but a sample test case has been added to json_pack_tests
 
@@ -68,7 +68,7 @@ struct crypto_fixture
       enc.get_result( mh1 );
       BOOST_CHECK_EQUAL( expected, hex_string( mh1.digest ) );
       BOOST_CHECK_EQUAL( code, mh1.id );
-      BOOST_CHECK_EQUAL( get_standard_size( code ), mh1.digest.size() );
+      BOOST_CHECK_EQUAL( multihash_standard_size( code ), mh1.digest.size() );
 
       //json j;
       //multihash_type mh2;

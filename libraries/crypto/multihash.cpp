@@ -22,9 +22,9 @@ const EVP_MD* get_evp_md( uint64_t code )
    return md_itr != evp_md_map.end() ? md_itr->second : nullptr;
 }
 
-bool is_known_code( uint64_t code )
+bool multihash_id_is_known( uint64_t id )
 {
-   switch ( code )
+   switch ( id )
    {
       case CRYPTO_SHA1_ID:
       case CRYPTO_SHA2_256_ID:
@@ -48,7 +48,7 @@ encoder::encoder( uint64_t code, uint64_t size )
 
    _code = code;
    if( size == 0 )
-      size = get_standard_size( code );
+      size = multihash_standard_size( code );
    KOINOS_ASSERT( size <= MAX_HASH_SIZE, multihash_size_limit_exceeded,
       "Requested hash size ${size} is larger than max size ${max}", ("size", size)("max", MAX_HASH_SIZE) );
 
@@ -94,79 +94,71 @@ void encoder::get_result( variable_blob& v )
       ("size", size)("_size", _size) );
 }
 
-void hash_str( multihash& result, uint64_t code, const char* data, size_t len, uint64_t size )
+multihash hash_str( uint64_t code, const char* data, size_t len, uint64_t size )
 {
+   multihash result;
    encoder e( code, size );
    e.write( data, len );
    e.get_result( result );
+   return result;
 }
 
-multihash hash_str( uint64_t code, const char* data, size_t len, uint64_t size )
+
+multihash hash_str_like( const multihash& old, const char* data, size_t len )
 {
-   multihash mh;
-   hash_str( mh, code, data, len, size );
-   return mh;
+   return hash_str( old.id, data, len, old.digest.size() );
 }
 
-void hash_str_like( multihash& result, const multihash& old, const char* data, size_t len )
+multihash hash_blob( uint64_t code, const variable_blob& value, uint64_t size )
 {
-   return hash_str( result, old.id, data, len, old.digest.size() );
+   return hash_str( code, value.data(), value.size(), size );
 }
 
-void hash_blob( multihash& result, uint64_t code, const variable_blob& value, uint64_t size )
+multihash hash_blob_like( const multihash& old, const variable_blob& value )
 {
-   return hash_str( result, code, value.data(), value.size(), size );
+   return hash_str( old.id, value.data(), value.size(), old.digest.size() );
 }
 
-void hash_blob_like( multihash& result, const multihash& old, const variable_blob& value )
-{
-   return hash_str( result, old.id, value.data(), value.size(), old.digest.size() );
-}
-
-void empty_hash( multihash& result, uint64_t code, uint64_t size )
+multihash empty_hash( uint64_t code, uint64_t size )
 {
    char c;
-   hash_str( result, code, &c, 0, size );
+   return hash_str( code, &c, 0, size );
 }
 
-void empty_hash_like( multihash& result, const multihash& old )
+multihash empty_hash_like( const multihash& old )
 {
    char c;
-   hash_str( result, old.id, &c, 0, old.digest.size() );
-}
-
-void zero_hash( multihash& mh, uint64_t code, uint64_t size )
-{
-   mh.id = code;
-
-   if( !size )
-      size = get_standard_size( code );
-
-   mh.digest.resize( size );
-   std::memset( mh.digest.data(), 0, size );
+   return hash_str( old.id, &c, 0, old.digest.size() );
 }
 
 multihash zero_hash( uint64_t code, uint64_t size )
 {
-   multihash mh;
-   zero_hash( mh, code, size );
-   return mh;
+   multihash result;
+   result.id = code;
+
+   if ( !size )
+      size = multihash_standard_size( code );
+
+   result.digest.resize( size );
+   std::memset( result.digest.data(), 0, size );
+   return result;
 }
 
-void zero_hash_like( multihash& result, const multihash& old )
+multihash zero_hash_like( const multihash& old )
 {
-   zero_hash( result, old.id, old.digest.size() );
+   return zero_hash( old.id, old.digest.size() );
 }
 
-void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihash >& mh_in )
+multihash_vector to_multihash_vector( const std::vector< multihash >& mh_in )
 {
+   multihash_vector mhv_out;
    const size_t n = mh_in.size();
    KOINOS_ASSERT( n > 0, multihash_size_mismatch, "Input vector cannot be empty" );
 
    mhv_out.digests.resize( n );
    mhv_out.id = mh_in[0].id;
 
-   for( size_t i=0; i<n; i++ )
+   for ( size_t i=0; i<n; i++ )
    {
       mhv_out.digests[i] = mh_in[i].digest;
       KOINOS_ASSERT( mh_in[i].id == mhv_out.id,
@@ -174,32 +166,35 @@ void to_multihash_vector( multihash_vector& mhv_out, const std::vector< multihas
          "Heterogenous multihash_vector, expected hash_id == ${h_out}, got hash_id == ${h_in}",
          ("h_out", mhv_out.id)("h_in", mh_in[i].id) );
    }
+   return mhv_out;
 }
 
-void from_multihash_vector( std::vector< multihash >& mh_out, const multihash_vector& mhv_in )
+std::vector< multihash > from_multihash_vector( const multihash_vector& mhv_in )
 {
+   std::vector< multihash > mh_out;
    const size_t n = mhv_in.digests.size();
    mh_out.resize( n );
-   for( size_t i = 0; i < n; i++ )
+   for ( size_t i = 0; i < n; i++ )
    {
       mh_out[i].id = mhv_in.id;
       mh_out[i].digest = mhv_in.digests[i];
    }
+   return mh_out;
 }
 
 void merkle_hash_leaves( std::vector< multihash >& hashes, uint64_t code, uint64_t size )
 {
    size_t n_hashes = hashes.size();
-   if( n_hashes == 0 )
+   if ( n_hashes == 0 )
    {
       hashes.resize(1);
       // Corner case:  Merkle root of empty sequence is H("")
-      empty_hash( hashes[0], code, size );
+      hashes[0] = empty_hash( code, size );
       return;
    }
 
    encoder enc( code, size );
-   while( n_hashes > 1 )
+   while ( n_hashes > 1 )
    {
       size_t num_pairs = n_hashes >> 1;
       for( size_t i=0; i < num_pairs; i++ )
@@ -226,30 +221,28 @@ void merkle_hash_leaves_like( std::vector< multihash >& hashes, const multihash&
    merkle_hash_leaves( hashes, old.id, old.digest.size() );
 }
 
-void merkle_hash( multihash& result, uint64_t code, const std::vector< variable_blob >& values, uint64_t size )
+multihash merkle_hash( uint64_t code, const std::vector< variable_blob >& values, uint64_t size )
 {
    std::size_t n_hashes = values.size();
-   if( n_hashes == 0 )
+   if ( n_hashes == 0 )
    {
       // Corner case:  Merkle root of empty sequence is H("")
-      multihash empty_hash;
-      crypto::empty_hash( result, code, size );
-      return;
+      return crypto::empty_hash( code, size );
    }
 
    std::vector< multihash > hashes( n_hashes );
-   for( size_t i = 0; i < n_hashes; i++ )
+   for ( size_t i = 0; i < n_hashes; i++ )
    {
-      crypto::hash_str( hashes[i], code, values[i].data(), values[i].size(), size );
+      hashes[i] = crypto::hash_str( code, values[i].data(), values[i].size(), size );
    }
 
    merkle_hash_leaves( hashes, code, size );
-   result = hashes[0];
+   return hashes[0];
 }
 
-void merkle_hash_like( multihash& result, const multihash& old, const std::vector< variable_blob >& values )
+multihash merkle_hash_like( const multihash& old, const std::vector< variable_blob >& values )
 {
-   merkle_hash( result, old.id, values, old.digest.size() );
+   return merkle_hash( old.id, values, old.digest.size() );
 }
 
 } // koinos::crypto

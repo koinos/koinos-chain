@@ -227,7 +227,7 @@ public_key public_key::from_base58( const std::string& b58 )
    compressed_public_key key;
    uint32_t check = *((uint32_t*)hash_str( CRYPTO_SHA2_256_ID, d.data(), key.size() ).digest.data());
    KOINOS_ASSERT( std::memcmp( (char*)&check, d.data() + sizeof(key), sizeof(check) ) == 0,
-      key_serialization_error, "Invlaid checksum" );
+      key_serialization_error, "Invalid checksum" );
    std::memcpy( (char*)key.data(), d.data(), sizeof(key) );
    return deserialize( key );
 }
@@ -240,8 +240,8 @@ std::string public_key::to_address( uint8_t prefix )const
    fixed_blob< 25 > d;
    d[0] = prefix;
    std::memcpy( d.data() + 1, ripemd160.digest.data(), ripemd160.digest.size() );
-   hash_str( sha256, CRYPTO_SHA2_256_ID, d.data(), ripemd160.digest.size() + 1 );
-   hash_str( sha256, CRYPTO_SHA2_256_ID, sha256.digest.data(), sha256.digest.size() );
+   sha256 = hash_str( CRYPTO_SHA2_256_ID, d.data(), ripemd160.digest.size() + 1 );
+   sha256 = hash_str( CRYPTO_SHA2_256_ID, sha256.digest.data(), sha256.digest.size() );
    std::memcpy( d.data() + ripemd160.digest.size() + 1, sha256.digest.data(), 4 );
    std::string b58;
    koinos::pack::util::encode_base58( b58, d );
