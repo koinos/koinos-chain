@@ -273,7 +273,7 @@ void controller_impl::process_submission( rpc::transaction_submission_result& re
 void controller_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
 {
    query.submission.unbox();
-   ret.unbox();
+   ret.unbox(); // Should always be unboxed by default at this point
    ret.unlock();
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );

@@ -27,8 +27,8 @@ namespace koinos::plugins::block_producer::util {
 
 void set_block_merkle_roots( types::protocol::block& block, uint64_t code = CRYPTO_SHA2_256_ID, uint64_t size = 0 )
 {
-   std::vector< types::multihash_type > trx_active_hashes( block.transactions.size() );
-   std::vector< types::multihash_type > passive_hashes( block.transactions.size() + 1 );
+   std::vector< types::multihash > trx_active_hashes( block.transactions.size() );
+   std::vector< types::multihash > passive_hashes( block.transactions.size() + 1 );
 
    // Hash transaction actives, passives, and signatures for merkle roots
    for ( size_t i = 0; i < block.transactions.size(); i++ )
@@ -47,8 +47,7 @@ void set_block_merkle_roots( types::protocol::block& block, uint64_t code = CRYP
    block.active_data->header_hashes.digests.resize(3);
    block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::transaction_merkle_root_hash_index] = trx_active_hashes[0].digest;
    block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::passive_data_merkle_root_hash_index] = passive_hashes[0].digest;
-   crypto::multihash::set_id( block.active_data->header_hashes, code );
-   crypto::multihash::set_size( block.active_data->header_hashes, block.active_data->header_hashes.digests[0].size() );
+   block.active_data->header_hashes.id = code;
 }
 
 void sign_block( types::protocol::block& block, crypto::private_key& block_signing_key )

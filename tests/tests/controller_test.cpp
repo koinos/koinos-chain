@@ -143,6 +143,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
 
+   block_submission.block.active_data.unlock();
    block_submission.block.active_data->height = 1;
    block_submission.topology.height = block_submission.block.active_data->height;
    block_submission.topology.id = crypto::hash_blob( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
@@ -157,6 +158,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
    block_submission.topology.previous = crypto::empty_hash( CRYPTO_SHA2_256_ID );
+   block_submission.block.active_data.unlock();
    block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
@@ -172,6 +174,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Test succesful block" );
 
    block_submission.topology.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   block_submission.block.active_data.unlock();
    block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
