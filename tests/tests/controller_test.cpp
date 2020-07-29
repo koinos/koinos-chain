@@ -61,8 +61,7 @@ BOOST_AUTO_TEST_CASE( setup_tests )
    future = controller.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
    submit_res = *(future.get());
    auto& query_res = std::get< types::rpc::query_submission_result >( submit_res );
-   query_res.unbox();
-   query_res.unlock();
+   query_res.make_mutable();
    auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
 
    BOOST_CHECK_EQUAL( head_info_res.height, 0 );
@@ -132,7 +131,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
 
-   block_submission.topology.id = crypto::hash_blob( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
 
    future = controller.submit( block_submission );
    submit_res = *(future.get());
@@ -143,10 +142,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
 
-   block_submission.block.active_data.unlock();
+   block_submission.block.active_data.make_mutable();
    block_submission.block.active_data->height = 1;
    block_submission.topology.height = block_submission.block.active_data->height;
-   block_submission.topology.id = crypto::hash_blob( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
 
    future = controller.submit( block_submission );
    submit_res = *(future.get());
@@ -158,7 +157,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
    block_submission.topology.previous = crypto::empty_hash( CRYPTO_SHA2_256_ID );
-   block_submission.block.active_data.unlock();
+   block_submission.block.active_data.make_mutable();
    block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
@@ -174,7 +173,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Test succesful block" );
 
    block_submission.topology.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
-   block_submission.block.active_data.unlock();
+   block_submission.block.active_data.make_mutable();
    block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );

@@ -273,8 +273,7 @@ void controller_impl::process_submission( rpc::transaction_submission_result& re
 void controller_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
 {
    query.submission.unbox();
-   ret.unbox(); // Should always be unboxed by default at this point
-   ret.unlock();
+   ret.make_mutable();
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    std::visit( koinos::overloaded {
@@ -283,14 +282,14 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, con
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            ret = thunk::get_head_info( *_ctx );
+            ret = rpc::query_submission_result( thunk::get_head_info( *_ctx ) );
          }
          catch ( const koinos::chain::database_exception& e )
          {
             rpc::query_error err;
             std::string err_msg = "Could not find head block";
             std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
-            ret = std::move( err );
+            ret = rpc::query_submission_result( std::move( err ) );
          }
       },
       [&]( const auto& )
@@ -298,11 +297,11 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, con
          rpc::query_error err;
          std::string err_msg = "Unimplemented query type";
          std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
-         ret = std::move( err );
+         ret = rpc::query_submission_result( std::move( err ) );
       }
    }, query.submission.get_const_native() );
 
-   ret.lock();
+   ret.make_immutable();
 }
 
 std::shared_ptr< rpc::submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )

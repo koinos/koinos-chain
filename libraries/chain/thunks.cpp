@@ -102,14 +102,14 @@ THUNK_DEFINE( void, apply_block,
 
    for( size_t i=0; i<tx_count; i++ )
    {
-      hashes[i] = crypto::hash_blob_like( tx_root, block.transactions[i]->active_data );
+      hashes[i] = crypto::hash_like( tx_root, block.transactions[i]->active_data );
    }
    KOINOS_ASSERT( verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
 
    if( enable_check_block_signature )
    {
       multihash active_block_hash;
-      active_block_hash = crypto::hash_blob_like( tx_root, block.active_data );
+      active_block_hash = crypto::hash_like( tx_root, block.active_data );
       KOINOS_ASSERT( verify_block_sig( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
@@ -129,13 +129,13 @@ THUNK_DEFINE( void, apply_block,
       size_t passive_count = 2 * block.transactions.size() + 1;
       hashes.resize( passive_count );
 
-      hashes[0] = crypto::hash_blob_like( passive_root, block.passive_data );
+      hashes[0] = crypto::hash_like( passive_root, block.passive_data );
       hashes[0] = crypto::empty_hash_like( passive_root );
 
       // We hash in this order so that the two hashes for each transaction have a common Merkle parent
       for ( size_t i = 0; i < tx_count; i++ )
       {
-         hashes[2*(i+1)]   = crypto::hash_blob_like( passive_root, block.transactions[i]->passive_data );
+         hashes[2*(i+1)]   = crypto::hash_like( passive_root, block.transactions[i]->passive_data );
          hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i]->signature_data );
       }
 
@@ -167,7 +167,8 @@ THUNK_DEFINE( void, apply_block,
       {
          context.clear_authority();
          //check_transaction_signature( tx_blob );
-         multihash tx_hash = crypto::hash_blob_like( tx_root, variable_blob( tx ) );
+         tx.unbox();
+         multihash tx_hash = crypto::hash_like( tx_root, tx->active_data );
 
          crypto::recoverable_signature sig;
          pack::from_variable_blob( tx->signature_data, sig );
@@ -184,14 +185,13 @@ THUNK_DEFINE( void, apply_block,
    }
 }
 
-THUNK_DEFINE( void, apply_transaction, ((const variable_blob&) tx_blob) )
+THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&) trx) )
 {
    using namespace koinos::types::protocol;
 
-   protocol::transaction t;
-   pack::from_variable_blob( tx_blob, t );
+   trx.unbox();
 
-   for( const auto& o : t.operations )
+   for( const auto& o : trx->operations )
    {
       std::visit( koinos::overloaded {
          [&]( const nop_operation& op ) { /* intentional fallthrough */ },

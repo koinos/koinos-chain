@@ -67,7 +67,7 @@ THUNK_DECLARE( void, apply_block,
    types::boolean enable_check_passive_data,
    types::boolean enable_check_block_signature,
    types::boolean enable_check_transaction_signatures );
-THUNK_DECLARE( void, apply_transaction, const types::variable_blob& trx );
+THUNK_DECLARE( void, apply_transaction, const types::opaque< types::protocol::transaction >& trx );
 THUNK_DECLARE( void, apply_reserved_operation, const types::protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const types::protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const types::protocol::contract_call_operation& op );
