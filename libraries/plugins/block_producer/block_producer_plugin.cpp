@@ -34,7 +34,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
    active_data.timestamp = timestamp_now();
-   active_data.header_hashes.digests.resize(3);
+   active_data.header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
 
    // Get previous block data
    rpc::block_topology topology;

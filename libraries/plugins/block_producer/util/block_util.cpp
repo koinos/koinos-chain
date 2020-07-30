@@ -40,7 +40,7 @@ void set_block_merkle_roots( types::protocol::block& block, uint64_t code, uint6
    crypto::merkle_hash_leaves( trx_active_hashes, code, size );
    crypto::merkle_hash_leaves( passive_hashes,    code, size );
 
-   block.active_data->header_hashes.digests.resize(3);
+   block.active_data->header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
    block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::transaction_merkle_root_hash_index] = trx_active_hashes[0].digest;
    block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::passive_data_merkle_root_hash_index] = passive_hashes[0].digest;
    block.active_data->header_hashes.id = code;
