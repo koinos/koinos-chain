@@ -56,9 +56,6 @@ constexpr bool multihash_id_is_known( uint64_t id )
       case CRYPTO_SHA2_512_ID:
       case CRYPTO_RIPEMD160_ID:
          return true;
-         break;
-      default:
-         break;
    }
    return false;
 }
