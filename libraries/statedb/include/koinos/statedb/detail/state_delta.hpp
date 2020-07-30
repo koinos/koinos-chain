@@ -55,7 +55,7 @@ namespace koinos::statedb::detail {
             _revision = _indices->revision();
             if( !_indices->get_metadata( ID_KEY, _id ) )
             {
-               crypto::zero_hash( _id, CRYPTO_SHA2_256_ID );
+               _id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
                _indices->put_metadata( ID_KEY, _id );
             }
          }

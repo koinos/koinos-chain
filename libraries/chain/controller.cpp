@@ -62,10 +62,6 @@ struct block_submission_impl
    block_submission_impl( const rpc::block_submission& s ) : submission( s ) {}
 
    rpc::block_submission          submission;
-
-   protocol::block_header         header;
-   std::vector< variable_blob >   transactions;
-   std::vector< variable_blob >   passives;
 };
 
 struct transaction_submission_impl
@@ -132,9 +128,9 @@ class controller_impl
    private:
       std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
-      void process_submission( rpc::block_submission_result& ret,       block_submission_impl& block );
-      void process_submission( rpc::transaction_submission_result& ret, transaction_submission_impl& tx );
-      void process_submission( rpc::query_submission_result& ret,       query_submission_impl& query );
+      void process_submission( rpc::block_submission_result& ret,       const block_submission_impl& block );
+      void process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx );
+      void process_submission( rpc::query_submission_result& ret,       const query_submission_impl& query );
 
       void feed_thread_main();
       void work_thread_main();
@@ -231,49 +227,10 @@ void controller_impl::open( const boost::filesystem::path& p, const std::any& o 
    _state_db.open( p, o );
 }
 
-template< typename T > void decode_canonical( const variable_blob& bin, T& target )
+void controller_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
 {
-   boost::interprocess::ibufferstream s( bin.data(), bin.size() );
-   pack::from_binary( s, target );
-   // No-padding check:  Enforce that bin doesn't have extra bytes that were unread
-   KOINOS_ASSERT( size_t( s.tellg() ) == bin.size(), decode_exception, "Data does not deserialize (extra padding)" );
-
-   // Canonicity check:
-   // Re-serialize the data and ensure it is the same as the input
-   // The binary serialization format is intended to have a canonical serialization,
-   // so if this check ever fails, there is a bug in the serialization spec / code.
-   std::vector< char > tmp( bin.size() );
-   boost::interprocess::bufferstream s2( tmp.data(), tmp.size() );
-
-   pack::to_binary( s2, target );
-
-   KOINOS_ASSERT( s2.good(), decode_exception, "Data does not reserialize (overflow)" );
-   KOINOS_ASSERT( size_t( s2.tellp() ) == bin.size(), decode_exception, "Data does not reserialize (size mismatch)" );
-   KOINOS_ASSERT( bin == tmp, decode_exception, "Data does not reserialize" );
-}
-
-void decode_block( block_submission_impl& block )
-{
-   KOINOS_ASSERT( block.submission.header_bytes.size() >= 1, block_header_empty, "Block has empty header" );
-
-   decode_canonical( block.submission.header_bytes, block.header );
-
-   // Deserialize submitted transactions
-   std::size_t n_transactions = block.transactions.size();
-   for( std::size_t i = 0; i < n_transactions; i++ )
-      decode_canonical( block.transactions[i], block.transactions[i] );
-
-   std::size_t n_passives = block.passives.size();
-   for( std::size_t i = 0; i < n_passives; i++ )
-      decode_canonical( block.passives[i], block.passives[i] );
-}
-
-void controller_impl::process_submission( rpc::block_submission_result& ret, block_submission_impl& block )
-{
-   decode_block( block );
-
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   if( crypto::multihash::is_zero( block.submission.topology.previous ) )
+   if( crypto::multihash_is_zero( block.submission.topology.previous ) )
    {
       // Genesis case
       KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1" );
@@ -286,14 +243,12 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, blo
    {
       _ctx->set_state_node( block_node );
 
-      crypto::recoverable_signature sig;
-      vectorstream in_sig( block.submission.passives_bytes[ 0 ] );
-      pack::from_binary( in_sig, sig );
-
-      crypto::multihash_type digest = crypto::hash_str( CRYPTO_SHA2_256_ID, block.header.active_bytes.data(), block.header.active_bytes.size() );
-      KOINOS_ASSERT( chain::thunk::verify_block_header( *_ctx, sig, digest ), invalid_signature, "invalid block signature" );
-
-      thunk::apply_block( *_ctx, pack::from_variable_blob< protocol::active_block_data >( block.header.active_bytes ) );
+      thunk::apply_block(
+         *_ctx,
+         block.submission.block,
+         block.submission.verify_passive_data,
+         block.submission.verify_block_signature,
+         block.submission.verify_transaction_signatures );
       auto output = _ctx->get_pending_console_output();
 
       if (output.length() > 0) { LOG(info) << output; }
@@ -310,37 +265,43 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, blo
    KOINOS_TODO( "Report success / failure to caller" )
 }
 
-void controller_impl::process_submission( rpc::transaction_submission_result& ret, transaction_submission_impl& tx )
+void controller_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void controller_impl::process_submission( rpc::query_submission_result& ret, query_submission_impl& query )
+void controller_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
 {
-   rpc::query_param_item params;
-   vectorstream in( query.submission.query );
-   pack::from_binary( in, params );
+   query.submission.unbox();
+   ret.make_mutable();
 
-   rpc::query_item_result result;
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    std::visit( koinos::overloaded {
-      [&]( rpc::get_head_info_params& p )
+      [&]( const rpc::get_head_info_params& p )
       {
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            result = thunk::get_head_info( *_ctx );
+            ret = rpc::query_submission_result( thunk::get_head_info( *_ctx ) );
          }
          catch ( const koinos::chain::database_exception& e )
          {
-            result = rpc::query_error{ pack::to_variable_blob( "Could not find head block"s ) };
+            rpc::query_error err;
+            std::string err_msg = "Could not find head block";
+            std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
+            ret = rpc::query_submission_result( std::move( err ) );
          }
+      },
+      [&]( const auto& )
+      {
+         rpc::query_error err;
+         std::string err_msg = "Unimplemented query type";
+         std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
+         ret = rpc::query_submission_result( std::move( err ) );
       }
-   }, params);
+   }, query.submission.get_const_native() );
 
-   vectorstream out;
-   pack::to_binary( out, result );
-   ret.result = out.vector();
+   ret.make_immutable();
 }
 
 std::shared_ptr< rpc::submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )

@@ -26,11 +26,11 @@ using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char 
 
 struct test_block
 {
-   multihash_type previous;
+   multihash      previous;
    uint64_t       height = 0;
    uint64_t       nonce = 0;
 
-   void get_id( multihash_type& mh ) const;
+   multihash get_id() const;
 };
 
 KOINOS_REFLECT( test_block, (previous)(height)(nonce) )
@@ -78,9 +78,9 @@ typedef mira::multi_index_adapter<
 
 KOINOS_REFLECT( book, (id)(a)(b) )
 
-void test_block::get_id( multihash_type& mh )const
+multihash test_block::get_id()const
 {
-   return hash( mh, CRYPTO_SHA2_256_ID, *this );
+   return hash( CRYPTO_SHA2_256_ID, *this );
 }
 
 struct statedb_fixture
@@ -116,8 +116,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.b = 4;
    book get_book;
 
-   multihash_type state_id;
-   hash( state_id, CRYPTO_SHA2_256_ID, 1 );
+   multihash state_id = hash( CRYPTO_SHA2_256_ID, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
 
    put_object_args put_args;
@@ -181,7 +180,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
 
-   hash( state_id, CRYPTO_SHA2_256_ID, 2 );
+   state_id = hash( CRYPTO_SHA2_256_ID, 2 );
    auto state_2 = db.create_writable_node( state_1->id(), state_id );
    BOOST_REQUIRE( !state_2 );
 
@@ -252,7 +251,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
    BOOST_TEST_MESSAGE( "Basic fork tests on statedb" );
-   multihash_type id, prev_id, block_1000_id;
+   multihash id, prev_id, block_1000_id;
    test_block b;
 
    prev_id = db.get_root()->id();
@@ -261,7 +260,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    {
       b.previous = prev_id;
       b.height = i;
-      b.get_id( id );
+      id = b.get_id();
 
       auto new_block = db.create_writable_node( prev_id, id );
       BOOST_CHECK_EQUAL( b.height, new_block->revision() );
@@ -286,12 +285,12 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( db.get_root()->id() == block_1000_id );
    BOOST_REQUIRE( db.get_root()->revision() == 1000 );
 
-   multihash_type block_2000_id = id;
+   multihash block_2000_id = id;
 
    BOOST_TEST_MESSAGE( "Test discard" );
    b.previous = db.get_head()->id();
    b.height = db.get_head()->revision() + 1;
-   b.get_id( id );
+   id = b.get_id();
    db.create_writable_node( b.previous, id );
    auto new_block = db.get_node( id );
    BOOST_REQUIRE( new_block );
@@ -313,11 +312,10 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( !db.create_writable_node( db.get_head()->parent_id(), db.get_head()->id() ) );
 
    BOOST_TEST_MESSAGE( "Check failed linking" );
-   multihash_type zero;
-   zero_hash( zero, CRYPTO_SHA2_256_ID );
+   multihash zero = zero_hash( CRYPTO_SHA2_256_ID );
    BOOST_REQUIRE( !db.create_writable_node( zero, id ) );
 
-   multihash_type head_id = db.get_head()->id();
+   multihash head_id = db.get_head()->id();
    uint64_t head_rev = db.get_head()->revision();
 
    BOOST_TEST_MESSAGE( "Test minority fork" );
@@ -325,11 +323,11 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    prev_id = fork_node->id();
    b.nonce = 1;
 
-   for( uint64_t i = 1; i <= 5; ++i )
+   for ( uint64_t i = 1; i <= 5; ++i )
    {
       b.previous = prev_id;
       b.height = fork_node->revision() + i;
-      b.get_id( id );
+      id = b.get_id();
 
       auto new_block = db.create_writable_node( prev_id, id );
       BOOST_CHECK_EQUAL( b.height, new_block->revision() );
@@ -343,7 +341,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    b.previous = prev_id;
    b.height = head_rev + 1;
-   b.get_id( id );
+   id = b.get_id();
 
    // When this node finalizes, it will be the longest path and should become head
    new_block = db.create_writable_node( prev_id, id );

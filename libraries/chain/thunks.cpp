@@ -4,6 +4,8 @@
 #include <koinos/chain/thunks.hpp>
 #include <koinos/chain/system_calls.hpp>
 
+#include <koinos/crypto/multihash.hpp>
+
 namespace koinos::chain {
 
 using namespace koinos::types;
@@ -15,7 +17,8 @@ void register_thunks( thunk_dispatcher& td )
       (prints)
       (exit_contract)
 
-      (verify_block_header)
+      (verify_block_sig)
+      (verify_merkle_root)
 
       (apply_block)
       (apply_transaction)
@@ -60,24 +63,135 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( bool, verify_block_header, ((const crypto::recoverable_signature&) sig, (const crypto::multihash_type&) digest) )
+THUNK_DEFINE( bool, verify_block_sig, ((const variable_blob&) sig_data, (const crypto::multihash&) digest) )
 {
+   crypto::recoverable_signature sig;
+   pack::from_variable_blob( sig_data, sig );
    return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
 }
 
-THUNK_DEFINE( void, apply_block, ((const protocol::active_block_data&) b) )
+THUNK_DEFINE( bool, verify_merkle_root, ((const multihash&) root, (const std::vector< multihash >&) hashes) )
 {
-   for ( auto& t : b.transactions )
+   std::vector< multihash > tmp = hashes;
+   crypto::merkle_hash_leaves_like( tmp, root );
+   return (tmp[0] == root);
+}
+
+THUNK_DEFINE( void, apply_block,
+   (
+      (const types::protocol::block&) block,
+      (types::boolean) enable_check_passive_data,
+      (types::boolean) enable_check_block_signature,
+      (types::boolean) enable_check_transaction_signatures)
+   )
+{
+   KOINOS_TODO( "Check previous block hash" );
+   KOINOS_TODO( "Check height" );
+   KOINOS_TODO( "Check timestamp" );
+   KOINOS_TODO( "Specify allowed set of hashing algorithms" );
+
+   block.active_data.unbox();
+   std::vector< multihash > header_hashes;
+   header_hashes = crypto::from_multihash_vector( block.active_data->header_hashes );
+
+   const multihash& tx_root = header_hashes[ (size_t)types::protocol::header_hash_index::transaction_merkle_root_hash_index ];
+   size_t tx_count = block.transactions.size();
+
+   // Check transaction Merkle root
+   std::vector< multihash > hashes( tx_count );
+
+   for( size_t i=0; i<tx_count; i++ )
    {
-      apply_transaction( context, pack::from_variable_blob< protocol::transaction_type >( t ) );
+      hashes[i] = crypto::hash_like( tx_root, block.transactions[i]->active_data );
+   }
+   KOINOS_ASSERT( verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
+
+   if( enable_check_block_signature )
+   {
+      multihash active_block_hash;
+      active_block_hash = crypto::hash_like( tx_root, block.active_data );
+      KOINOS_ASSERT( verify_block_sig( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
+   }
+
+   // Check passive Merkle root
+   if( enable_check_passive_data )
+   {
+      // Passive Merkle root verifies:
+      //
+      // Block passive
+      // Transaction passives
+      // Transaction signatures
+      //
+      // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
+      // during the block building process.
+
+      const multihash& passive_root = header_hashes[(uint32_t)types::protocol::header_hash_index::passive_data_merkle_root_hash_index];
+      size_t passive_count = 2 * ( block.transactions.size() + 1 );
+      hashes.resize( passive_count );
+
+      hashes[0] = crypto::hash_like( passive_root, block.passive_data );
+      hashes[1] = crypto::empty_hash_like( passive_root );
+
+      // We hash in this order so that the two hashes for each transaction have a common Merkle parent
+      for ( size_t i = 0; i < tx_count; i++ )
+      {
+         hashes[2*(i+1)]   = crypto::hash_like( passive_root, block.transactions[i]->passive_data );
+         hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i]->signature_data );
+      }
+
+      KOINOS_ASSERT( verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
+   }
+
+   //
+   // +-----------+      +--------------+      +-------------------------+      +---------------------+
+   // | Block sig | ---> | Block active | ---> | Transaction merkle root | ---> | Transaction actives |
+   // +-----------+      +--------------+      +-------------------------+      +---------------------+
+   //                           |
+   //                           V
+   //                +----------------------+      +----------------------+
+   //                |                      | ---> |     Block passive    |
+   //                |                      |      +----------------------+
+   //                |                      |
+   //                |                      |      +----------------------+
+   //                | Passives merkle root | ---> | Transaction passives |
+   //                |                      |      +----------------------+
+   //                |                      |
+   //                |                      |      +----------------------+
+   //                |                      | ---> |   Transaction sigs   |
+   //                +----------------------+      +----------------------+
+   //
+
+   for( const auto& tx : block.transactions )
+   {
+      if( enable_check_transaction_signatures )
+      {
+         context.clear_authority();
+         //check_transaction_signature( tx_blob );
+         tx.unbox();
+         multihash tx_hash = crypto::hash_like( tx_root, tx->active_data );
+
+         crypto::recoverable_signature sig;
+         pack::from_variable_blob( tx->signature_data, sig );
+
+         context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
+      }
+      else
+      {
+         // In this case, we need to tell the authority system to allow everything (wildcard authority)
+         KOINOS_THROW( unimplemented, "enable_check_transaction_signatures=false is not implemented" );
+      }
+
+      apply_transaction( context, tx );
    }
 }
 
-THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
+THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&) trx) )
 {
    using namespace koinos::types::protocol;
 
-   for ( auto& o : t.operations )
+   trx.unbox();
+
+   for( const auto& o : trx->operations )
    {
       std::visit( koinos::overloaded {
          [&]( const nop_operation& op ) { /* intentional fallthrough */ },
@@ -97,7 +211,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction_type&) t) )
          {
             apply_set_system_call_operation( context, op );
          },
-      }, pack::from_variable_blob< operation >( o ) );
+      }, o );
    }
 }
 
@@ -278,10 +392,10 @@ THUNK_DEFINE_VOID( types::system::head_info, get_head_info )
    return hi;
 }
 
-THUNK_DEFINE( types::multihash_type, hash, ((uint64_t) code, (const variable_blob&) obj, (uint64_t) size) )
+THUNK_DEFINE( types::multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
-   KOINOS_ASSERT( crypto::multihash::is_known_code( code ), unknown_hash_code, "Unknown hash code" );
-   return crypto::hash_str( code, obj.data(), obj.size(), size );
+   KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
+   return crypto::hash_str( id, obj.data(), obj.size(), size );
 }
 
 } } // koinos::chain::thunk

@@ -3,12 +3,9 @@
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread.hpp>
 
-#include <koinos/pack/rt/json_fwd.hpp>
-
 #include <koinos/pack/classes.hpp>
 #include <koinos/plugins/block_producer/block_producer_plugin.hpp>
-#include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/json.hpp>
+#include <koinos/plugins/block_producer/util/block_util.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>
@@ -29,84 +26,63 @@ static types::timestamp_type timestamp_now()
    return t;
 }
 
-std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
+std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
 {
    // Make block header
-   auto block = std::make_shared< protocol::block_header >();
+   auto block = std::make_shared< protocol::block >();
 
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
    active_data.timestamp = timestamp_now();
+   active_data.header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
 
    // Get previous block data
    rpc::block_topology topology;
-   rpc::query_param_item p = rpc::get_head_info_params();
-   vectorstream ostream;
-   pack::to_binary( ostream, p );
-   crypto::variable_blob query_bytes{ ostream.vector() };
-   rpc::query_submission query{ query_bytes };
+
    auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
-   auto r = controller.submit( rpc::submission_item( query ) );
-   rpc::query_item_result q;
+   auto r = controller.submit( rpc::query_submission( rpc::get_head_info_params() ) );
+
    try
    {
-      auto w = std::get< rpc::query_submission_result >( *(r.get()) );
-      vectorstream istream( w.result );
-      pack::from_binary( istream, q );
+      auto res = std::get< rpc::query_submission_result >( *r.get() );
+      res.unbox();
       std::visit( koinos::overloaded {
-         [&]( rpc::get_head_info_result& head_info ) {
+         [&]( const rpc::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
+            active_data.header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = head_info.id.digest;
             topology.previous = head_info.id;
             topology.height = active_data.height;
          },
-         []( auto& ){}
-      }, q );
+         []( const auto& ){}
+      }, res.get_const_native() );
    }
    catch ( const std::exception &e )
    {
       LOG(error) << e.what();
+      return block;
    }
 
+   // TODO: Add transactions from the mempool
+
+   // Add passive data
+   block->passive_data = protocol::passive_block_data();
+
    // Serialize active data, store it in block header
-   vectorstream active_stream;
-   pack::to_binary( active_stream, active_data );
-   crypto::variable_blob active_data_bytes{ active_stream.vector() };
-   block->active_bytes = active_data_bytes;
+   block->active_data = std::move( active_data );
 
-   // Hash active data and use it to sign block
-   protocol::passive_block_data passive_data;
-   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, active_data );
-   auto signature = block_signing_private_key.sign_compact( digest );
-   passive_data.block_signature = signature;
-
-   // Hash passive data
-   auto passive_hash = crypto::hash( CRYPTO_SHA2_256_ID, passive_data );
-   block->passive_merkle_root = passive_hash;
-   block->active_bytes = active_data_bytes;
-
-   // Serialize the header
-   vectorstream header_stream;
-   pack::to_binary( header_stream, *block );
-   crypto::variable_blob block_header_bytes{ header_stream.vector() };
+   util::set_block_merkle_roots( *block, CRYPTO_SHA2_256_ID );
+   util::sign_block( *block, block_signing_private_key );
 
    // Store hash of header as ID
-   topology.id = crypto::hash( CRYPTO_SHA2_256_ID, *block );
-
-   // Serialize the passive data
-   vectorstream passive_stream;
-   pack::to_binary( passive_stream, passive_data );
-   crypto::variable_blob passive_data_bytes{ passive_stream.vector() };
-
-   // Create the submit block object
-   rpc::block_submission block_submission;
-   block_submission.topology = topology;
-   block_submission.header_bytes = block_header_bytes;
-   block_submission.passives_bytes.push_back( passive_data_bytes );
-
+   topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
 
    // Submit the block
-   rpc::submission_item si = block_submission;
-   r = controller.submit( si );
+   r = controller.submit( rpc::block_submission{
+      .topology = topology,
+      .block = *block,
+      .verify_passive_data = true,
+      .verify_block_signature = true,
+      .verify_transaction_signatures = true } );
    try
    {
       r.get(); // TODO: Probably should do something better here, rather than discarding the result...
@@ -114,6 +90,7 @@ std::shared_ptr< protocol::block_header > block_producer_plugin::produce_block()
    catch ( const std::exception &e )
    {
       LOG(error) << e.what();
+      block.reset();
    }
 
    LOG(info) << "produced block: " << topology;

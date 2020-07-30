@@ -23,7 +23,8 @@ DEFAULT_SYSTEM_CALLS(
    (prints)
    (exit_contract)
 
-   (verify_block_header)
+   (verify_block_sig)
+   (verify_merkle_root)
 
    (apply_block)
    (apply_transaction)

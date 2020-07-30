@@ -45,7 +45,7 @@ KOINOS_DECLARE_EXCEPTION( internal_error );
 
 using boost::multiprecision::uint256_t;
 
-typedef types::multihash_type   state_node_id;
+typedef types::multihash        state_node_id;
 typedef uint256_t               object_space;
 typedef uint256_t               object_key;
 typedef types::variable_blob    object_value;
