@@ -126,11 +126,11 @@ THUNK_DEFINE( void, apply_block,
       // during the block building process.
 
       const multihash& passive_root = header_hashes[(uint32_t)types::protocol::header_hash_index::passive_data_merkle_root_hash_index];
-      size_t passive_count = 2 * block.transactions.size() + 1;
+      size_t passive_count = 2 * ( block.transactions.size() + 1 );
       hashes.resize( passive_count );
 
       hashes[0] = crypto::hash_like( passive_root, block.passive_data );
-      hashes[0] = crypto::empty_hash_like( passive_root );
+      hashes[1] = crypto::empty_hash_like( passive_root );
 
       // We hash in this order so that the two hashes for each transaction have a common Merkle parent
       for ( size_t i = 0; i < tx_count; i++ )

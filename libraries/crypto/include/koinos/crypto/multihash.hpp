@@ -3,7 +3,6 @@
 
 #include <koinos/pack/rt/basetypes.hpp>
 #include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/opaque.hpp>
 
 #include <openssl/evp.h>
 
@@ -48,7 +47,21 @@ inline uint64_t multihash_standard_size( uint64_t id )
    }
 }
 
-bool multihash_id_is_known( uint64_t id );
+constexpr bool multihash_id_is_known( uint64_t id )
+{
+   switch ( id )
+   {
+      case CRYPTO_SHA1_ID:
+      case CRYPTO_SHA2_256_ID:
+      case CRYPTO_SHA2_512_ID:
+      case CRYPTO_RIPEMD160_ID:
+         return true;
+         break;
+      default:
+         break;
+   }
+   return false;
+}
 
 struct encoder
 {
@@ -63,7 +76,6 @@ struct encoder
    {
       get_result( mh.digest );
       mh.id = _code;
-      mh.digest.resize( _size );
    }
 
    private:

@@ -22,22 +22,6 @@ const EVP_MD* get_evp_md( uint64_t code )
    return md_itr != evp_md_map.end() ? md_itr->second : nullptr;
 }
 
-bool multihash_id_is_known( uint64_t id )
-{
-   switch ( id )
-   {
-      case CRYPTO_SHA1_ID:
-      case CRYPTO_SHA2_256_ID:
-      case CRYPTO_SHA2_512_ID:
-      case CRYPTO_RIPEMD160_ID:
-         return true;
-         break;
-      default:
-         break;
-   }
-   return false;
-}
-
 encoder::encoder( uint64_t code, uint64_t size )
 {
    static const uint64_t MAX_HASH_SIZE = std::min< uint64_t >(
@@ -158,7 +142,7 @@ multihash_vector to_multihash_vector( const std::vector< multihash >& mh_in )
    mhv_out.digests.resize( n );
    mhv_out.id = mh_in[0].id;
 
-   for ( size_t i=0; i<n; i++ )
+   for ( size_t i = 0; i<n; i++ )
    {
       mhv_out.digests[i] = mh_in[i].digest;
       KOINOS_ASSERT( mh_in[i].id == mhv_out.id,
@@ -197,7 +181,7 @@ void merkle_hash_leaves( std::vector< multihash >& hashes, uint64_t code, uint64
    while ( n_hashes > 1 )
    {
       size_t num_pairs = n_hashes >> 1;
-      for( size_t i=0; i < num_pairs; i++ )
+      for( size_t i = 0; i < num_pairs; i++ )
       {
          enc.reset();
          enc.write( hashes[i*2  ].digest.data(), hashes[i*2  ].digest.size() );

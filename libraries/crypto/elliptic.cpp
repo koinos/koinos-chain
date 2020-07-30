@@ -270,7 +270,7 @@ private_key& private_key::operator=( const private_key& pk )
 
 private_key private_key::regenerate( const multihash& secret )
 {
-//   multihash::validate_sha256( secret );
+   KOINOS_ASSERT( secret.digest.size() == sizeof(private_key_secret), koinos::exception, "Secret must be ${s} bits", ("s", sizeof(private_key_secret)) );
    private_key self;
    std::memcpy( self._key.data(), secret.digest.data(), self._key.size() );
    return self;
@@ -309,7 +309,7 @@ private_key_secret private_key::get_secret()const
 
 recoverable_signature private_key::sign_compact( const multihash& digest )const
 {
-//   multihash::validate_sha256( digest );
+   KOINOS_ASSERT( digest.digest.size() == _key.size(), koinos::exception, "Digest must be ${s} bits", ("s", _key.size()) );
    KOINOS_ASSERT( _key != empty_priv(), signing_error, "Cannot sign with an empty key" );
    fixed_blob< 65 > internal_sig;
    recoverable_signature sig;

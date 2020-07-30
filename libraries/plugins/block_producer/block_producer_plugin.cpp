@@ -34,6 +34,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
    active_data.timestamp = timestamp_now();
+   active_data.header_hashes.digests.resize(3);
 
    // Get previous block data
    rpc::block_topology topology;
@@ -43,7 +44,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
 
    try
    {
-      auto& res = std::get< rpc::query_submission_result >( *r.get() );
+      auto res = std::get< rpc::query_submission_result >( *r.get() );
       res.unbox();
       std::visit( koinos::overloaded {
          [&]( const rpc::get_head_info_result& head_info ) {
@@ -67,7 +68,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    block->passive_data = protocol::passive_block_data();
 
    // Serialize active data, store it in block header
-   block->active_data = active_data;
+   block->active_data = std::move( active_data );
 
    util::set_block_merkle_roots( *block, CRYPTO_SHA2_256_ID );
    util::sign_block( *block, block_signing_private_key );
