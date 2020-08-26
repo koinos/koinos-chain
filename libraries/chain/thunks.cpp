@@ -119,8 +119,11 @@ THUNK_DEFINE( void, apply_block,
       // Passive Merkle root verifies:
       //
       // Block passive
-      // Transaction passives
+      // Block signature slot (zero hash)
       // Transaction signatures
+      //
+      // Transaction passive
+      // Transaction signature
       //
       // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
       // during the block building process.
@@ -170,10 +173,13 @@ THUNK_DEFINE( void, apply_block,
          tx.unbox();
          multihash tx_hash = crypto::hash_like( tx_root, tx->active_data );
 
-         crypto::recoverable_signature sig;
-         pack::from_variable_blob( tx->signature_data, sig );
+         if( tx->signature_data.size() )
+         {
+            crypto::recoverable_signature sig;
+            pack::from_variable_blob( tx->signature_data, sig );
 
-         context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
+            context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
+         }
       }
       else
       {
