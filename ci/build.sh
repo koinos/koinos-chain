@@ -17,7 +17,7 @@ cd build
 if [ "$RUN_TYPE" = "test" ]; then
    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
       cmake -DCMAKE_BUILD_TYPE=Release -GXcode ..
-      cmake --build . --config Release --parallel 3 -- -quiet
+      cmake --build . --config Release --parallel 3
    else
       cmake -DCMAKE_BUILD_TYPE=Release ..
       cmake --build . --config Release --parallel 3
