@@ -248,7 +248,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    args.message = "Hello World";
    variable_blob vl_args2, vl_ret2;
    koinos::pack::to_variable_blob( vl_args2, args );
-   host_api.invoke_system_call( static_cast< system::system_call_id_type >( system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
+   host_api.invoke_system_call( uint32_t( system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
    auto original_message = host_api.context.get_pending_console_output();
 
    // Override prints with a contract that prepends a message before printing
@@ -263,12 +263,12 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::types::system::contract_call_bundle bundle2;
    bundle2.contract_id = contract_op2.contract_id;
    bundle2.entry_point = 0;
-   call_op2.call_id = static_cast< system::system_call_id_type >( system::system_call_id::prints );
+   call_op2.call_id = uint32_t( system::system_call_id::prints );
    call_op2.target = bundle2;
    thunk::apply_set_system_call_operation( ctx, call_op2 );
 
    // Now test that the message has been modified
-   host_api.invoke_system_call( static_cast< system::system_call_id_type >( system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
+   host_api.invoke_system_call( uint32_t( system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
    auto new_message = host_api.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_thunk( static_cast< system::thunk_id_type >( thunks::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_thunk( uint32_t( thunks::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 
    variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_system_call( static_cast< uint32_t >( system::system_call_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_system_call( uint32_t( system::system_call_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );

@@ -243,7 +243,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    // Ensure override exists
    std::visit(
    koinos::overloaded{
-      [&]( const types::system::thunk_id_type& tid ) {
+      [&]( const types::thunks::thunk_id& tid ) {
          KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), unknown_thunk, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
       },
       [&]( const koinos::types::system::contract_call_bundle& scb ) {

@@ -3,33 +3,47 @@ language: c++
 cache:
 - ccache
 - pip
-- directories:
-  - $HOME/Library/Caches/Homebrew
-  - /usr/local/Homebrew/
-  # used in OSX custom build script dealing with local bottle caching
-  - $HOME/local_bottle_metadata
+
+addons:
+  apt:
+    packages:
+      - libboost-all-dev
+      - libgflags-dev
+      - python3
+      - python3-pip
+      - python3-setuptools
+      - libsnappy-dev
+      - zlib1g-dev
+      - libbz2-dev
+      - liblz4-dev
+      - libzstd-dev
+    update: true
 
 jobs:
   include:
-    - os: osx
-      osx_image: xcode11.3
-      compiler: clang
-      env: RUN_TYPE=coverage
-    - os: linux
-      dist: bionic
-      compiler: gcc
-      env: RUN_TYPE=test
     - os: linux
       dist: focal
-      compiler: gcc
-      env: RUN_TYPE=test
-    - os: osx
-      osx_image: xcode11.3
-      compiler: clang
-      env: RUN_TYPE=test
+      env:
+        - RUN_TYPE=coverage
+        - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
+    - os: linux
+      dist: bionic
+      env:
+        - RUN_TYPE=test
+        - MATRIX_EVAL="CC=gcc && CXX=g++"
+    - os: linux
+      dist: focal
+      env:
+        - RUN_TYPE=test
+        - MATRIX_EVAL="CC=gcc && CXX=g++"
+    - os: linux
+      dist: focal
+      env:
+        - RUN_TYPE=test
+        - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
 
 before_install:
-  - ci/before_install.sh
+  eval "${MATRIX_EVAL}"
 
 install:
   - ci/install.sh
@@ -39,9 +53,6 @@ script:
 
 after_success:
   - ci/after_success.sh
-
-before_cache:
-  - ci/before_cache.sh
 
 notifications:
   slack:

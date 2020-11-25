@@ -1,33 +1,14 @@
 #!/bin/bash
 
-if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-   sudo apt-get install -y \
-      libboost-all-dev \
-      libgflags-dev \
-      python3 \
-      python3-pip \
-      python3-setuptools \
-      libsnappy-dev \
-      zlib1g-dev \
-      libbz2-dev \
-      liblz4-dev \
-      libzstd-dev \
-      valgrind \
-      ccache
-elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
-   brew install cmake \
-      boost \
-      openssl \
-      zlib \
-      snappy \
-      bzip2 \
-      gflags \
-      ccache
-
-   if [ "$RUN_TYPE" = "coverage" ]; then
-      brew install lcov
-      sudo gem install coveralls-lcov
-   fi
+if [ "$CC" = "clang-11" ]; then
+   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+   sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+   sudo apt-get install -y llvm-11 clang-11
 fi
 
-pip3 install --user dataclasses-json Jinja2 importlib_resources pluginbase
+if [ "$RUN_TYPE" = "coverage" ]; then
+      sudo apt-get install -y lcov ruby
+      sudo gem install coveralls-lcov
+fi
+
+pip3 install --user dataclasses_json Jinja2 importlib_resources pluginbase

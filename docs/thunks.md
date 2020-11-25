@@ -25,7 +25,7 @@ Now we have a separate problem. What is our plan for an in-band upgrade of funct
 
 Another layer of table-based call dispatching, `system_call`, is implemented to solve this problem.
 
-User smart contracts cannot call thunks directly. Instead, smart contracts call thunks by specifying a key which points into the system call translation table. The keys of the system call translation table are integers, values are of type `system_call_target` which is an `std::variant` which can contain a `thunk_id_type` or a `contract_id_type`.
+User smart contracts cannot call thunks directly. Instead, smart contracts call thunks by specifying a key which points into the system call translation table. The keys of the system call translation table are integers, values are of type `system_call_target` which is an `std::variant` which can contain a `thunk_id` or a `contract_id_type`.
 
 A system call can be upgraded by writing a different `system_call_target` to the state.
 

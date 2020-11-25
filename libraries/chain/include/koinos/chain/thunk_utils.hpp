@@ -81,7 +81,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
-      using koinos::types::system::thunk_id_type;                                                                    \
+      using koinos::types::thunks::thunk_id;                                                                         \
       using koinos::types::system::contract_call_bundle;                                                             \
       using koinos::types::system::system_call_id;                                                                   \
       using koinos::types::system::system_call_target;                                                               \
@@ -103,7 +103,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             "system call table dispatch entry ${sid} does not exist",                                                \
             ("sid", _sid)                                                                                            \
             );                                                                                                       \
-         _target = static_cast< thunk_id_type >( *maybe_thunk_id );                                                  \
+         _target = static_cast< thunk_id >( *maybe_thunk_id );                                                       \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \
@@ -115,7 +115,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                                                                                                                      \
       std::visit(                                                                                                    \
          koinos::overloaded{                                                                                         \
-            [&]( thunk_id_type& _tid ) {                                                                             \
+            [&]( thunk_id& _tid ) {                                                                                  \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
                thunk_dispatcher::instance().call_thunk<                                                              \
                   RETURN_TYPE                                                                                        \

@@ -118,6 +118,7 @@ include(CMakeParseArguments)
 find_program( GCOV_PATH gcov )
 find_program( LCOV_PATH  NAMES lcov lcov.bat lcov.exe lcov.perl)
 find_program( GENHTML_PATH NAMES genhtml genhtml.perl genhtml.bat )
+find_program( LLVM_COV_PATH llvm-cov )
 find_program( GCOVR_PATH gcovr PATHS ${CMAKE_SOURCE_DIR}/scripts/test)
 find_program( CPPFILT_PATH NAMES c++filt )
 
@@ -204,6 +205,11 @@ function(setup_target_for_coverage_lcov)
         message(FATAL_ERROR "lcov not found! Aborting...")
     endif() # NOT LCOV_PATH
 
+    # Needed for gcov_for_clang.sh
+    if(NOT LLVM_COV_PATH)
+        message(FATAL_ERROR "llvm-cov not found! Aborting...")
+    endif() # NOT LLVM_COV_PATH
+
     if(NOT GENHTML_PATH)
         message(FATAL_ERROR "genhtml not found! Aborting...")
     endif() # NOT GENHTML_PATH
@@ -229,6 +235,8 @@ function(setup_target_for_coverage_lcov)
     if(CPPFILT_PATH AND NOT ${Coverage_NO_DEMANGLE})
       set(GENHTML_EXTRA_ARGS "--demangle-cpp")
     endif()
+
+    set(GCOV_PATH ${CMAKE_SOURCE_DIR}/cmake/gcov_for_clang.sh)
 
     # Setup target
     add_custom_target(${Coverage_NAME}
@@ -434,4 +442,3 @@ function(append_coverage_compiler_flags)
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${COVERAGE_COMPILER_FLAGS}" PARENT_SCOPE)
     message(STATUS "Appending code coverage compiler flags: ${COVERAGE_COMPILER_FLAGS}")
 endfunction() # append_coverage_compiler_flags
-
