@@ -79,7 +79,7 @@ class thunk_dispatcher
       auto call_thunk( thunk_id id, apply_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< types::system::thunk_id_type >( id ) ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< types::thunks::thunk_id >( id ) ) );
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
