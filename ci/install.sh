@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo add-apt-repository ppa:mhier/libboost-latest
+sudo add-apt-repository ppa:mhier/libboost-latest -y
 sudo apt-get update
 sudo apt install -y libboost-latest
 
