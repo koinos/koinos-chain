@@ -1,5 +1,9 @@
 #!/bin/bash
 
+sudo add-apt-repository ppa:mhier/libboost-latest
+sudo apt-get update
+sudo apt install -y libboost-latest
+
 if [ "$CC" = "clang-11" ]; then
    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
    sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
@@ -7,8 +11,8 @@ if [ "$CC" = "clang-11" ]; then
 fi
 
 if [ "$RUN_TYPE" = "coverage" ]; then
-      sudo apt-get install -y lcov ruby
-      sudo gem install coveralls-lcov
+   sudo apt-get install -y lcov ruby
+   sudo gem install coveralls-lcov
 fi
 
 pip3 install --user dataclasses_json Jinja2 importlib_resources pluginbase

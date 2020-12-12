@@ -11,7 +11,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace koinos::net::jsonrpc { using id_type = std::variant< std::string, double, std::nullptr_t >; }
+namespace koinos::net::jsonrpc { using id_type = std::variant< std::string, uint64_t, std::nullptr_t >; }
 
 namespace nlohmann
 {
@@ -22,7 +22,7 @@ template <> struct adl_serializer< koinos::net::jsonrpc::id_type >
    {
       std::visit( koinos::overloaded {
          [&]( std::nullptr_t )     { j = nullptr; },
-         [&]( double arg )         { j = arg; },
+         [&]( uint64_t arg )         { j = arg; },
          [&]( std::string arg )    { j = arg; },
          [&]( auto )               { throw std::runtime_error( "unable to parse json rpc id" ); }
       }, id );
@@ -31,7 +31,7 @@ template <> struct adl_serializer< koinos::net::jsonrpc::id_type >
    static void from_json( const nlohmann::json& j, koinos::net::jsonrpc::id_type& id )
    {
       if ( j.is_number() )
-         id = j.get< double >();
+         id = j.get< uint64_t >();
       else if ( j.is_string() )
          id = j.get< std::string >();
       else if ( j.is_null() )

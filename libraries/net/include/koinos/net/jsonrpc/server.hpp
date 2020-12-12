@@ -34,8 +34,7 @@ namespace koinos::net::jsonrpc {
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
-using tcp = boost::asio::ip::tcp;
-using stream = boost::asio::generic::stream_protocol;
+using stream_protocol = boost::asio::generic::stream_protocol;
 using json = nlohmann::json;
 
 // This function produces an HTTP response for the given
@@ -248,7 +247,7 @@ class http_session : public std::enable_shared_from_this< http_session >
       }
    };
 
-   beast::tcp_stream stream_;
+   beast::basic_stream< stream_protocol > stream_;
    beast::flat_buffer buffer_;
    std::shared_ptr< request_handler const > req_handler_;
    queue queue_;
@@ -259,7 +258,7 @@ class http_session : public std::enable_shared_from_this< http_session >
 
 public:
    // Take ownership of the socket
-   http_session( tcp::socket&& socket, std::shared_ptr< request_handler const > const& req_handler ) :
+   http_session( stream_protocol::socket&& socket, std::shared_ptr< request_handler const > const& req_handler ) :
       stream_( std::move( socket ) ),
       req_handler_( req_handler ),
       queue_( *this ) {}
@@ -343,7 +342,7 @@ private:
    {
       // Send a TCP shutdown
       beast::error_code ec;
-      stream_.socket().shutdown( tcp::socket::shutdown_send, ec );
+      stream_.socket().shutdown( stream_protocol::socket::shutdown_send, ec );
 
       // At this point the connection is closed gracefully
    }
@@ -355,11 +354,11 @@ private:
 class listener : public std::enable_shared_from_this< listener >
 {
    net::io_context& ioc_;
-   tcp::acceptor acceptor_;
+   net::basic_socket_acceptor< stream_protocol > acceptor_;
    std::shared_ptr< request_handler const > req_handler_;
 
 public:
-   listener( net::io_context& ioc, tcp::endpoint endpoint, std::shared_ptr< request_handler const > const& req_handler ) :
+   listener( net::io_context& ioc, stream_protocol::endpoint endpoint, std::shared_ptr< request_handler const > const& req_handler ) :
       ioc_( ioc ),
       acceptor_( net::make_strand( ioc ) ),
       req_handler_( req_handler )
@@ -416,7 +415,7 @@ private:
       acceptor_.async_accept( net::make_strand( ioc_ ), beast::bind_front_handler( &listener::on_accept, shared_from_this() ) );
    }
 
-   void on_accept( beast::error_code ec, tcp::socket socket )
+   void on_accept( beast::error_code ec, stream_protocol::socket socket )
    {
       if ( ec )
       {

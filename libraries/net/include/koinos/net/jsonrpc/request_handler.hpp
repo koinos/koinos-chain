@@ -20,7 +20,7 @@ public:
 
    void add_method_handler( const std::string& method_name, method_handler handler )
    {
-      if ( method_handlers.find( method_name ) == method_handlers.end() )
+      if ( method_handlers.find( method_name ) != method_handlers.end() )
          throw std::runtime_error( "unable to override method handler" );
 
       method_handlers.insert( { method_name, handler } );
