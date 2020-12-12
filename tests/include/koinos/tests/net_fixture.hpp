@@ -75,11 +75,10 @@ struct net_fixture
       boost::asio::streambuf receive_buffer;
       boost::asio::read( *socket, receive_buffer, boost::asio::transfer_all(), error );
 
-      if ( error && error != boost::asio::error::eof )
-         throw std::runtime_error( "receive failed: " + error.message() );
+      if ( error )
+         throw std::runtime_error( "read failed: " + error.message() );
 
-      const char* data = boost::asio::buffer_cast< const char* >( receive_buffer.data() );
-      return std::string( data );
+      return std::string( boost::asio::buffer_cast< const char* >( receive_buffer.data() ) );
    }
 
    boost::beast::http::response< boost::beast::http::string_body > read_http()
