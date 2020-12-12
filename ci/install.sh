@@ -2,7 +2,7 @@
 
 sudo add-apt-repository ppa:mhier/libboost-latest -y
 sudo apt-get update
-sudo apt install -y libboost-latest
+sudo apt install -y libboost
 
 if [ "$CC" = "clang-11" ]; then
    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
