@@ -134,6 +134,7 @@ void handle_request( request_handler req_handler, http::request< Body, http::bas
       json resp = jsonrpc::response {
          .jsonrpc = "2.0",
          .id = r.id,
+         .error = {},
          .result = h.value()( r.params )
       };
       body = resp.dump();
