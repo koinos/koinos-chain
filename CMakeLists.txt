@@ -10,6 +10,14 @@ if(CCACHE_PROGRAM)
    set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS   "${CMAKE_SOURCE_DIR}/ci/ccache_clang++")
 endif()
 
+include("cmake/HunterGate.cmake")
+
+HunterGate(
+   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
+   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
+   LOCAL
+)
+
 project( koinos )
 
 option (FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
@@ -23,7 +31,7 @@ if( ${FORCE_COLORED_OUTPUT} )
     endif ()
 endif ()
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -64,6 +72,10 @@ if (COVERAGE)
      EXCLUDE "libraries/vendor/*" "build/generated/*")
 endif()
 
+hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
+hunter_add_package(OpenSSL)
+
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
+

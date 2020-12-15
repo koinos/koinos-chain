@@ -1,6 +1,6 @@
 file(GLOB HEADERS "include/koinos/net/jsonrpc/*.hpp")
 
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost CONFIG REQUIRED COMPONENTS system)
 
 add_library(koinos_net ${HEADERS} server.cpp)
 

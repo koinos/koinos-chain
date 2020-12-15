@@ -1,8 +1,10 @@
 language: c++
 
 cache:
-- ccache
-- pip
+  - ccache
+  - pip
+  directories:
+     - /home/travis/.hunter/
 
 addons:
   apt:

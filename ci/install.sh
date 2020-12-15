@@ -1,9 +1,5 @@
 #!/bin/bash
 
-sudo add-apt-repository ppa:mhier/libboost-latest -y
-sudo apt-get update
-sudo apt install -y libboost1.74-all-dev
-
 if [ "$CC" = "clang-11" ]; then
    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
    sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
