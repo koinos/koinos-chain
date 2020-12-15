@@ -1,13 +1,15 @@
 find_package(OpenSSL REQUIRED)
 find_package(secp256k1 REQUIRED)
 
-file(GLOB HEADERS "include/koinos/crypto/*.hpp" )
-add_library( koinos_crypto
-             elliptic.cpp
-             multihash.cpp
-             openssl.cpp
-             ${HEADERS} )
-target_link_libraries( koinos_crypto koinos_exception koinos_types secp256k1 ${OPENSSL_LIBRARIES} ${CMAKE_DL_LIBS} )
-target_include_directories( koinos_crypto
+file(GLOB HEADERS "include/koinos/crypto/*.hpp")
+add_library(koinos_crypto
+            elliptic.cpp
+            multihash.cpp
+            openssl.cpp
+            ${HEADERS})
+target_link_libraries(koinos_crypto Koinos::exception Koinos::types secp256k1 ${OPENSSL_LIBRARIES} ${CMAKE_DL_LIBS})
+target_include_directories(koinos_crypto
    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-      ${OPENSSL_INCLUDE_DIR} )
+      ${OPENSSL_INCLUDE_DIR})
+add_library(Koinos::crypto ALIAS koinos_crypto)
+
