@@ -10,7 +10,7 @@ BOOST_FIXTURE_TEST_SUITE( net_tests, net_fixture )
 using namespace koinos::net::protocol;
 using json = koinos::net::protocol::jsonrpc::json;
 
-BOOST_AUTO_TEST_CASE( net_tests )
+BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
 { try {
 
    BOOST_TEST_MESSAGE( "adding method handlers [add, sub, mul, div]" );
@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE( net_tests )
    request_handler->add_method_handler( "add", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( "invalid params", jsonrpc::error_code::invalid_params, "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
 
       json result = j.at( "a" ).get< uint64_t >() + j.at( "b" ).get< uint64_t >();
       return result;
@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE( net_tests )
    request_handler->add_method_handler( "sub", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( "invalid params", jsonrpc::error_code::invalid_params, "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
 
       json result = j.at( "a" ).get< uint64_t >() - j.at( "b" ).get< uint64_t >();
       return result;
@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE( net_tests )
    request_handler->add_method_handler( "mul", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( "invalid params", jsonrpc::error_code::invalid_params, "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
 
       json result = j.at( "a" ).get< uint64_t >() * j.at( "b" ).get< uint64_t >();
       return result;
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE( net_tests )
    request_handler->add_method_handler( "div", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( "invalid params", jsonrpc::error_code::invalid_params, "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
 
       if ( j.at( "b" ).get< uint64_t >() == 0 )
          throw std::runtime_error( "cannot divide by zero" );

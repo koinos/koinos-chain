@@ -28,24 +28,24 @@ enum class error_code : int32_t
 
 struct exception : virtual std::exception
 {
-      const std::string msg;
-      const jsonrpc::id_type id;
-      const jsonrpc::error_code code;
-      const std::optional< std::string > data;
+   const std::string msg;
+   const jsonrpc::id_type id;
+   const jsonrpc::error_code code;
+   const std::optional< std::string > data;
 
-      exception( const std::string& m, jsonrpc::error_code c, std::optional< std::string > d = {}, jsonrpc::id_type i = nullptr ) :
-         msg( m ),
-         code( c ),
-         data( d ),
-         id( i )
-      {}
+   exception( jsonrpc::error_code c, const std::string& m, std::optional< std::string > d = {}, jsonrpc::id_type i = nullptr ) :
+      code( c ),
+      msg( m ),
+      data( d ),
+      id( i )
+   {}
 
-      virtual ~exception() {}
+   virtual ~exception() {}
 
-      virtual const char* what() const noexcept override
-      {
-         return msg.c_str();
-      }
+   virtual const char* what() const noexcept override
+   {
+      return msg.c_str();
+   }
 };
 
 } // koinos::net::protocol::jsonrpc
@@ -70,7 +70,7 @@ template <> struct adl_serializer< koinos::net::protocol::jsonrpc::id_type >
       if ( j.is_number() )
       {
          if ( j.get< double >() != j.get< uint64_t >() )
-            throw jsonrpc::exception( "id cannot be fractional", jsonrpc::error_code::invalid_request );
+            throw jsonrpc::exception( jsonrpc::error_code::invalid_request, "id cannot be fractional" );
          id = j.get< uint64_t >();
       }
       else if ( j.is_string() )
@@ -83,7 +83,7 @@ template <> struct adl_serializer< koinos::net::protocol::jsonrpc::id_type >
       }
       else
       {
-         throw jsonrpc::exception( "id must be a non-fractional number, string or null", jsonrpc::error_code::invalid_request );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_request, "id must be a non-fractional number, string or null" );
       }
    }
 };
@@ -104,7 +104,7 @@ struct request
    void validate()
    {
       if ( jsonrpc != "2.0" )
-         throw jsonrpc::exception( "an invalid jsonrpc version was provided", jsonrpc::error_code::invalid_request, {}, id );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_request, "an invalid jsonrpc version was provided", {}, id );
    }
 };
 
@@ -181,7 +181,7 @@ void to_json( json& j, const response& r )
    }
    else
    {
-      throw jsonrpc::exception( "failed to jsonify due to an invalid response object", jsonrpc::error_code::parse_error );
+      throw jsonrpc::exception( jsonrpc::error_code::parse_error, "failed to jsonify due to an invalid response object" );
    }
 }
 
@@ -202,7 +202,7 @@ void from_json( const json& j, response& r )
    }
    else
    {
-      throw jsonrpc::exception( "failed to dejsonify due to an invalid response object", jsonrpc::error_code::parse_error );
+      throw jsonrpc::exception( jsonrpc::error_code::parse_error, "failed to dejsonify due to an invalid response object" );
    }
 }
 
