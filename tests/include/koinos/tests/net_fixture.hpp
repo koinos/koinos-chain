@@ -3,7 +3,10 @@
 #include <thread>
 #include <memory>
 
-#include <koinos/net/jsonrpc/server.hpp>
+#include <koinos/net/transport/http/server.hpp>
+#include <koinos/net/transport/http/router.hpp>
+#include <koinos/net/protocol/jsonrpc/request_handler.hpp>
+#include <koinos/net/protocol/jsonrpc/types.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -13,14 +16,14 @@ struct net_fixture
    boost::asio::io_context ioc;
    boost::filesystem::path unix_socket;
 
-   std::shared_ptr< koinos::net::jsonrpc::request_handler > request_handler;
+   std::shared_ptr< koinos::net::transport::http::router > http_router;
 
    std::unique_ptr< boost::asio::local::stream_protocol::socket > socket;
    std::unique_ptr< std::thread > thread;
 
    net_fixture()
    {
-      request_handler = std::make_shared< koinos::net::jsonrpc::request_handler >();
+      http_router = std::make_shared< koinos::net::transport::http::router >();
 
       boost::filesystem::path tmp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( tmp );
@@ -28,10 +31,10 @@ struct net_fixture
       boost::asio::local::stream_protocol::endpoint endpoint( unix_socket.string() );
 
       // Create and launch a listening port
-      std::make_shared< koinos::net::jsonrpc::listener >(
+      std::make_shared< koinos::net::transport::http::listener >(
          ioc,
          endpoint,
-         request_handler
+         http_router
       )->run();
 
       thread = std::make_unique< std::thread >( [&]{ ioc.run(); } );
@@ -57,15 +60,16 @@ struct net_fixture
       boost::beast::http::request< boost::beast::http::string_body > req { boost::beast::http::verb::get, "/", 11 };
       req.set( boost::beast::http::field::host, "127.0.0.1" );
       req.set( boost::beast::http::field::user_agent, "koinos_tests/1.0" );
+      req.set( boost::beast::http::field::content_type, "application/json" );
       req.keep_alive( true );
       req.body() = payload;
       req.prepare_payload();
       boost::beast::http::write( *socket, req );
    }
 
-   void write_request( const koinos::net::jsonrpc::request& r )
+   void write_request( const koinos::net::protocol::jsonrpc::request& r )
    {
-      koinos::net::jsonrpc::json j = r;
+      koinos::net::protocol::jsonrpc::json j = r;
       write_http( j.dump() );
    }
 
@@ -89,10 +93,10 @@ struct net_fixture
       return res;
    }
 
-   koinos::net::jsonrpc::response read_response()
+   koinos::net::protocol::jsonrpc::response read_response()
    {
       auto res = read_http();
-      koinos::net::jsonrpc::response r = koinos::net::jsonrpc::json::parse( res.body() );
+      koinos::net::protocol::jsonrpc::response r = koinos::net::protocol::jsonrpc::json::parse( res.body() );
       return r;
    }
 };

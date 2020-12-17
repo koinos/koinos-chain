@@ -6,29 +6,29 @@
 #include <optional>
 #include <string>
 
-#include <koinos/net/jsonrpc/constants.hpp>
+#include <koinos/net/protocol/jsonrpc/fields.hpp>
 #include <koinos/util.hpp>
 
 #include <nlohmann/json.hpp>
 
-namespace koinos::net::jsonrpc { using id_type = std::variant< std::string, uint64_t, std::nullptr_t >; }
+namespace koinos::net::protocol::jsonrpc { using id_type = std::variant< std::string, uint64_t, std::nullptr_t >; }
 
 namespace nlohmann
 {
 
-template <> struct adl_serializer< koinos::net::jsonrpc::id_type >
+template <> struct adl_serializer< koinos::net::protocol::jsonrpc::id_type >
 {
-   static void to_json( nlohmann::json& j, const koinos::net::jsonrpc::id_type& id )
+   static void to_json( nlohmann::json& j, const koinos::net::protocol::jsonrpc::id_type& id )
    {
       std::visit( koinos::overloaded {
          [&]( std::nullptr_t )     { j = nullptr; },
-         [&]( uint64_t arg )         { j = arg; },
+         [&]( uint64_t arg )       { j = arg; },
          [&]( std::string arg )    { j = arg; },
          [&]( auto )               { throw std::runtime_error( "unable to parse json rpc id" ); }
       }, id );
    }
 
-   static void from_json( const nlohmann::json& j, koinos::net::jsonrpc::id_type& id )
+   static void from_json( const nlohmann::json& j, koinos::net::protocol::jsonrpc::id_type& id )
    {
       if ( j.is_number() )
          id = j.get< uint64_t >();
@@ -43,7 +43,7 @@ template <> struct adl_serializer< koinos::net::jsonrpc::id_type >
 
 } // nlohmann
 
-namespace koinos::net::jsonrpc {
+namespace koinos::net::protocol::jsonrpc {
 
 using json = nlohmann::json;
 
@@ -58,34 +58,25 @@ struct request
    {
       if ( jsonrpc != "2.0" )
          throw std::runtime_error( "an invalid jsonrpc version was provided" );
-
-      std::visit( koinos::overloaded {
-         [&]( double arg )
-         {
-            if ( arg != uint64_t( arg ) )
-               throw std::runtime_error( "fractional id is not allowed" );
-         },
-         [&]( auto ) {}
-      }, id );
    }
 };
 
 void to_json( json& j, const request& r )
 {
    j = json {
-      { constants::field::jsonrpc, r.jsonrpc },
-      { constants::field::id,      r.id },
-      { constants::field::method,  r.method },
-      { constants::field::params,  r.params }
+      { field::jsonrpc, r.jsonrpc },
+      { field::id,      r.id },
+      { field::method,  r.method },
+      { field::params,  r.params }
    };
 }
 
 void from_json( const json& j, request& r )
 {
-   j.at( constants::field::jsonrpc ).get_to( r.jsonrpc );
-   j.at( constants::field::id ).get_to( r.id );
-   j.at( constants::field::method ).get_to( r.method );
-   j.at( constants::field::params ).get_to( r.params );
+   j.at( field::jsonrpc ).get_to( r.jsonrpc );
+   j.at( field::id ).get_to( r.id );
+   j.at( field::method ).get_to( r.method );
+   j.at( field::params ).get_to( r.params );
 }
 
 enum class error_code : int32_t
@@ -107,15 +98,15 @@ struct error_type
 void to_json( json& j, const error_type& e )
 {
    j = json {
-      { constants::field::code,    e.code },
-      { constants::field::message, e.message }
+      { field::code,    e.code },
+      { field::message, e.message }
    };
 }
 
 void from_json( const json& j, error_type& e )
 {
-   j.at( constants::field::code ).get_to( e.code );
-   j.at( constants::field::message ).get_to( e.message );
+   j.at( field::code ).get_to( e.code );
+   j.at( field::message ).get_to( e.message );
 }
 
 struct response
@@ -131,17 +122,17 @@ void to_json( json& j, const response& r )
    if ( r.result.has_value() )
    {
       j = json {
-         { constants::field::jsonrpc, r.jsonrpc },
-         { constants::field::id, r.id },
-         { constants::field::result, r.result.value() }
+         { field::jsonrpc, r.jsonrpc },
+         { field::id, r.id },
+         { field::result, r.result.value() }
       };
    }
    else if ( r.error.has_value() )
    {
       j = json {
-         { constants::field::jsonrpc, r.jsonrpc },
-         { constants::field::id, r.id },
-         { constants::field::error, r.error.value() }
+         { field::jsonrpc, r.jsonrpc },
+         { field::id, r.id },
+         { field::error, r.error.value() }
       };
    }
    else
@@ -152,16 +143,16 @@ void to_json( json& j, const response& r )
 
 void from_json( const json& j, response& r )
 {
-   j.at( constants::field::id ).get_to( r.id );
-   j.at( constants::field::jsonrpc ).get_to( r.jsonrpc );
+   j.at( field::id ).get_to( r.id );
+   j.at( field::jsonrpc ).get_to( r.jsonrpc );
 
-   if ( j.contains( constants::field::result ) )
+   if ( j.contains( field::result ) )
    {
-      r.result = j[ constants::field::result ];
+      r.result = j[ field::result ];
    }
-   else if ( j.contains( constants::field::error ) )
+   else if ( j.contains( field::error ) )
    {
-      j.at( constants::field::error ).get_to( *r.error );
+      j.at( field::error ).get_to( *r.error );
    }
    else
    {

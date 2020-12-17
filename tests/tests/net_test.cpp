@@ -6,11 +6,16 @@
 
 BOOST_FIXTURE_TEST_SUITE( net_tests, net_fixture )
 
-using json = koinos::net::jsonrpc::json;
+using namespace koinos::net::protocol;
+using json = koinos::net::protocol::jsonrpc::json;
 
 BOOST_AUTO_TEST_CASE( net_tests )
 { try {
+
    BOOST_TEST_MESSAGE( "adding method handlers [add, sub, mul, div]" );
+
+   auto request_handler = std::make_shared< jsonrpc::request_handler >();
+   http_router->handlers[ "application/json" ] = request_handler;
 
    request_handler->add_method_handler( "add", []( const json::object_t& j ) -> json
    {
@@ -38,7 +43,7 @@ BOOST_AUTO_TEST_CASE( net_tests )
 
    BOOST_TEST_MESSAGE( "sending 'add' request with params {\"a\":2, \"b\":1}" );
 
-   koinos::net::jsonrpc::request req {
+   jsonrpc::request req {
       .jsonrpc = "2.0",
       .id = uint64_t( 1 ),
       .method = "add",
@@ -50,7 +55,7 @@ BOOST_AUTO_TEST_CASE( net_tests )
 
    write_request( req );
 
-   koinos::net::jsonrpc::response res = read_response();
+   jsonrpc::response res = read_response();
 
    BOOST_TEST_MESSAGE( "-> verifying result" );
 
