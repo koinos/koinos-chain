@@ -5,6 +5,7 @@
 #include <exception>
 #include <optional>
 #include <string>
+#include <variant>
 
 #include <koinos/net/protocol/jsonrpc/fields.hpp>
 #include <koinos/util.hpp>
