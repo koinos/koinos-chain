@@ -12,10 +12,45 @@
 
 #include <nlohmann/json.hpp>
 
-namespace koinos::net::protocol::jsonrpc { using id_type = std::variant< std::string, uint64_t, std::nullptr_t >; }
+namespace koinos::net::protocol::jsonrpc {
 
-namespace nlohmann
+using id_type = std::variant< std::string, uint64_t, std::nullptr_t >;
+
+enum class error_code : int32_t
 {
+   parse_error      = -32700, // Parse error Invalid JSON was received by the server.
+   invalid_request  = -32600, // Invalid Request The JSON sent is not a valid Request object.
+   method_not_found = -32601, // Method not found The method does not exist / is not available.
+   invalid_params   = -32602, // Invalid params Invalid method parameter(s).
+   internal_error   = -32603, // Internal error Internal JSON-RPC error.
+   server_error     = -32000  // Server error (-32000 - -32099) Reserved for implementation-defined server-errors.
+};
+
+struct exception : virtual std::exception
+{
+      const std::string msg;
+      const jsonrpc::id_type id;
+      const jsonrpc::error_code code;
+      const std::optional< std::string > data;
+
+      exception( const std::string& m, jsonrpc::error_code c, std::optional< std::string > d = {}, jsonrpc::id_type i = nullptr ) :
+         msg( m ),
+         code( c ),
+         data( d ),
+         id( i )
+      {}
+
+      virtual ~exception() {}
+
+      virtual const char* what() const noexcept override
+      {
+         return msg.c_str();
+      }
+};
+
+} // koinos::net::protocol::jsonrpc
+
+namespace nlohmann {
 
 template <> struct adl_serializer< koinos::net::protocol::jsonrpc::id_type >
 {
@@ -31,14 +66,25 @@ template <> struct adl_serializer< koinos::net::protocol::jsonrpc::id_type >
 
    static void from_json( const nlohmann::json& j, koinos::net::protocol::jsonrpc::id_type& id )
    {
+      using namespace koinos::net::protocol;
       if ( j.is_number() )
+      {
+         if ( j.get< double >() != j.get< uint64_t >() )
+            throw jsonrpc::exception( "id cannot be fractional", jsonrpc::error_code::invalid_request );
          id = j.get< uint64_t >();
+      }
       else if ( j.is_string() )
+      {
          id = j.get< std::string >();
+      }
       else if ( j.is_null() )
+      {
          id = nullptr;
+      }
       else
-         throw std::runtime_error( "unable to parse json rpc id" );
+      {
+         throw jsonrpc::exception( "id must be a non-fractional number, string or null", jsonrpc::error_code::invalid_request );
+      }
    }
 };
 
@@ -58,7 +104,7 @@ struct request
    void validate()
    {
       if ( jsonrpc != "2.0" )
-         throw std::runtime_error( "an invalid jsonrpc version was provided" );
+         throw jsonrpc::exception( "an invalid jsonrpc version was provided", jsonrpc::error_code::invalid_request, {}, id );
    }
 };
 
@@ -80,20 +126,11 @@ void from_json( const json& j, request& r )
    j.at( field::params ).get_to( r.params );
 }
 
-enum class error_code : int32_t
-{
-   parse_error      = -32700, // Parse error Invalid JSON was received by the server.
-   invalid_request  = -32600, // Invalid Request The JSON sent is not a valid Request object.
-   method_not_found = -32601, // Method not found The method does not exist / is not available.
-   invalid_params   = -32602, // Invalid params Invalid method parameter(s).
-   internal_error   = -32603, // Internal error Internal JSON-RPC error.
-   server_error     = -32000  // Server error (-32000 - -32099) Reserved for implementation-defined server-errors.
-};
-
 struct error_type
 {
-   error_code  code;
-   std::string message;
+   error_code                   code;
+   std::string                  message;
+   std::optional< std::string > data;
 };
 
 void to_json( json& j, const error_type& e )
@@ -102,18 +139,24 @@ void to_json( json& j, const error_type& e )
       { field::code,    e.code },
       { field::message, e.message }
    };
+
+   if ( e.data.has_value() )
+      j[ field::data ] = e.data.value();
 }
 
 void from_json( const json& j, error_type& e )
 {
    j.at( field::code ).get_to( e.code );
    j.at( field::message ).get_to( e.message );
+
+   if ( j.contains( field::data ) )
+      e.data = j[ field::data ];
 }
 
 struct response
 {
    std::string                 jsonrpc = "2.0";
-   id_type                     id;
+   id_type                     id = nullptr;
    std::optional< error_type > error;
    std::optional< json >       result;
 };
@@ -138,7 +181,7 @@ void to_json( json& j, const response& r )
    }
    else
    {
-      throw std::runtime_error( "failed to jsonify due to an invalid response object" );
+      throw jsonrpc::exception( "failed to jsonify due to an invalid response object", jsonrpc::error_code::parse_error );
    }
 }
 
@@ -149,15 +192,17 @@ void from_json( const json& j, response& r )
 
    if ( j.contains( field::result ) )
    {
+      r.error.reset();
       r.result = j[ field::result ];
    }
    else if ( j.contains( field::error ) )
    {
-      j.at( field::error ).get_to( *r.error );
+      r.result.reset();
+      r.error = j[ field::error ];
    }
    else
    {
-      throw std::runtime_error( "failed to dejsonify due to an invalid response object" );
+      throw jsonrpc::exception( "failed to dejsonify due to an invalid response object", jsonrpc::error_code::parse_error );
    }
 }
 

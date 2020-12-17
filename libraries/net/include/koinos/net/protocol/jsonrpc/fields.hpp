@@ -9,6 +9,7 @@ namespace field {
    constexpr const char* jsonrpc { "jsonrpc" };
    constexpr const char* code    { "code" };
    constexpr const char* message { "message" };
+   constexpr const char* data    { "data" };
    constexpr const char* result  { "result" };
    constexpr const char* error   { "error" };
 }

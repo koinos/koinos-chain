@@ -55,9 +55,9 @@ struct net_fixture
       boost::asio::write( *socket, boost::asio::buffer( payload ) );
    }
 
-   void write_http( const std::string & payload )
+   void write_http( const std::string& payload )
    {
-      boost::beast::http::request< boost::beast::http::string_body > req { boost::beast::http::verb::get, "/", 11 };
+      boost::beast::http::request< boost::beast::http::string_body > req { boost::beast::http::verb::post, "/", 11 };
       req.set( boost::beast::http::field::host, "127.0.0.1" );
       req.set( boost::beast::http::field::user_agent, "koinos_tests/1.0" );
       req.set( boost::beast::http::field::content_type, "application/json" );

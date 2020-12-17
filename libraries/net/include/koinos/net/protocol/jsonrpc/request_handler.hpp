@@ -6,8 +6,8 @@
 #include <optional>
 #include <unordered_map>
 
-#include <koinos/net/transport/http/abstract_request_handler.hpp>
 #include <koinos/net/protocol/jsonrpc/types.hpp>
+#include <koinos/net/transport/http/abstract_request_handler.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -22,37 +22,80 @@ class request_handler :
 public:
    using method_handler = std::function< json( const json::object_t& ) >;
 
-   std::string handle( const std::string& body ) override
+   jsonrpc::request parse_request( const std::string& payload ) const
+   {
+      jsonrpc::request req;
+
+      try
+      {
+         req = json::parse( payload );
+      }
+      catch( const jsonrpc::exception& e )
+      {
+         throw;
+      }
+      catch ( const std::exception& e )
+      {
+         throw jsonrpc::exception( "unable to parse request", jsonrpc::error_code::parse_error, e.what(), nullptr );
+      }
+
+      return req;
+   }
+
+   jsonrpc::response call_handler( const jsonrpc::id_type& id, const method_handler& h, const json::object_t& j ) const
    {
       jsonrpc::response resp;
 
       try
       {
-         jsonrpc::request req = json::parse( body );
+         resp = jsonrpc::response {
+            .jsonrpc = "2.0",
+            .id = id,
+            .error = {},
+            .result = h( j )
+         };
+      }
+      catch ( const jsonrpc::exception& e )
+      {
+         throw jsonrpc::exception( e.what(), e.code, e.data, id );
+      }
+      catch ( const std::exception& e )
+      {
+         throw jsonrpc::exception( "a server error has occurred", jsonrpc::error_code::server_error, e.what(), id );
+      }
+
+      return resp;
+   }
+
+   std::string handle( const std::string& payload ) override
+   {
+      jsonrpc::response resp;
+
+      try
+      {
+         jsonrpc::request req = parse_request( payload );
          req.validate();
 
          auto h = get_method_handler( req.method );
 
          if ( !h.has_value() )
-         {
-            resp = jsonrpc::response {
-               .jsonrpc = "2.0",
-               .id = req.id,
-               .error = jsonrpc::error_type {
-                  .code = jsonrpc::error_code::method_not_found,
-                  .message = "method not found: " + req.method
-               }
-            };
-         }
-         else
-         {
-            resp = jsonrpc::response {
-               .jsonrpc = "2.0",
-               .id = req.id,
-               .error = {},
-               .result = h.value()( req.params )
-            };
-         }
+            throw jsonrpc::exception( "method not found: " + req.method, jsonrpc::error_code::method_not_found, {}, req.id );
+
+         resp = call_handler( req.id, h.value(), req.params );
+      }
+      catch ( const jsonrpc::exception e )
+      {
+         resp = jsonrpc::response {
+            .jsonrpc = "2.0",
+            .id = e.id,
+            .error = jsonrpc::error_type {
+               .code = e.code,
+               .message = e.what(),
+            }
+         };
+
+         if ( e.data.has_value() )
+            resp.error->data = e.data.value();
       }
       catch ( const std::exception& e )
       {
@@ -61,7 +104,8 @@ public:
             .id = nullptr,
             .error = jsonrpc::error_type {
                .code = jsonrpc::error_code::internal_error,
-               .message = "an exception has ocurred: " + std::string( e.what() )
+               .message = "an internal error has ocurred",
+               .data = e.what()
             }
          };
       }
