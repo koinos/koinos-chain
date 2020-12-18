@@ -54,13 +54,12 @@ if( CLANG_TIDY_EXE )
    )
 endif( CLANG_TIDY_EXE )
 
-target_link_libraries( mira ${Boost_LIBRARIES} rocksdb nlohmann_json )
+find_package(RocksDB CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
-target_include_directories( mira
-   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
-          "${CMAKE_CURRENT_SOURCE_DIR}/../rocksdb/include"
-          ${Boost_INCLUDE_DIR}
-   )
+target_link_libraries(mira ${Boost_LIBRARIES} RocksDB::rocksdb nlohmann_json::nlohmann_json)
+
+target_include_directories(mira PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${Boost_INCLUDE_DIR})
 
 # TODO:  Fix tests properly instead of commenting out the build
 add_subdirectory( test )
