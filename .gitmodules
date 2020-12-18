@@ -3,5 +3,5 @@
 	url = https://github.com/EOSIO/eos-vm.git
 [submodule "libraries/vendor/koinos-types"]
 	path = libraries/vendor/koinos-types
-	url = git@github.com:open-orchard/koinos-types.git
+	url = git@github.com:koinos/koinos-types.git
 	branch = master
