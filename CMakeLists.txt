@@ -72,8 +72,6 @@ if (COVERAGE)
      EXCLUDE "libraries/vendor/*" "build/generated/*")
 endif()
 
-hunter_add_package(nlohmann_json)
-hunter_add_package(rocksdb)
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
 hunter_add_package(OpenSSL)
 
