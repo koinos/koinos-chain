@@ -14,7 +14,7 @@ hunter_config(rocksdb
       WITH_GFLAGS=OFF
       PORTABLE=ON
       FAIL_ON_WARNINGS=OFF
+      ROCKSDB_BUILD_SHARED=OFF
       CMAKE_CXX_FLAGS=-fvisibility=hidden
       CMAKE_C_FLAGS=-fvisibility=hidden
 )
-
