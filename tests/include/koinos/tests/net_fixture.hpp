@@ -3,13 +3,12 @@
 #include <thread>
 #include <memory>
 
-#include <koinos/net/transport/http/server.hpp>
-#include <koinos/net/transport/http/router.hpp>
-#include <koinos/net/protocol/jsonrpc/request_handler.hpp>
-#include <koinos/net/protocol/jsonrpc/types.hpp>
-
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+
+#include <koinos/net/protocol/jsonrpc/types.hpp>
+#include <koinos/net/transport/http/router.hpp>
+#include <koinos/net/transport/http/server.hpp>
 
 struct net_fixture
 {
@@ -31,7 +30,7 @@ struct net_fixture
       boost::asio::local::stream_protocol::endpoint endpoint( unix_socket.string() );
 
       // Create and launch a listening port
-      std::make_shared< koinos::net::transport::http::listener >(
+      std::make_shared< koinos::net::transport::http::server >(
          ioc,
          endpoint,
          http_router

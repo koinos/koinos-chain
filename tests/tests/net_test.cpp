@@ -2,18 +2,18 @@
 
 #include <koinos/tests/net_fixture.hpp>
 
-#include <koinos/net/protocol/jsonrpc/types.hpp>
 #include <koinos/exception.hpp>
+#include <koinos/net/protocol/jsonrpc/request_handler.hpp>
+#include <koinos/net/protocol/jsonrpc/types.hpp>
 
 BOOST_FIXTURE_TEST_SUITE( net_tests, net_fixture )
 
+using namespace boost::beast;
 using namespace koinos::net::protocol;
-using json = koinos::net::protocol::jsonrpc::json;
+using json = jsonrpc::json;
 
 BOOST_AUTO_TEST_CASE( http_server_tests )
 { try {
-   using namespace boost::beast;
-
    {
       BOOST_TEST_MESSAGE( "send an unsupported http method" );
       http::request< http::string_body > req { http::verb::delete_, "/", 11 };
@@ -66,39 +66,6 @@ BOOST_AUTO_TEST_CASE( http_server_tests )
       BOOST_REQUIRE( resp.body() == "unsupported content-type" );
    }
 
-   {
-      BOOST_TEST_MESSAGE( "send an http head request" );
-
-      auto request_handler = std::make_shared< jsonrpc::request_handler >();
-      http_router->handlers[ "application/json" ] = request_handler;
-
-      request_handler->add_method_handler( "add", []( const json::object_t& j ) -> json
-      {
-         if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-            throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
-
-         json result = j.at( "a" ).get< uint64_t >() + j.at( "b" ).get< uint64_t >();
-         return result;
-      } );
-
-      http::request< http::string_body > req { http::verb::head, "/", 11 };
-      req.set( http::field::host, "127.0.0.1" );
-      req.set( http::field::user_agent, "koinos_tests/1.0" );
-      req.set( http::field::content_type, "application/json" );
-      req.keep_alive( true );
-      req.body() = "{ \"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"add\", \"params\": { \"a\": 1, \"b\": 2 } }";
-      req.prepare_payload();
-      http::write( *socket, req );
-
-/* TODO: When parsing HTTP HEAD response we get a hang -- possibly because content length is not zero but the body is...
-      flat_buffer buffer;
-      http::response< http::empty_body > resp;
-      http::read( *socket, buffer, resp );
-
-      BOOST_TEST_MESSAGE( "-> verifying result" );
-      BOOST_REQUIRE( resp.result_int() == uint64_t( http::status::ok ) );
-*/
-   }
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )

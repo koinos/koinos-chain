@@ -6,14 +6,12 @@
 #include <optional>
 #include <unordered_map>
 
+#include <nlohmann/json.hpp>
+
 #include <koinos/net/protocol/jsonrpc/types.hpp>
 #include <koinos/net/transport/http/abstract_request_handler.hpp>
 
-#include <nlohmann/json.hpp>
-
 namespace koinos::net::protocol::jsonrpc {
-
-using json = nlohmann::json;
 
 class request_handler :
    public std::enable_shared_from_this< request_handler >,
@@ -91,11 +89,9 @@ public:
             .error = jsonrpc::error_type {
                .code = e.code,
                .message = e.what(),
+               .data = e.data
             }
          };
-
-         if ( e.data.has_value() )
-            resp.error->data = e.data.value();
       }
       catch ( const std::exception& e )
       {

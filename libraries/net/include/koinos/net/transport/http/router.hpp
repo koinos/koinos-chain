@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <string_view>
 #include <unordered_map>
 
 #include <boost/beast/core.hpp>
@@ -11,10 +10,9 @@
 
 namespace koinos::net::transport::http {
 
-namespace beast = boost::beast;
-namespace http = beast::http;
-
 constexpr const char* version_string = "Koinos/1.0";
+
+namespace { namespace http = boost::beast::http; }
 
 struct router
 {
@@ -23,7 +21,7 @@ struct router
    template< class Body, class Allocator, class Send >
    void handle( http::request< Body, http::basic_fields< Allocator > >&& req, Send&& send ) const
    {
-         // Returns a bad request response
+      // Returns a bad request response
       auto const bad_request = [ &req ]( std::string why )
       {
          http::response< http::string_body > res{ http::status::bad_request, req.version() };
@@ -64,7 +62,6 @@ struct router
          case http::verb::get:
          case http::verb::put:
          case http::verb::post:
-         case http::verb::head:
             break;
          default:
             return send( bad_request( "unsupported http method" ) );
@@ -91,17 +88,6 @@ struct router
 
       // Cache the size since we need it after the move
       auto const size = body.size();
-
-      // Respond to HEAD request
-      if ( req.method() == http::verb::head )
-      {
-         http::response< http::empty_body > res{ http::status::ok, req.version() };
-         res.set( http::field::server, version_string );
-         res.set( http::field::content_type, req[ http::field::content_type ] );
-         res.content_length( size );
-         res.keep_alive( req.keep_alive() );
-         return send( std::move( res ) );
-      }
 
       // Respond to GET/POST/PUT request
       http::response< http::string_body > res {

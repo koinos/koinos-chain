@@ -7,10 +7,10 @@
 #include <string>
 #include <variant>
 
+#include <nlohmann/json.hpp>
+
 #include <koinos/net/protocol/jsonrpc/fields.hpp>
 #include <koinos/util.hpp>
-
-#include <nlohmann/json.hpp>
 
 namespace koinos::net::protocol::jsonrpc {
 

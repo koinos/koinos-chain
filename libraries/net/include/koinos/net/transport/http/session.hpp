@@ -1,34 +1,36 @@
 #pragma once
 
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/asio/bind_executor.hpp>
-#include <boost/asio/dispatch.hpp>
-#include <boost/asio/generic/stream_protocol.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/make_unique.hpp>
-#include <boost/optional.hpp>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <vector>
 
-#include <koinos/net/transport/http/router.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/generic/stream_protocol.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/make_unique.hpp>
+#include <boost/optional.hpp>
+
 #include <koinos/log.hpp>
+#include <koinos/net/transport/http/router.hpp>
 
 namespace koinos::net::transport::http {
 
+namespace {
+
 namespace beast = boost::beast;
 namespace http = beast::http;
-namespace net = boost::asio;
-using stream_protocol = boost::asio::generic::stream_protocol;
+namespace asio = boost::asio;
+
+}
 
 // Handles an HTTP server connection
 class session : public std::enable_shared_from_this< session >
@@ -106,7 +108,7 @@ class session : public std::enable_shared_from_this< session >
       }
    };
 
-   beast::basic_stream< stream_protocol > stream_;
+   beast::basic_stream< asio::generic::stream_protocol > stream_;
    beast::flat_buffer buffer_;
    std::shared_ptr< const router > http_router_;
    queue queue_;
@@ -117,7 +119,7 @@ class session : public std::enable_shared_from_this< session >
 
 public:
    // Take ownership of the socket
-   session( stream_protocol::socket&& socket, std::shared_ptr< const router > const& http_router ) :
+   session( asio::generic::stream_protocol::socket&& socket, std::shared_ptr< const router > const& http_router ) :
       stream_( std::move( socket ) ),
       http_router_( http_router ),
       queue_( *this ) {}
@@ -129,7 +131,7 @@ public:
       // on the I/O objects in this session. Although not strictly necessary
       // for single-threaded contexts, this example code is written to be
       // thread-safe by default.
-      net::dispatch( stream_.get_executor(), beast::bind_front_handler( &session::do_read, this->shared_from_this() ) );
+      asio::dispatch( stream_.get_executor(), beast::bind_front_handler( &session::do_read, this->shared_from_this() ) );
    }
 
 
@@ -201,7 +203,7 @@ private:
    {
       // Send a TCP shutdown
       beast::error_code ec;
-      stream_.socket().shutdown( stream_protocol::socket::shutdown_send, ec );
+      stream_.socket().shutdown( asio::generic::stream_protocol::socket::shutdown_send, ec );
 
       // At this point the connection is closed gracefully
    }

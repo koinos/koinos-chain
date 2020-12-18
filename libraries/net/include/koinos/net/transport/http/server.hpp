@@ -1,69 +1,44 @@
 #pragma once
 
+#include <memory>
+
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/generic/stream_protocol.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
-#include <memory>
 
+#include <koinos/log.hpp>
 #include <koinos/net/transport/http/session.hpp>
 #include <koinos/net/transport/http/router.hpp>
-#include <koinos/log.hpp>
 
 namespace koinos::net::transport::http {
 
-namespace http = beast::http;
-namespace net = boost::asio;
-using stream_protocol = boost::asio::generic::stream_protocol;
-
 // Accepts incoming connections and launches the sessions
-class listener : public std::enable_shared_from_this< listener >
+class server : public std::enable_shared_from_this< server >
 {
-   net::io_context& ioc_;
-   net::basic_socket_acceptor< stream_protocol > acceptor_;
+   boost::asio::io_context& ioc_;
+   boost::asio::basic_socket_acceptor< boost::asio::generic::stream_protocol > acceptor_;
    std::shared_ptr< const router > router_;
 
 public:
-   listener( net::io_context& ioc, stream_protocol::endpoint endpoint, std::shared_ptr< const router > const& r ) :
+   server( boost::asio::io_context& ioc, boost::asio::generic::stream_protocol::endpoint endpoint, std::shared_ptr< const router > const& r ) :
       ioc_( ioc ),
-      acceptor_( net::make_strand( ioc ) ),
+      acceptor_( boost::asio::make_strand( ioc ) ),
       router_( r )
    {
-      beast::error_code ec;
-
       // Open the acceptor
-      acceptor_.open( endpoint.protocol(), ec );
-      if ( ec )
-      {
-         LOG(error) << "open: " << ec.message();
-         return;
-      }
+      acceptor_.open( endpoint.protocol() );
 
       // Allow address reuse
-      acceptor_.set_option( net::socket_base::reuse_address( true ), ec );
-      if ( ec )
-      {
-         LOG(error) << "set_option: " << ec.message();
-         return;
-      }
+      acceptor_.set_option( boost::asio::socket_base::reuse_address( true ) );
 
       // Bind to the server address
-      acceptor_.bind( endpoint, ec );
-      if ( ec )
-      {
-         LOG(error) << "bind: " << ec.message();
-         return;
-      }
+      acceptor_.bind( endpoint );
 
       // Start listening for connections
-      acceptor_.listen( net::socket_base::max_listen_connections, ec );
-      if ( ec )
-      {
-         LOG(error) << "listen: " << ec.message();
-         return;
-      }
+      acceptor_.listen( boost::asio::socket_base::max_listen_connections );
    }
 
    // Start accepting incoming connections
@@ -73,17 +48,17 @@ public:
       // on the I/O objects in this session. Although not strictly necessary
       // for single-threaded contexts, this example code is written to be
       // thread-safe by default.
-      net::dispatch( acceptor_.get_executor(), beast::bind_front_handler( &listener::do_accept, this->shared_from_this() ) );
+      boost::asio::dispatch( acceptor_.get_executor(), boost::beast::bind_front_handler( &server::do_accept, this->shared_from_this() ) );
    }
 
 private:
    void do_accept()
    {
       // The new connection gets its own strand
-      acceptor_.async_accept( net::make_strand( ioc_ ), beast::bind_front_handler( &listener::on_accept, shared_from_this() ) );
+      acceptor_.async_accept( boost::asio::make_strand( ioc_ ), boost::beast::bind_front_handler( &server::on_accept, this->shared_from_this() ) );
    }
 
-   void on_accept( beast::error_code ec, stream_protocol::socket socket )
+   void on_accept( boost::beast::error_code ec, boost::asio::generic::stream_protocol::socket socket )
    {
       if ( ec )
       {
@@ -91,8 +66,8 @@ private:
       }
       else
       {
-         // Create the http session and run it
-         std::make_shared< session >( std::move( socket ), router_ )->run();
+         // Create the session and run it
+         std::make_shared< koinos::net::transport::http::session >( std::move( socket ), router_ )->run();
       }
 
       // Accept another connection
