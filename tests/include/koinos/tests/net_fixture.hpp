@@ -55,7 +55,7 @@ struct net_fixture
       boost::asio::write( *socket, boost::asio::buffer( payload ) );
    }
 
-   void write_http( const std::string& payload )
+   void write_http( const std::string& payload, const std::string& content_type = "application/json" )
    {
       boost::beast::http::request< boost::beast::http::string_body > req { boost::beast::http::verb::post, "/", 11 };
       req.set( boost::beast::http::field::host, "127.0.0.1" );

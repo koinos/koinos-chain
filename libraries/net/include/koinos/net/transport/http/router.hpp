@@ -24,31 +24,37 @@ struct router
    void handle( http::request< Body, http::basic_fields< Allocator > >&& req, Send&& send ) const
    {
          // Returns a bad request response
-      auto const bad_request = [ &req ]( beast::string_view why )
+      auto const bad_request = [ &req ]( std::string why )
       {
          http::response< http::string_body > res{ http::status::bad_request, req.version() };
          res.set( http::field::server, version_string );
+         res.set( http::field::content_type, "text/html" );
          res.keep_alive( req.keep_alive() );
+         res.body() = std::move( why );
          res.prepare_payload();
          return res;
       };
 
       // Returns a not found response
-      auto const not_found = [ &req ]( beast::string_view target )
+      auto const not_found = [ &req ]( std::string why )
       {
          http::response< http::string_body > res{ http::status::not_found, req.version() };
          res.set( http::field::server, version_string );
+         res.set( http::field::content_type, "text/html" );
          res.keep_alive( req.keep_alive() );
+         res.body() = std::move( why );
          res.prepare_payload();
          return res;
       };
 
       // Returns a server error response
-      auto const server_error = [ &req ]( beast::string_view what )
+      auto const server_error = [ &req ]( std::string why )
       {
-         http::response< http::empty_body > res{ http::status::internal_server_error, req.version() };
+         http::response< http::string_body > res{ http::status::internal_server_error, req.version() };
          res.set( http::field::server, version_string );
+         res.set( http::field::content_type, "text/html" );
          res.keep_alive( req.keep_alive() );
+         res.body() = std::move( why );
          res.prepare_payload();
          return res;
       };
@@ -64,9 +70,8 @@ struct router
             return send( bad_request( "unsupported http method" ) );
       }
 
-      if ( !req.target().empty() && req.target()[0] != '/' )
-         return send( bad_request( "unsupported target" ) );
-
+      if ( req.target().empty() || req.target() != "/" )
+         return send( not_found( "unsupported target" ) );
 
       http::string_body::value_type body;
 
@@ -92,6 +97,7 @@ struct router
       {
          http::response< http::empty_body > res{ http::status::ok, req.version() };
          res.set( http::field::server, version_string );
+         res.set( http::field::content_type, req[ http::field::content_type ] );
          res.content_length( size );
          res.keep_alive( req.keep_alive() );
          return send( std::move( res ) );
@@ -105,6 +111,7 @@ struct router
       };
 
       res.set( http::field::server, version_string );
+      res.set( http::field::content_type, req[ http::field::content_type ] );
       res.content_length( size );
       res.keep_alive( req.keep_alive() );
       return send( std::move( res ) );

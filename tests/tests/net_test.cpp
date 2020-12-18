@@ -4,11 +4,102 @@
 
 #include <koinos/net/protocol/jsonrpc/types.hpp>
 #include <koinos/exception.hpp>
-#include<iostream>
+
 BOOST_FIXTURE_TEST_SUITE( net_tests, net_fixture )
 
 using namespace koinos::net::protocol;
 using json = koinos::net::protocol::jsonrpc::json;
+
+BOOST_AUTO_TEST_CASE( http_server_tests )
+{ try {
+   using namespace boost::beast;
+
+   {
+      BOOST_TEST_MESSAGE( "send an unsupported http method" );
+      http::request< http::string_body > req { http::verb::delete_, "/", 11 };
+      req.set( http::field::host, "127.0.0.1" );
+      req.set( http::field::user_agent, "koinos_tests/1.0" );
+      req.set( http::field::content_type, "text/html" );
+      req.keep_alive( true );
+      req.prepare_payload();
+      http::write( *socket, req );
+
+      auto resp = read_http();
+
+      BOOST_TEST_MESSAGE( "-> verifying result" );
+      BOOST_REQUIRE( resp.result_int() == uint64_t( http::status::bad_request ) );
+      BOOST_REQUIRE( resp.body() == "unsupported http method" );
+   }
+
+   {
+      BOOST_TEST_MESSAGE( "send an unsupported http target" );
+      http::request< http::string_body > req { http::verb::post, "/unknown", 11 };
+      req.set( http::field::host, "127.0.0.1" );
+      req.set( http::field::user_agent, "koinos_tests/1.0" );
+      req.set( http::field::content_type, "text/html" );
+      req.keep_alive( true );
+      req.prepare_payload();
+      http::write( *socket, req );
+
+      auto resp = read_http();
+
+      BOOST_TEST_MESSAGE( "-> verifying result" );
+      BOOST_REQUIRE( resp.result_int() == uint64_t( http::status::not_found ) );
+      BOOST_REQUIRE( resp.body() == "unsupported target" );
+   }
+
+   {
+      BOOST_TEST_MESSAGE( "send an unsupported content type" );
+
+      http::request< http::string_body > req { http::verb::post, "/", 11 };
+      req.set( http::field::host, "127.0.0.1" );
+      req.set( http::field::user_agent, "koinos_tests/1.0" );
+      req.set( http::field::content_type, "text/html" );
+      req.keep_alive( true );
+      req.prepare_payload();
+      http::write( *socket, req );
+
+      auto resp = read_http();
+
+      BOOST_TEST_MESSAGE( "-> verifying result" );
+      BOOST_REQUIRE( resp.result_int() == uint64_t( http::status::internal_server_error ) );
+      BOOST_REQUIRE( resp.body() == "unsupported content-type" );
+   }
+
+   {
+      BOOST_TEST_MESSAGE( "send an http head request" );
+
+      auto request_handler = std::make_shared< jsonrpc::request_handler >();
+      http_router->handlers[ "application/json" ] = request_handler;
+
+      request_handler->add_method_handler( "add", []( const json::object_t& j ) -> json
+      {
+         if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
+            throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
+
+         json result = j.at( "a" ).get< uint64_t >() + j.at( "b" ).get< uint64_t >();
+         return result;
+      } );
+
+      http::request< http::string_body > req { http::verb::head, "/", 11 };
+      req.set( http::field::host, "127.0.0.1" );
+      req.set( http::field::user_agent, "koinos_tests/1.0" );
+      req.set( http::field::content_type, "application/json" );
+      req.keep_alive( true );
+      req.body() = "{ \"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"add\", \"params\": { \"a\": 1, \"b\": 2 } }";
+      req.prepare_payload();
+      http::write( *socket, req );
+
+/* TODO: When parsing HTTP HEAD response we get a hang -- possibly because content length is not zero but the body is...
+      flat_buffer buffer;
+      http::response< http::empty_body > resp;
+      http::read( *socket, buffer, resp );
+
+      BOOST_TEST_MESSAGE( "-> verifying result" );
+      BOOST_REQUIRE( resp.result_int() == uint64_t( http::status::ok ) );
+*/
+   }
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
 { try {
@@ -21,7 +112,7 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
    request_handler->add_method_handler( "add", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
 
       json result = j.at( "a" ).get< uint64_t >() + j.at( "b" ).get< uint64_t >();
       return result;
@@ -30,7 +121,7 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
    request_handler->add_method_handler( "sub", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
 
       json result = j.at( "a" ).get< uint64_t >() - j.at( "b" ).get< uint64_t >();
       return result;
@@ -39,7 +130,7 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
    request_handler->add_method_handler( "mul", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
 
       json result = j.at( "a" ).get< uint64_t >() * j.at( "b" ).get< uint64_t >();
       return result;
@@ -48,7 +139,7 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
    request_handler->add_method_handler( "div", []( const json::object_t& j ) -> json
    {
       if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
-         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist and be numbers" );
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
 
       if ( j.at( "b" ).get< uint64_t >() == 0 )
          throw std::runtime_error( "cannot divide by zero" );
@@ -226,7 +317,7 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
    BOOST_REQUIRE( !res.result.has_value() );
    BOOST_REQUIRE( res.error->code == jsonrpc::error_code::invalid_params );
    BOOST_REQUIRE( res.error->message == "invalid params" );
-   BOOST_REQUIRE( res.error->data.value() == "\"a\" and \"b\" must exist and be numbers"  );
+   BOOST_REQUIRE( res.error->data.value() == "\"a\" and \"b\" must exist as numbers"  );
 
    BOOST_TEST_MESSAGE( "sending request that throws a server error" );
 
