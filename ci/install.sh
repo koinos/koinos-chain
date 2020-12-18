@@ -1,9 +1,9 @@
 #!/bin/bash
 
-if [ "$CC" = "clang-11" ]; then
+if [ "$CC" = "clang-10" ]; then
    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-   sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
-   sudo apt-get install -y llvm-11 clang-11
+   sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-10 main'
+   sudo apt-get install -y llvm-10 clang-10
 fi
 
 if [ "$RUN_TYPE" = "coverage" ]; then
