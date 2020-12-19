@@ -10,6 +10,14 @@ if(CCACHE_PROGRAM)
    set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS   "${CMAKE_SOURCE_DIR}/ci/ccache_clang++")
 endif()
 
+set(
+   HUNTER_CACHE_SERVERS
+   "git@github.com:koinos/hunter-cache.git"
+   CACHE
+   STRING
+   "Default cache server"
+)
+
 include("cmake/HunterGate.cmake")
 
 HunterGate(
