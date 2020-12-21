@@ -13,9 +13,7 @@
 
 namespace koinos::net::protocol::jsonrpc {
 
-class request_handler :
-   public std::enable_shared_from_this< request_handler >,
-   public koinos::net::transport::http::abstract_request_handler
+class request_handler : public koinos::net::transport::http::abstract_request_handler
 {
 public:
    using method_handler = std::function< json( const json::object_t& ) >;
