@@ -1,18 +1,18 @@
 
-add_library( koinos_plugins
+add_library(koinos_plugins
    mf_plugins.cpp
    ${CMAKE_CURRENT_SOURCE_DIR}/include/koinos/manifest/plugins.hpp
 )
 
-target_link_libraries( koinos_plugins appbase
+add_library(Koinos::plugins ALIAS koinos_plugins)
+
+target_link_libraries(koinos_plugins appbase
 {% for plugin in plugins %}
    {{ plugin["plugin_project"] }}
 {% endfor %}
 )
 
-target_include_directories( koinos_plugins
-   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
-   )
+target_include_directories(koinos_plugins PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 INSTALL( TARGETS
    koinos_plugins
