@@ -18,7 +18,7 @@
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
 
-#include <koinos/chain/controller.hpp>
+#include <koinos/plugins/chain/reqhandler.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -44,7 +44,7 @@
 #include <mutex>
 #include <optional>
 
-namespace koinos::chain {
+namespace koinos::plugins::chain {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
@@ -56,6 +56,12 @@ using namespace koinos::types;
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
 namespace detail {
+
+using koinos::chain::host_api;
+using koinos::chain::apply_context;
+using koinos::chain::privilege;
+using koinos::chain::thunk::apply_block;
+using koinos::chain::thunk::get_head_info;
 
 struct block_submission_impl
 {
@@ -97,7 +103,7 @@ struct work_item
 /**
  * Submission API for blocks, transactions, and queries.
  *
- * chain_controller manages the locks on the DB.
+ * reqhandler manages the locks on the DB.
  *
  * It knows which queries can run together based on the internal semantics of the DB,
  * so multithreading must live in this class.
@@ -112,11 +118,11 @@ struct work_item
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
  */
-class controller_impl
+class reqhandler_impl
 {
    public:
-      controller_impl();
-      virtual ~controller_impl();
+      reqhandler_impl();
+      virtual ~reqhandler_impl();
 
       void start_threads();
       void stop_threads();
@@ -139,8 +145,8 @@ class controller_impl
 
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
-      std::unique_ptr< chain::host_api >                                       _host_api;
-      std::unique_ptr< chain::apply_context >                                  _ctx;
+      std::unique_ptr< host_api >                                              _host_api;
+      std::unique_ptr< apply_context >                                         _ctx;
 
       // Item lifetime:
       //
@@ -161,27 +167,27 @@ class controller_impl
       std::optional< std::chrono::time_point< std::chrono::steady_clock > >    _now;
 };
 
-controller_impl::controller_impl()
+reqhandler_impl::reqhandler_impl()
 {
    koinos::chain::register_host_functions();
-   _ctx = std::make_unique< chain::apply_context >();
-   _ctx->privilege_level = chain::privilege::kernel_mode;
-   _host_api = std::make_unique< chain::host_api >( *_ctx );
+   _ctx = std::make_unique< apply_context >();
+   _ctx->privilege_level = privilege::kernel_mode;
+   _host_api = std::make_unique< host_api >( *_ctx );
 }
 
-controller_impl::~controller_impl() = default;
+reqhandler_impl::~reqhandler_impl() = default;
 
-std::chrono::time_point< std::chrono::steady_clock > controller_impl::now()
+std::chrono::time_point< std::chrono::steady_clock > reqhandler_impl::now()
 {
    return (_now) ? (*_now) : std::chrono::steady_clock::now();
 }
 
-void controller_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
+void reqhandler_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
 {
    _now = t;
 }
 
-std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit( const rpc::submission_item& item )
+std::future< std::shared_ptr< rpc::submission_result > > reqhandler_impl::submit( const rpc::submission_item& item )
 {
    std::shared_ptr< item_submission_impl > impl_item;
 
@@ -222,12 +228,12 @@ std::future< std::shared_ptr< rpc::submission_result > > controller_impl::submit
    return fut_output;
 }
 
-void controller_impl::open( const boost::filesystem::path& p, const std::any& o )
+void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o )
 {
    _state_db.open( p, o );
 }
 
-void controller_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
+void reqhandler_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( crypto::multihash_is_zero( block.submission.topology.previous ) )
@@ -243,7 +249,7 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, con
    {
       _ctx->set_state_node( block_node );
 
-      thunk::apply_block(
+      apply_block(
          *_ctx,
          block.submission.block,
          block.submission.verify_passive_data,
@@ -265,12 +271,12 @@ void controller_impl::process_submission( rpc::block_submission_result& ret, con
    KOINOS_TODO( "Report success / failure to caller" )
 }
 
-void controller_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
+void reqhandler_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void controller_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
+void reqhandler_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
 {
    query.submission.unbox();
    ret.make_mutable();
@@ -282,7 +288,7 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, con
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            ret = rpc::query_submission_result( thunk::get_head_info( *_ctx ) );
+            ret = rpc::query_submission_result( get_head_info( *_ctx ) );
          }
          catch ( const koinos::chain::database_exception& e )
          {
@@ -304,7 +310,7 @@ void controller_impl::process_submission( rpc::query_submission_result& ret, con
    ret.make_immutable();
 }
 
-std::shared_ptr< rpc::submission_result > controller_impl::process_item( std::shared_ptr< item_submission_impl > item )
+std::shared_ptr< rpc::submission_result > reqhandler_impl::process_item( std::shared_ptr< item_submission_impl > item )
 {
    rpc::submission_result result;
 
@@ -332,7 +338,7 @@ std::shared_ptr< rpc::submission_result > controller_impl::process_item( std::sh
    return std::make_shared< rpc::submission_result >( result );
 }
 
-void controller_impl::feed_thread_main()
+void reqhandler_impl::feed_thread_main()
 {
    while ( true )
    {
@@ -358,7 +364,7 @@ void controller_impl::feed_thread_main()
    }
 }
 
-void controller_impl::work_thread_main()
+void reqhandler_impl::work_thread_main()
 {
    while( true )
    {
@@ -404,7 +410,7 @@ void controller_impl::work_thread_main()
    }
 }
 
-void controller_impl::start_threads()
+void reqhandler_impl::start_threads()
 {
    boost::thread::attributes attrs;
    attrs.set_stack_size( _thread_stack_size );
@@ -418,7 +424,7 @@ void controller_impl::start_threads()
    _feed_thread.emplace( attrs, [this]() { feed_thread_main(); } );
 }
 
-void controller_impl::stop_threads()
+void reqhandler_impl::stop_threads()
 {
    //
    // We must close the queues in order from last to first:  A later queue may be waiting on
@@ -438,33 +444,33 @@ void controller_impl::stop_threads()
 
 } // detail
 
-controller::controller() : _my( std::make_unique< detail::controller_impl >() ) {}
+reqhandler::reqhandler() : _my( std::make_unique< detail::reqhandler_impl >() ) {}
 
-controller::~controller() = default;
+reqhandler::~reqhandler() = default;
 
-std::future< std::shared_ptr< rpc::submission_result > > controller::submit( const rpc::submission_item& item )
+std::future< std::shared_ptr< rpc::submission_result > > reqhandler::submit( const rpc::submission_item& item )
 {
    return _my->submit( item );
 }
 
-void controller::open( const boost::filesystem::path& p, const std::any& o )
+void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
 {
    _my->open( p, o );
 }
 
-void controller::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
+void reqhandler::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
 {
    _my->set_time( t );
 }
 
-void controller::start_threads()
+void reqhandler::start_threads()
 {
    _my->start_threads();
 }
 
-void controller::stop_threads()
+void reqhandler::stop_threads()
 {
    _my->stop_threads();
 }
 
-} // koinos::chain
+} // koinos::plugins::chain

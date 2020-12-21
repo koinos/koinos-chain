@@ -5,7 +5,6 @@ add_library(koinos_chain
             system_calls.cpp
             thunk_dispatcher.cpp
             thunks.cpp
-            controller.cpp
             ${HEADERS})
 target_link_libraries(koinos_chain eos-vm mira softfloat Koinos::statedb Koinos::exception Koinos::crypto builtins Koinos::log Koinos::util)
 target_include_directories(koinos_chain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

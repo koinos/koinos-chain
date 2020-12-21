@@ -1,5 +1,7 @@
 #include <thread>
 #include <chrono>
+
+#include <boost/filesystem.hpp>
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread.hpp>
 
@@ -15,6 +17,7 @@ namespace koinos::plugins::block_producer {
 using namespace koinos::types;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+namespace bfs = boost::filesystem;
 
 static types::timestamp_type timestamp_now()
 {
@@ -39,8 +42,8 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    // Get previous block data
    rpc::block_topology topology;
 
-   auto& controller = appbase::app().get_plugin< chain::chain_plugin >().controller();
-   auto r = controller.submit( rpc::query_submission( rpc::get_head_info_params() ) );
+   chain::chain_plugin& ch = appbase::app().get_plugin< chain::chain_plugin >();
+   auto r = ch.submit( rpc::query_submission( rpc::get_head_info_params() ) );
 
    try
    {
@@ -77,7 +80,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
 
    // Submit the block
-   r = controller.submit( rpc::block_submission{
+   r = ch.submit( rpc::block_submission{
       .topology = topology,
       .block = *block,
       .verify_passive_data = true,
