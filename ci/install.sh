@@ -7,8 +7,8 @@ if [ "$CC" = "clang-11" ]; then
 fi
 
 if [ "$RUN_TYPE" = "coverage" ]; then
-      sudo apt-get install -y lcov ruby
-      sudo gem install coveralls-lcov
+   sudo apt-get install -y lcov ruby
+   sudo gem install coveralls-lcov
 fi
 
 pip3 install --user dataclasses_json Jinja2 importlib_resources pluginbase

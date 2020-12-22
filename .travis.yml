@@ -1,13 +1,14 @@
 language: c++
 
 cache:
-- ccache
-- pip
+  ccache: true
+  pip: true
+  directories:
+    - $HOME/.hunter
 
 addons:
   apt:
     packages:
-      - libboost-all-dev
       - libgflags-dev
       - python3
       - python3-pip
