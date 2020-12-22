@@ -40,9 +40,6 @@ class reqhandler
       void start_threads();
       void stop_threads();
 
-      // Mock the clock for debugging
-      void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
-
    private:
       std::unique_ptr< detail::reqhandler_impl > _my;
 };

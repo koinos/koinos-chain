@@ -129,7 +129,6 @@ class reqhandler_impl
 
       std::future< std::shared_ptr< rpc::submission_result > > submit( const rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o );
-      void set_time( std::chrono::time_point< std::chrono::steady_clock > t );
 
    private:
       std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
@@ -164,7 +163,6 @@ class reqhandler_impl
       size_t                                                                   _thread_stack_size = 4096*1024;
       std::optional< boost::thread >                                           _feed_thread;
       std::vector< boost::thread >                                             _work_threads;
-      std::optional< std::chrono::time_point< std::chrono::steady_clock > >    _now;
 };
 
 reqhandler_impl::reqhandler_impl()
@@ -179,12 +177,7 @@ reqhandler_impl::~reqhandler_impl() = default;
 
 std::chrono::time_point< std::chrono::steady_clock > reqhandler_impl::now()
 {
-   return (_now) ? (*_now) : std::chrono::steady_clock::now();
-}
-
-void reqhandler_impl::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
-{
-   _now = t;
+   return std::chrono::steady_clock::now();
 }
 
 std::future< std::shared_ptr< rpc::submission_result > > reqhandler_impl::submit( const rpc::submission_item& item )
@@ -456,11 +449,6 @@ std::future< std::shared_ptr< rpc::submission_result > > reqhandler::submit( con
 void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
 {
    _my->open( p, o );
-}
-
-void reqhandler::set_time( std::chrono::time_point< std::chrono::steady_clock > t )
-{
-   _my->set_time( t );
 }
 
 void reqhandler::start_threads()
