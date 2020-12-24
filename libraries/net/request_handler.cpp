@@ -1,11 +1,6 @@
 
 #include <koinos/net/protocol/jsonrpc/request_handler.hpp>
 
-namespace koinos::net::transport::http {
-abstract_request_handler::abstract_request_handler() {}
-abstract_request_handler::~abstract_request_handler() {}
-}
-
 namespace koinos::net::protocol::jsonrpc {
 
 request_handler::request_handler() {}
