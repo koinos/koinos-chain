@@ -2,7 +2,7 @@ file(GLOB HEADERS "include/koinos/net/protocol/jsonrpc/*.hpp" "include/koinos/ne
 
 find_package(Boost CONFIG REQUIRED COMPONENTS system)
 
-add_library(koinos_net ${HEADERS} server.cpp)
+add_library(koinos_net ${HEADERS} request_handler.cpp server.cpp types.cpp)
 
 target_include_directories(koinos_net PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(koinos_net PUBLIC Boost::system Koinos::log Koinos::util nlohmann_json)
