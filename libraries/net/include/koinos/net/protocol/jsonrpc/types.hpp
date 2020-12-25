@@ -14,6 +14,8 @@
 
 namespace koinos::net::protocol::jsonrpc {
 
+using json = nlohmann::json;
+
 using id_type = std::variant< std::string, uint64_t, std::nullptr_t >;
 
 enum class error_code : int32_t
@@ -31,9 +33,9 @@ struct exception : virtual std::exception
    const std::string msg;
    const jsonrpc::id_type id;
    const jsonrpc::error_code code;
-   const std::optional< std::string > data;
+   const std::optional< json > data;
 
-   exception( jsonrpc::error_code c, const std::string& m, std::optional< std::string > d = {}, jsonrpc::id_type i = nullptr );
+   exception( jsonrpc::error_code c, const std::string& m, std::optional< json > d = {}, jsonrpc::id_type i = nullptr );
    virtual ~exception();
 
    virtual const char* what() const noexcept override;
@@ -83,8 +85,6 @@ template <> struct adl_serializer< koinos::net::protocol::jsonrpc::id_type >
 
 namespace koinos::net::protocol::jsonrpc {
 
-using json = nlohmann::json;
-
 struct request
 {
    std::string    jsonrpc;
@@ -102,7 +102,7 @@ struct error_type
 {
    error_code                   code;
    std::string                  message;
-   std::optional< std::string > data;
+   std::optional< json >        data;
 };
 
 void to_json( json& j, const error_type& e );

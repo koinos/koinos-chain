@@ -6,7 +6,7 @@ namespace koinos::net::protocol::jsonrpc {
 exception::exception(
    jsonrpc::error_code c,
    const std::string& m,
-   std::optional< std::string > d /* = {} */,
+   std::optional< json > d /* = {} */,
    jsonrpc::id_type i /* = nullptr */
    ) :
       code( c ),
