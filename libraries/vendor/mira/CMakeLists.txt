@@ -14,7 +14,8 @@ LIST(APPEND BOOST_COMPONENTS thread
                              unit_test_framework
                              locale)
 
-FIND_PACKAGE(Boost 1.58 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+find_package(Boost 1.58 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+find_package(nlohmann_json CONFIG REQUIRED)
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 
 if( APPLE )
@@ -54,7 +55,7 @@ if( CLANG_TIDY_EXE )
    )
 endif( CLANG_TIDY_EXE )
 
-target_link_libraries( mira ${Boost_LIBRARIES} rocksdb nlohmann_json )
+target_link_libraries( mira ${Boost_LIBRARIES} rocksdb nlohmann_json::nlohmann_json )
 
 target_include_directories( mira
    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
