@@ -4,7 +4,7 @@ hunter_config(Boost
 )
 
 hunter_config(rocksdb
-   VERSION ${HUNTER_rocksdb_VERSION}
+   VERSION 5.8.6
    CMAKE_ARGS
       WITH_TESTS=OFF
       WITH_TOOLS=OFF
