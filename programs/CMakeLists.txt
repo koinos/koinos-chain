@@ -1,3 +1,3 @@
 add_subdirectory(koinosd)
-add_subdirectory(koinos-vm)
+add_subdirectory(koinos_vm)
 

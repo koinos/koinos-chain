@@ -18,3 +18,4 @@ hunter_config(rocksdb
       CMAKE_CXX_FLAGS=-fvisibility=hidden
       CMAKE_C_FLAGS=-fvisibility=hidden
 )
+

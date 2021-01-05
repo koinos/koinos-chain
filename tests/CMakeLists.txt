@@ -55,7 +55,7 @@ add_boost_test( koinos_tests
    TESTS ${TEST_CASES}
 )
 
-target_link_libraries(koinos_tests mira koinos_types koinos_chain koinos_crypto koinos_statedb koinos_log koinos_util koinos_exception koinos_plugins koinos_net ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(koinos_tests mira Koinos::types Koinos::chain Koinos::crypto Koinos::statedb Koinos::log Koinos::util Koinos::exception Koinos::plugins Koinos::net ${PLATFORM_SPECIFIC_LIBS})
 target_include_directories(koinos_tests PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>  # <prefix>/include
