@@ -1,5 +1,5 @@
 
-cmake_minimum_required (VERSION 3.10.2)
+cmake_minimum_required(VERSION 3.10.2)
 
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -28,12 +28,12 @@ set(
     "Hunter passwords"
 )
 
-project( koinos )
+project(koinos)
 
-option (FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
+option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
 # This is to force color output when using ccache with Unix Makefiles
-if( ${FORCE_COLORED_OUTPUT} )
+if(${FORCE_COLORED_OUTPUT})
     if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" )
        add_compile_options (-fdiagnostics-color=always)
     elseif( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang" )
@@ -47,18 +47,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror" )
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas" )
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unknown-pragmas" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas" )
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unknown-pragmas" )
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
 
 if(APPLE)
-   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE")
-   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE")
+   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
 endif()
 
 set(Boost_USE_STATIC_LIBS ON)
@@ -70,7 +70,7 @@ if(${CMAKE_GENERATOR} MATCHES "Xcode")
   set(CMAKE_XCODE_GENERATE_SCHEME YES)
 endif()
 
-if (COVERAGE)
+if(COVERAGE)
   include(CodeCoverage)
   append_coverage_compiler_flags()
   setup_target_for_coverage_lcov(
@@ -80,6 +80,7 @@ if (COVERAGE)
      EXCLUDE "libraries/vendor/*" "build/generated/*")
 endif()
 
+hunter_add_package(rocksdb)
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
@@ -87,3 +88,4 @@ hunter_add_package(OpenSSL)
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
+

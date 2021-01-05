@@ -1,12 +1,12 @@
 # Defines MIRA library target.
-project( MIRA )
-cmake_minimum_required( VERSION 2.8.12 )
+project(MIRA)
+cmake_minimum_required(VERSION 2.8.12)
 
 file(GLOB HEADERS "include/mira/*.hpp" "include/mira/detail/*.hpp")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
-SET(BOOST_COMPONENTS)
-LIST(APPEND BOOST_COMPONENTS thread
+set(BOOST_COMPONENTS)
+list(APPEND BOOST_COMPONENTS thread
                              date_time
                              system
                              filesystem
@@ -14,9 +14,10 @@ LIST(APPEND BOOST_COMPONENTS thread
                              unit_test_framework
                              locale)
 
-find_package(Boost 1.58 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+find_package(Boost CONFIG REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+find_package(RocksDB CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
+set(Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF")
 
 if( APPLE )
   # Apple Specific Options Here
@@ -55,22 +56,16 @@ if( CLANG_TIDY_EXE )
    )
 endif( CLANG_TIDY_EXE )
 
-target_link_libraries( mira ${Boost_LIBRARIES} rocksdb nlohmann_json::nlohmann_json )
-
-target_include_directories( mira
-   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
-          "${CMAKE_CURRENT_SOURCE_DIR}/../rocksdb/include"
-          ${Boost_INCLUDE_DIR}
-   )
+target_link_libraries(mira PUBLIC Boost::boost Boost::filesystem Boost::thread Boost::system Boost::chrono Boost::date_time Boost::locale RocksDB::rocksdb nlohmann_json::nlohmann_json)
+target_include_directories(mira PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # TODO:  Fix tests properly instead of commenting out the build
-add_subdirectory( test )
+add_subdirectory(test)
 
-INSTALL( TARGETS
+install(TARGETS
    mira
-
    RUNTIME DESTINATION bin
    LIBRARY DESTINATION lib
    ARCHIVE DESTINATION lib
 )
-INSTALL( FILES ${HEADERS} DESTINATION "include/mira" )
+install(FILES ${HEADERS} DESTINATION "include/mira")
