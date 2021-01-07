@@ -15,10 +15,16 @@ include("cmake/HunterGate.cmake")
 option(HUNTER_RUN_UPLOAD "Upload cache binaries" OFF)
 
 HunterGate(
-   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
-   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
+   URL "https://github.com/koinos/hunter/archive/rocksdb.tar.gz"
+   SHA1 "b5dc3af780ba255ee6103bfc306403738735f420"
    LOCAL
 )
+
+#HunterGate(
+#   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
+#   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
+#   LOCAL
+#)
 
 set(
     HUNTER_PASSWORDS_PATH
