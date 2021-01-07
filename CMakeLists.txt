@@ -12,8 +12,6 @@ endif()
 
 include("cmake/HunterGate.cmake")
 
-option(HUNTER_RUN_UPLOAD "Upload cache binaries" OFF)
-
 HunterGate(
    URL "https://github.com/koinos/hunter/archive/rocksdb.tar.gz"
    SHA1 "b5dc3af780ba255ee6103bfc306403738735f420"
@@ -25,14 +23,6 @@ HunterGate(
 #   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
 #   LOCAL
 #)
-
-set(
-    HUNTER_PASSWORDS_PATH
-    "${CMAKE_CURRENT_LIST_DIR}/cmake/Hunter/passwords.cmake"
-    CACHE
-    FILEPATH
-    "Hunter passwords"
-)
 
 project(koinos)
 
@@ -86,12 +76,11 @@ if(COVERAGE)
      EXCLUDE "libraries/vendor/*" "build/generated/*")
 endif()
 
-hunter_add_package(rocksdb)
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
+hunter_add_package(rocksdb)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
-
