@@ -10,6 +10,8 @@ if(CCACHE_PROGRAM)
    set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS   "${CMAKE_SOURCE_DIR}/ci/ccache_clang++")
 endif()
 
+option(HUNTER_RUN_UPLOAD "Upload Hunter packages to binary cache server" OFF)
+
 set(
    HUNTER_CACHE_SERVERS
    "https://github.com/koinos/hunter-cache"
