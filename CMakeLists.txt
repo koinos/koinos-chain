@@ -75,7 +75,6 @@ if(APPLE)
    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
 endif()
 
-set(Boost_USE_STATIC_LIBS ON)
 set(Boost_NO_BOOST_CMAKE ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
