@@ -115,6 +115,18 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
       return result;
    } );
 
+   request_handler->add_method_handler( "div_2", []( const json::object_t& j ) -> json
+   {
+      if ( !j.count( "a" ) || !j.count( "b" ) || !j.at( "a" ).is_number() || !j.at( "b" ).is_number() )
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", "\"a\" and \"b\" must exist as numbers" );
+
+      if ( j.at( "b" ).get< uint64_t >() == 0 )
+         throw jsonrpc::exception( jsonrpc::error_code::invalid_params, "invalid params", json::object_t { { "b", "cannot be zero" } } );
+
+      json result = j.at( "a" ).get< uint64_t >() / j.at( "b" ).get< uint64_t >();
+      return result;
+   } );
+
    BOOST_TEST_MESSAGE( "adding duplicate method handler 'div'" );
 
    BOOST_REQUIRE_THROW(
@@ -307,6 +319,28 @@ BOOST_AUTO_TEST_CASE( jsonrpc_server_tests )
    BOOST_REQUIRE( res.error->code == jsonrpc::error_code::server_error );
    BOOST_REQUIRE( res.error->message == "a server error has occurred" );
    BOOST_REQUIRE( res.error->data.value() == "cannot divide by zero" );
+
+   BOOST_TEST_MESSAGE( "sending request that throws a structured data object" );
+
+   req.id = uint64_t( 66 );
+   req.method = "div_2";
+   req.jsonrpc = "2.0";
+   req.params = json::object_t {
+      { "a", 100 },
+      { "b", 0 }
+   };
+
+   write_request( req );
+
+   res = read_response();
+
+   BOOST_TEST_MESSAGE( "-> verifying result" );
+   BOOST_REQUIRE_EQUAL( res.jsonrpc, "2.0" );
+   BOOST_REQUIRE( std::get< uint64_t >( res.id ) == 66 );
+   BOOST_REQUIRE( !res.result.has_value() );
+   BOOST_REQUIRE( res.error->code == jsonrpc::error_code::invalid_params );
+   BOOST_REQUIRE( res.error->message == "invalid params" );
+   BOOST_REQUIRE( res.error->data.value().at( "b" ) == "cannot be zero" );
 
    BOOST_TEST_MESSAGE( "sending request that has a malformed json request" );
 
