@@ -18,6 +18,14 @@ set(
    "Default cache server"
 )
 
+set(
+   HUNTER_PASSWORDS_PATH
+   "${CMAKE_CURRENT_LIST_DIR}/cmake/Hunter/passwords.cmake"
+   CACHE
+   FILEPATH
+   "Hunter passwords"
+)
+
 include("cmake/HunterGate.cmake")
 
 HunterGate(
