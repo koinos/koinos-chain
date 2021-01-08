@@ -1,20 +1,12 @@
 # Defines MIRA library target.
-project(MIRA)
-cmake_minimum_required(VERSION 2.8.12)
+#project(MIRA)
+#cmake_minimum_required(VERSION 2.8.12)
 
 file(GLOB HEADERS "include/mira/*.hpp" "include/mira/detail/*.hpp")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
-set(BOOST_COMPONENTS)
-list(APPEND BOOST_COMPONENTS thread
-                             date_time
-                             system
-                             filesystem
-                             chrono
-                             unit_test_framework
-                             locale)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+find_package(Boost CONFIG REQUIRED thread date_time system filesystem chrono unit_test_framework locale)
 find_package(RocksDB CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 set(Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF")
