@@ -7,7 +7,7 @@ add_library(koinos_crypto
             multihash.cpp
             openssl.cpp
             ${HEADERS})
-target_link_libraries(koinos_crypto Koinos::exception Koinos::types secp256k1 ${OPENSSL_LIBRARIES} ${CMAKE_DL_LIBS})
+target_link_libraries(koinos_crypto Koinos::exception Koinos::types OpenSSL::SSL OpenSSL::Crypto secp256k1 ${CMAKE_DL_LIBS})
 target_include_directories(koinos_crypto
    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
       ${OPENSSL_INCLUDE_DIR})

@@ -1,12 +1,12 @@
-find_package( Gperftools QUIET )
-if( GPERFTOOLS_FOUND )
-    message( STATUS "Found gperftools; compiling tests with TCMalloc")
-    list( APPEND PLATFORM_SPECIFIC_LIBS tcmalloc )
+find_package(Gperftools QUIET)
+if(GPERFTOOLS_FOUND)
+    message(STATUS "Found gperftools; compiling tests with TCMalloc")
+    list(APPEND PLATFORM_SPECIFIC_LIBS tcmalloc)
 endif()
 
-INCLUDE(CTest)
+include(CTest)
 
-ENABLE_TESTING()
+enable_testing()
 
 file(GLOB UNIT_TESTS "tests/*.cpp")
 file(GLOB_RECURSE TEST_FIXTURES "include/*.hpp")
@@ -23,7 +23,6 @@ function(parse_unit_tests RESULT)
 
    foreach(src ${SOURCES})
       file(READ ${src} thefile)
-      #string(REGEX MATCH "" test_suite "${thefile}" )
       string(REGEX MATCH "BOOST_FIXTURE_TEST_SUITE\\([A-Za-z0-9_, ]*\\)" test_suite "${thefile}" )
 
       if( NOT (test_suite STREQUAL "") )
@@ -50,7 +49,7 @@ endfunction()
 
 parse_unit_tests(TEST_CASES ${UNIT_TESTS})
 
-add_boost_test( koinos_tests
+add_boost_test(koinos_tests
    SOURCES ${UNIT_TESTS} ${TEST_FIXTURES}
    TESTS ${TEST_CASES}
 )
@@ -60,3 +59,4 @@ target_include_directories(koinos_tests PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>  # <prefix>/include
 )
+
