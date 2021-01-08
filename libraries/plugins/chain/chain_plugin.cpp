@@ -1,4 +1,5 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
+#include <koinos/plugins/chain/reqhandler.hpp>
 
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>
@@ -22,7 +23,7 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-      koinos::chain::controller controller;
+      reqhandler           _reqhandler;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
@@ -37,9 +38,6 @@ void chain_plugin_impl::write_default_database_config( bfs::path &p )
 
 chain_plugin::chain_plugin() : my( new detail::chain_plugin_impl() ) {}
 chain_plugin::~chain_plugin(){}
-
-koinos::chain::controller& chain_plugin::controller() { return my->controller; }
-const koinos::chain::controller& chain_plugin::controller() const { return my->controller; }
 
 bfs::path chain_plugin::state_dir() const
 {
@@ -102,7 +100,7 @@ void chain_plugin::plugin_startup()
 
    try
    {
-      my->controller.open( my->state_dir, database_config );
+      my->_reqhandler.open( my->state_dir, database_config );
    }
    catch( std::exception& e )
    {
@@ -110,7 +108,7 @@ void chain_plugin::plugin_startup()
       exit( EXIT_FAILURE );
    }
 
-   my->controller.start_threads();
+   my->_reqhandler.start_threads();
 }
 
 void chain_plugin::plugin_shutdown()
@@ -118,8 +116,14 @@ void chain_plugin::plugin_shutdown()
    LOG(info) << "closing chain database";
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
-   my->controller.stop_threads();
+   my->_reqhandler.stop_threads();
    LOG(info) << "database closed successfully";
 }
+
+std::future< std::shared_ptr< koinos::types::rpc::submission_result > > chain_plugin::submit( const koinos::types::rpc::submission_item& item )
+{
+   return my->_reqhandler.submit( item );
+}
+
 
 } // namespace koinos::plugis::chain

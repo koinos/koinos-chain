@@ -2,6 +2,7 @@
 file(GLOB HEADERS "include/koinos/plugins/chain/*.hpp")
 add_library(koinos_chain_plugin
             chain_plugin.cpp
+            reqhandler.cpp
             ${HEADERS})
 
 target_link_libraries(koinos_chain_plugin appbase Koinos::chain Koinos::log Koinos::util)

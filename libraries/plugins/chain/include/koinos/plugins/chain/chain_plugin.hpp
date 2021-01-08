@@ -1,6 +1,10 @@
 #pragma once
 #include <appbase/application.hpp>
-#include <koinos/chain/controller.hpp>
+
+// TODO: These three includes go away when submit() is refactored out
+#include <koinos/pack/classes.hpp>
+#include <future>
+#include <memory>
 
 #define KOINOS_CHAIN_PLUGIN_NAME "chain"
 
@@ -27,8 +31,8 @@ public:
    virtual void plugin_startup() override;
    virtual void plugin_shutdown() override;
 
-   koinos::chain::controller& controller();
-   const koinos::chain::controller& controller() const;
+   // Temporary, this will go away when block_producer talks over RPC
+   std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
 private:
    std::unique_ptr< detail::chain_plugin_impl > my;

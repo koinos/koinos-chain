@@ -1,65 +1,120 @@
 #include <boost/test/unit_test.hpp>
 
-#include <koinos/chain/controller.hpp>
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
+#include <boost/program_options.hpp>
+
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/exception.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/plugins/block_producer/util/block_util.hpp>
+#include <koinos/plugins/chain/chain_plugin.hpp>
+#include <koinos/plugins/chain/reqhandler.hpp>
 
 #include <mira/database_configuration.hpp>
 
 #include <chrono>
+#include <sstream>
 
 using namespace koinos;
 using koinos::plugins::block_producer::util::set_block_merkle_roots;
 using koinos::plugins::block_producer::util::sign_block;
 
-struct controller_fixture
+/**
+ * We want to test the chain_plugin behavior when we've specified --state-dir=path/to/temp/dir
+ *
+ * It would be very simple if we could simply say:
+ *
+ *    boost::program_options::variables_map vm;
+ *    vm["state-dir"] = _state_dir.string();
+ *
+ * Unfortunately, variable_map can only be initialized by a parser, so the only way to achieve this is to write the option to an in-memory config file.
+ *
+ * See https://stackoverflow.com/questions/56056265/insert-into-boostprogram-optionsvariables-map-by-index-operator
+ *
+ */
+boost::program_options::variables_map create_program_options(
+   appbase::abstract_plugin& plugin,
+   const std::vector< std::pair< std::string, std::string > >& args
+   )
 {
-   controller_fixture()
+   namespace bpo = boost::program_options;
+
+   bpo::options_description cli_options("");
+   bpo::options_description cfg_options("");
+
+   plugin.set_program_options( cli_options, cfg_options );
+
+   bpo::variables_map vm;
+
+   std::stringstream config;
+
+   for( const auto& kv : args )
    {
-      temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-      boost::filesystem::create_directory( temp );
+      config << kv.first << "=" << kv.second << std::endl;
    }
 
-   ~controller_fixture()
+   bpo::store(bpo::parse_config_file(config, cfg_options, true), vm);
+   bpo::notify(vm);
+
+   return vm;
+}
+
+template< bool auto_init_plugin >
+struct reqhandler_fixture
+{
+   reqhandler_fixture()
    {
-      controller.stop_threads();
-      boost::filesystem::remove_all( temp );
+      _state_dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+      boost::filesystem::create_directory( _state_dir );
+
+      _options = create_program_options( _chain_plugin,
+         {{"state-dir", _state_dir.string()},
+          {"database-config", "database.cfg"}});
+
+      if( auto_init_plugin )
+      {
+         _chain_plugin.plugin_initialize( _options );
+         _chain_plugin.plugin_startup();
+      }
    }
 
-   chain::controller       controller;
-   boost::filesystem::path temp;
+   virtual ~reqhandler_fixture()
+   {
+      if( auto_init_plugin )
+      {
+         _chain_plugin.plugin_shutdown();
+      }
+      boost::filesystem::remove_all( _state_dir );
+   }
+
+   boost::program_options::variables_map    _options;
+   plugins::chain::chain_plugin             _chain_plugin;
+   boost::filesystem::path                  _state_dir;
 };
 
-BOOST_FIXTURE_TEST_SUITE( controller_tests, controller_fixture )
+BOOST_FIXTURE_TEST_SUITE( reqhandler_setup_tests, reqhandler_fixture<false> )
 
 BOOST_AUTO_TEST_CASE( setup_tests )
 { try {
 
-   BOOST_TEST_MESSAGE( "Test when threads have not been started" );
+   BOOST_TEST_MESSAGE( "Test when chain_plugin has not been started" );
 
-   auto future = controller.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
+   auto future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
    auto status = future.wait_for( std::chrono::milliseconds( 50 ) );
    BOOST_CHECK( status == std::future_status::timeout );
 
-   BOOST_TEST_MESSAGE( "Start threads" );
-   controller.start_threads();
+   BOOST_TEST_MESSAGE( "Start chain_plugin" );
+   _chain_plugin.plugin_initialize( _options );
+   _chain_plugin.plugin_startup();
 
+   BOOST_TEST_MESSAGE( "Check success with chain_plugin started" );
+
+   future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
    auto submit_res = *(future.get());
-   auto& query_err = std::get< types::rpc::submission_error_result >( submit_res );
-   std::string error_str( query_err.error_text.data(), query_err.error_text.size() );
-   BOOST_CHECK_EQUAL( error_str, "Database is not open" );
-
-   BOOST_TEST_MESSAGE( "Check success with open database" );
-
-   std::any cfg = mira::utilities::default_database_configuration();
-   controller.open( temp, cfg );
-   controller.set_time( std::chrono::steady_clock::now() );
-
-   future = controller.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
-   submit_res = *(future.get());
    auto& query_res = std::get< types::rpc::query_submission_result >( submit_res );
    query_res.make_mutable();
    auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
@@ -67,31 +122,33 @@ BOOST_AUTO_TEST_CASE( setup_tests )
    BOOST_CHECK_EQUAL( head_info_res.height, 0 );
    BOOST_CHECK_EQUAL( head_info_res.id, crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
 
-   BOOST_TEST_MESSAGE( "Stop threads" );
+   BOOST_TEST_MESSAGE( "Shut down chain_plugin" );
 
-   controller.stop_threads();
-   future = controller.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
+   _chain_plugin.plugin_shutdown();
+   future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
    BOOST_CHECK_THROW( future.get(), std::future_error );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( submission_tests )
-{ try {
-   std::any cfg = mira::utilities::default_database_configuration();
-   controller.open( temp, cfg );
-   controller.start_threads();
+BOOST_AUTO_TEST_SUITE_END()
 
+BOOST_FIXTURE_TEST_SUITE( reqhandler_function_tests, reqhandler_fixture<true> )
+
+BOOST_AUTO_TEST_CASE( submission_tests )
+{
+  using koinos::plugins::chain::unknown_submission_type;
+  try {
    std::string seed = "test seed";
    auto block_signing_private_key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
 
    BOOST_TEST_MESSAGE( "Test reserved submission" );
 
-   BOOST_CHECK_THROW( controller.submit( types::rpc::reserved_submission() ), chain::unknown_submission_type );
+   BOOST_CHECK_THROW( _chain_plugin.submit( types::rpc::reserved_submission() ), unknown_submission_type );
 
 
    BOOST_TEST_MESSAGE( "Test reserved query" );
 
-   auto future = controller.submit( types::rpc::query_submission( types::rpc::reserved_query_params() ) );
+   auto future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::reserved_query_params() ) );
    auto submit_res = *(future.get());
    auto& query_err = std::get< types::rpc::query_error >( std::get< types::rpc::query_submission_result >( submit_res ).get_const_native() );
    std::string error_str( query_err.error_text.data(), query_err.error_text.size() );
@@ -106,7 +163,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    types::rpc::transaction_submission trx;
    pack::to_variable_blob( trx.active_bytes, transaction );
 
-   future = controller.submit( trx );
+   future = _chain_plugin.submit( trx );
    submit_res = *(future.get());
    auto& trx_res = std::get< types::rpc::transaction_submission_result >( submit_res );
 
@@ -133,7 +190,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
 
-   future = controller.submit( block_submission );
+   future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
    auto& submit_err = std::get< types::rpc::submission_error_result >( submit_res );
    error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
@@ -147,7 +204,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_submission.topology.height = block_submission.block.active_data->height;
    block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
 
-   future = controller.submit( block_submission );
+   future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
    submit_err = std::get< types::rpc::submission_error_result >( submit_res );
    error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
@@ -163,7 +220,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
 
-   future = controller.submit( block_submission );
+   future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
    submit_err = std::get< types::rpc::submission_error_result >( submit_res );
    error_str = std::string( submit_err.error_text.data(), submit_err.error_text.size() );
@@ -179,7 +236,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
 
-   future = controller.submit( block_submission );
+   future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
    auto block_res = std::get< types::rpc::block_submission_result >( submit_res );
 
