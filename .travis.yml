@@ -3,8 +3,6 @@ language: c++
 cache:
   ccache: true
   pip: true
-  directories:
-    - $HOME/.hunter
 
 addons:
   apt:
