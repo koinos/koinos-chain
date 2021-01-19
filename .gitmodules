@@ -5,3 +5,6 @@
 	path = libraries/vendor/koinos-types
 	url = git@github.com:koinos/koinos-types.git
 	branch = master
+[submodule "libraries/vendor/rabbitmq-c"]
+	path = libraries/vendor/rabbitmq-c
+	url = https://github.com/alanxz/rabbitmq-c.git
