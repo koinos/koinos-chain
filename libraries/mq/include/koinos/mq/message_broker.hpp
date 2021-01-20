@@ -1,23 +1,20 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
-
-#include <amqp_tcp_socket.h>
-#include <amqp.h>
-#include <amqp_framing.h>
 
 namespace koinos::mq {
 
 namespace exchange {
-   constexpr const char* broadcast = "koinos_event";
+   constexpr const char* event = "koinos_event";
    constexpr const char* rpc = "koinos_rpc";
 } // exchange
 
-namespace queue {
+namespace routing_key {
    constexpr const char* block_accept = "koinos.block.accept";
    constexpr const char* transaction_accept = "koinos.transaction.accept";
-} // queue
+} // routing_key
 
 enum class error_code : int64_t
 {
@@ -25,27 +22,33 @@ enum class error_code : int64_t
    failure
 };
 
+namespace detail { struct message_broker_impl; }
+
 class message_broker final
 {
 private:
-   amqp_socket_t *socket = nullptr;
-   amqp_connection_state_t connection;
-   amqp_channel_t channel = 1;
-   amqp_bytes_t queue_name;
+   std::unique_ptr< detail::message_broker_impl > _message_broker_impl;
 
 public:
-   message_broker() = default;
+   message_broker();
    ~message_broker();
 
-   error_code connect( const std::string& hostname, uint16_t port ) noexcept;
+   error_code connect(
+      const std::string& host,
+      uint16_t port,
+      const std::string& vhost = "/",
+      const std::string& user = "guest",
+      const std::string& pass = "guest"
+   ) noexcept;
+
+   void disconnect() noexcept;
+
    error_code publish(
       const std::string& routing_key,
       const std::string& data,
       const std::string& content_type = "application/json",
-      const std::string& exchange = exchange::broadcast
+      const std::string& exchange = exchange::event
    ) noexcept;
-   void reset() noexcept;
-   void run() noexcept;
 };
 
 } // koinos::mq

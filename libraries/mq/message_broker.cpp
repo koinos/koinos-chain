@@ -3,22 +3,78 @@
 
 #include <koinos/log.hpp>
 
+#include <amqp_tcp_socket.h>
+#include <amqp.h>
+#include <amqp_framing.h>
+
+#include <cstdio>
+
 namespace koinos::mq {
 
-message_broker::~message_broker()
+namespace detail {
+
+class message_broker_impl final
 {
-   reset();
+private:
+   amqp_connection_state_t connection = nullptr;
+   amqp_channel_t channel = 1;
+
+   std::optional< std::string > error_info( amqp_rpc_reply_t r ) noexcept;
+
+public:
+   message_broker_impl() = default;
+   ~message_broker_impl();
+
+   error_code connect(
+      const std::string& host,
+      uint16_t port,
+      const std::string& vhost,
+      const std::string& user,
+      const std::string& pass
+   ) noexcept;
+
+   void disconnect() noexcept;
+
+   error_code publish(
+      const std::string& routing_key,
+      const std::string& data,
+      const std::string& content_type,
+      const std::string& exchange
+   ) noexcept;
+};
+
+message_broker_impl::~message_broker_impl()
+{
+   disconnect();
 }
 
-void message_broker::reset() noexcept
+void message_broker_impl::disconnect() noexcept
 {
-   amqp_bytes_free( queue_name );
-   amqp_channel_close( connection, channel, AMQP_REPLY_SUCCESS );
-   amqp_connection_close( connection, AMQP_REPLY_SUCCESS );
-   amqp_destroy_connection( connection );
+   if ( !connection )
+      return;
+
+   auto r = amqp_channel_close( connection, channel, AMQP_REPLY_SUCCESS );
+   if ( r.reply_type != AMQP_RESPONSE_NORMAL )
+   {
+      LOG(error) << error_info( r ).value();
+   }
+
+   r = amqp_connection_close( connection, AMQP_REPLY_SUCCESS );
+   if ( r.reply_type != AMQP_RESPONSE_NORMAL )
+   {
+      LOG(error) << error_info( r ).value();
+   }
+
+   int err = amqp_destroy_connection( connection );
+   if ( err < AMQP_STATUS_OK )
+   {
+      LOG(error) << amqp_error_string2( err );
+   }
+
+   connection = nullptr;
 }
 
-error_code message_broker::publish(
+error_code message_broker_impl::publish(
    const std::string& routing_key,
    const std::string& data,
    const std::string& content_type,
@@ -42,37 +98,134 @@ error_code message_broker::publish(
    return error_code::success;
 }
 
-error_code message_broker::connect( const std::string& hostname, uint16_t port ) noexcept
+error_code message_broker_impl::connect(
+   const std::string& host,
+   uint16_t port,
+   const std::string& vhost,
+   const std::string& user,
+   const std::string& pass ) noexcept
 {
+   disconnect();
+
    connection = amqp_new_connection();
-   socket = amqp_tcp_socket_new( connection );
+   amqp_socket_t *socket = amqp_tcp_socket_new( connection );
 
    if ( !socket )
    {
       LOG(error) << "failed to create socket";
+      disconnect();
       return error_code::failure;
    }
 
-   if ( amqp_socket_open( socket, hostname.c_str(), port ) )
+   if ( amqp_socket_open( socket, host.c_str(), port ) )
    {
       LOG(error) << "failed to open socket";
+      disconnect();
       return error_code::failure;
    }
 
-   auto resp = amqp_login( connection, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN, "guest", "guest" );
-   if ( resp.reply_type != AMQP_RESPONSE_NORMAL )
+   auto r = amqp_login( connection, vhost.c_str(), 0, 131072, 0, AMQP_SASL_METHOD_PLAIN, user.c_str(), pass.c_str() );
+   if ( r.reply_type != AMQP_RESPONSE_NORMAL )
    {
-      LOG(error) << "failed to login to AMQP server";
+      LOG(error) << error_info( r ).value();
+      disconnect();
       return error_code::failure;
    }
 
-   if ( !amqp_channel_open( connection, channel ) )
+   amqp_channel_open( connection, channel );
+   r = amqp_get_rpc_reply( connection );
+   if ( r.reply_type != AMQP_RESPONSE_NORMAL )
    {
-      LOG(error) << "failed to open channel";
+      LOG(error) << error_info( r ).value();
+      disconnect();
       return error_code::failure;
    }
 
    return error_code::success;
+}
+
+std::optional< std::string > message_broker_impl::error_info( amqp_rpc_reply_t r ) noexcept
+{
+   if ( r.reply_type == AMQP_RESPONSE_NONE )
+   {
+      return "missing rpc reply type";
+   }
+   else if ( r.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION )
+   {
+      return amqp_error_string2( r.library_error );
+   }
+   else if ( r.reply_type == AMQP_RESPONSE_SERVER_EXCEPTION )
+   {
+      constexpr std::size_t bufsize = 256;
+      char buf[ bufsize ];
+      switch ( r.reply.id )
+      {
+         case AMQP_CONNECTION_CLOSE_METHOD:
+         {
+            amqp_connection_close_t *m = (amqp_connection_close_t *)r.reply.decoded;
+            snprintf(
+               buf,
+               bufsize,
+               "server connection error %uh, message: %.*s",
+               m->reply_code,
+               (int)m->reply_text.len,
+               (char*)m->reply_text.bytes
+            );
+            return buf;
+         }
+         case AMQP_CHANNEL_CLOSE_METHOD:
+         {
+            amqp_channel_close_t *m = (amqp_channel_close_t *)r.reply.decoded;
+            snprintf(
+               buf,
+               bufsize,
+               "server channel error %uh, message: %.*s",
+               m->reply_code,
+               (int)m->reply_text.len,
+               (char*)m->reply_text.bytes
+            );
+            return buf;
+         }
+         default:
+            snprintf( buf, bufsize, "unknown server error, method id 0x%08X", r.reply.id );
+            return buf;
+      }
+   }
+
+   return {};
+}
+
+} // detail
+
+message_broker::message_broker()
+{
+   _message_broker_impl = std::make_unique< detail::message_broker_impl >();
+}
+
+message_broker::~message_broker() {}
+
+void message_broker::disconnect() noexcept
+{
+   _message_broker_impl->disconnect();
+}
+
+error_code message_broker::publish(
+   const std::string& routing_key,
+   const std::string& data,
+   const std::string& content_type,
+   const std::string& exchange ) noexcept
+{
+   return _message_broker_impl->publish( routing_key, data, content_type, exchange );
+}
+
+error_code message_broker::connect(
+   const std::string& host,
+   uint16_t port,
+   const std::string& vhost,
+   const std::string& user,
+   const std::string& pass ) noexcept
+{
+   return _message_broker_impl->connect( host, port, vhost, user, pass );
 }
 
 } // koinos::mq
