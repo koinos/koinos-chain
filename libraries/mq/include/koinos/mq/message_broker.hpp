@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -49,6 +50,22 @@ public:
       const std::string& data,
       const std::string& content_type = "application/json",
       const std::string& exchange = exchange::event
+   ) noexcept;
+
+   error_code consume() noexcept;
+
+   error_code queue_declare( const std::string& queue ) noexcept;
+   error_code queue_bind(
+      const std::string& queue,
+      const std::string& exchange,
+      const std::string& binding_key
+   ) noexcept;
+
+   error_code listen(
+      const std::string& queue,
+      const std::string& exchange,
+      const std::string& binding_key,
+      std::function< void( void ) > handler
    ) noexcept;
 };
 
