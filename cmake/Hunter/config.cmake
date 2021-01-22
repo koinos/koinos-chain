@@ -26,5 +26,8 @@ hunter_config(rabbitmq-c
    VERSION 0.10.0-773b883-t1
    URL https://github.com/alanxz/rabbitmq-c/archive/773b883175ae50db024d59c7cce85c73e3f47e67.tar.gz
    SHA1 eabbd8d179e49849a47c3c58e1900e6a8610d18d
+   CMAKE_ARGS
+      CMAKE_C_FLAGS=-Wno-implicit-fallthrough
+      CMAKE_CXX_FLAGS=-Wno-implicit-fallthrough
 )
 
