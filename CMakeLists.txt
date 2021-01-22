@@ -31,10 +31,16 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/koinos/hunter/archive/rocksdb.tar.gz"
-   SHA1 "b5dc3af780ba255ee6103bfc306403738735f420"
+   URL "https://github.com/koinos/hunter/archive/koinos-v0.1.4.tar.gz"
+   SHA1 "965cbabd1a8afcd2ea43bb9a9ee116998ee9ae98"
    LOCAL
 )
+
+#HunterGate(
+#   URL "https://github.com/koinos/hunter/archive/rocksdb.tar.gz"
+#   SHA1 "b5dc3af780ba255ee6103bfc306403738735f420"
+#   LOCAL
+#)
 
 #HunterGate(
 #   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
