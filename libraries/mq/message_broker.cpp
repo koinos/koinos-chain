@@ -51,13 +51,6 @@ public:
       const std::string& exchange,
       const std::string& binding_key
    ) noexcept;
-
-   error_code listen(
-      const std::string& queue,
-      const std::string& exchange,
-      const std::string& binding_key,
-      std::function< void( void ) > handler
-   ) noexcept;
 };
 
 message_broker_impl::~message_broker_impl()
