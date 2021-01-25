@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace koinos::mq {
 
@@ -21,7 +22,17 @@ namespace routing_key {
 enum class error_code : int64_t
 {
    success,
-   failure
+   failure,
+   time_out
+};
+
+struct message
+{
+   const uint64_t    delivery_tag;
+   const std::string exchange;
+   const std::string routing_key;
+   const std::string content_type;
+   const std::string data;
 };
 
 namespace detail { struct message_broker_impl; }
@@ -52,20 +63,13 @@ public:
       const std::string& exchange = exchange::event
    ) noexcept;
 
-   error_code consume() noexcept;
+   std::pair< error_code, std::optional< message > > consume() noexcept;
 
    error_code queue_declare( const std::string& queue ) noexcept;
    error_code queue_bind(
       const std::string& queue,
       const std::string& exchange,
       const std::string& binding_key
-   ) noexcept;
-
-   error_code listen(
-      const std::string& queue,
-      const std::string& exchange,
-      const std::string& binding_key,
-      std::function< void( void ) > handler
    ) noexcept;
 };
 
