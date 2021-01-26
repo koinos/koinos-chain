@@ -284,7 +284,7 @@ std::pair< error_code, std::optional< message > > message_broker_impl::consume()
    {
       return std::make_pair( error_code::time_out, std::optional< message >{} );
    }
-   else if ( AMQP_RESPONSE_NORMAL != reply.reply_type ) b
+   else if ( AMQP_RESPONSE_NORMAL != reply.reply_type )
    {
       LOG(error) << error_info( reply ).value();
       return std::make_pair( error_code::failure, std::optional< message >{} );
