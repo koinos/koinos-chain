@@ -262,8 +262,6 @@ std::optional< std::string > message_broker_impl::error_info( amqp_rpc_reply_t r
 
 std::pair< error_code, std::optional< message > > message_broker_impl::consume() noexcept
 {
-   std::optional< message > msg;
-
    uint64_t delivery_tag;
    std::string exchange;
    std::string routing_key;
@@ -284,12 +282,12 @@ std::pair< error_code, std::optional< message > > message_broker_impl::consume()
 
    if ( reply.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION && reply.library_error == AMQP_STATUS_TIMEOUT )
    {
-      return std::make_pair( error_code::time_out, msg );
+      return std::make_pair( error_code::time_out, std::optional< message >{} );
    }
-   else if ( AMQP_RESPONSE_NORMAL != reply.reply_type )
+   else if ( AMQP_RESPONSE_NORMAL != reply.reply_type ) b
    {
       LOG(error) << error_info( reply ).value();
-      return std::make_pair( error_code::failure, msg );
+      return std::make_pair( error_code::failure, std::optional< message >{} );
    }
 
    snprintf( buf, bufsize, "%u", (unsigned)envelope.delivery_tag );
@@ -301,7 +299,7 @@ std::pair< error_code, std::optional< message > > message_broker_impl::consume()
    {
       LOG(error) << e.what();
       amqp_destroy_envelope( &envelope );
-      return std::make_pair( error_code::failure, msg );
+      return std::make_pair( error_code::failure, std::optional< message >{} );
    }
 
    snprintf( buf, bufsize, "%.*s", (int)envelope.exchange.len, (char *)envelope.exchange.bytes );
@@ -331,7 +329,7 @@ std::pair< error_code, std::optional< message > > message_broker_impl::consume()
          .exchange = std::move( exchange ),
          .routing_key = std::move( routing_key ),
          .content_type = std::move( content_type ),
-         .data = std::move ( data )
+         .data = std::move( data )
       }
    );
 }
