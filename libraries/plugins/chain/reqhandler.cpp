@@ -27,6 +27,8 @@
 
 #include <koinos/log.hpp>
 
+#include <koinos/mq/message_broker.hpp>
+
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
@@ -129,6 +131,13 @@ class reqhandler_impl
 
       std::future< std::shared_ptr< rpc::submission_result > > submit( const rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o );
+      void connect(
+         const std::string& host,
+         uint16_t port,
+         const std::string& vhost,
+         const std::string& user,
+         const std::string& pass
+      );
 
    private:
       std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
@@ -146,6 +155,7 @@ class reqhandler_impl
       std::mutex                                                               _state_db_mutex;
       std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
+      mq::message_broker                                                       _publisher;
 
       // Item lifetime:
       //
@@ -226,6 +236,19 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o 
    _state_db.open( p, o );
 }
 
+void reqhandler_impl::connect(
+   const std::string& host,
+   uint16_t port,
+   const std::string& vhost,
+   const std::string& user,
+   const std::string& pass )
+{
+   if ( _publisher.connect( host, port, vhost, user, pass ) != mq::error_code::success )
+   {
+      KOINOS_THROW( mq_connection_failure, "Unable to connect to MQ server" );
+   }
+}
+
 void reqhandler_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
@@ -261,7 +284,9 @@ void reqhandler_impl::process_submission( rpc::block_submission_result& ret, con
       throw;
    }
 
-   KOINOS_TODO( "Report success / failure to caller" )
+   nlohmann::json j;
+   koinos::pack::to_json( j, block.submission );
+   _publisher.publish( mq::routing_key::block_accept, j.dump() );
 }
 
 void reqhandler_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
@@ -449,6 +474,16 @@ std::future< std::shared_ptr< rpc::submission_result > > reqhandler::submit( con
 void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
 {
    _my->open( p, o );
+}
+
+void reqhandler::connect(
+   const std::string& host,
+   uint16_t port,
+   const std::string& vhost,
+   const std::string& user,
+   const std::string& pass )
+{
+   _my->connect( host, port, vhost, user, pass );
 }
 
 void reqhandler::start_threads()

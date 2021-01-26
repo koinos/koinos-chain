@@ -23,6 +23,12 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
+      std::string          mq_host;
+      uint16_t             mq_port;
+      std::string          mq_vhost;
+      std::string          mq_user;
+      std::string          mq_pass;
+
       reqhandler           _reqhandler;
 };
 
@@ -50,6 +56,11 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
          ("state-dir", bpo::value<bfs::path>()->default_value("blockchain"),
             "the location of the blockchain state files (absolute path or relative to application data dir)")
          ("database-config", bpo::value<bfs::path>()->default_value("database.cfg"), "The database configuration file location")
+         ("mq-host", bpo::value<std::string>()->default_value("localhost"), "The MQ server host")
+         ("mq-port", bpo::value<uint16_t>()->default_value(5672), "The MQ server port")
+         ("mq-vhost", bpo::value<std::string>()->default_value("/"), "The MQ server virtual host")
+         ("mq-user", bpo::value<std::string>()->default_value("guest"), "The MQ server username")
+         ("mq-pass", bpo::value<std::string>()->default_value("guest"), "The MQ server password")
          ;
    cli.add_options()
          ("force-open", bpo::bool_switch()->default_value(false), "force open the database, skipping the environment check")
@@ -78,6 +89,12 @@ void chain_plugin::plugin_initialize( const variables_map& options )
    {
       my->write_default_database_config( my->database_cfg );
    }
+
+   my->mq_host = options.at("mq-host").as< std::string >();
+   my->mq_port = options.at("mq-port").as< uint16_t >();
+   my->mq_vhost = options.at("mq-vhost").as< std::string >();
+   my->mq_user = options.at("mq-user").as< std::string >();
+   my->mq_pass = options.at("mq-pass").as< std::string >();
 }
 
 void chain_plugin::plugin_startup()
@@ -105,6 +122,16 @@ void chain_plugin::plugin_startup()
    catch( std::exception& e )
    {
       LOG(error) << "error opening database: " << e.what();
+      exit( EXIT_FAILURE );
+   }
+
+   try
+   {
+      my->_reqhandler.connect( my->mq_host, my->mq_port, my->mq_vhost, my->mq_user, my->mq_pass );
+   }
+   catch( std::exception& e )
+   {
+      LOG(error) << "error connecting to mq server: " << e.what();
       exit( EXIT_FAILURE );
    }
 
