@@ -21,3 +21,11 @@ hunter_config(rocksdb
       CMAKE_CXX_FLAGS=-fvisibility=hidden
       CMAKE_C_FLAGS=-fvisibility=hidden
 )
+
+hunter_config(rabbitmq-c
+   VERSION 0.10.0-773b883-t1
+   CMAKE_ARGS
+      CMAKE_C_FLAGS=-Wno-implicit-fallthrough
+      CMAKE_CXX_FLAGS=-Wno-implicit-fallthrough
+)
+

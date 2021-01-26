@@ -31,8 +31,8 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/koinos/hunter/archive/rocksdb.tar.gz"
-   SHA1 "b5dc3af780ba255ee6103bfc306403738735f420"
+   URL "https://github.com/koinos/hunter/archive/koinos-v0.1.4.tar.gz"
+   SHA1 "965cbabd1a8afcd2ea43bb9a9ee116998ee9ae98"
    LOCAL
 )
 
@@ -96,6 +96,7 @@ endif()
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
+hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
 
 add_subdirectory(programs)
