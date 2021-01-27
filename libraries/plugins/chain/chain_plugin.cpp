@@ -28,6 +28,7 @@ class chain_plugin_impl
       std::string          mq_vhost;
       std::string          mq_user;
       std::string          mq_pass;
+      bool                 mq_disable;
 
       reqhandler           _reqhandler;
 };
@@ -61,6 +62,7 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
          ("mq-vhost", bpo::value<std::string>()->default_value("/"), "The MQ server virtual host")
          ("mq-user", bpo::value<std::string>()->default_value("guest"), "The MQ server username")
          ("mq-pass", bpo::value<std::string>()->default_value("guest"), "The MQ server password")
+         ("mq-disable", bpo::value<bool>()->default_value(false), "Disables MQ connection")
          ;
    cli.add_options()
          ("force-open", bpo::bool_switch()->default_value(false), "force open the database, skipping the environment check")
@@ -90,11 +92,12 @@ void chain_plugin::plugin_initialize( const variables_map& options )
       my->write_default_database_config( my->database_cfg );
    }
 
-   my->mq_host = options.at("mq-host").as< std::string >();
-   my->mq_port = options.at("mq-port").as< uint16_t >();
-   my->mq_vhost = options.at("mq-vhost").as< std::string >();
-   my->mq_user = options.at("mq-user").as< std::string >();
-   my->mq_pass = options.at("mq-pass").as< std::string >();
+   my->mq_host    = options.at("mq-host").as< std::string >();
+   my->mq_port    = options.at("mq-port").as< uint16_t >();
+   my->mq_vhost   = options.at("mq-vhost").as< std::string >();
+   my->mq_user    = options.at("mq-user").as< std::string >();
+   my->mq_pass    = options.at("mq-pass").as< std::string >();
+   my->mq_disable = options.at("mq-disable").as< bool >();
 }
 
 void chain_plugin::plugin_startup()
@@ -125,14 +128,21 @@ void chain_plugin::plugin_startup()
       exit( EXIT_FAILURE );
    }
 
-   try
+   if ( !my->mq_disable )
    {
-      my->_reqhandler.connect( my->mq_host, my->mq_port, my->mq_vhost, my->mq_user, my->mq_pass );
+      try
+      {
+         my->_reqhandler.connect( my->mq_host, my->mq_port, my->mq_vhost, my->mq_user, my->mq_pass );
+      }
+      catch( std::exception& e )
+      {
+         LOG(error) << "error connecting to mq server: " << e.what();
+         exit( EXIT_FAILURE );
+      }
    }
-   catch( std::exception& e )
+   else
    {
-      LOG(error) << "error connecting to mq server: " << e.what();
-      exit( EXIT_FAILURE );
+      LOG(warning) << "application is running without MQ support";
    }
 
    my->_reqhandler.start_threads();

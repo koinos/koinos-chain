@@ -284,9 +284,16 @@ void reqhandler_impl::process_submission( rpc::block_submission_result& ret, con
       throw;
    }
 
-   nlohmann::json j;
-   koinos::pack::to_json( j, block.submission );
-   _publisher.publish( mq::routing_key::block_accept, j.dump() );
+   if ( _publisher.is_connected() )
+   {
+      nlohmann::json j;
+      koinos::pack::to_json( j, block.submission );
+      auto err = _publisher.publish( mq::routing_key::block_accept, j.dump() );
+      if ( err != mq::error_code::success )
+      {
+         LOG(error) << "failed to publish block application to message broker";
+      }
+   }
 }
 
 void reqhandler_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )

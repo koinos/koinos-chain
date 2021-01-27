@@ -56,6 +56,8 @@ public:
 
    void disconnect() noexcept;
 
+   bool is_connected() noexcept;
+
    error_code publish(
       const std::string& routing_key,
       const std::string& data,

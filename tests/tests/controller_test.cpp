@@ -63,7 +63,6 @@ boost::program_options::variables_map create_program_options(
    return vm;
 }
 
-template< bool auto_init_plugin >
 struct reqhandler_fixture
 {
    reqhandler_fixture()
@@ -71,23 +70,18 @@ struct reqhandler_fixture
       _state_dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( _state_dir );
 
-      _options = create_program_options( _chain_plugin,
-         {{"state-dir", _state_dir.string()},
-          {"database-config", "database.cfg"}});
-
-      if( auto_init_plugin )
-      {
-         _chain_plugin.plugin_initialize( _options );
-         _chain_plugin.plugin_startup();
-      }
+      _options = create_program_options(
+         _chain_plugin,
+         {
+            {"state-dir", _state_dir.string()},
+            {"database-config", "database.cfg"},
+            {"mq-disable", "true"}
+         }
+      );
    }
 
    virtual ~reqhandler_fixture()
    {
-      if( auto_init_plugin )
-      {
-         _chain_plugin.plugin_shutdown();
-      }
       boost::filesystem::remove_all( _state_dir );
    }
 
@@ -96,7 +90,7 @@ struct reqhandler_fixture
    boost::filesystem::path                  _state_dir;
 };
 
-BOOST_FIXTURE_TEST_SUITE( reqhandler_setup_tests, reqhandler_fixture<false> )
+BOOST_FIXTURE_TEST_SUITE( reqhandler_tests, reqhandler_fixture )
 
 BOOST_AUTO_TEST_CASE( setup_tests )
 { try {
@@ -130,14 +124,11 @@ BOOST_AUTO_TEST_CASE( setup_tests )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_SUITE_END()
-
-BOOST_FIXTURE_TEST_SUITE( reqhandler_function_tests, reqhandler_fixture<true> )
-
 BOOST_AUTO_TEST_CASE( submission_tests )
-{
-  using koinos::plugins::chain::unknown_submission_type;
-  try {
+{ try {
+   using koinos::plugins::chain::unknown_submission_type;
+   _chain_plugin.plugin_initialize( _options );
+   _chain_plugin.plugin_startup();
    std::string seed = "test seed";
    auto block_signing_private_key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
 
@@ -239,7 +230,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
    auto block_res = std::get< types::rpc::block_submission_result >( submit_res );
-
+   _chain_plugin.plugin_shutdown();
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
