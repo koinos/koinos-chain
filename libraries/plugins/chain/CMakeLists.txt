@@ -5,7 +5,7 @@ add_library(koinos_chain_plugin
             reqhandler.cpp
             ${HEADERS})
 
-target_link_libraries(koinos_chain_plugin appbase Koinos::mq Koinos::net Koinos::chain Koinos::log Koinos::util)
+target_link_libraries(koinos_chain_plugin appbase Koinos::chain Koinos::mq Koinos::net Koinos::log Koinos::util)
 target_include_directories(koinos_chain_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 add_library(Koinos::chain_plugin ALIAS koinos_chain_plugin)
 install(TARGETS

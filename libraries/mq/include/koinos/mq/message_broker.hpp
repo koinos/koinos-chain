@@ -63,6 +63,8 @@ public:
 
    void disconnect() noexcept;
 
+   bool is_connected() noexcept;
+
    error_code publish(
       const message& msg
    ) noexcept;

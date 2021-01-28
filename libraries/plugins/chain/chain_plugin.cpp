@@ -270,8 +270,15 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
+      std::string          mq_host;
+      uint16_t             mq_port;
+      std::string          mq_vhost;
+      std::string          mq_user;
+      std::string          mq_pass;
+
       reqhandler           _reqhandler;
 
+      bool                                  _mq_disable = false;
       std::string                           _amqp_url;
       std::shared_ptr< rpc_mq_consumer >    _rpc_mq_consumer;
       std::shared_ptr< rpc_manager >        _rpc_manager;
@@ -302,6 +309,7 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
             "the location of the blockchain state files (absolute path or relative to application data dir)")
          ("database-config", bpo::value<bfs::path>()->default_value("database.cfg"), "The database configuration file location")
          ("amqp", bpo::value<std::string>()->default_value("amqp://guest:guest@localhost:5672/"), "AMQP server URL")
+         ("mq-disable", bpo::value<bool>()->default_value(false), "Disables MQ connection")
          ;
    cli.add_options()
          ("force-open", bpo::bool_switch()->default_value(false), "force open the database, skipping the environment check")
@@ -332,6 +340,7 @@ void chain_plugin::plugin_initialize( const variables_map& options )
    }
 
    my->_amqp_url = options.at( "amqp" ).as< std::string >();
+   my->_mq_disable = options.at("mq-disable").as< bool >();
 }
 
 void chain_plugin::plugin_startup()
@@ -362,32 +371,50 @@ void chain_plugin::plugin_startup()
       exit( EXIT_FAILURE );
    }
 
-   my->_reqhandler.start_threads();
-
-   my->_rpc_mq_consumer = std::make_shared< rpc_mq_consumer >( my->_amqp_url );
-   my->_rpc_manager = std::make_shared< rpc_manager >( my->_rpc_mq_consumer );
-
-   KOINOS_TODO( "Have RPC's actually query the chain, create macros to codegen boilerplate" );
-
-   std::string rpc_type = "koinosd";
-   my->_rpc_manager->add_rpc_handler< types::rpc::get_head_info_params, types::rpc::get_head_info_result >(
-      rpc_type, "get_head_info", [&]( const types::rpc::get_head_info_params& args ) -> types::rpc::get_head_info_result
+   if ( !my->_mq_disable )
+   {
+      try
       {
-         return types::rpc::get_head_info_result{};
-      } );
-   /*
-   my->_rpc_manager->add_rpc_handler< types::rpc::submit_block_params, types::rpc::submit_block_result >(
-      rpc_type, "submit_block", [&]( const types::rpc::submit_block_params& args ) -> types::rpc::submit_block_result
+         my->_reqhandler.connect( my->mq_host, my->mq_port, my->mq_vhost, my->mq_user, my->mq_pass );
+      }
+      catch( std::exception& e )
       {
-         return types::rpc::submit_block_result{};
-      } );
-   my->_rpc_manager->add_rpc_handler< types::rpc::get_chain_id_params, types::rpc::get_chain_id_result >(
-      rpc_type, "get_chain_id", [&]( const types::rpc::get_chain_id_params& args ) -> types::rpc::get_chain_id_result
-      {
-         return types::rpc::get_chain_id_result{};
-      } );
-   */
-   my->_rpc_mq_consumer->start();
+         LOG(error) << "error connecting to mq server: " << e.what();
+         exit( EXIT_FAILURE );
+      }
+
+      my->_reqhandler.start_threads();
+
+      my->_rpc_mq_consumer = std::make_shared< rpc_mq_consumer >( my->_amqp_url );
+      my->_rpc_manager = std::make_shared< rpc_manager >( my->_rpc_mq_consumer );
+
+      KOINOS_TODO( "Have RPC's actually query the chain, create macros to codegen boilerplate" );
+
+      std::string rpc_type = "koinosd";
+      my->_rpc_manager->add_rpc_handler< types::rpc::get_head_info_params, types::rpc::get_head_info_result >(
+         rpc_type, "get_head_info", [&]( const types::rpc::get_head_info_params& args ) -> types::rpc::get_head_info_result
+         {
+            return types::rpc::get_head_info_result{};
+         } );
+      /*
+      my->_rpc_manager->add_rpc_handler< types::rpc::submit_block_params, types::rpc::submit_block_result >(
+         rpc_type, "submit_block", [&]( const types::rpc::submit_block_params& args ) -> types::rpc::submit_block_result
+         {
+            return types::rpc::submit_block_result{};
+         } );
+      my->_rpc_manager->add_rpc_handler< types::rpc::get_chain_id_params, types::rpc::get_chain_id_result >(
+         rpc_type, "get_chain_id", [&]( const types::rpc::get_chain_id_params& args ) -> types::rpc::get_chain_id_result
+         {
+            return types::rpc::get_chain_id_result{};
+         } );
+      */
+      my->_rpc_mq_consumer->start();
+
+   }
+   else
+   {
+      LOG(warning) << "application is running without MQ support";
+   }
 }
 
 void chain_plugin::plugin_shutdown()
