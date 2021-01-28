@@ -186,9 +186,13 @@ std::pair< mq::error_code, std::shared_ptr< std::thread > > rpc_mq_consumer::con
    result.first = broker->connect_to_url( _amqp_url );
    if( result.first != mq::error_code::success )
       return result;
-   result.first = broker->queue_declare( "koinos_rpc_block_store_req" );
-   if( result.first != mq::error_code::success )
-      return result;
+   KOINOS_TODO( "Does this work for n>1?" );
+   for( auto it=_handlers->_rpc_handler_map.begin(); it!=_handlers->_rpc_handler_map.end(); ++it )
+   {
+      result.first = broker->queue_declare( std::string("koinos_rpc_")+(it->first.second) );
+      if( result.first != mq::error_code::success )
+         return result;
+   }
 
    std::shared_ptr< rpc_mq_consumer > sthis = shared_from_this();
 
