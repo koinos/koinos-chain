@@ -23,7 +23,7 @@ function(parse_unit_tests RESULT)
 
    foreach(src ${SOURCES})
       file(READ ${src} thefile)
-      string(REGEX MATCH "BOOST_FIXTURE_TEST_SUITE\\([A-Za-z0-9_, ]*\\)" test_suite "${thefile}" )
+      string(REGEX MATCH "BOOST_FIXTURE_TEST_SUITE\\([A-Za-z0-9_,<> ]*\\)" test_suite "${thefile}" )
 
       if( NOT (test_suite STREQUAL "") )
          string(SUBSTRING "${test_suite}" 25 -1 test_suite)
@@ -31,7 +31,7 @@ function(parse_unit_tests RESULT)
          string(SUBSTRING "${test_suite}" 0 ${comma_loc} test_suite)
          string(STRIP "${test_suite}" test_suite)
 
-         string( REGEX MATCHALL "BOOST_AUTO_TEST_CASE\\([A-Za-z0-9_, ]*\\)" cases "${thefile}" )
+         string( REGEX MATCHALL "BOOST_AUTO_TEST_CASE\\([A-Za-z0-9_,<> ]*\\)" cases "${thefile}" )
 
          foreach( test_case ${cases} )
             string(SUBSTRING "${test_case}" 21 -1 test_case)

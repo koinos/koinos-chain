@@ -26,6 +26,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, reqhandler_exception )
 KOINOS_DECLARE_DERIVED_EXCEPTION( block_height_mismatch, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( previous_id_mismatch, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, reqhandler_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( mq_connection_failure, reqhandler_exception );
 
 class reqhandler
 {
@@ -36,6 +37,13 @@ class reqhandler
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
       void open( const boost::filesystem::path& p, const std::any& o );
+      void connect(
+         const std::string& host,
+         uint16_t port,
+         const std::string& vhost,
+         const std::string& user,
+         const std::string& pass
+      );
 
       void start_threads();
       void stop_threads();

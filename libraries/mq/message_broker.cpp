@@ -36,6 +36,8 @@ public:
 
    void disconnect() noexcept;
 
+   bool is_connected() noexcept;
+
    error_code publish(
       const std::string& routing_key,
       const std::string& data,
@@ -82,6 +84,11 @@ void message_broker_impl::disconnect() noexcept
    }
 
    connection = nullptr;
+}
+
+bool message_broker_impl::is_connected() noexcept
+{
+   return connection != nullptr;
 }
 
 error_code message_broker_impl::publish(
@@ -346,6 +353,11 @@ message_broker::~message_broker() = default;
 void message_broker::disconnect() noexcept
 {
    _message_broker_impl->disconnect();
+}
+
+bool message_broker::is_connected() noexcept
+{
+   return _message_broker_impl->is_connected();
 }
 
 error_code message_broker::publish(
