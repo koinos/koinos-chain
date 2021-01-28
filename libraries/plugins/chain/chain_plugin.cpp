@@ -9,6 +9,7 @@
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/util.hpp>
 
 // Includes needed for message broker, move these when we move message_broker
 #include <koinos/mq/message_broker.hpp>
@@ -106,6 +107,8 @@ class rpc_mq_consumer : public std::enable_shared_from_this< rpc_mq_consumer >
 
 using json = nlohmann::json;
 
+typedef std::function< std::string(const std::string&) > handler_func_t;
+
 /**
  * rpc_manager interfaces the generic rpc_mq_consumer with the specific request/response handlers for known serializations
  * (right now, just JSON)
@@ -116,11 +119,9 @@ class rpc_manager
       rpc_manager( std::shared_ptr< rpc_mq_consumer > consumer );
       virtual ~rpc_manager();
 
-      template< typename Tin, typename Tout >
-      void add_rpc_handler( const std::string& rpc_type, const std::string& method_name, std::function< Tout( const Tin& ) > handler );
+      void add_rpc_handler( const std::string& rpc_type, handler_func_t handler );
 
       std::shared_ptr< rpc_mq_consumer > _consumer;
-      boost::container::flat_map< std::string, std::shared_ptr< net::protocol::jsonrpc::request_handler > > _handler_map;
 };
 
 rpc_manager::rpc_manager( std::shared_ptr< rpc_mq_consumer > consumer )
@@ -128,37 +129,12 @@ rpc_manager::rpc_manager( std::shared_ptr< rpc_mq_consumer > consumer )
 
 rpc_manager::~rpc_manager() {}
 
-template< typename Tin, typename Tout > void rpc_manager::add_rpc_handler(
+void rpc_manager::add_rpc_handler(
    const std::string& rpc_type,
-   const std::string& method_name,
-   std::function< Tout( const Tin& ) > handler
+   handler_func_t handler
    )
 {
-   std::shared_ptr< net::protocol::jsonrpc::request_handler > jsonrpc_handler;
-
-   auto it = _handler_map.find( rpc_type );
-   if( it != _handler_map.end() )
-      jsonrpc_handler = it->second;
-   else
-   {
-      jsonrpc_handler = std::make_shared< net::protocol::jsonrpc::request_handler >();
-      _handler_map.emplace( rpc_type, jsonrpc_handler );
-   }
-
-   jsonrpc_handler->add_method_handler( method_name, [=]( const json::object_t& j_req ) -> json
-   {
-      Tin req;
-      pack::from_json( j_req, req );
-      Tout resp = handler( req );
-      json j_resp;
-      pack::to_json( j_resp, resp );
-      return j_resp;
-   } );
-
-   _consumer->add_rpc_handler( "application/json", rpc_type, [=]( const std::string& payload ) -> std::string
-   {
-      return jsonrpc_handler->handle( payload );
-   } );
+   _consumer->add_rpc_handler( "application/json", rpc_type, handler );
 
    KOINOS_TODO( "Add handler for binary protocol" );
 }
@@ -399,32 +375,19 @@ void chain_plugin::plugin_startup()
       KOINOS_TODO( "Have RPC's actually query the chain, create macros to codegen boilerplate" );
 
       std::string rpc_type = "koinosd";
-      my->_rpc_manager->add_rpc_handler< types::rpc::get_head_info_params, types::rpc::get_head_info_result >(
-         rpc_type, "get_head_info", [&]( const types::rpc::get_head_info_params& args ) -> types::rpc::get_head_info_result
+      my->_rpc_manager->add_rpc_handler(
+         rpc_type,
+         [&]( const std::string& data ) -> std::string
          {
-            auto f = my->_reqhandler.submit( types::rpc::query_submission( args ) );
-            auto submit_res = *(f.get());
-            auto& query_res = std::get< types::rpc::query_submission_result >( submit_res );
-            query_res.make_mutable();
-            auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
-            return head_info_res;
-         } );
+            auto j = nlohmann::json::parse(data);
+            types::rpc::submission_item args;
+            pack::from_json( j, args );
+            auto res = my->_reqhandler.submit( args );
+            pack::to_json( j, args );
+            return j.dump();
+         }
+      );
 
-      my->_rpc_manager->add_rpc_handler< types::rpc::block_submission, types::rpc::block_submission_result >(
-         rpc_type, "submit_block", [&]( const types::rpc::block_submission& args ) -> types::rpc::block_submission_result
-         {
-            auto f = my->_reqhandler.submit( types::rpc::block_submission( args ) );
-            auto submit_res = *(f.get());
-            auto& res = std::get< types::rpc::block_submission_result >( submit_res );
-            return res;
-         } );
-      my->_rpc_manager->add_rpc_handler< types::rpc::get_chain_id_params, types::rpc::get_chain_id_result >(
-         rpc_type, "get_chain_id", [&]( const types::rpc::get_chain_id_params& args ) -> types::rpc::get_chain_id_result
-         {
-            types::rpc::get_chain_id_result r;
-            r.chain_id = crypto::hash_str( CRYPTO_SHA1_ID, "koinos", 6, 6 );
-            return r;
-         } );
       my->_rpc_mq_consumer->start();
 
    }
