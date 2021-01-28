@@ -10,6 +10,7 @@
 #include <koinos/mq/message_broker.hpp>
 #include <koinos/net/protocol/jsonrpc/request_handler.hpp>
 #include <nlohmann/json.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/container/flat_map.hpp>
 
 namespace koinos::plugins::chain {
@@ -37,8 +38,6 @@ struct handler_table
 
 void handler_table::handle_rpc_call( rpc_call& call )
 {
-   std::pair< std::string, std::string > k( call.req.content_type, call.req.routing_key );
-
    if( !call.req.reply_to.has_value() )
    {
       LOG(error) << "Could not service RPC, reply_to not specified";
@@ -55,6 +54,20 @@ void handler_table::handle_rpc_call( rpc_call& call )
    call.resp.routing_key = *call.req.reply_to;
    call.resp.content_type = call.req.content_type;
    call.resp.correlation_id = call.req.correlation_id;
+
+   const std::string prefix = "koinos_rpc_";
+
+   if( !boost::starts_with( call.req.routing_key, prefix ) )
+   {
+      LOG(error) << "Could not parse rpc_type";
+      call.err = mq::error_code::failure;
+      call.resp.data = "{\"error\":\"Could not parse rpc_type\"}";
+      return;
+   }
+
+   std::string rpc_type = call.req.routing_key.substr( prefix.size() );
+
+   std::pair< std::string, std::string > k( call.req.content_type, rpc_type );
 
    auto it = _rpc_handler_map.find( k );
    if( it == _rpc_handler_map.end() )
