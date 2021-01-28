@@ -34,6 +34,10 @@ public:
       const std::string& pass
    ) noexcept;
 
+   error_code connect_to_url(
+      const std::string& url
+   ) noexcept;
+
    void disconnect() noexcept;
 
    error_code publish(
@@ -161,6 +165,28 @@ error_code message_broker_impl::connect(
    }
 
    return error_code::success;
+}
+
+error_code message_broker_impl::connect_to_url(
+   const std::string& url ) noexcept
+{
+   // amqp_parse_url() modifies its argument so we need to copy it to a temporary buffer
+   std::vector<char> temp_url( url.begin(), url.end() );
+   temp_url.push_back( '\0' );
+
+   amqp_connection_info cinfo;
+   int result = amqp_parse_url( temp_url.data(), &cinfo );
+
+   if( result != AMQP_STATUS_OK )
+      return error_code::failure;
+
+   return connect(
+      std::string( cinfo.host ),
+      uint16_t( cinfo.port ),
+      std::string( cinfo.vhost ),
+      std::string( cinfo.user ),
+      std::string( cinfo.password )
+      );
 }
 
 error_code message_broker_impl::queue_declare( const std::string& queue ) noexcept
@@ -383,6 +409,13 @@ error_code message_broker::queue_bind(
 std::pair< error_code, std::optional< message > > message_broker::consume() noexcept
 {
    return _message_broker_impl->consume();
+}
+
+error_code message_broker::connect_to_url(
+   const std::string& url
+) noexcept
+{
+   return _message_broker_impl->connect_to_url( url );
 }
 
 } // koinos::mq

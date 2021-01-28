@@ -54,6 +54,10 @@ public:
       const std::string& pass = "guest"
    ) noexcept;
 
+   error_code connect_to_url(
+      const std::string& url
+   ) noexcept;
+
    void disconnect() noexcept;
 
    error_code publish(
