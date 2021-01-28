@@ -131,13 +131,7 @@ class reqhandler_impl
 
       std::future< std::shared_ptr< rpc::submission_result > > submit( const rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o );
-      void connect(
-         const std::string& host,
-         uint16_t port,
-         const std::string& vhost,
-         const std::string& user,
-         const std::string& pass
-      );
+      void connect_to_url( const std::string& amqp_url );
 
    private:
       std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
@@ -236,14 +230,9 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o 
    _state_db.open( p, o );
 }
 
-void reqhandler_impl::connect(
-   const std::string& host,
-   uint16_t port,
-   const std::string& vhost,
-   const std::string& user,
-   const std::string& pass )
+void reqhandler_impl::connect_to_url( const std::string& amqp_url )
 {
-   if ( _publisher.connect( host, port, vhost, user, pass ) != mq::error_code::success )
+   if ( _publisher.connect_to_url( amqp_url ) != mq::error_code::success )
    {
       KOINOS_THROW( mq_connection_failure, "Unable to connect to MQ server" );
    }
@@ -490,14 +479,9 @@ void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
    _my->open( p, o );
 }
 
-void reqhandler::connect(
-   const std::string& host,
-   uint16_t port,
-   const std::string& vhost,
-   const std::string& user,
-   const std::string& pass )
+void reqhandler::connect_to_url( const std::string& amqp_url )
 {
-   _my->connect( host, port, vhost, user, pass );
+   _my->connect_to_url( amqp_url );
 }
 
 void reqhandler::start_threads()

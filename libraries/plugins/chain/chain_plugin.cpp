@@ -274,12 +274,6 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-      std::string          mq_host;
-      uint16_t             mq_port;
-      std::string          mq_vhost;
-      std::string          mq_user;
-      std::string          mq_pass;
-
       reqhandler           _reqhandler;
 
       bool                                  _mq_disable = false;
@@ -379,7 +373,7 @@ void chain_plugin::plugin_startup()
    {
       try
       {
-         my->_reqhandler.connect( my->mq_host, my->mq_port, my->mq_vhost, my->mq_user, my->mq_pass );
+         my->_reqhandler.connect_to_url( my->_amqp_url );
       }
       catch( std::exception& e )
       {
