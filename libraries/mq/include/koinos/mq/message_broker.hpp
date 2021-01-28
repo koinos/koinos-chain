@@ -9,6 +9,7 @@
 
 namespace koinos::mq {
 
+// TODO:  Move these Koinos-specific names elsewhere
 namespace exchange {
    constexpr const char* event = "koinos_event";
    constexpr const char* rpc = "koinos_rpc";
@@ -28,11 +29,13 @@ enum class error_code : int64_t
 
 struct message
 {
-   const uint64_t    delivery_tag;
-   const std::string exchange;
-   const std::string routing_key;
-   const std::string content_type;
-   const std::string data;
+   uint64_t    delivery_tag;
+   std::string exchange;
+   std::string routing_key;
+   std::string content_type;
+   std::optional< std::string > reply_to;
+   std::optional< std::string > correlation_id;
+   std::string data;
 };
 
 namespace detail { struct message_broker_impl; }
@@ -61,10 +64,7 @@ public:
    void disconnect() noexcept;
 
    error_code publish(
-      const std::string& routing_key,
-      const std::string& data,
-      const std::string& content_type = "application/json",
-      const std::string& exchange = exchange::event
+      const message& msg
    ) noexcept;
 
    std::pair< error_code, std::optional< message > > consume() noexcept;
