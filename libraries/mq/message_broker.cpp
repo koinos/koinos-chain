@@ -181,16 +181,29 @@ error_code message_broker_impl::connect_to_url(
    std::vector<char> temp_url( url.begin(), url.end() );
    temp_url.push_back( '\0' );
 
+   /*
+   for( int i=0; i<temp_url.size(); i++ )
+   {
+      LOG(info) << i << " " << int(temp_url[i]);
+   }
+   */
+
    amqp_connection_info cinfo;
    int result = amqp_parse_url( temp_url.data(), &cinfo );
 
    if( result != AMQP_STATUS_OK )
       return error_code::failure;
 
+   LOG(info) << "Connect to url:" << url;
+   printf( "temp_url: %s\n", temp_url.data() );
+   LOG(info) << "Connect to host:" << cinfo.host << "  port:" << cinfo.port << "  vhost:" << cinfo.vhost << "  user:" << cinfo.user;
+
+   KOINOS_TODO( "Parse vhost from URL instead of hardcoding /" );
+
    return connect(
       std::string( cinfo.host ),
       uint16_t( cinfo.port ),
-      std::string( cinfo.vhost ),
+      "/",
       std::string( cinfo.user ),
       std::string( cinfo.password )
       );
