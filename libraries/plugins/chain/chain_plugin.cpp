@@ -52,7 +52,7 @@ void handler_table::handle_rpc_call( rpc_call& call )
       return;
    }
 
-   call.resp.exchange = "";
+   call.resp.exchange = "koinos_rpc_reply";
    call.resp.routing_key = *call.req.reply_to;
    call.resp.content_type = call.req.content_type;
    call.resp.correlation_id = call.req.correlation_id;
@@ -193,7 +193,11 @@ std::pair< mq::error_code, std::shared_ptr< std::thread > > rpc_mq_consumer::con
    KOINOS_TODO( "Does this work for n>1?" );
    for( auto it=_handlers->_rpc_handler_map.begin(); it!=_handlers->_rpc_handler_map.end(); ++it )
    {
-      result.first = broker->queue_declare( std::string("koinos_rpc_")+(it->first.second) );
+      auto queue_name = std::string( "koinos_rpc_" ) + it->first.second;
+      result.first = broker->queue_declare( queue_name );
+      if( result.first != mq::error_code::success )
+         return result;
+      result.first = broker->queue_bind( queue_name, "koinos_rpc", queue_name );
       if( result.first != mq::error_code::success )
          return result;
    }
@@ -228,6 +232,8 @@ void rpc_mq_consumer::consume_rpc_loop(
       call.req = *result.second;
 
       handlers->handle_rpc_call( call );
+
+      broker->publish( call.resp );
    }
 }
 

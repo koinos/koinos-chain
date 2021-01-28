@@ -220,7 +220,7 @@ error_code message_broker_impl::queue_declare( const std::string& queue ) noexce
 {
    KOINOS_TODO( "Allow flags to be configured on a per-queue basis" );
    KOINOS_TODO( "Allow server-assigned name to be returned" );
-   amqp_queue_declare( connection, channel, amqp_cstring_bytes( queue.c_str() ), 0, 0, 0, 1, amqp_empty_table );
+   amqp_queue_declare( connection, channel, amqp_cstring_bytes( queue.c_str() ), 0, 1, 0, 0, amqp_empty_table );
    auto reply = amqp_get_rpc_reply( connection );
    if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
    {
