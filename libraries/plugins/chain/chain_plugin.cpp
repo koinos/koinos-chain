@@ -17,8 +17,6 @@ namespace koinos::plugins::chain {
 
 using namespace appbase;
 
-namespace detail {
-
 struct rpc_call
 {
    mq::message req;
@@ -104,11 +102,6 @@ class rpc_mq_consumer : public std::enable_shared_from_this< rpc_mq_consumer >
 
 using json = nlohmann::json;
 
-struct abstract_handler
-{
-   std::function< json( const json::object_t& ) > handle_json;
-};
-
 /**
  * rpc_manager interfaces the generic rpc_mq_consumer with the specific request/response handlers for known serializations
  * (right now, just JSON)
@@ -116,12 +109,20 @@ struct abstract_handler
 class rpc_manager
 {
    public:
+      rpc_manager( std::shared_ptr< rpc_mq_consumer > consumer );
+      virtual ~rpc_manager();
+
       template< typename Tin, typename Tout >
       void add_rpc_handler( const std::string& rpc_type, const std::string& method_name, std::function< Tout( const Tin& ) > handler );
 
       std::shared_ptr< rpc_mq_consumer > _consumer;
       boost::container::flat_map< std::string, std::shared_ptr< net::protocol::jsonrpc::request_handler > > _handler_map;
 };
+
+rpc_manager::rpc_manager( std::shared_ptr< rpc_mq_consumer > consumer )
+   : _consumer(consumer) {}
+
+rpc_manager::~rpc_manager() {}
 
 template< typename Tin, typename Tout > void rpc_manager::add_rpc_handler(
    const std::string& rpc_type,
@@ -143,10 +144,10 @@ template< typename Tin, typename Tout > void rpc_manager::add_rpc_handler(
    jsonrpc_handler->add_method_handler( method_name, [=]( const json::object_t& j_req ) -> json
    {
       Tin req;
-      from_json( j_req, req );
+      pack::from_json( j_req, req );
       Tout resp = handler( req );
       json j_resp;
-      to_json( j_resp, resp );
+      pack::to_json( j_resp, resp );
       return j_resp;
    } );
 
@@ -159,12 +160,22 @@ template< typename Tin, typename Tout > void rpc_manager::add_rpc_handler(
 }
 
 
+rpc_mq_consumer::rpc_mq_consumer( const std::string& amqp_url )
+   : _amqp_url(amqp_url), _handlers( std::make_shared< handler_table >() ) {}
+
+rpc_mq_consumer::~rpc_mq_consumer() {}
+
 void rpc_mq_consumer::start()
 {
    _connect_thread = std::make_unique< std::thread >( [&]()
    {
       connect_loop();
    } );
+}
+
+void rpc_mq_consumer::add_rpc_handler( const std::string& content_type, const std::string& rpc_type, rpc_handler_func handler )
+{
+   _handlers->_rpc_handler_map.emplace( std::pair< std::string, std::string >( content_type, rpc_type ), handler );
 }
 
 std::pair< mq::error_code, std::shared_ptr< std::thread > > rpc_mq_consumer::connect()
@@ -246,6 +257,7 @@ void rpc_mq_consumer::connect_loop()
 }
 
 
+namespace detail {
 
 class chain_plugin_impl
 {
@@ -259,6 +271,10 @@ class chain_plugin_impl
       bfs::path            database_cfg;
 
       reqhandler           _reqhandler;
+
+      std::string                           _amqp_url;
+      std::shared_ptr< rpc_mq_consumer >    _rpc_mq_consumer;
+      std::shared_ptr< rpc_manager >        _rpc_manager;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
@@ -314,6 +330,8 @@ void chain_plugin::plugin_initialize( const variables_map& options )
    {
       my->write_default_database_config( my->database_cfg );
    }
+
+   my->_amqp_url = options.at( "amqp" ).as< std::string >();
 }
 
 void chain_plugin::plugin_startup()
@@ -345,6 +363,31 @@ void chain_plugin::plugin_startup()
    }
 
    my->_reqhandler.start_threads();
+
+   my->_rpc_mq_consumer = std::make_shared< rpc_mq_consumer >( my->_amqp_url );
+   my->_rpc_manager = std::make_shared< rpc_manager >( my->_rpc_mq_consumer );
+
+   KOINOS_TODO( "Have RPC's actually query the chain, create macros to codegen boilerplate" );
+
+   std::string rpc_type = "koinosd";
+   my->_rpc_manager->add_rpc_handler< types::rpc::get_head_info_params, types::rpc::get_head_info_result >(
+      rpc_type, "get_head_info", [&]( const types::rpc::get_head_info_params& args ) -> types::rpc::get_head_info_result
+      {
+         return types::rpc::get_head_info_result{};
+      } );
+   /*
+   my->_rpc_manager->add_rpc_handler< types::rpc::submit_block_params, types::rpc::submit_block_result >(
+      rpc_type, "submit_block", [&]( const types::rpc::submit_block_params& args ) -> types::rpc::submit_block_result
+      {
+         return types::rpc::submit_block_result{};
+      } );
+   my->_rpc_manager->add_rpc_handler< types::rpc::get_chain_id_params, types::rpc::get_chain_id_result >(
+      rpc_type, "get_chain_id", [&]( const types::rpc::get_chain_id_params& args ) -> types::rpc::get_chain_id_result
+      {
+         return types::rpc::get_chain_id_result{};
+      } );
+   */
+   my->_rpc_mq_consumer->start();
 }
 
 void chain_plugin::plugin_shutdown()
