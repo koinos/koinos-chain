@@ -6,6 +6,10 @@
 
 #include <mira/database_configuration.hpp>
 
+#include <koinos/pack/classes.hpp>
+#include <koinos/pack/rt/binary.hpp>
+#include <koinos/crypto/multihash.hpp>
+
 // Includes needed for message broker, move these when we move message_broker
 #include <koinos/mq/message_broker.hpp>
 #include <koinos/net/protocol/jsonrpc/request_handler.hpp>
@@ -392,20 +396,29 @@ void chain_plugin::plugin_startup()
       my->_rpc_manager->add_rpc_handler< types::rpc::get_head_info_params, types::rpc::get_head_info_result >(
          rpc_type, "get_head_info", [&]( const types::rpc::get_head_info_params& args ) -> types::rpc::get_head_info_result
          {
-            return types::rpc::get_head_info_result{};
+            auto f = my->_reqhandler.submit( types::rpc::query_submission( args ) );
+            auto submit_res = *(f.get());
+            auto& query_res = std::get< types::rpc::query_submission_result >( submit_res );
+            query_res.make_mutable();
+            auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
+            return head_info_res;
          } );
-      /*
-      my->_rpc_manager->add_rpc_handler< types::rpc::submit_block_params, types::rpc::submit_block_result >(
-         rpc_type, "submit_block", [&]( const types::rpc::submit_block_params& args ) -> types::rpc::submit_block_result
+
+      my->_rpc_manager->add_rpc_handler< types::rpc::block_submission, types::rpc::block_submission_result >(
+         rpc_type, "submit_block", [&]( const types::rpc::block_submission& args ) -> types::rpc::block_submission_result
          {
-            return types::rpc::submit_block_result{};
+            auto f = my->_reqhandler.submit( types::rpc::block_submission( args ) );
+            auto submit_res = *(f.get());
+            auto& res = std::get< types::rpc::block_submission_result >( submit_res );
+            return res;
          } );
       my->_rpc_manager->add_rpc_handler< types::rpc::get_chain_id_params, types::rpc::get_chain_id_result >(
          rpc_type, "get_chain_id", [&]( const types::rpc::get_chain_id_params& args ) -> types::rpc::get_chain_id_result
          {
-            return types::rpc::get_chain_id_result{};
+            types::rpc::get_chain_id_result r;
+            r.chain_id = crypto::hash_str( CRYPTO_SHA1_ID, "koinos", 6, 6 );
+            return r;
          } );
-      */
       my->_rpc_mq_consumer->start();
 
    }
