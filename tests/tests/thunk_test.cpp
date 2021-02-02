@@ -343,7 +343,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
-   koinos::types::rpc::block_topology block_topology;
+   koinos::rpc::koinosd::block_topology block_topology;
    block_topology.height = 100;
    block_topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::id"s );
    block_topology.previous = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::previous"s );

@@ -67,23 +67,23 @@ using koinos::chain::thunk::get_head_info;
 
 struct block_submission_impl
 {
-   block_submission_impl( const rpc::block_submission& s ) : submission( s ) {}
+   block_submission_impl( const types::rpc::block_submission& s ) : submission( s ) {}
 
-   rpc::block_submission          submission;
+   types::rpc::block_submission          submission;
 };
 
 struct transaction_submission_impl
 {
-   transaction_submission_impl( const rpc::transaction_submission& s ) : submission( s ) {}
+   transaction_submission_impl( const types::rpc::transaction_submission& s ) : submission( s ) {}
 
-   rpc::transaction_submission   submission;
+   types::rpc::transaction_submission   submission;
 };
 
 struct query_submission_impl
 {
-   query_submission_impl( const rpc::query_submission& s ) : submission( s ) {}
+   query_submission_impl( const types::rpc::query_submission& s ) : submission( s ) {}
 
-   rpc::query_submission         submission;
+   types::rpc::query_submission         submission;
 };
 
 using item_submission_impl = std::variant< block_submission_impl, transaction_submission_impl, query_submission_impl >;
@@ -95,9 +95,9 @@ struct work_item
    std::chrono::nanoseconds                            work_begin_time;
    std::chrono::nanoseconds                            work_end_time;
 
-   std::promise< std::shared_ptr< rpc::submission_result > >    prom_work_done;   // Promise set when work is done
-   std::future< std::shared_ptr< rpc::submission_result > >     fut_work_done;    // Future corresponding to prom_work_done
-   std::promise< std::shared_ptr< rpc::submission_result > >    prom_output;      // Promise that was returned to submit() caller
+   std::promise< std::shared_ptr< types::rpc::submission_result > >    prom_work_done;   // Promise set when work is done
+   std::future< std::shared_ptr< types::rpc::submission_result > >     fut_work_done;    // Future corresponding to prom_work_done
+   std::promise< std::shared_ptr< types::rpc::submission_result > >    prom_output;      // Promise that was returned to submit() caller
 };
 
 // We need to do some additional work, we need to index blocks by all accepted hash algorithms.
@@ -129,16 +129,16 @@ class reqhandler_impl
       void start_threads();
       void stop_threads();
 
-      std::future< std::shared_ptr< rpc::submission_result > > submit( const rpc::submission_item& item );
+      std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o );
       void connect_to_url( const std::string& amqp_url );
 
    private:
-      std::shared_ptr< rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
+      std::shared_ptr< types::rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
-      void process_submission( rpc::block_submission_result& ret,       const block_submission_impl& block );
-      void process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx );
-      void process_submission( rpc::query_submission_result& ret,       const query_submission_impl& query );
+      void process_submission( types::rpc::block_submission_result& ret,       const block_submission_impl& block );
+      void process_submission( types::rpc::transaction_submission_result& ret, const transaction_submission_impl& tx );
+      void process_submission( types::rpc::query_submission_result& ret,       const query_submission_impl& query );
 
       void feed_thread_main();
       void work_thread_main();
@@ -184,20 +184,20 @@ std::chrono::time_point< std::chrono::steady_clock > reqhandler_impl::now()
    return std::chrono::steady_clock::now();
 }
 
-std::future< std::shared_ptr< rpc::submission_result > > reqhandler_impl::submit( const rpc::submission_item& item )
+std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl::submit( const types::rpc::submission_item& item )
 {
    std::shared_ptr< item_submission_impl > impl_item;
 
    std::visit( koinos::overloaded {
-      [&]( const rpc::block_submission& sub )
+      [&]( const types::rpc::block_submission& sub )
       {
          impl_item = std::make_shared< item_submission_impl >( block_submission_impl( sub ) );
       },
-      [&]( const rpc::transaction_submission& sub )
+      [&]( const types::rpc::transaction_submission& sub )
       {
          impl_item = std::make_shared< item_submission_impl >( transaction_submission_impl( sub ) );
       },
-      [&]( const rpc::query_submission& sub )
+      [&]( const types::rpc::query_submission& sub )
       {
          impl_item = std::make_shared< item_submission_impl >( query_submission_impl( sub ) );
       },
@@ -211,7 +211,7 @@ std::future< std::shared_ptr< rpc::submission_result > > reqhandler_impl::submit
    work->item = impl_item;
    work->submit_time = std::chrono::duration_cast< std::chrono::nanoseconds >( std::chrono::system_clock::now().time_since_epoch() );
    work->fut_work_done = work->prom_work_done.get_future();
-   std::future< std::shared_ptr< rpc::submission_result > > fut_output = work->prom_output.get_future();
+   std::future< std::shared_ptr< types::rpc::submission_result > > fut_output = work->prom_output.get_future();
    try
    {
       _input_queue.push_back( work );
@@ -238,7 +238,7 @@ void reqhandler_impl::connect_to_url( const std::string& amqp_url )
    }
 }
 
-void reqhandler_impl::process_submission( rpc::block_submission_result& ret, const block_submission_impl& block )
+void reqhandler_impl::process_submission( types::rpc::block_submission_result& ret, const block_submission_impl& block )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    if( crypto::multihash_is_zero( block.submission.topology.previous ) )
@@ -292,71 +292,71 @@ void reqhandler_impl::process_submission( rpc::block_submission_result& ret, con
    }
 }
 
-void reqhandler_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
+void reqhandler_impl::process_submission( types::rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
 }
 
-void reqhandler_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
+void reqhandler_impl::process_submission( types::rpc::query_submission_result& ret, const query_submission_impl& query )
 {
    query.submission.unbox();
    ret.make_mutable();
 
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    std::visit( koinos::overloaded {
-      [&]( const rpc::get_head_info_params& p )
+      [&]( const types::rpc::get_head_info_params& p )
       {
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            ret = rpc::query_submission_result( get_head_info( *_ctx ) );
+            ret = types::rpc::query_submission_result( get_head_info( *_ctx ) );
          }
          catch ( const koinos::chain::database_exception& e )
          {
-            rpc::query_error err;
+            types::rpc::query_error err;
             std::string err_msg = "Could not find head block";
             std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
-            ret = rpc::query_submission_result( std::move( err ) );
+            ret = types::rpc::query_submission_result( std::move( err ) );
          }
       },
       [&]( const auto& )
       {
-         rpc::query_error err;
+         types::rpc::query_error err;
          std::string err_msg = "Unimplemented query type";
          std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
-         ret = rpc::query_submission_result( std::move( err ) );
+         ret = types::rpc::query_submission_result( std::move( err ) );
       }
    }, query.submission.get_const_native() );
 
    ret.make_immutable();
 }
 
-std::shared_ptr< rpc::submission_result > reqhandler_impl::process_item( std::shared_ptr< item_submission_impl > item )
+std::shared_ptr< types::rpc::submission_result > reqhandler_impl::process_item( std::shared_ptr< item_submission_impl > item )
 {
-   rpc::submission_result result;
+   types::rpc::submission_result result;
 
    std::visit( koinos::overloaded {
       [&]( query_submission_impl& s )
       {
-         rpc::query_submission_result qres;
+         types::rpc::query_submission_result qres;
          process_submission( qres, s );
-         result.emplace< rpc::query_submission_result >( std::move( qres ) );
+         result.emplace< types::rpc::query_submission_result >( std::move( qres ) );
       },
       [&]( transaction_submission_impl& s )
       {
-         rpc::transaction_submission_result tres;
+         types::rpc::transaction_submission_result tres;
          process_submission( tres, s );
-         result.emplace< rpc::transaction_submission_result >( std::move( tres ) );
+         result.emplace< types::rpc::transaction_submission_result >( std::move( tres ) );
       },
       [&]( block_submission_impl& s )
       {
-         rpc::block_submission_result bres;
+         types::rpc::block_submission_result bres;
          process_submission( bres, s );
-         result.emplace< rpc::block_submission_result >( std::move( bres ) );
+         result.emplace< types::rpc::block_submission_result >( std::move( bres ) );
       }
    }, *item );
 
-   return std::make_shared< rpc::submission_result >( result );
+   return std::make_shared< types::rpc::submission_result >( result );
 }
 
 void reqhandler_impl::feed_thread_main()
@@ -380,7 +380,7 @@ void reqhandler_impl::feed_thread_main()
       // We will probably also want to either set prom_output.set_value() in the worker thread,
       // or a dedicated output handling thread.
       work->fut_work_done.wait();
-      std::shared_ptr< rpc::submission_result > result = work->fut_work_done.get();
+      std::shared_ptr< types::rpc::submission_result > result = work->fut_work_done.get();
       work->prom_output.set_value( result );
    }
 }
@@ -400,7 +400,7 @@ void reqhandler_impl::work_thread_main()
       }
 
       std::optional< std::string > maybe_err;
-      std::shared_ptr< rpc::submission_result > result;
+      std::shared_ptr< types::rpc::submission_result > result;
 
       try
       {
@@ -422,9 +422,9 @@ void reqhandler_impl::work_thread_main()
       if( maybe_err )
       {
          LOG(error) << "err in work_thread: " << (*maybe_err);
-         result = std::make_shared< rpc::submission_result >();
-         result->emplace< rpc::submission_error_result >();
-         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< rpc::submission_error_result >( *result ).error_text ) );
+         result = std::make_shared< types::rpc::submission_result >();
+         result->emplace< types::rpc::submission_error_result >();
+         std::copy( maybe_err->begin(), maybe_err->end(), std::back_inserter( std::get< types::rpc::submission_error_result >( *result ).error_text ) );
       }
 
       work->prom_work_done.set_value( result );
@@ -469,7 +469,7 @@ reqhandler::reqhandler() : _my( std::make_unique< detail::reqhandler_impl >() ) 
 
 reqhandler::~reqhandler() = default;
 
-std::future< std::shared_ptr< rpc::submission_result > > reqhandler::submit( const rpc::submission_item& item )
+std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler::submit( const types::rpc::submission_item& item )
 {
    return _my->submit( item );
 }
