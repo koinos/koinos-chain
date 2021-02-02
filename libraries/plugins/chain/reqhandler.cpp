@@ -51,6 +51,7 @@ namespace koinos::plugins::chain {
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
 using koinos::statedb::state_db;
+using json = nlohmann::json;
 
 using namespace std::string_literals;
 using namespace koinos::types;
@@ -286,7 +287,7 @@ void reqhandler_impl::process_submission( rpc::block_submission_result& ret, con
 
    if ( _publisher.is_connected() )
    {
-      nlohmann::json j;
+      json j;
       koinos::pack::to_json( j, block.submission );
       auto err = _publisher.publish( mq::routing_key::block_accept, j.dump() );
       if ( err != mq::error_code::success )
@@ -299,6 +300,17 @@ void reqhandler_impl::process_submission( rpc::block_submission_result& ret, con
 void reqhandler_impl::process_submission( rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
+
+   if ( _publisher.is_connected() )
+   {
+      json j;
+      koinos::pack::to_json( j, tx.submission );
+      auto err = _publisher.publish( mq::routing_key::transaction_accept, j.dump() );
+      if ( err != mq::error_code::success )
+      {
+         LOG(error) << "failed to publish transaction application to message broker";
+      }
+   }
 }
 
 void reqhandler_impl::process_submission( rpc::query_submission_result& ret, const query_submission_impl& query )
