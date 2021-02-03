@@ -280,10 +280,10 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       koinos::pack::to_json( j, block.submission );
 
       mq::message msg;
-      msg.exchange = mq::exchange::event;
-      msg.routing_key = mq::routing_key::block_accept;
+      msg.exchange     = mq::exchange::event;
+      msg.routing_key  = mq::routing_key::block_accept;
       msg.content_type = "application/json";
-      msg.data = j.dump();
+      msg.data         = j.dump();
 
       auto err = _publisher.publish( msg );
       if ( err != mq::error_code::success )
@@ -301,7 +301,14 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
    {
       json j;
       koinos::pack::to_json( j, tx.submission );
-      auto err = _publisher.publish( mq::routing_key::transaction_accept, j.dump() );
+
+      mq::message msg;
+      msg.exchange     = mq::exchange::event;
+      msg.routing_key  = mq::routing_key::transaction_accept;
+      msg.content_type = "application/json";
+      msg.data         = j.dump();
+
+      auto err = _publisher.publish( msg );
       if ( err != mq::error_code::success )
       {
          LOG(error) << "failed to publish transaction application to message broker";
