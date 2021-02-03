@@ -232,7 +232,7 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o 
 
 void reqhandler_impl::connect_to_url( const std::string& amqp_url )
 {
-   if ( _publisher.connect_to_url( amqp_url ) != mq::error_code::success )
+   if ( _publisher.connect( amqp_url ) != mq::error_code::success )
    {
       KOINOS_THROW( mq_connection_failure, "Unable to connect to MQ server" );
    }
@@ -279,7 +279,7 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       koinos::pack::to_json( j, block.submission );
 
       mq::message msg;
-      msg.exchange = "";
+      msg.exchange = mq::exchange::event;
       msg.routing_key = mq::routing_key::block_accept;
       msg.content_type = "application/json";
       msg.data = j.dump();

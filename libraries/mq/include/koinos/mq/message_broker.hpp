@@ -1,5 +1,7 @@
 #pragma once
 
+#include <koinos/util.hpp>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -9,7 +11,7 @@
 
 namespace koinos::mq {
 
-// TODO:  Move these Koinos-specific names elsewhere
+KOINOS_TODO( "Move these Koinos-specific names to Koinos types" );
 namespace exchange {
    constexpr const char* event = "koinos_event";
    constexpr const char* rpc = "koinos_rpc";
@@ -49,25 +51,11 @@ public:
    message_broker();
    ~message_broker();
 
-   error_code connect(
-      const std::string& host,
-      uint16_t port,
-      const std::string& vhost = "/",
-      const std::string& user = "guest",
-      const std::string& pass = "guest"
-   ) noexcept;
-
-   error_code connect_to_url(
-      const std::string& url
-   ) noexcept;
-
+   error_code connect( const std::string& url ) noexcept;
    void disconnect() noexcept;
-
    bool is_connected() noexcept;
 
-   error_code publish(
-      const message& msg
-   ) noexcept;
+   error_code publish( const message& msg ) noexcept;
 
    std::pair< error_code, std::optional< message > > consume() noexcept;
 
