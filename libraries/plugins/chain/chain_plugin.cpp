@@ -12,13 +12,6 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/util.hpp>
 
-// Includes needed for message broker, move these when we move message_broker
-#include <koinos/mq/message_broker.hpp>
-#include <koinos/net/protocol/jsonrpc/request_handler.hpp>
-#include <nlohmann/json.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/container/flat_map.hpp>
-
 namespace koinos::plugins::chain {
 
 using namespace appbase;
@@ -131,6 +124,8 @@ void chain_plugin::plugin_startup()
       exit( EXIT_FAILURE );
    }
 
+   my->_reqhandler.start_threads();
+
    if ( !my->_mq_disable )
    {
       try
@@ -142,8 +137,6 @@ void chain_plugin::plugin_startup()
          LOG(error) << "error connecting to mq server: " << e.what();
          exit( EXIT_FAILURE );
       }
-
-      my->_reqhandler.start_threads();
 
       my->_rpc_mq_consumer = std::make_shared< mq::rpc_mq_consumer >( my->_amqp_url );
       my->_rpc_manager = std::make_shared< mq::rpc_manager >( my->_rpc_mq_consumer );
