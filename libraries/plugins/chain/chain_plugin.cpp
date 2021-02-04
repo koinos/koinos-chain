@@ -152,11 +152,9 @@ void chain_plugin::plugin_startup()
          "koinos_rpc",
          "koinos_rpc_chain",
          true,
-         [&]( const std::string& msg, const std::string& content_type ) -> std::optional< std::string >
+         []( const mq::message& msg ) { return msg.content_type == "application/json"; },
+         [&]( const std::string& msg ) -> std::string
          {
-            if ( content_type != "application/json" )
-               return {};
-
             auto j = nlohmann::json::parse( msg );
             types::rpc::submission_item args;
             pack::from_json( j, args );
@@ -174,17 +172,13 @@ void chain_plugin::plugin_startup()
          "koinos_broadcast",
          "koinos.block.accept",
          false,
-         [&]( const std::string& msg, const std::string& content_type ) -> std::optional< std::string >
+         []( const mq::message& msg ) { return msg.content_type == "application/json"; },
+         [&]( const std::string& msg )
          {
-            if ( content_type != "application/json" )
-               return {};
-
             auto j = nlohmann::json::parse( msg );
             types::rpc::block_submission args;
             pack::from_json( j, args );
             my->_reqhandler.submit( args );
-
-            return {};
          } );
       if ( ec != mq::error_code::success )
       {

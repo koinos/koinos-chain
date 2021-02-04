@@ -1,5 +1,7 @@
 #include <koinos/mq/consumer.hpp>
 
+#include <koinos/util.hpp>
+
 #include <chrono>
 #include <cstdlib>
 
@@ -38,21 +40,38 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
 
       if ( routing_itr == routing_map.end() )
       {
-         LOG(error) << "Did not find route: " << msg->exchange << ":" << msg->routing_key;
+         LOG(error) << "Did not find route: " << msg->exchange << ":" << msg->routing_key ;
       }
       else
       {
-         auto resp = routing_itr->second( msg->data, msg->content_type );
-
-         if ( resp.has_value() && msg->reply_to.has_value() && msg->correlation_id.has_value() )
+         for( const auto& h_pair : routing_itr->second )
          {
-            reply->exchange = "";
-            reply->reply_to = *msg->reply_to;
-            reply->content_type = msg->content_type;
-            reply->correlation_id = *msg->correlation_id;
-            reply->data = *resp;
+            if ( !h_pair.first( *msg ) )
+               continue;
 
-            output_queue.push_back( reply );
+            std::visit(
+            koinos::overloaded {
+               [&]( const msg_handler_string_func& f )
+               {
+                  auto resp = f( msg->data );
+                  if ( msg->reply_to.has_value() && msg->correlation_id.has_value() )
+                  {
+                     reply->exchange = "";
+                     reply->reply_to = *msg->reply_to;
+                     reply->content_type = msg->content_type;
+                     reply->correlation_id = *msg->correlation_id;
+                     reply->data = resp;
+
+                     output_queue.push_back( reply );
+                  }
+               },
+               [&]( const msg_handler_void_func& f )
+               {
+                  f( msg->data );
+               },
+               [&]( const auto& ) {}
+            }, h_pair.second );
+            break;
          }
       }
    }
@@ -121,23 +140,46 @@ error_code consumer::prepare( prepare_func f )
    return f( *_publisher_broker );
 }
 
-error_code consumer::add_msg_handler( const std::string& exchange, const std::string& topic, bool exclusive, msg_handler_func handler )
+error_code consumer::add_msg_handler(
+   const std::string& exchange,
+   const std::string& topic,
+   bool exclusive,
+   handler_verify_func verify,
+   msg_handler_func handler )
 {
    auto queue_name = exclusive ? topic : topic + rand_str(16);
+   auto binding = std::make_pair( exchange, topic );
+   auto binding_itr = _queue_bindings.find( binding );
+   error_code ec = error_code::success;
 
-   auto ec = _consumer_broker->declare_exchange( exchange );
-   if ( ec != error_code::success )
-      return ec;
+   if ( binding_itr == _queue_bindings.end() )
+   {
+      ec = _consumer_broker->declare_exchange( exchange );
+      if ( ec != error_code::success )
+         return ec;
 
-   _consumer_broker->declare_queue( queue_name );
-   if ( ec != error_code::success )
-      return ec;
+      _consumer_broker->declare_queue( queue_name );
+      if ( ec != error_code::success )
+         return ec;
 
-   _consumer_broker->bind_queue( queue_name, exchange, topic );
-   if ( ec != error_code::success )
-      return ec;
+      _consumer_broker->bind_queue( queue_name, exchange, topic );
+      if ( ec != error_code::success )
+         return ec;
 
-   _handler_map.emplace( std::pair< std::string, std::string >( exchange, topic ), handler );
+      _queue_bindings.emplace( binding );
+   }
+
+   auto handler_itr = _handler_map.find( binding );
+
+   if ( handler_itr == _handler_map.end() )
+   {
+      _handler_map.emplace( binding, std::vector< handler_pair >{ std::make_pair( verify, handler ) } );
+      //_handler_map.emplace( binding, std::vector< handler_pair >() ).first->second.emplace_back( std::make_pair( verify, handler ) );
+   }
+   else
+   {
+      handler_itr->second.emplace_back( std::make_pair( verify, handler ) );
+   }
 
    return ec;
 }
