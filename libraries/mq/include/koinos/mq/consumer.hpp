@@ -6,6 +6,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/thread/sync_bounded_queue.hpp>
 
 #include <memory>
 #include <thread>
@@ -29,6 +30,8 @@ struct handler_table
    void handle_rpc_call( rpc_call& call );
 };
 
+constexpr std::size_t MAX_QUEUE_SIZE = 1024;
+
 class consumer : public std::enable_shared_from_this< consumer >
 {
    public:
@@ -47,6 +50,9 @@ class consumer : public std::enable_shared_from_this< consumer >
       std::string                      _amqp_url;
       std::unique_ptr< std::thread >   _connect_thread;
       std::shared_ptr< handler_table > _handlers;
+
+      boost::concurrent::sync_bounded_queue< std::shared_ptr< message > > _input_queue{ MAX_QUEUE_SIZE };
+      boost::concurrent::sync_bounded_queue< std::shared_ptr< message > > _output_queue{ MAX_QUEUE_SIZE };
 };
 
 } // koinos::mq
