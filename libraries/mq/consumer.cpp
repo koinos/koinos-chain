@@ -135,11 +135,6 @@ error_code consumer::connect( const std::string& amqp_url )
    return error_code::success;
 }
 
-error_code consumer::prepare( prepare_func f )
-{
-   return f( *_publisher_broker );
-}
-
 error_code consumer::add_msg_handler(
    const std::string& exchange,
    const std::string& topic,
