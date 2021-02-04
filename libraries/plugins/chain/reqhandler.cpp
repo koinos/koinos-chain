@@ -132,7 +132,7 @@ class reqhandler_impl
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o );
-      void connect_to_url( const std::string& amqp_url );
+      void connect( const std::string& amqp_url );
 
    private:
       std::shared_ptr< types::rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
@@ -231,7 +231,7 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o 
    _state_db.open( p, o );
 }
 
-void reqhandler_impl::connect_to_url( const std::string& amqp_url )
+void reqhandler_impl::connect( const std::string& amqp_url )
 {
    if ( _publisher.connect( amqp_url ) != mq::error_code::success )
    {
@@ -498,9 +498,9 @@ void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
    _my->open( p, o );
 }
 
-void reqhandler::connect_to_url( const std::string& amqp_url )
+void reqhandler::connect( const std::string& amqp_url )
 {
-   _my->connect_to_url( amqp_url );
+   _my->connect( amqp_url );
 }
 
 void reqhandler::start_threads()

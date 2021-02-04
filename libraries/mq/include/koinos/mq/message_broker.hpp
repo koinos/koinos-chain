@@ -31,13 +31,13 @@ enum class error_code : int64_t
 
 struct message
 {
-   uint64_t    delivery_tag;
-   std::string exchange;
-   std::string routing_key;
-   std::string content_type;
+   uint64_t                     delivery_tag;
+   std::string                  exchange;
+   std::string                  routing_key;
+   std::string                  content_type;
    std::optional< std::string > reply_to;
    std::optional< std::string > correlation_id;
-   std::string data;
+   std::string                  data;
 };
 
 namespace detail { struct message_broker_impl; }
@@ -59,8 +59,24 @@ public:
 
    std::pair< error_code, std::optional< message > > consume() noexcept;
 
-   error_code queue_declare( const std::string& queue ) noexcept;
-   error_code queue_bind(
+   error_code declare_exchange(
+      const std::string& exchange,
+      const std::string& exchange_type = "direct",
+      bool passive = false,
+      bool durable = false,
+      bool auto_delete = false,
+      bool internal = false
+   ) noexcept;
+
+   error_code declare_queue(
+      const std::string& queue,
+      bool passive = false,
+      bool durable = false,
+      bool exclusive = false,
+      bool auto_delete = false
+   ) noexcept;
+
+   error_code bind_queue(
       const std::string& queue,
       const std::string& exchange,
       const std::string& binding_key
