@@ -74,10 +74,12 @@ void consumer::start()
 void consumer::stop()
 {
    _input_queue.close();
-   _consumer_thread->join();
+   if ( _consumer_thread )
+      _consumer_thread->join();
 
    _output_queue.close();
-   _publisher_thread->join();
+   if ( _publisher_thread )
+      _publisher_thread->join();
 }
 
 error_code consumer::connect( const std::string& amqp_url )

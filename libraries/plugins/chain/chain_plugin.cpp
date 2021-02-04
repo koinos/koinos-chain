@@ -125,6 +125,8 @@ void chain_plugin::plugin_startup()
 
    my->_reqhandler.start_threads();
 
+   my->_mq_consumer = std::make_shared< mq::consumer >();
+
    if ( !my->_mq_disable )
    {
       try
@@ -136,8 +138,6 @@ void chain_plugin::plugin_startup()
          LOG(error) << "error connecting to mq server: " << e.what();
          exit( EXIT_FAILURE );
       }
-
-      my->_mq_consumer = std::make_shared< mq::consumer >();
 
       mq::error_code ec;
 
@@ -197,8 +197,11 @@ void chain_plugin::plugin_shutdown()
 {
    LOG(info) << "closing chain database";
 
-   my->_mq_consumer->stop();
-   LOG(info) << "closing mq request handler";
+   if ( !my->_mq_disable )
+   {
+      LOG(info) << "closing mq request handler";
+      my->_mq_consumer->stop();
+   }
 
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
