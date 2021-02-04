@@ -8,7 +8,7 @@ namespace koinos::mq {
 std::string rand_str( int len )
 {
    static const char characters[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-   string tmp;
+   std::string tmp;
    tmp.reserve( len );
 
    for ( int i = 0; i < len; i++ )
@@ -19,7 +19,7 @@ std::string rand_str( int len )
    return tmp;
 }
 
-void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& output_queue, const msg_routing_map_t& routing_map )
+void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& output_queue, const msg_routing_map& routing_map )
 {
    while( true )
    {
@@ -34,7 +34,7 @@ void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& 
       }
 
       std::shared_ptr< message > reply;
-      auto routing_itr = routing_map.find( msg->exchange + msg->routing_key );
+      auto routing_itr = routing_map.find( std::make_pair( msg->exchange, msg->routing_key ) );
 
       if ( routing_itr == routing_map.end() )
       {
@@ -42,9 +42,9 @@ void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& 
       }
       else
       {
-         auto resp = routing_itr->second( msg.data, msg.content_type );
+         auto resp = routing_itr->second( msg->data, msg->content_type );
 
-         if ( resp.hasValue() && msg.reply_to.has_value() && msg.correlation_id.has_value() )
+         if ( resp.has_value() && msg->reply_to.has_value() && msg->correlation_id.has_value() )
          {
             reply->exchange = "";
             reply->reply_to = *msg->reply_to;
@@ -59,7 +59,6 @@ void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& 
 }
 
 consumer::consumer() :
-   _handlers( std::make_shared< handler_table >() ),
    _publisher_broker( std::make_shared< message_broker >() ),
    _consumer_broker( std::make_shared< message_broker >() ) {}
 
@@ -77,7 +76,7 @@ void consumer::start()
       publisher( _publisher_broker );
    } );
 
-   std::size_t num_threads = boost::thread::hardware_concurrency()+1;
+   std::size_t num_threads = std::thread::hardware_concurrency() + 1;
    for( std::size_t i = 0; i < num_threads; i++ )
    {
       _consumer_pool.emplace_back( [&]()
@@ -127,15 +126,15 @@ error_code consumer::add_msg_handler( const std::string& exchange, const std::st
    auto queue_name = exclusive ? topic : topic + rand_str(16);
 
    auto ec = _consumer_broker->declare_exchange( exchange );
-   if ec != error_code::success
+   if ( ec != error_code::success )
       return ec;
 
    _consumer_broker->declare_queue( queue_name );
-   if ec != error_code::success
+   if ( ec != error_code::success )
       return ec;
 
    _consumer_broker->bind_queue( queue_name, exchange, topic );
-   if ec != error_code::success
+   if ( ec != error_code::success )
       return ec;
 
    _handler_map.emplace( std::pair< std::string, std::string >( exchange, topic ), handler );
