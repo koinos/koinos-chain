@@ -174,7 +174,6 @@ error_code consumer::add_msg_handler(
    if ( handler_itr == _handler_map.end() )
    {
       _handler_map.emplace( binding, std::vector< handler_pair >{ std::make_pair( verify, handler ) } );
-      //_handler_map.emplace( binding, std::vector< handler_pair >() ).first->second.emplace_back( std::make_pair( verify, handler ) );
    }
    else
    {
@@ -182,6 +181,22 @@ error_code consumer::add_msg_handler(
    }
 
    return ec;
+}
+
+error_code consumer::add_msg_handler(
+   const std::string& exchange,
+   const std::string& topic,
+   bool exclusive,
+   handler_verify_func verify,
+   msg_handler_string_func handler )
+{
+   return add_msg_handler(
+      exchange,
+      topic,
+      exclusive,
+      verify,
+      msg_handler_func( handler )
+   );
 }
 
 void consumer::publisher( std::shared_ptr< message_broker > broker )

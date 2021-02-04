@@ -52,6 +52,16 @@ class consumer : public std::enable_shared_from_this< consumer >
          handler_verify_func,
          msg_handler_func );
 
+      // The compiler should be able to implicitly convert msg_handler_string_func -> msg_handler_func
+      // but doesn't. This explicit binding compiles. Very likely to break in the future as an
+      // ambiguous function binding. If so, delete this function.
+      error_code add_msg_handler(
+         const std::string& exchange,
+         const std::string& topic,
+         bool exclusive,
+         handler_verify_func,
+         msg_handler_string_func );
+
    private:
       void consume( std::shared_ptr< message_broker > broker );
       void publisher( std::shared_ptr< message_broker > broker );
