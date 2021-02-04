@@ -1,35 +1,22 @@
 #include <koinos/mq/consumer.hpp>
 
+#include <chrono>
+#include <cstdlib>
+
 namespace koinos::mq {
 
-void handle_msg_with_response( const message& msg, msg_handler_func handler )
+std::string rand_str( int len )
 {
-   if ( !msg.reply_to.has_value() )
+   static const char characters[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+   string tmp;
+   tmp.reserve( len );
+
+   for ( int i = 0; i < len; i++ )
    {
-      LOG(error) << "Could not service RPC, reply_to not specified";
-      return {};
+      tmp += characters[rand() % (sizeof(characters) - 1)];
    }
 
-   if ( !msg.correlation_id.has_value() )
-   {
-      LOG(error) << "Could not service RPC, correlation_id not specified";
-      return {};
-   }
-
-   message response;
-   response.exchange = "koinos_rpc_reply";
-   response.routing_key = msg.reply_to;
-   response.content_type = msg.content_type;
-   response.correlation_id = msg.correlation_id;
-
-   try
-   {
-      response.
-   } catch( std::exception& e )
-   {
-
-   }
-
+   return tmp;
 }
 
 void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& output_queue, const msg_routing_map_t& routing_map )
@@ -55,7 +42,7 @@ void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& 
       }
       else
       {
-         auto resp = routing_itr->second( msg.data );
+         auto resp = routing_itr->second( msg.data, msg.content_type );
 
          if ( resp.hasValue() && msg.reply_to.has_value() && msg.correlation_id.has_value() )
          {
@@ -71,108 +58,128 @@ void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& 
    }
 }
 
-/*
-void handler_table::handle_rpc_call( rpc_call& call )
-{
+consumer::consumer() :
+   _handlers( std::make_shared< handler_table >() ),
+   _publisher_broker( std::make_shared< message_broker >() ),
+   _consumer_broker( std::make_shared< message_broker >() ) {}
 
-
-   call.resp.exchange = "koinos_rpc_reply";
-   call.resp.routing_key = *call.req.reply_to;
-   call.resp.content_type = call.req.content_type;
-   call.resp.correlation_id = call.req.correlation_id;
-
-   const std::string prefix = "koinos_rpc_";
-
-   if ( !boost::starts_with( call.req.routing_key, prefix ) )
-   {
-      LOG(error) << "Could not parse rpc_type";
-      call.err = error_code::failure;
-      call.resp.data = "{\"error\":\"Could not parse rpc_type\"}";
-      return;
-   }
-
-   std::string rpc_type = call.req.routing_key.substr( prefix.size() );
-
-   std::pair< std::string, std::string > k( call.req.content_type, rpc_type );
-
-   auto it = _rpc_handler_map.find( k );
-   if ( it == _rpc_handler_map.end() )
-   {
-      KOINOS_TODO( "Fallback to error handler indexed by content_type only, then fallback to default error handler" );
-      LOG(error) << "Could not find RPC handler for requested content_type, routing_key";
-      call.err = error_code::failure;
-      KOINOS_TODO( "More meaningful error message" );
-      call.resp.data = "{\"error\":\"Could not find RPC handler for requested content_type, routing_key\"}";
-      return;
-   }
-   call.resp.data = (it->second)(call.req.data);
-   call.err = error_code::success;
-}
-*/
-
-consumer::consumer( const std::string& amqp_url ) :
-   _amqp_url( amqp_url ),
-   _handlers( std::make_shared< handler_table >() ) {}
-
-consumer::~consumer() {}
+consumer::~consumer() = default;
 
 void consumer::start()
 {
-   _connect_thread = std::make_unique< std::thread >( [&]()
+   _consumer_thread = std::make_unique< std::thread >( [&]()
    {
-      connect_loop();
+      consume( _consumer_broker );
    } );
-}
 
-void consumer::add_msg_handler( const std::string& exchange, const std::string& topic, bool exclusive, msg_handler_func )
-{
-   auto routing_key = std::make_pair( exchange, topic );
-
-   
-}
-
-void consumer::add_rpc_handler( const std::string& content_type, const std::string& rpc_type, rpc_handler_func handler )
-{
-   _handlers->_rpc_handler_map.emplace( std::pair< std::string, std::string >( content_type, rpc_type ), handler );
-}
-
-std::pair< error_code, std::shared_ptr< std::thread > > consumer::connect()
-{
-   std::shared_ptr< message_broker > broker = std::make_shared< message_broker >();
-   std::pair< error_code, std::shared_ptr< std::thread > > result;
-
-   result.first = broker->connect( _amqp_url );
-   if ( result.first != error_code::success )
-      return result;
-
-   KOINOS_TODO( "Does this work for n>1?" );
-   for ( auto it = _handlers->_rpc_handler_map.begin(); it != _handlers->_rpc_handler_map.end(); ++it )
+   _publisher_thread = std::make_unique< std::thread >( [&]()
    {
-      auto queue_name = std::string( "koinos_rpc_" ) + it->first.second;
+      publisher( _publisher_broker );
+   } );
 
-      result.first = broker->declare_queue( queue_name );
-      if ( result.first != error_code::success )
-         return result;
-
-      result.first = broker->bind_queue( queue_name, exchange::rpc, queue_name );
-      if ( result.first != error_code::success )
-         return result;
+   std::size_t num_threads = boost::thread::hardware_concurrency()+1;
+   for( std::size_t i = 0; i < num_threads; i++ )
+   {
+      _consumer_pool.emplace_back( [&]()
+      {
+         consumer_thread_main( _input_queue, _output_queue, _handler_map );
+      } );
    }
-
-   std::shared_ptr< consumer > sthis = shared_from_this();
-
-   result.second = std::make_shared< std::thread >( [ sthis, broker ]() { sthis->consume( broker, sthis->_handlers ); } );
-   return result;
 }
 
-void consumer::consume( std::shared_ptr< message_broker > broker, std::shared_ptr< handler_table > handlers )
+void consumer::stop()
+{
+   _input_queue.close();
+   if ( _consumer_thread )
+      _consumer_thread->join();
+
+   for( auto& c : _consumer_pool )
+      c.join();
+   _consumer_pool.clear();
+
+   _output_queue.close();
+   if ( _publisher_thread )
+      _publisher_thread->join();
+}
+
+error_code consumer::connect( const std::string& amqp_url )
+{
+   error_code ec;
+
+   ec = _publisher_broker->connect( amqp_url );
+   if ( ec != error_code::success )
+      return ec;
+
+   ec = _consumer_broker->connect( amqp_url );
+   if ( ec != error_code::success )
+      return ec;
+
+   return error_code::success;
+}
+
+error_code consumer::prepare( prepare_func f )
+{
+   return f( *_publisher_broker );
+}
+
+error_code consumer::add_msg_handler( const std::string& exchange, const std::string& topic, bool exclusive, msg_handler_func handler )
+{
+   auto queue_name = exclusive ? topic : topic + rand_str(16);
+
+   auto ec = _consumer_broker->declare_exchange( exchange );
+   if ec != error_code::success
+      return ec;
+
+   _consumer_broker->declare_queue( queue_name );
+   if ec != error_code::success
+      return ec;
+
+   _consumer_broker->bind_queue( queue_name, exchange, topic );
+   if ec != error_code::success
+      return ec;
+
+   _handler_map.emplace( std::pair< std::string, std::string >( exchange, topic ), handler );
+
+   return ec;
+}
+
+void consumer::publisher( std::shared_ptr< message_broker > broker )
+{
+   while ( true )
+   {
+      std::shared_ptr< message > m;
+
+      try
+      {
+         _output_queue.pull_front( m );
+      }
+      catch ( const boost::sync_queue_is_closed& )
+      {
+         break;
+      }
+
+      auto r = broker->publish( *m );
+
+      if ( r != error_code::success )
+      {
+         LOG(error) << "an error has occurred while publishing message";
+      }
+   }
+}
+
+void consumer::consume( std::shared_ptr< message_broker > broker )
 {
    while ( true )
    {
       auto result = broker->consume();
 
       if ( result.first == error_code::time_out )
-         continue;
+      {
+         if ( _input_queue.closed() )
+            break;
+         else
+            continue;
+      }
 
       if ( result.first != error_code::success )
       {
@@ -180,53 +187,20 @@ void consumer::consume( std::shared_ptr< message_broker > broker, std::shared_pt
          continue;
       }
 
-      if ( !result.second.has_value() )
+      if ( !result.second )
       {
          LOG(error) << "consumption succeeded but resulted in an empty message";
          continue;
       }
 
-      rpc_call call;
-      call.req = *result.second;
-
-      handlers->handle_rpc_call( call );
-
-      broker->publish( call.resp );
-   }
-}
-
-
-void consumer::connect_loop()
-{
-   const static int RETRY_MIN_DELAY_MS = 1000;
-   const static int RETRY_MAX_DELAY_MS = 25000;
-   const static int RETRY_DELAY_PER_RETRY_MS = 2000;
-
-   while ( true )
-   {
-      int retry_count = 0;
-
-      std::shared_ptr< std::thread > consumer_thread;
-
-      while ( true )
+      try
       {
-         std::unique_ptr< message_broker > broker;
-         std::pair< error_code, std::shared_ptr< std::thread > > result = connect();
-         consumer_thread = result.second;
-
-         if ( result.first == error_code::success )
-            break;
-
-         int delay_ms = RETRY_MIN_DELAY_MS + RETRY_DELAY_PER_RETRY_MS * retry_count;
-         if( delay_ms > RETRY_MAX_DELAY_MS )
-            delay_ms = RETRY_MAX_DELAY_MS;
-
-         // TODO:  Add quit notification for clean termination
-         std::this_thread::sleep_for( std::chrono::milliseconds( delay_ms ) );
-         retry_count++;
+         _input_queue.push_back( result.second );
       }
-      consumer_thread->join();
-      // TODO:  Cleanup closed handlers
+      catch ( const boost::sync_queue_is_closed& )
+      {
+         break;
+      }
    }
 }
 

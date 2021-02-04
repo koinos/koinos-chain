@@ -125,6 +125,8 @@ void chain_plugin::plugin_startup()
 
    my->_reqhandler.start_threads();
 
+   my->_mq_consumer = std::make_shared< mq::consumer >();
+
    if ( !my->_mq_disable )
    {
       try
@@ -137,24 +139,58 @@ void chain_plugin::plugin_startup()
          exit( EXIT_FAILURE );
       }
 
-      my->_mq_consumer = std::make_shared< mq::consumer >( my->_amqp_url );
+      mq::error_code ec;
 
-      KOINOS_TODO( "Have RPC's actually query the chain, create macros to codegen boilerplate" );
+      ec = my->_mq_consumer->connect( my->_amqp_url );
+      if ( ec != mq::error_code::success )
+      {
+         LOG(error) << "unable to connect request handler to mq server";
+         exit( EXIT_FAILURE );
+      }
 
-      std::string rpc_type = "koinosd";
-      my->_mq_consumer->add_rpc_handler(
-         "application/json",
-         rpc_type,
-         [&]( const std::string& data ) -> std::string
+      ec = my->_mq_consumer->add_msg_handler(
+         "koinos_rpc",
+         "koinos_rpc_chain",
+         true,
+         []( const std::string& msg, const std::string& content_type ) -> std::optional< std::string >
          {
-            auto j = nlohmann::json::parse(data);
+            if ( content_type != "application/json" )
+               return {};
+
+            auto j = nlohmann::json::parse( data );
             types::rpc::submission_item args;
             pack::from_json( j, args );
             auto res = my->_reqhandler.submit( args );
             pack::to_json( j, args );
             return j.dump();
-         }
-      );
+         } );
+      if ( ec != mq::error_code::success )
+      {
+         LOG(error) << "unable to prepare mq server for processing";
+         exit( EXIT_FAILURE );
+      }
+
+      my->_mq_consumer->add_msg_handler(
+         "koinos_broadcast",
+         "koinos.block.accept",
+         false,
+         []( const std::string& msg, const std::string& content_type ) -> std::optional< std::string >
+         {
+            if ( content_type != "application/json" )
+               return {};
+
+            auto j = nlohmann::json::parse( data );
+            types::rpc::block_submission_item args;
+            pack::from_json( j, args );
+            my->_reqhandler.submit( args );
+
+            return {};
+         } );
+      if ( ec != mq::error_code::success )
+      {
+         LOG(error) << "unable to prepare mq server for processing";
+         exit( EXIT_FAILURE );
+      }
 
       my->_mq_consumer->start();
 
@@ -168,6 +204,13 @@ void chain_plugin::plugin_startup()
 void chain_plugin::plugin_shutdown()
 {
    LOG(info) << "closing chain database";
+
+   if ( !my->_mq_disable )
+   {
+      LOG(info) << "closing mq request handler";
+      my->_mq_consumer->stop();
+   }
+
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
    my->_reqhandler.stop_threads();
