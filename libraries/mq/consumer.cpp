@@ -2,19 +2,79 @@
 
 namespace koinos::mq {
 
-void handler_table::handle_rpc_call( rpc_call& call )
+void handle_msg_with_response( const message& msg, msg_handler_func handler )
 {
-   if ( !call.req.reply_to.has_value() )
+   if ( !msg.reply_to.has_value() )
    {
       LOG(error) << "Could not service RPC, reply_to not specified";
-      return;
+      return {};
    }
 
-   if ( !call.req.correlation_id.has_value() )
+   if ( !msg.correlation_id.has_value() )
    {
       LOG(error) << "Could not service RPC, correlation_id not specified";
-      return;
+      return {};
    }
+
+   message response;
+   response.exchange = "koinos_rpc_reply";
+   response.routing_key = msg.reply_to;
+   response.content_type = msg.content_type;
+   response.correlation_id = msg.correlation_id;
+
+   try
+   {
+      response.
+   } catch( std::exception& e )
+   {
+
+   }
+
+}
+
+void consumer_thread_main( synced_msg_queue_t& input_queue, synced_msg_queue_t& output_queue, const msg_routing_map_t& routing_map )
+{
+   while( true )
+   {
+      std::shared_ptr< message > msg;
+      try
+      {
+         input_queue.pull_front( msg );
+      }
+      catch( const boost::concurrent::sync_queue_is_closed& )
+      {
+         break;
+      }
+
+      std::shared_ptr< message > reply;
+      auto routing_itr = routing_map.find( msg->exchange + msg->routing_key );
+
+      if ( routing_itr == routing_map.end() )
+      {
+         LOG(error) << "Did not find route: " << msg->exchange << ":" << msg->routing_key;
+      }
+      else
+      {
+         auto resp = routing_itr->second( msg.data );
+
+         if ( resp.hasValue() && msg.reply_to.has_value() && msg.correlation_id.has_value() )
+         {
+            reply->exchange = "";
+            reply->reply_to = *msg->reply_to;
+            reply->content_type = msg->content_type;
+            reply->correlation_id = *msg->correlation_id;
+            reply->data = *resp;
+
+            output_queue.push_back( reply );
+         }
+      }
+   }
+}
+
+/*
+void handler_table::handle_rpc_call( rpc_call& call )
+{
+
 
    call.resp.exchange = "koinos_rpc_reply";
    call.resp.routing_key = *call.req.reply_to;
@@ -48,6 +108,7 @@ void handler_table::handle_rpc_call( rpc_call& call )
    call.resp.data = (it->second)(call.req.data);
    call.err = error_code::success;
 }
+*/
 
 consumer::consumer( const std::string& amqp_url ) :
    _amqp_url( amqp_url ),
@@ -61,6 +122,13 @@ void consumer::start()
    {
       connect_loop();
    } );
+}
+
+void consumer::add_msg_handler( const std::string& exchange, const std::string& topic, bool exclusive, msg_handler_func )
+{
+   auto routing_key = std::make_pair( exchange, topic );
+
+   
 }
 
 void consumer::add_rpc_handler( const std::string& content_type, const std::string& rpc_type, rpc_handler_func handler )

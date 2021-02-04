@@ -20,7 +20,8 @@ struct rpc_call
    error_code err;
 };
 
-typedef std::function< std::string( const std::string& ) > rpc_handler_func;
+typedef std::function< std::optional< std::string >( const std::string& ) > msg_handler_func;
+typedef std::function< void( const std::string& ) > broadcast_handler_func;
 
 struct handler_table
 {
@@ -39,20 +40,29 @@ class consumer : public std::enable_shared_from_this< consumer >
       virtual ~consumer();
 
       void start();
-      void add_rpc_handler( const std::string& content_type, const std::string& rpc_type, rpc_handler_func handler );
+      //void add_rpc_handler( const std::string& content_type, const std::string& rpc_type, rpc_handler_func handler );
+      //void add_rpc_handler( const std::string& rpc_type, rpc_handler_func handler );
+      //void add_rpc_handler( const std::string& topic, broadcast_handler_func handler );
 
+      void add_msg_handler( const std::string& exchange, const std::string& topic, bool exclusive, msg_handler_func );
 
    private:
+      typedef std::function< void( const message&, message& ) > msg_handler_wrapper_func_t;
+      typedef boost::concurrent::sync_bounded_queue< std::shared_ptr< message > > synced_msg_queue_t;
+      typedef std::unordered_map< std::pair< std::string, std::string >, msg_handler_wrapper_func_t > msg_routing_map_t;
+
       void connect_loop();
       void consume( std::shared_ptr< message_broker > broker, std::shared_ptr< handler_table > handlers );
       std::pair< mq::error_code, std::shared_ptr< std::thread > > connect();
 
       std::string                      _amqp_url;
       std::unique_ptr< std::thread >   _connect_thread;
-      std::shared_ptr< handler_table > _handlers;
 
-      boost::concurrent::sync_bounded_queue< std::shared_ptr< message > > _input_queue{ MAX_QUEUE_SIZE };
-      boost::concurrent::sync_bounded_queue< std::shared_ptr< message > > _output_queue{ MAX_QUEUE_SIZE };
+      msg_routing_map_t                _handler_map;
+      boost::asio::thread_pool         _consumer_pool;
+
+      synced_msg_queue_t _input_queue{ MAX_QUEUE_SIZE };
+      synced_msg_queue_t _output_queue{ MAX_QUEUE_SIZE };
 };
 
 } // koinos::mq
