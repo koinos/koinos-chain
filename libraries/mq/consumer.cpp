@@ -112,22 +112,22 @@ void consumer::publisher( std::shared_ptr< message_broker > broker )
    while ( true )
    {
       std::shared_ptr< message > m;
-      auto status = _output_queue.try_pull_front( m );
 
-      if ( status == boost::queue_op_status::closed )
-         break;
-
-      if ( status == boost::queue_op_status::success )
+      try
       {
-         auto r = broker->publish( *m );
-
-         if ( r != error_code::success )
-         {
-            LOG(error) << "an error has occurred while publishing message";
-         }
+         _output_queue.pull_front( m );
+      }
+      catch ( const boost::sync_queue_is_closed& )
+      {
+         break;
       }
 
-      std::this_thread::sleep_for( std::chrono::milliseconds( 250 ) );
+      auto r = broker->publish( *m );
+
+      if ( r != error_code::success )
+      {
+         LOG(error) << "an error has occurred while publishing message";
+      }
    }
 }
 
@@ -157,10 +157,14 @@ void consumer::consume( std::shared_ptr< message_broker > broker )
          continue;
       }
 
-      auto status = _input_queue.try_push_back( result.second );
-
-      if ( status == boost::queue_op_status::closed )
+      try
+      {
+         _input_queue.push_back( result.second );
+      }
+      catch ( const boost::sync_queue_is_closed& )
+      {
          break;
+      }
    }
 }
 
