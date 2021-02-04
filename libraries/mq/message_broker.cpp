@@ -43,7 +43,7 @@ public:
 
    error_code publish( const message& msg ) noexcept;
 
-   std::pair< error_code, std::optional< message > > consume() noexcept;
+   std::pair< error_code, std::shared_ptr< message > > consume() noexcept;
 
    error_code declare_exchange(
       const std::string& exchange,
@@ -356,9 +356,9 @@ std::optional< std::string > message_broker_impl::error_info( amqp_rpc_reply_t r
    return {};
 }
 
-std::pair< error_code, std::optional< message > > message_broker_impl::consume() noexcept
+std::pair< error_code, std::shared_ptr< message > > message_broker_impl::consume() noexcept
 {
-   std::pair< error_code, std::optional< message > > result;
+   std::pair< error_code, std::shared_ptr< message > > result;
 
    constexpr std::size_t bufsize = 2048;
    char buf[ bufsize ] = { '\0' };
@@ -399,7 +399,7 @@ std::pair< error_code, std::optional< message > > message_broker_impl::consume()
       return result;
    }
 
-   result.second.emplace();
+   result.second = std::make_shared< message >();
 
    message& msg = *result.second;
 
@@ -500,7 +500,7 @@ error_code message_broker::bind_queue(
    return _message_broker_impl->bind_queue( queue, exchange, binding_key );
 }
 
-std::pair< error_code, std::optional< message > > message_broker::consume() noexcept
+std::pair< error_code, std::shared_ptr< message > > message_broker::consume() noexcept
 {
    return _message_broker_impl->consume();
 }

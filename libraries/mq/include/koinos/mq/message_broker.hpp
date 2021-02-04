@@ -57,7 +57,7 @@ public:
 
    error_code publish( const message& msg ) noexcept;
 
-   std::pair< error_code, std::optional< message > > consume() noexcept;
+   std::pair< error_code, std::shared_ptr< message > > consume() noexcept;
 
    error_code declare_exchange(
       const std::string& exchange,

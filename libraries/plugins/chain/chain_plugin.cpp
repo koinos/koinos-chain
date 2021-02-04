@@ -137,9 +137,37 @@ void chain_plugin::plugin_startup()
          exit( EXIT_FAILURE );
       }
 
-      my->_mq_consumer = std::make_shared< mq::consumer >( my->_amqp_url );
+      my->_mq_consumer = std::make_shared< mq::consumer >();
 
-      KOINOS_TODO( "Have RPC's actually query the chain, create macros to codegen boilerplate" );
+      mq::error_code ec;
+
+      ec = my->_mq_consumer->connect( my->_amqp_url );
+      if ( ec != mq::error_code::success )
+      {
+         LOG(error) << "unable to connect request handler to mq server";
+         exit( EXIT_FAILURE );
+      }
+
+      ec = my->_mq_consumer->prepare( []( auto& broker ) -> mq::error_code
+      {
+         std::string queue_name = "koinos_rpc_chain";
+
+         mq::error_code ec;
+         ec = broker.declare_queue( queue_name );
+         if ( ec != mq::error_code::success )
+            return ec;
+
+         ec = broker.bind_queue( queue_name, mq::exchange::rpc, queue_name );
+         if ( ec != mq::error_code::success )
+            return ec;
+
+         return mq::error_code::success;
+      } );
+      if ( ec != mq::error_code::success )
+      {
+         LOG(error) << "unable to prepare mq server for processing";
+         exit( EXIT_FAILURE );
+      }
 
       std::string rpc_type = "koinosd";
       my->_mq_consumer->add_rpc_handler(
@@ -168,6 +196,10 @@ void chain_plugin::plugin_startup()
 void chain_plugin::plugin_shutdown()
 {
    LOG(info) << "closing chain database";
+
+   my->_mq_consumer->stop();
+   LOG(info) << "closing mq request handler";
+
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
    my->_reqhandler.stop_threads();
