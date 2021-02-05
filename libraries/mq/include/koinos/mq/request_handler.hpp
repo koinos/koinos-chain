@@ -10,6 +10,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include <memory>
+#include <set>
 #include <thread>
 #include <unordered_map>
 #include <variant>
