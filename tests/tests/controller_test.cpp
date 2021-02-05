@@ -230,6 +230,15 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
    auto block_res = std::get< types::rpc::block_submission_result >( submit_res );
+
+   BOOST_TEST_MESSAGE( "Test chain ID retrieval" );
+   future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_chain_id_params() ) );
+   submit_res = *(future.get());
+   auto query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
+   auto chain_id_result = std::get< types::rpc::get_chain_id_result >( query_submission_result.get_const_native() );
+   std::string chain_id = "koinos";
+   BOOST_CHECK_EQUAL( chain_id_result.chain_id, crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() ) );
+
    _chain_plugin.plugin_shutdown();
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
