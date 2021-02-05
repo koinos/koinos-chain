@@ -40,17 +40,17 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    active_data.header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
 
    // Get previous block data
-   rpc::block_topology topology;
+   koinos::rpc::chain::block_topology topology;
 
    chain::chain_plugin& ch = appbase::app().get_plugin< chain::chain_plugin >();
-   auto r = ch.submit( rpc::query_submission( rpc::get_head_info_params() ) );
+   auto r = ch.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
 
    try
    {
-      auto res = std::get< rpc::query_submission_result >( *r.get() );
+      auto res = std::get< types::rpc::query_submission_result >( *r.get() );
       res.unbox();
       std::visit( koinos::overloaded {
-         [&]( const rpc::get_head_info_result& head_info ) {
+         [&]( const types::rpc::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
             active_data.header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = head_info.id.digest;
             topology.previous = head_info.id;
@@ -80,7 +80,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
 
    // Submit the block
-   r = ch.submit( rpc::block_submission{
+   r = ch.submit( types::rpc::block_submission{
       .topology = topology,
       .block = *block,
       .verify_passive_data = true,

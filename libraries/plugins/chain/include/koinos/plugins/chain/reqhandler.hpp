@@ -37,13 +37,7 @@ class reqhandler
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
       void open( const boost::filesystem::path& p, const std::any& o );
-      void connect(
-         const std::string& host,
-         uint16_t port,
-         const std::string& vhost,
-         const std::string& user,
-         const std::string& pass
-      );
+      void connect( const std::string& amqp_url );
 
       void start_threads();
       void stop_threads();

@@ -9,6 +9,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <koinos/log.hpp>
+#include <koinos/util.hpp>
 
 namespace koinos::mq {
 
@@ -17,16 +18,12 @@ namespace detail {
 class message_broker_impl final
 {
 private:
-   amqp_connection_state_t connection = nullptr;
-   const amqp_channel_t channel = 1;
+   amqp_connection_state_t _connection = nullptr;
+   const amqp_channel_t    _channel = 1;
 
    std::optional< std::string > error_info( amqp_rpc_reply_t r ) noexcept;
 
-public:
-   message_broker_impl() = default;
-   ~message_broker_impl();
-
-   error_code connect(
+   error_code connect_internal(
       const std::string& host,
       uint16_t port,
       const std::string& vhost,
@@ -34,21 +31,38 @@ public:
       const std::string& pass
    ) noexcept;
 
+public:
+   message_broker_impl() = default;
+   ~message_broker_impl();
+
+   error_code connect( const std::string& url ) noexcept;
+
    void disconnect() noexcept;
 
    bool is_connected() noexcept;
 
-   error_code publish(
-      const std::string& routing_key,
-      const std::string& data,
-      const std::string& content_type,
-      const std::string& exchange
+   error_code publish( const message& msg ) noexcept;
+
+   std::pair< error_code, std::shared_ptr< message > > consume() noexcept;
+
+   error_code declare_exchange(
+      const std::string& exchange,
+      const std::string& exchange_type,
+      bool passive,
+      bool durable,
+      bool auto_delete,
+      bool internal
    ) noexcept;
 
-   std::pair< error_code, std::optional< message > > consume() noexcept;
+   std::pair< error_code, std::string > declare_queue(
+      const std::string& queue,
+      bool passive,
+      bool durable,
+      bool exclusive,
+      bool auto_delete
+   ) noexcept;
 
-   error_code queue_declare( const std::string& queue ) noexcept;
-   error_code queue_bind(
+   error_code bind_queue(
       const std::string& queue,
       const std::string& exchange,
       const std::string& binding_key
@@ -62,60 +76,68 @@ message_broker_impl::~message_broker_impl()
 
 void message_broker_impl::disconnect() noexcept
 {
-   if ( !connection )
+   if ( !_connection )
       return;
 
-   auto r = amqp_channel_close( connection, channel, AMQP_REPLY_SUCCESS );
+   auto r = amqp_channel_close( _connection, _channel, AMQP_REPLY_SUCCESS );
    if ( r.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( r ).value();
    }
 
-   r = amqp_connection_close( connection, AMQP_REPLY_SUCCESS );
+   r = amqp_connection_close( _connection, AMQP_REPLY_SUCCESS );
    if ( r.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( r ).value();
    }
 
-   int err = amqp_destroy_connection( connection );
+   int err = amqp_destroy_connection( _connection );
    if ( err < AMQP_STATUS_OK )
    {
       LOG(error) << amqp_error_string2( err );
    }
 
-   connection = nullptr;
+   _connection = nullptr;
 }
 
 bool message_broker_impl::is_connected() noexcept
 {
-   return connection != nullptr;
+   return _connection != nullptr;
 }
 
-error_code message_broker_impl::publish(
-   const std::string& routing_key,
-   const std::string& data,
-   const std::string& content_type,
-   const std::string& exchange ) noexcept
+error_code message_broker_impl::publish( const message& msg ) noexcept
 {
    amqp_basic_properties_t props;
    props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
-   props.content_type = amqp_cstring_bytes( content_type.c_str() );
+   props.content_type = amqp_cstring_bytes( msg.content_type.c_str() );
    props.delivery_mode = 2; /* persistent delivery mode */
+   if( msg.reply_to.has_value() )
+   {
+      props._flags |= AMQP_BASIC_REPLY_TO_FLAG;
+      props.reply_to = amqp_cstring_bytes( msg.reply_to->c_str() );
+   }
+
+   if( msg.correlation_id.has_value() )
+   {
+      props._flags |= AMQP_BASIC_CORRELATION_ID_FLAG;
+      props.correlation_id = amqp_cstring_bytes( msg.correlation_id->c_str() );
+   }
+
    amqp_basic_publish(
-      connection,
-      channel,
-      amqp_cstring_bytes( exchange.c_str() ),
-      amqp_cstring_bytes( routing_key.c_str() ),
+      _connection,
+      _channel,
+      amqp_cstring_bytes( msg.exchange.c_str() ),
+      amqp_cstring_bytes( msg.routing_key.c_str() ),
       0,
       0,
       &props,
-      amqp_cstring_bytes( data.c_str() )
+      amqp_cstring_bytes( msg.data.c_str() )
    );
 
    return error_code::success;
 }
 
-error_code message_broker_impl::connect(
+error_code message_broker_impl::connect_internal(
    const std::string& host,
    uint16_t port,
    const std::string& vhost,
@@ -124,8 +146,8 @@ error_code message_broker_impl::connect(
 {
    disconnect();
 
-   connection = amqp_new_connection();
-   amqp_socket_t *socket = amqp_tcp_socket_new( connection );
+   _connection = amqp_new_connection();
+   amqp_socket_t *socket = amqp_tcp_socket_new( _connection );
 
    if ( !socket )
    {
@@ -142,7 +164,7 @@ error_code message_broker_impl::connect(
    }
 
    auto r = amqp_login(
-      connection,
+      _connection,
       vhost.c_str(),
       AMQP_DEFAULT_MAX_CHANNELS,
       AMQP_DEFAULT_FRAME_SIZE,
@@ -158,8 +180,8 @@ error_code message_broker_impl::connect(
       return error_code::failure;
    }
 
-   amqp_channel_open( connection, channel );
-   r = amqp_get_rpc_reply( connection );
+   amqp_channel_open( _connection, _channel );
+   r = amqp_get_rpc_reply( _connection );
    if ( r.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( r ).value();
@@ -170,10 +192,49 @@ error_code message_broker_impl::connect(
    return error_code::success;
 }
 
-error_code message_broker_impl::queue_declare( const std::string& queue ) noexcept
+error_code message_broker_impl::connect( const std::string& url ) noexcept
 {
-   amqp_queue_declare( connection, channel, amqp_cstring_bytes( queue.c_str() ), 0, 0, 0, 1, amqp_empty_table );
-   auto reply = amqp_get_rpc_reply( connection );
+   std::vector< char > tmp_url( url.begin(), url.end() );
+   tmp_url.push_back( '\0' );
+
+   amqp_connection_info cinfo;
+   auto result = amqp_parse_url( tmp_url.data(), &cinfo );
+
+   if( result != AMQP_STATUS_OK )
+   {
+      LOG(error) << "unable to parse provided amqp url";
+      return error_code::failure;
+   }
+
+   return connect_internal(
+      std::string( cinfo.host ),
+      uint16_t( cinfo.port ),
+      std::string( "/" ) + cinfo.vhost,
+      std::string( cinfo.user ),
+      std::string( cinfo.password )
+   );
+}
+
+error_code message_broker_impl::declare_exchange(
+   const std::string& exchange,
+   const std::string& exchange_type,
+   bool passive,
+   bool durable,
+   bool auto_delete,
+   bool internal ) noexcept
+{
+   amqp_exchange_declare(
+      _connection,
+      _channel,
+      amqp_cstring_bytes( exchange.c_str() ),
+      amqp_cstring_bytes( exchange_type.c_str() ),
+      int( passive ),
+      int( durable ),
+      int( auto_delete ),
+      int( internal ),
+      amqp_empty_table
+   );
+   auto reply = amqp_get_rpc_reply( _connection );
    if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( reply ).value();
@@ -183,30 +244,65 @@ error_code message_broker_impl::queue_declare( const std::string& queue ) noexce
    return error_code::success;
 }
 
-error_code message_broker_impl::queue_bind(
+std::pair< error_code, std::string > message_broker_impl::declare_queue(
+   const std::string& queue,
+   bool passive,
+   bool durable,
+   bool exclusive,
+   bool auto_delete ) noexcept
+{
+   amqp_queue_declare_ok_t* r = amqp_queue_declare(
+      _connection,
+      _channel,
+      queue.empty() ? amqp_empty_bytes : amqp_cstring_bytes( queue.c_str() ),
+      int( passive ),
+      int( durable ),
+      int( exclusive ),
+      int( auto_delete ),
+      amqp_empty_table
+   );
+
+   auto reply = amqp_get_rpc_reply( _connection );
+   if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
+   {
+      LOG(error) << error_info( reply ).value();
+      return std::make_pair( error_code::failure, "" );
+   }
+
+   if ( queue.empty() ) {
+      return std::make_pair(
+         error_code::success,
+         std::string( (char*)r->queue.bytes, (std::size_t)r->queue.len )
+      );
+   }
+
+   return std::make_pair( error_code::success, queue );
+}
+
+error_code message_broker_impl::bind_queue(
    const std::string& queue,
    const std::string& exchange,
    const std::string& binding_key ) noexcept
 {
    auto queue_bytes = amqp_cstring_bytes( queue.c_str() );
    amqp_queue_bind(
-      connection,
-      channel,
+      _connection,
+      _channel,
       queue_bytes,
       amqp_cstring_bytes( exchange.c_str() ),
       amqp_cstring_bytes( binding_key.c_str() ),
       amqp_empty_table
    );
 
-   auto reply = amqp_get_rpc_reply( connection );
+   auto reply = amqp_get_rpc_reply( _connection );
    if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( reply ).value();
       return error_code::failure;
    }
 
-   amqp_basic_consume( connection, channel, queue_bytes, amqp_empty_bytes, 0, 1, 0, amqp_empty_table );
-   reply = amqp_get_rpc_reply( connection );
+   amqp_basic_consume( _connection, _channel, queue_bytes, amqp_empty_bytes, 0, 1, 0, amqp_empty_table );
+   reply = amqp_get_rpc_reply( _connection );
    if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( reply ).value();
@@ -267,35 +363,35 @@ std::optional< std::string > message_broker_impl::error_info( amqp_rpc_reply_t r
    return {};
 }
 
-std::pair< error_code, std::optional< message > > message_broker_impl::consume() noexcept
+std::pair< error_code, std::shared_ptr< message > > message_broker_impl::consume() noexcept
 {
-   uint64_t delivery_tag;
-   std::string exchange;
-   std::string routing_key;
-   std::string content_type;
-   std::string data;
+   std::pair< error_code, std::shared_ptr< message > > result;
 
    constexpr std::size_t bufsize = 2048;
    char buf[ bufsize ] = { '\0' };
 
    amqp_envelope_t envelope;
 
-   amqp_maybe_release_buffers( connection );
+   amqp_maybe_release_buffers( _connection );
 
    timeval tv;
    tv.tv_sec = 1;
    tv.tv_usec = 0;
-   auto reply = amqp_consume_message( connection, &envelope, &tv, 0 );
+   auto reply = amqp_consume_message( _connection, &envelope, &tv, 0 );
 
    if ( reply.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION && reply.library_error == AMQP_STATUS_TIMEOUT )
    {
-      return std::make_pair( error_code::time_out, std::optional< message >{} );
+      result.first = error_code::time_out;
+      return result;
    }
    else if ( AMQP_RESPONSE_NORMAL != reply.reply_type )
    {
       LOG(error) << error_info( reply ).value();
-      return std::make_pair( error_code::failure, std::optional< message >{} );
+      result.first = error_code::failure;
+      return result;
    }
+
+   uint64_t delivery_tag;
 
    snprintf( buf, bufsize, "%u", (unsigned)envelope.delivery_tag );
    try
@@ -306,39 +402,51 @@ std::pair< error_code, std::optional< message > > message_broker_impl::consume()
    {
       LOG(error) << e.what();
       amqp_destroy_envelope( &envelope );
-      return std::make_pair( error_code::failure, std::optional< message >{} );
+      result.first = error_code::failure;
+      return result;
    }
 
-   snprintf( buf, bufsize, "%.*s", (int)envelope.exchange.len, (char *)envelope.exchange.bytes );
-   exchange = buf;
+   result.second = std::make_shared< message >();
 
-   snprintf( buf, bufsize, "%.*s", (int)envelope.routing_key.len, (char *)envelope.routing_key.bytes );
-   routing_key = buf;
+   message& msg = *result.second;
+
+   msg.delivery_tag = delivery_tag;
+   msg.exchange = std::string( (char*) envelope.exchange.bytes, (std::size_t) envelope.exchange.len );
+   msg.routing_key = std::string( (char*) envelope.routing_key.bytes, (std::size_t) envelope.routing_key.len );
 
    if ( envelope.message.properties._flags & AMQP_BASIC_CONTENT_TYPE_FLAG )
    {
-      snprintf( buf, bufsize, "%.*s",
-         (int)envelope.message.properties.content_type.len,
-         (char *)envelope.message.properties.content_type.bytes
+      msg.content_type = std::string(
+         (char*) envelope.message.properties.content_type.bytes,
+         (std::size_t) envelope.message.properties.content_type.len
       );
-      content_type = buf;
    }
 
-   snprintf( buf, bufsize, "%.*s", (int)envelope.message.body.len, (char *)envelope.message.body.bytes );
-   data = buf;
+   if ( envelope.message.properties._flags & AMQP_BASIC_REPLY_TO_FLAG )
+   {
+      msg.reply_to = std::string(
+         (char*) envelope.message.properties.reply_to.bytes,
+         (std::size_t) envelope.message.properties.reply_to.len
+      );
+   }
+
+   if ( envelope.message.properties._flags & AMQP_BASIC_CORRELATION_ID_FLAG )
+   {
+      msg.correlation_id = std::string(
+         (char*) envelope.message.properties.correlation_id.bytes,
+         (std::size_t) envelope.message.properties.correlation_id.len
+      );
+   }
+
+   msg.data = std::string(
+      (char*) envelope.message.body.bytes,
+      (std::size_t) envelope.message.body.len
+   );
 
    amqp_destroy_envelope( &envelope );
 
-   return std::make_pair(
-      error_code::success,
-      message {
-         .delivery_tag = delivery_tag,
-         .exchange = std::move( exchange ),
-         .routing_key = std::move( routing_key ),
-         .content_type = std::move( content_type ),
-         .data = std::move( data )
-      }
-   );
+   result.first = error_code::success;
+   return result;
 }
 
 } // detail
@@ -350,6 +458,11 @@ message_broker::message_broker()
 
 message_broker::~message_broker() = default;
 
+error_code message_broker::connect( const std::string& url ) noexcept
+{
+   return _message_broker_impl->connect( url );
+}
+
 void message_broker::disconnect() noexcept
 {
    _message_broker_impl->disconnect();
@@ -360,39 +473,41 @@ bool message_broker::is_connected() noexcept
    return _message_broker_impl->is_connected();
 }
 
-error_code message_broker::publish(
-   const std::string& routing_key,
-   const std::string& data,
-   const std::string& content_type,
-   const std::string& exchange ) noexcept
+error_code message_broker::publish( const message& msg ) noexcept
 {
-   return _message_broker_impl->publish( routing_key, data, content_type, exchange );
+   return _message_broker_impl->publish( msg );
 }
 
-error_code message_broker::connect(
-   const std::string& host,
-   uint16_t port,
-   const std::string& vhost,
-   const std::string& user,
-   const std::string& pass ) noexcept
+error_code message_broker::declare_exchange(
+      const std::string& exchange,
+      const std::string& exchange_type,
+      bool passive,
+      bool durable,
+      bool auto_delete,
+      bool internal ) noexcept
 {
-   return _message_broker_impl->connect( host, port, vhost, user, pass );
+   return _message_broker_impl->declare_exchange( exchange, exchange_type, passive, durable, auto_delete, internal );
 }
 
-error_code message_broker::queue_declare( const std::string& queue ) noexcept
+std::pair< error_code, std::string > message_broker::declare_queue(
+   const std::string& queue,
+   bool passive,
+   bool durable,
+   bool exclusive,
+   bool auto_delete ) noexcept
 {
-   return _message_broker_impl->queue_declare( queue );
+   return _message_broker_impl->declare_queue( queue, passive, durable, exclusive, auto_delete );
 }
 
-error_code message_broker::queue_bind(
+error_code message_broker::bind_queue(
    const std::string& queue,
    const std::string& exchange,
    const std::string& binding_key ) noexcept
 {
-   return _message_broker_impl->queue_bind( queue, exchange, binding_key );
+   return _message_broker_impl->bind_queue( queue, exchange, binding_key );
 }
 
-std::pair< error_code, std::optional< message > > message_broker::consume() noexcept
+std::pair< error_code, std::shared_ptr< message > > message_broker::consume() noexcept
 {
    return _message_broker_impl->consume();
 }

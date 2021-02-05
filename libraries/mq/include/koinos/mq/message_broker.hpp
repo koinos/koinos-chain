@@ -1,5 +1,7 @@
 #pragma once
 
+#include <koinos/util.hpp>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -8,16 +10,6 @@
 #include <utility>
 
 namespace koinos::mq {
-
-namespace exchange {
-   constexpr const char* event = "koinos_event";
-   constexpr const char* rpc = "koinos_rpc";
-} // exchange
-
-namespace routing_key {
-   constexpr const char* block_accept = "koinos.block.accept";
-   constexpr const char* transaction_accept = "koinos.transaction.accept";
-} // routing_key
 
 enum class error_code : int64_t
 {
@@ -28,11 +20,13 @@ enum class error_code : int64_t
 
 struct message
 {
-   const uint64_t    delivery_tag;
-   const std::string exchange;
-   const std::string routing_key;
-   const std::string content_type;
-   const std::string data;
+   uint64_t                     delivery_tag;
+   std::string                  exchange;
+   std::string                  routing_key;
+   std::string                  content_type;
+   std::optional< std::string > reply_to;
+   std::optional< std::string > correlation_id;
+   std::string                  data;
 };
 
 namespace detail { struct message_broker_impl; }
@@ -46,29 +40,32 @@ public:
    message_broker();
    ~message_broker();
 
-   error_code connect(
-      const std::string& host,
-      uint16_t port,
-      const std::string& vhost = "/",
-      const std::string& user = "guest",
-      const std::string& pass = "guest"
-   ) noexcept;
-
+   error_code connect( const std::string& url ) noexcept;
    void disconnect() noexcept;
-
    bool is_connected() noexcept;
 
-   error_code publish(
-      const std::string& routing_key,
-      const std::string& data,
-      const std::string& content_type = "application/json",
-      const std::string& exchange = exchange::event
+   error_code publish( const message& msg ) noexcept;
+
+   std::pair< error_code, std::shared_ptr< message > > consume() noexcept;
+
+   error_code declare_exchange(
+      const std::string& exchange,
+      const std::string& exchange_type = "direct",
+      bool passive = false,
+      bool durable = false,
+      bool auto_delete = false,
+      bool internal = false
    ) noexcept;
 
-   std::pair< error_code, std::optional< message > > consume() noexcept;
+   std::pair< error_code, std::string > declare_queue(
+      const std::string& queue,
+      bool passive = false,
+      bool durable = false,
+      bool exclusive = false,
+      bool auto_delete = false
+   ) noexcept;
 
-   error_code queue_declare( const std::string& queue ) noexcept;
-   error_code queue_bind(
+   error_code bind_queue(
       const std::string& queue,
       const std::string& exchange,
       const std::string& binding_key
