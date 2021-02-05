@@ -280,8 +280,8 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       koinos::pack::to_json( j, block.submission );
 
       mq::message msg;
-      msg.exchange     = mq::exchange::event;
-      msg.routing_key  = mq::routing_key::block_accept;
+      msg.exchange     = "koinos_event";
+      msg.routing_key  = "koinos.block.accept";
       msg.content_type = "application/json";
       msg.data         = j.dump();
 
@@ -303,8 +303,8 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       koinos::pack::to_json( j, tx.submission );
 
       mq::message msg;
-      msg.exchange     = mq::exchange::event;
-      msg.routing_key  = mq::routing_key::transaction_accept;
+      msg.exchange     = "koinos_event";
+      msg.routing_key  = "koinos.transaction.accept";
       msg.content_type = "application/json";
       msg.data         = j.dump();
 
