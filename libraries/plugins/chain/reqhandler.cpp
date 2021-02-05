@@ -338,6 +338,14 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
             ret = types::rpc::query_submission_result( std::move( err ) );
          }
       },
+      [&]( const types::rpc::get_chain_id_params& p )
+      {
+         std::string chain_id = "koinos";
+         types::rpc::get_chain_id_result cir {
+            .chain_id = crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() )
+         };
+         ret = types::rpc::query_submission_result( std::move( cir ) );
+      },
       [&]( const auto& )
       {
          types::rpc::query_error err;
