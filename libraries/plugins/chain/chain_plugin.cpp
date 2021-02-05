@@ -156,10 +156,61 @@ void chain_plugin::plugin_startup()
          [&]( const std::string& msg ) -> std::string
          {
             auto j = nlohmann::json::parse( msg );
-            types::rpc::submission_item args;
+            rpc::chain::chain_rpc_params args;
             pack::from_json( j, args );
-            auto res = my->_reqhandler.submit( args );
-            pack::to_json( j, args );
+
+            // Convert chain_rpc_params -> submission_item
+            types::rpc::submission_item submit;
+            std::visit(
+               koinos::overloaded {
+                  [&]( const rpc::chain::get_head_info_params& p )
+                  {
+                     submit = types::rpc::query_param_item( p );
+                  },
+                  [&]( const rpc::chain::get_chain_id_params& p )
+                  {
+                     submit = types::rpc::query_param_item( p );
+                  },
+                  [&]( const auto& p )
+                  {
+                     submit = p;
+                  }
+               },
+               args );
+
+            auto res = my->_reqhandler.submit( submit );
+
+            // Convert submission_result -> chain_rpc_result
+            rpc::chain::chain_rpc_result result;
+            std::visit(
+               koinos::overloaded {
+                  [&]( const types::rpc::query_submission_result& r )
+                  {
+                     r.unbox();
+                     if ( r.is_unboxed() )
+                     {
+                        std::visit(
+                           koinos::overloaded {
+                              [&]( const auto& q )
+                              {
+                                 result = q;
+                              }
+                           },
+                        r.get_const_native() );
+                     }
+                     else
+                     {
+                        result = rpc::chain::rpc_error{ "Unknown serialization returned for query submission result" };
+                     }
+                  },
+                  [&]( const auto& r )
+                  {
+                     result = r;
+                  }
+               },
+               *(res.get()) );
+
+            pack::to_json( j, result );
             return j.dump();
          }
       );

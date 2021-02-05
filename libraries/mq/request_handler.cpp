@@ -21,7 +21,7 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
          break;
       }
 
-      std::shared_ptr< message > reply;
+      auto reply = std::make_shared< message >();
       auto routing_itr = routing_map.find( std::make_pair( msg->exchange, msg->routing_key ) );
 
       if ( routing_itr == routing_map.end() )
@@ -36,27 +36,27 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
                continue;
 
             std::visit(
-            koinos::overloaded {
-               [&]( const msg_handler_string_func& f )
-               {
-                  auto resp = f( msg->data );
-                  if ( msg->reply_to.has_value() && msg->correlation_id.has_value() )
+               koinos::overloaded {
+                  [&]( const msg_handler_string_func& f )
                   {
-                     reply->exchange = "";
-                     reply->reply_to = *msg->reply_to;
-                     reply->content_type = msg->content_type;
-                     reply->correlation_id = *msg->correlation_id;
-                     reply->data = resp;
+                     auto resp = f( msg->data );
+                     if ( msg->reply_to.has_value() && msg->correlation_id.has_value() )
+                     {
+                        reply->exchange = "";
+                        reply->routing_key = *msg->reply_to;
+                        reply->content_type = msg->content_type;
+                        reply->correlation_id = *msg->correlation_id;
+                        reply->data = resp;
 
-                     output_queue.push_back( reply );
-                  }
-               },
-               [&]( const msg_handler_void_func& f )
-               {
-                  f( msg->data );
-               },
-               [&]( const auto& ) {}
-            }, h_pair.second );
+                        output_queue.push_back( reply );
+                     }
+                  },
+                  [&]( const msg_handler_void_func& f )
+                  {
+                     f( msg->data );
+                  },
+                  [&]( const auto& ) {}
+               }, h_pair.second );
             break;
          }
       }
@@ -151,10 +151,10 @@ error_code request_handler::add_msg_handler(
          false,      // Passive
          false,      // Durable
          exclusive,  // Exclusive
-         false       // Inernal
+         false       // Internal
       );
       if ( queue_res.first != error_code::success )
-         return ec;
+         return queue_res.first;
 
       ec = _consumer_broker->bind_queue( queue_res.second, exchange, topic );
       if ( ec != error_code::success )

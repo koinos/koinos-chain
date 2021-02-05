@@ -40,7 +40,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    active_data.header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
 
    // Get previous block data
-   koinos::rpc::koinosd::block_topology topology;
+   koinos::rpc::chain::block_topology topology;
 
    chain::chain_plugin& ch = appbase::app().get_plugin< chain::chain_plugin >();
    auto r = ch.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
