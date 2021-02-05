@@ -23,14 +23,14 @@ std::string rand_str( int len )
 
 void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& output_queue, const msg_routing_map& routing_map )
 {
-   while( true )
+   while ( true )
    {
       std::shared_ptr< message > msg;
       try
       {
          input_queue.pull_front( msg );
       }
-      catch( const boost::concurrent::sync_queue_is_closed& )
+      catch ( const boost::concurrent::sync_queue_is_closed& )
       {
          break;
       }
@@ -44,9 +44,9 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
       }
       else
       {
-         for( const auto& h_pair : routing_itr->second )
+         for ( const auto& h_pair : routing_itr->second )
          {
-            if ( !h_pair.first( (*msg).content_type ) )
+            if ( !h_pair.first( msg->content_type ) )
                continue;
 
             std::visit(
@@ -142,7 +142,7 @@ error_code request_handler::add_msg_handler(
    handler_verify_func verify,
    msg_handler_func handler )
 {
-   auto queue_name = exclusive ? topic : topic + rand_str(16);
+   auto queue_name = exclusive ? topic : topic + "-" + rand_str(16);
    auto binding = std::make_pair( exchange, topic );
    auto binding_itr = _queue_bindings.find( binding );
    error_code ec = error_code::success;
@@ -160,7 +160,7 @@ error_code request_handler::add_msg_handler(
       if ( ec != error_code::success )
          return ec;
 
-      _consumer_broker->declare_queue(
+      ec = _consumer_broker->declare_queue(
          queue_name,
          false,      // Passive
          !exclusive, // Durable
@@ -170,7 +170,7 @@ error_code request_handler::add_msg_handler(
       if ( ec != error_code::success )
          return ec;
 
-      _consumer_broker->bind_queue( queue_name, exchange, topic );
+      ec = _consumer_broker->bind_queue( queue_name, exchange, topic );
       if ( ec != error_code::success )
          return ec;
 
