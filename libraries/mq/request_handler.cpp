@@ -149,11 +149,24 @@ error_code request_handler::add_msg_handler(
 
    if ( binding_itr == _queue_bindings.end() )
    {
-      ec = _consumer_broker->declare_exchange( exchange );
+      ec = _consumer_broker->declare_exchange(
+         exchange,
+         exclusive ? "direct" : "topic",
+         false, // Passive
+         true,  // Durable
+         false, // Auto Delete
+         false  // Internal
+      );
       if ( ec != error_code::success )
          return ec;
 
-      _consumer_broker->declare_queue( queue_name );
+      _consumer_broker->declare_queue(
+         queue_name,
+         false,      // Passive
+         !exclusive, // Durable
+         exclusive,  // Exclusive
+         false       // Inernal
+      );
       if ( ec != error_code::success )
          return ec;
 
