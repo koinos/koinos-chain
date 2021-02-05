@@ -11,17 +11,6 @@
 
 namespace koinos::mq {
 
-KOINOS_TODO( "Move these Koinos-specific names to Koinos types" );
-namespace exchange {
-   constexpr const char* event = "koinos_event";
-   constexpr const char* rpc = "koinos_rpc";
-} // exchange
-
-namespace routing_key {
-   constexpr const char* block_accept = "koinos.block.accept";
-   constexpr const char* transaction_accept = "koinos.transaction.accept";
-} // routing_key
-
 enum class error_code : int64_t
 {
    success,
