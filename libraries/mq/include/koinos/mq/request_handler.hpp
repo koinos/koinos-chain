@@ -40,8 +40,8 @@ class request_handler : public std::enable_shared_from_this< request_handler >
 
       error_code add_msg_handler(
          const std::string& exchange,
-         const std::string& topic,
-         bool competing_cunsumer,
+         const std::string& routing_key,
+         bool competing_consumer,
          handler_verify_func,
          msg_handler_func );
 
@@ -50,7 +50,7 @@ class request_handler : public std::enable_shared_from_this< request_handler >
       // ambiguous function binding. If so, delete this function.
       error_code add_msg_handler(
          const std::string& exchange,
-         const std::string& topic,
+         const std::string& routing_key,
          bool competing_consumer,
          handler_verify_func,
          msg_handler_string_func );

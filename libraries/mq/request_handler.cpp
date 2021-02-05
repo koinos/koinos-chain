@@ -123,13 +123,13 @@ error_code request_handler::connect( const std::string& amqp_url )
 
 error_code request_handler::add_msg_handler(
    const std::string& exchange,
-   const std::string& topic,
-   bool competing_cunsumer,
+   const std::string& routing_key,
+   bool competing_consumer,
    handler_verify_func verify,
    msg_handler_func handler )
 {
    std::string queue_name;
-   auto binding = std::make_pair( exchange, topic );
+   auto binding = std::make_pair( exchange, routing_key );
    auto binding_itr = _queue_bindings.find( binding );
    error_code ec = error_code::success;
 
@@ -137,7 +137,7 @@ error_code request_handler::add_msg_handler(
    {
       ec = _consumer_broker->declare_exchange(
          exchange,
-         competing_cunsumer ? "direct" : "topic",
+         competing_consumer ? "direct" : "topic",
          false, // Passive
          true,  // Durable
          false, // Auto Delete
@@ -147,16 +147,16 @@ error_code request_handler::add_msg_handler(
          return ec;
 
       auto queue_res = _consumer_broker->declare_queue(
-         competing_cunsumer ? topic : "",
+         competing_consumer ? routing_key : "",
          false,               // Passive
          competing_consumer,  // Durable
-         !competing_cunsumer, // Exclusive
+         !competing_consumer, // Exclusive
          false                // Internal
       );
       if ( queue_res.first != error_code::success )
          return queue_res.first;
 
-      ec = _consumer_broker->bind_queue( queue_res.second, exchange, topic );
+      ec = _consumer_broker->bind_queue( queue_res.second, exchange, routing_key );
       if ( ec != error_code::success )
          return ec;
 
@@ -169,7 +169,7 @@ error_code request_handler::add_msg_handler(
    }
 
    // Valid routes are:
-   //    exchange, topic
+   //    exchange, routing_key
    //    "", queue_name
    auto default_binding = std::make_pair( "", queue_name );
    auto handler_itr = _handler_map.find( binding );
@@ -201,14 +201,14 @@ error_code request_handler::add_msg_handler(
 
 error_code request_handler::add_msg_handler(
    const std::string& exchange,
-   const std::string& topic,
+   const std::string& routing_key,
    bool exclusive,
    handler_verify_func verify,
    msg_handler_string_func handler )
 {
    return add_msg_handler(
       exchange,
-      topic,
+      routing_key,
       exclusive,
       verify,
       msg_handler_func( handler )
