@@ -251,7 +251,6 @@ std::pair< error_code, std::string > message_broker_impl::declare_queue(
    bool exclusive,
    bool auto_delete ) noexcept
 {
-   KOINOS_TODO( "Allow server-assigned name to be returned" );
    amqp_queue_declare_ok_t* r = amqp_queue_declare(
       _connection,
       _channel,
@@ -262,6 +261,7 @@ std::pair< error_code, std::string > message_broker_impl::declare_queue(
       int( auto_delete ),
       amqp_empty_table
    );
+
    auto reply = amqp_get_rpc_reply( _connection );
    if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
    {
@@ -270,7 +270,10 @@ std::pair< error_code, std::string > message_broker_impl::declare_queue(
    }
 
    if ( queue.empty() ) {
-      return std::make_pair( error_code::success, std::string( (char*)r->queue.bytes ) );
+      return std::make_pair(
+         error_code::success,
+         std::string( (char*)r->queue.bytes, (std::size_t)r->queue.len )
+      );
    }
 
    return std::make_pair( error_code::success, queue );
@@ -408,14 +411,14 @@ std::pair< error_code, std::shared_ptr< message > > message_broker_impl::consume
    message& msg = *result.second;
 
    msg.delivery_tag = delivery_tag;
-   msg.exchange = std::string( (char*) envelope.exchange.bytes, (size_t) envelope.exchange.len );
-   msg.routing_key = std::string( (char*) envelope.routing_key.bytes, (size_t) envelope.routing_key.len );
+   msg.exchange = std::string( (char*) envelope.exchange.bytes, (std::size_t) envelope.exchange.len );
+   msg.routing_key = std::string( (char*) envelope.routing_key.bytes, (std::size_t) envelope.routing_key.len );
 
    if ( envelope.message.properties._flags & AMQP_BASIC_CONTENT_TYPE_FLAG )
    {
       msg.content_type = std::string(
          (char*) envelope.message.properties.content_type.bytes,
-         (size_t) envelope.message.properties.content_type.len
+         (std::size_t) envelope.message.properties.content_type.len
       );
    }
 
@@ -423,7 +426,7 @@ std::pair< error_code, std::shared_ptr< message > > message_broker_impl::consume
    {
       msg.reply_to = std::string(
          (char*) envelope.message.properties.reply_to.bytes,
-         (size_t) envelope.message.properties.reply_to.len
+         (std::size_t) envelope.message.properties.reply_to.len
       );
    }
 
@@ -431,13 +434,13 @@ std::pair< error_code, std::shared_ptr< message > > message_broker_impl::consume
    {
       msg.correlation_id = std::string(
          (char*) envelope.message.properties.correlation_id.bytes,
-         (size_t) envelope.message.properties.correlation_id.len
+         (std::size_t) envelope.message.properties.correlation_id.len
       );
    }
 
    msg.data = std::string(
       (char*) envelope.message.body.bytes,
-      (size_t) envelope.message.body.len
+      (std::size_t) envelope.message.body.len
    );
 
    amqp_destroy_envelope( &envelope );
