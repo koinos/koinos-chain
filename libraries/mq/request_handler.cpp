@@ -7,20 +7,6 @@
 
 namespace koinos::mq {
 
-std::string rand_str( int len )
-{
-   static const char characters[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-   std::string tmp;
-   tmp.reserve( len );
-
-   for ( int i = 0; i < len; i++ )
-   {
-      tmp += characters[rand() % (sizeof(characters) - 1)];
-   }
-
-   return tmp;
-}
-
 void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& output_queue, const msg_routing_map& routing_map )
 {
    while ( true )
