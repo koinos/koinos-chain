@@ -23,6 +23,7 @@ using msg_handler_func = std::variant< msg_handler_void_func, msg_handler_string
 using handler_verify_func = std::function< bool( const std::string& ) >;
 using handler_pair = std::pair< handler_verify_func, msg_handler_func >;
 using msg_routing_map = boost::container::flat_map< std::pair< std::string, std::string >, std::vector< handler_pair > >;
+using binding_queue_map = boost::container::flat_map< std::pair< std::string, std::string >, std::string >;
 using synced_msg_queue = boost::concurrent::sync_bounded_queue< std::shared_ptr< message > >;
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
@@ -64,7 +65,7 @@ class request_handler : public std::enable_shared_from_this< request_handler >
       std::unique_ptr< std::thread >    _publisher_thread;
       std::shared_ptr< message_broker > _publisher_broker;
 
-      std::set< std::pair< std::string, std::string > > _queue_bindings;
+      binding_queue_map                 _queue_bindings;
       msg_routing_map                   _handler_map;
       std::vector< std::thread >        _consumer_pool;
 

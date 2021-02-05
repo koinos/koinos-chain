@@ -54,7 +54,7 @@ public:
       bool internal
    ) noexcept;
 
-   error_code declare_queue(
+   std::pair< error_code, std::string > declare_queue(
       const std::string& queue,
       bool passive,
       bool durable,
@@ -244,7 +244,7 @@ error_code message_broker_impl::declare_exchange(
    return error_code::success;
 }
 
-error_code message_broker_impl::declare_queue(
+std::pair< error_code, std::string > message_broker_impl::declare_queue(
    const std::string& queue,
    bool passive,
    bool durable,
@@ -252,10 +252,10 @@ error_code message_broker_impl::declare_queue(
    bool auto_delete ) noexcept
 {
    KOINOS_TODO( "Allow server-assigned name to be returned" );
-   amqp_queue_declare(
+   amqp_queue_declare_ok_t* r = amqp_queue_declare(
       _connection,
       _channel,
-      amqp_cstring_bytes( queue.c_str() ),
+      queue.empty() ? amqp_empty_bytes : amqp_cstring_bytes( queue.c_str() ),
       int( passive ),
       int( durable ),
       int( exclusive ),
@@ -266,10 +266,14 @@ error_code message_broker_impl::declare_queue(
    if ( reply.reply_type != AMQP_RESPONSE_NORMAL )
    {
       LOG(error) << error_info( reply ).value();
-      return error_code::failure;
+      return std::make_pair( error_code::failure, "" );
    }
 
-   return error_code::success;
+   if ( queue.empty() ) {
+      return std::make_pair( error_code::success, std::string( (char*)r->queue.bytes ) );
+   }
+
+   return std::make_pair( error_code::success, queue );
 }
 
 error_code message_broker_impl::bind_queue(
@@ -482,7 +486,7 @@ error_code message_broker::declare_exchange(
    return _message_broker_impl->declare_exchange( exchange, exchange_type, passive, durable, auto_delete, internal );
 }
 
-error_code message_broker::declare_queue(
+std::pair< error_code, std::string > message_broker::declare_queue(
    const std::string& queue,
    bool passive,
    bool durable,

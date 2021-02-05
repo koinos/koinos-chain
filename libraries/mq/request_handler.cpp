@@ -142,7 +142,7 @@ error_code request_handler::add_msg_handler(
    handler_verify_func verify,
    msg_handler_func handler )
 {
-   auto queue_name = exclusive ? topic : topic + "-" + rand_str(16);
+   std::string queue_name;
    auto binding = std::make_pair( exchange, topic );
    auto binding_itr = _queue_bindings.find( binding );
    error_code ec = error_code::success;
@@ -160,32 +160,54 @@ error_code request_handler::add_msg_handler(
       if ( ec != error_code::success )
          return ec;
 
-      ec = _consumer_broker->declare_queue(
-         queue_name,
+      auto queue_res = _consumer_broker->declare_queue(
+         "",
          false,      // Passive
-         !exclusive, // Durable
+         false,      // Durable
          exclusive,  // Exclusive
          false       // Inernal
       );
+      if ( queue_res.first != error_code::success )
+         return ec;
+
+      ec = _consumer_broker->bind_queue( queue_res.second, exchange, topic );
       if ( ec != error_code::success )
          return ec;
 
-      ec = _consumer_broker->bind_queue( queue_name, exchange, topic );
-      if ( ec != error_code::success )
-         return ec;
-
-      _queue_bindings.emplace( binding );
+      queue_name = queue_res.second;
+      _queue_bindings.emplace( binding, queue_name );
+   }
+   else
+   {
+      queue_name = binding_itr->second;
    }
 
+   // Valid routes are:
+   //    exchange, topic
+   //    "", queue_name
+   auto default_binding = std::make_pair( "", queue_name );
    auto handler_itr = _handler_map.find( binding );
 
    if ( handler_itr == _handler_map.end() )
    {
-      _handler_map.emplace( binding, std::vector< handler_pair >{ std::make_pair( verify, handler ) } );
+      _handler_map.emplace( binding,         std::vector< handler_pair >{ std::make_pair( verify, handler ) } );
+      _handler_map.emplace( default_binding, std::vector< handler_pair >{ std::make_pair( verify, handler ) } );
    }
    else
    {
       handler_itr->second.emplace_back( std::make_pair( verify, handler ) );
+
+      handler_itr = _handler_map.find( default_binding );
+      if ( handler_itr == _handler_map.end() )
+      {
+         _handler_map[ binding ].pop_back();
+         LOG(error) << "Default binding route not found in handler map";
+         ec = error_code::failure;
+      }
+      else
+      {
+         handler_itr->second.emplace_back( std::make_pair( verify, handler ) );
+      }
    }
 
    return ec;

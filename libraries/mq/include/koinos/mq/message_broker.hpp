@@ -68,7 +68,7 @@ public:
       bool internal = false
    ) noexcept;
 
-   error_code declare_queue(
+   std::pair< error_code, std::string > declare_queue(
       const std::string& queue,
       bool passive = false,
       bool durable = false,
