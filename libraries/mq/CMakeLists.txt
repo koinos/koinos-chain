@@ -2,7 +2,7 @@ find_package(rabbitmq-c REQUIRED)
 
 file(GLOB HEADERS "include/koinos/mq/*.hpp")
 add_library(koinos_mq
-            consumer.cpp
+            request_handler.cpp
             message_broker.cpp
             ${HEADERS})
 

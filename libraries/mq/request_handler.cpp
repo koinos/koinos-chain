@@ -1,4 +1,4 @@
-#include <koinos/mq/consumer.hpp>
+#include <koinos/mq/request_handler.hpp>
 
 #include <koinos/util.hpp>
 
@@ -46,7 +46,7 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
       {
          for( const auto& h_pair : routing_itr->second )
          {
-            if ( !h_pair.first( *msg ) )
+            if ( !h_pair.first( (*msg).content_type ) )
                continue;
 
             std::visit(
@@ -77,17 +77,17 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
    }
 }
 
-consumer::consumer() :
+request_handler::request_handler() :
    _publisher_broker( std::make_shared< message_broker >() ),
    _consumer_broker( std::make_shared< message_broker >() ) {}
 
-consumer::~consumer() = default;
+request_handler::~request_handler() = default;
 
-void consumer::start()
+void request_handler::start()
 {
    _consumer_thread = std::make_unique< std::thread >( [&]()
    {
-      consume( _consumer_broker );
+      consumer( _consumer_broker );
    } );
 
    _publisher_thread = std::make_unique< std::thread >( [&]()
@@ -96,7 +96,7 @@ void consumer::start()
    } );
 
    std::size_t num_threads = std::thread::hardware_concurrency() + 1;
-   for( std::size_t i = 0; i < num_threads; i++ )
+   for ( std::size_t i = 0; i < num_threads; i++ )
    {
       _consumer_pool.emplace_back( [&]()
       {
@@ -105,7 +105,7 @@ void consumer::start()
    }
 }
 
-void consumer::stop()
+void request_handler::stop()
 {
    _input_queue.close();
    if ( _consumer_thread )
@@ -120,7 +120,7 @@ void consumer::stop()
       _publisher_thread->join();
 }
 
-error_code consumer::connect( const std::string& amqp_url )
+error_code request_handler::connect( const std::string& amqp_url )
 {
    error_code ec;
 
@@ -135,7 +135,7 @@ error_code consumer::connect( const std::string& amqp_url )
    return error_code::success;
 }
 
-error_code consumer::add_msg_handler(
+error_code request_handler::add_msg_handler(
    const std::string& exchange,
    const std::string& topic,
    bool exclusive,
@@ -178,7 +178,7 @@ error_code consumer::add_msg_handler(
    return ec;
 }
 
-error_code consumer::add_msg_handler(
+error_code request_handler::add_msg_handler(
    const std::string& exchange,
    const std::string& topic,
    bool exclusive,
@@ -194,7 +194,7 @@ error_code consumer::add_msg_handler(
    );
 }
 
-void consumer::publisher( std::shared_ptr< message_broker > broker )
+void request_handler::publisher( std::shared_ptr< message_broker > broker )
 {
    while ( true )
    {
@@ -218,7 +218,7 @@ void consumer::publisher( std::shared_ptr< message_broker > broker )
    }
 }
 
-void consumer::consume( std::shared_ptr< message_broker > broker )
+void request_handler::consumer( std::shared_ptr< message_broker > broker )
 {
    while ( true )
    {
