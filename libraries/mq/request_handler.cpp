@@ -124,7 +124,7 @@ error_code request_handler::connect( const std::string& amqp_url )
 error_code request_handler::add_msg_handler(
    const std::string& exchange,
    const std::string& topic,
-   bool exclusive,
+   bool competing_cunsumer,
    handler_verify_func verify,
    msg_handler_func handler )
 {
@@ -137,7 +137,7 @@ error_code request_handler::add_msg_handler(
    {
       ec = _consumer_broker->declare_exchange(
          exchange,
-         exclusive ? "direct" : "topic",
+         competing_cunsumer ? "direct" : "topic",
          false, // Passive
          true,  // Durable
          false, // Auto Delete
@@ -147,11 +147,11 @@ error_code request_handler::add_msg_handler(
          return ec;
 
       auto queue_res = _consumer_broker->declare_queue(
-         "",
-         false,      // Passive
-         false,      // Durable
-         exclusive,  // Exclusive
-         false       // Internal
+         competing_cunsumer ? topic : "",
+         false,               // Passive
+         competing_consumer,  // Durable
+         !competing_cunsumer, // Exclusive
+         false                // Internal
       );
       if ( queue_res.first != error_code::success )
          return queue_res.first;
