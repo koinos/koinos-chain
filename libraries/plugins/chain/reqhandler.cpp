@@ -248,7 +248,13 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1" );
    }
 
-   auto block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );
+   // Check if the block has already been applied
+   auto block_node = _state_db.get_node( block.submission.topology.id );
+   if ( block_node ) return; // Block has been applied
+
+   LOG(info) << "Applying block - height: " << block.submission.topology.height
+      << ", id: " << block.submission.topology.id;
+   block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
    try
@@ -328,7 +334,13 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
          try
          {
             _ctx->set_state_node( _state_db.get_head() );
-            ret = types::rpc::query_submission_result( get_head_info( *_ctx ) );
+            auto head_info = get_head_info( *_ctx );
+            ret = types::rpc::query_submission_result(
+               koinos::rpc::chain::get_head_info_result {
+                  .id = head_info.id,
+                  .height = head_info.height
+               }
+            );
          }
          catch ( const koinos::chain::database_exception& e )
          {
