@@ -47,6 +47,7 @@ void consumer_thread_main( synced_msg_queue& input_queue, synced_msg_queue& outp
                         reply->content_type = msg->content_type;
                         reply->correlation_id = *msg->correlation_id;
                         reply->data = resp;
+                        reply->delivery_tag = msg->delivery_tag;
 
                         output_queue.push_back( reply );
                      }
@@ -232,7 +233,11 @@ void request_handler::publisher( std::shared_ptr< message_broker > broker )
 
       auto r = broker->publish( *m );
 
-      if ( r != error_code::success )
+      if ( r == error_code::success )
+      {
+         broker->ack_message( m->delivery_tag );
+      }
+      else
       {
          LOG(error) << "an error has occurred while publishing message";
       }

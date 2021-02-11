@@ -70,6 +70,8 @@ public:
       const std::string& exchange,
       const std::string& binding_key
    ) noexcept;
+
+   error_code ack_message( uint64_t delivery_tag ) noexcept;
 };
 
 } // koinos::mq

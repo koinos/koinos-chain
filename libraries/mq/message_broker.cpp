@@ -67,6 +67,8 @@ public:
       const std::string& exchange,
       const std::string& binding_key
    ) noexcept;
+
+   error_code ack_message( uint64_t delivery_tag ) noexcept;
 };
 
 message_broker_impl::~message_broker_impl()
@@ -312,6 +314,18 @@ error_code message_broker_impl::bind_queue(
    return error_code::success;
 }
 
+error_code message_broker_impl::ack_message( uint64_t delivery_tag ) noexcept
+{
+   int res = amqp_basic_ack(
+      _connection,
+      _channel,
+      delivery_tag,
+      false
+   );
+
+   return res ? error_code::failure : error_code::success;
+}
+
 std::optional< std::string > message_broker_impl::error_info( amqp_rpc_reply_t r ) noexcept
 {
    if ( r.reply_type == AMQP_RESPONSE_NONE )
@@ -505,6 +519,11 @@ error_code message_broker::bind_queue(
    const std::string& binding_key ) noexcept
 {
    return _message_broker_impl->bind_queue( queue, exchange, binding_key );
+}
+
+error_code message_broker::ack_message( uint64_t delivery_tag ) noexcept
+{
+   return _message_broker_impl->ack_message( delivery_tag );
 }
 
 std::pair< error_code, std::shared_ptr< message > > message_broker::consume() noexcept
