@@ -18,7 +18,7 @@ const thunk_dispatcher& thunk_dispatcher::instance()
 void thunk_dispatcher::call_thunk( thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const
 {
    auto it = _dispatch_map.find( id );
-   KOINOS_ASSERT( it != _dispatch_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< thunk_id >( id ) ) );
+   KOINOS_ASSERT( it != _dispatch_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", id) );
    it->second( ctx, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 

@@ -39,7 +39,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          "system call table dispatch entry ${sid} does not exist",
          ("sid", sid)
       );
-      target = static_cast< thunk_id >( *maybe_thunk_id );
+      target = *maybe_thunk_id;
    }
    else
    {
@@ -49,7 +49,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
    std::visit(
       koinos::overloaded{
          [&]( thunk_id& tid ) {
-            thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
+            thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
          },
          [&]( contract_call_bundle& scb ) {
             variable_blob args;

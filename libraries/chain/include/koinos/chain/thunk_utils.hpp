@@ -99,7 +99,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             "system call table dispatch entry ${sid} does not exist",                                                \
             ("sid", _sid)                                                                                            \
             );                                                                                                       \
-         _target = static_cast< thunk_id >( *maybe_thunk_id );                                                       \
+         _target = *maybe_thunk_id;                                                                                  \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \
@@ -116,7 +116,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                thunk_dispatcher::instance().call_thunk<                                                              \
                   RETURN_TYPE                                                                                        \
                   TYPES >(                                                                                           \
-                     thunk_id(_tid),                                                                                 \
+                     _tid,                                                                                           \
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \
