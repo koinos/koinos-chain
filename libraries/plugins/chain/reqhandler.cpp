@@ -45,7 +45,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-
+#if 0
 namespace koinos::plugins::chain {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
@@ -54,7 +54,7 @@ using koinos::statedb::state_db;
 using json = nlohmann::json;
 
 using namespace std::string_literals;
-using namespace koinos::types;
+using namespace koinos;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
@@ -532,5 +532,6 @@ void reqhandler::stop_threads()
 {
    _my->stop_threads();
 }
-
+*/
 } // koinos::plugins::chain
+#endif

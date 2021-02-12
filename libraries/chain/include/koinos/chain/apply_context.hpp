@@ -35,11 +35,11 @@ class apply_context
       state_node_ptr get_state_node() const;
       void clear_state_node();
 
-      void set_contract_call_args( const types::variable_blob& args );
-      const types::variable_blob& get_contract_call_args();
+      void set_contract_call_args( const variable_blob& args );
+      const variable_blob& get_contract_call_args();
 
-      types::variable_blob get_contract_return();
-      void set_contract_return( const types::variable_blob& ret );
+      variable_blob get_contract_return();
+      void set_contract_return( const variable_blob& ret );
 
       /**
        * For now, authority lives on the context.
@@ -55,8 +55,8 @@ class apply_context
    private:
       std::string                   pending_console_output;
       state_node_ptr                current_state_node;
-      types::variable_blob          contract_call_args;
-      types::variable_blob          contract_return;
+      variable_blob                 contract_call_args;
+      variable_blob                 contract_return;
       std::optional< crypto::public_key > key_auth;
 };
 

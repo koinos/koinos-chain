@@ -16,10 +16,6 @@
 
 namespace koinos::crypto {
 
-using koinos::types::multihash;
-using koinos::types::multihash_vector;
-using koinos::types::variable_blob;
-
 KOINOS_DECLARE_EXCEPTION( unknown_hash_algorithm );
 KOINOS_DECLARE_EXCEPTION( multihash_size_mismatch );
 KOINOS_DECLARE_EXCEPTION( multihash_size_limit_exceeded );

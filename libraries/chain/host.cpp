@@ -9,21 +9,19 @@
 
 namespace koinos::chain {
 
-using namespace koinos::types;
-
 host_api::host_api( apply_context& _ctx ) : context( _ctx ) {}
 
 void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
-   thunk_dispatcher::instance().call_thunk( thunks::thunk_id(tid), context, ret_ptr, ret_len, arg_ptr, arg_len );
+   thunk_dispatcher::instance().call_thunk( koinos::thunk::thunk_id(tid), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
-   using types::thunks::thunk_id;
-   using types::system::contract_call_bundle;
-   using types::system::system_call_target;
+   using koinos::thunk::thunk_id;
+   using koinos::system::contract_call_bundle;
+   using koinos::system::system_call_target;
 
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
@@ -55,7 +53,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
    std::visit(
       koinos::overloaded{
          [&]( thunk_id& tid ) {
-            thunk_dispatcher::instance().call_thunk( thunks::thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
+            thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
          },
          [&]( contract_call_bundle& scb ) {
             variable_blob args;

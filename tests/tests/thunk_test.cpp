@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
-   koinos::types::variable_blob object_data;
+   koinos::variable_blob object_data;
    BOOST_REQUIRE_THROW( thunk::db_put_object( ctx, 0, 0, object_data ), koinos::chain::database_exception );
    BOOST_REQUIRE_THROW( thunk::db_get_object( ctx, 0, 0 ), koinos::chain::database_exception );
    BOOST_REQUIRE_THROW( thunk::db_get_next_object( ctx, 0, 0 ), koinos::chain::database_exception );
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
-   koinos::types::protocol::create_system_contract_operation op;
+   koinos::protocol::create_system_contract_operation op;
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
    memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    thunk::apply_upload_contract_operation( ctx, op );
 
-   koinos::types::uint256_t contract_key = koinos::pack::from_fixed_blob< koinos::types::uint160_t >( op.contract_id );
+   koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
    auto stored_bytecode = thunk::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
@@ -166,12 +166,12 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   koinos::types::protocol::contract_call_operation op2;
+   koinos::protocol::contract_call_operation op2;
    memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
    thunk::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
-   BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::types::protocol::reserved_operation() ), reserved_operation_exception );
+   BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::protocol::reserved_operation() ), reserved_operation_exception );
 
    BOOST_TEST_MESSAGE( "Test context return" );
 
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    thunk::apply_upload_contract_operation( ctx, contract_op );
 
    std::string arg_str = "echo";
-   variable_blob args = koinos::pack::to_variable_blob( arg_str );
+   koinos::variable_blob args = koinos::pack::to_variable_blob( arg_str );
    auto contract_ret = thunk::execute_contract(ctx, contract_op.contract_id, 0, args);
    auto return_str = koinos::pack::from_variable_blob< std::string >( contract_ret );
    BOOST_REQUIRE_EQUAL( arg_str, return_str );
@@ -206,10 +206,9 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 BOOST_AUTO_TEST_CASE( override_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test set system call operation" );
-   using namespace koinos::types;
 
    // Upload a test contract to use as override
-   protocol::create_system_contract_operation contract_op;
+   koinos::protocol::create_system_contract_operation contract_op;
    auto bytecode = get_hello_wasm();
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
    memcpy( contract_op.contract_id.data(), id.digest.data(), contract_op.contract_id.size() );
@@ -218,8 +217,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    thunk::apply_upload_contract_operation( ctx, contract_op );
 
    // Set the system call
-   protocol::set_system_call_operation call_op;
-   koinos::types::system::contract_call_bundle bundle;
+   koinos::protocol::set_system_call_operation call_op;
+   koinos::system::contract_call_bundle bundle;
    bundle.contract_id = contract_op.contract_id;
    bundle.entry_point = 0;
    call_op.call_id = 11675754;
@@ -227,8 +226,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    thunk::apply_set_system_call_operation( ctx, call_op );
 
    // Fetch the created call bundle from the database and check it
-   auto call_target = koinos::pack::from_variable_blob< system::system_call_target >( thunk::db_get_object( ctx, SYS_CALL_DISPATCH_TABLE_SPACE_ID, call_op.call_id ) );
-   auto call_bundle = std::get< system::contract_call_bundle >( call_target );
+   auto call_target = koinos::pack::from_variable_blob< koinos::system::system_call_target >( thunk::db_get_object( ctx, SYS_CALL_DISPATCH_TABLE_SPACE_ID, call_op.call_id ) );
+   auto call_bundle = std::get< koinos::system::contract_call_bundle >( call_target );
    BOOST_REQUIRE( call_bundle.contract_id == bundle.contract_id );
    BOOST_REQUIRE( call_bundle.entry_point == bundle.entry_point );
 
@@ -239,36 +238,36 @@ BOOST_AUTO_TEST_CASE( override_tests )
    BOOST_REQUIRE_THROW( thunk::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
 
    // Test invoking the overridden system call
-   variable_blob vl_args, vl_ret;
+   koinos::variable_blob vl_args, vl_ret;
    host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
    BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
 
    // Call stock prints and save the message
-   thunks::prints_args args;
+   koinos::thunk::prints_args args;
    args.message = "Hello World";
-   variable_blob vl_args2, vl_ret2;
+   koinos::variable_blob vl_args2, vl_ret2;
    koinos::pack::to_variable_blob( vl_args2, args );
-   host_api.invoke_system_call( uint32_t( system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
+   host_api.invoke_system_call( uint32_t( koinos::system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
    auto original_message = host_api.context.get_pending_console_output();
 
    // Override prints with a contract that prepends a message before printing
-   protocol::create_system_contract_operation contract_op2;
+   koinos::protocol::create_system_contract_operation contract_op2;
    auto bytecode2 = get_syscall_override_wasm();
    auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode2 );
    memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
    contract_op2.bytecode.insert( contract_op2.bytecode.end(), bytecode2.begin(), bytecode2.end() );
    thunk::apply_upload_contract_operation( ctx, contract_op2 );
 
-   protocol::set_system_call_operation call_op2;
-   koinos::types::system::contract_call_bundle bundle2;
+   koinos::protocol::set_system_call_operation call_op2;
+   koinos::system::contract_call_bundle bundle2;
    bundle2.contract_id = contract_op2.contract_id;
    bundle2.entry_point = 0;
-   call_op2.call_id = uint32_t( system::system_call_id::prints );
+   call_op2.call_id = uint32_t( koinos::system::system_call_id::prints );
    call_op2.target = bundle2;
    thunk::apply_set_system_call_operation( ctx, call_op2 );
 
    // Now test that the message has been modified
-   host_api.invoke_system_call( uint32_t( system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
+   host_api.invoke_system_call( uint32_t( koinos::system::system_call_id::prints ), vl_ret2.data(), vl_ret2.size(), vl_args2.data(), vl_args2.size() );
    auto new_message = host_api.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
@@ -285,15 +284,14 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_TEST_MESSAGE( "thunk test" );
 
    using namespace koinos::chain;
-   using namespace koinos::types;
 
-   thunks::prints_args args;
+   koinos::thunk::prints_args args;
 
    args.message = "Hello World";
 
-   variable_blob vl_args, vl_ret;
+   koinos::variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_thunk( uint32_t( thunks::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_thunk( uint32_t( koinos::thunk::thunk_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
@@ -304,15 +302,14 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    BOOST_TEST_MESSAGE( "system call test" );
 
    using namespace koinos::chain;
-   using namespace koinos::types;
 
-   thunks::prints_args args;
+   koinos::thunk::prints_args args;
 
    args.message = "Hello World";
 
-   variable_blob vl_args, vl_ret;
+   koinos::variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_system_call( uint32_t( system::system_call_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   host_api.invoke_system_call( uint32_t( koinos::system::system_call_id::prints ), vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
 
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
@@ -322,7 +319,7 @@ BOOST_AUTO_TEST_CASE( chain_thunks_test )
 { try {
    BOOST_TEST_MESSAGE( "get_head_info test" );
 
-   auto head = thunk::get_head_info( ctx );
+   auto head = koinos::chain::thunk::get_head_info( ctx );
    BOOST_CHECK_EQUAL( head.height, 1 );
    // Test exception when null state pointer is passed
    ctx.set_state_node( nullptr );
@@ -335,7 +332,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
    BOOST_TEST_MESSAGE( "hash thunk test" );
 
    std::string test_string = "hash::string";
-   koinos::types::variable_blob blob;
+   koinos::variable_blob blob;
    koinos::pack::to_variable_blob( blob, test_string );
 
    auto thunk_hash  = thunk::hash( ctx, CRYPTO_SHA2_256_ID, blob );
@@ -343,7 +340,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
-   koinos::rpc::chain::block_topology block_topology;
+   koinos::block_topology block_topology;
    block_topology.height = 100;
    block_topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::id"s );
    block_topology.previous = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::previous"s );

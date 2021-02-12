@@ -18,7 +18,7 @@
 
 namespace koinos::chain {
 
-using koinos::types::thunks::thunk_id;
+//using koinos::thunk::thunk_id;
 
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_thunk, chain_exception );
 
@@ -36,7 +36,7 @@ namespace detail
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      static_assert( std::is_same< RetStruct, koinos::types::thunks::void_type >::value, "Thunk return does not match defined return in koinos-types" );
+      static_assert( std::is_same< RetStruct, koinos::thunk::void_type >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       std::apply( thunk, thunk_args );
       return 0;
@@ -73,18 +73,18 @@ namespace detail
 class thunk_dispatcher
 {
    public:
-      void call_thunk( thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
+      void call_thunk( koinos::thunk::thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
 
       template< typename ThunkReturn, typename... ThunkArgs >
-      auto call_thunk( thunk_id id, apply_context& ctx, ThunkArgs&... args ) const
+      auto call_thunk( koinos::thunk::thunk_id id, apply_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< types::thunks::thunk_id >( id ) ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< koinos::thunk::thunk_id >( id ) ) );
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
       template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
-      void register_thunk( thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
+      void register_thunk( koinos::thunk::thunk_id id, ThunkReturn (*thunk_ptr)(apply_context&, ThunkArgs...) )
       {
          std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
          _dispatch_map.emplace( id, [thunk]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
@@ -96,7 +96,7 @@ class thunk_dispatcher
          _pass_through_map.emplace( id, thunk );
       }
 
-      bool thunk_exists( thunk_id id ) const;
+      bool thunk_exists( koinos::thunk::thunk_id id ) const;
       static const thunk_dispatcher& instance();
 
    private:
@@ -104,8 +104,8 @@ class thunk_dispatcher
 
       typedef std::function< void(apply_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
 
-      boost::container::flat_map< thunk_id, generic_thunk_handler >  _dispatch_map;
-      boost::container::flat_map< thunk_id, std::any >               _pass_through_map;
+      boost::container::flat_map< koinos::thunk::thunk_id, generic_thunk_handler >  _dispatch_map;
+      boost::container::flat_map< koinos::thunk::thunk_id, std::any >               _pass_through_map;
 };
 
 } // koinos::chain

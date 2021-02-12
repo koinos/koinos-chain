@@ -21,10 +21,10 @@ namespace koinos::plugins::block_producer::util {
 //                +----------------------+      +----------------------+
 //
 
-void set_block_merkle_roots( types::protocol::block& block, uint64_t code, uint64_t size )
+void set_block_merkle_roots( protocol::block& block, uint64_t code, uint64_t size )
 {
-   std::vector< types::multihash > trx_active_hashes( block.transactions.size() );
-   std::vector< types::multihash > passive_hashes( 2 * ( block.transactions.size() + 1 ) );
+   std::vector< multihash > trx_active_hashes( block.transactions.size() );
+   std::vector< multihash > passive_hashes( 2 * ( block.transactions.size() + 1 ) );
 
    passive_hashes[0] = crypto::hash( code, block.passive_data, size );
    passive_hashes[1] = crypto::empty_hash( code, size );
@@ -40,16 +40,16 @@ void set_block_merkle_roots( types::protocol::block& block, uint64_t code, uint6
    crypto::merkle_hash_leaves( trx_active_hashes, code, size );
    crypto::merkle_hash_leaves( passive_hashes,    code, size );
 
-   block.active_data->header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
-   block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::transaction_merkle_root_hash_index] = trx_active_hashes[0].digest;
-   block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::passive_data_merkle_root_hash_index] = passive_hashes[0].digest;
+   block.active_data->header_hashes.digests.resize( size_t(protocol::header_hash_index::NUM_HEADER_HASHES) );
+   block.active_data->header_hashes.digests[(uint32_t)protocol::header_hash_index::transaction_merkle_root_hash_index] = trx_active_hashes[0].digest;
+   block.active_data->header_hashes.digests[(uint32_t)protocol::header_hash_index::passive_data_merkle_root_hash_index] = passive_hashes[0].digest;
    block.active_data->header_hashes.id = code;
 }
 
-void sign_block( types::protocol::block& block, crypto::private_key& block_signing_key )
+void sign_block( protocol::block& block, crypto::private_key& block_signing_key )
 {
    // Signature is on the hash of the active data
-   types::multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, block.active_data );
+   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, block.active_data );
    auto signature = block_signing_key.sign_compact( digest );
    pack::to_variable_blob( block.signature_data, signature );
 }

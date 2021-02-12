@@ -26,11 +26,11 @@ using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char 
 
 struct test_block
 {
-   multihash      previous;
-   uint64_t       height = 0;
-   uint64_t       nonce = 0;
+   koinos::multihash previous;
+   uint64_t          height = 0;
+   uint64_t          nonce = 0;
 
-   multihash get_id() const;
+   koinos::multihash get_id() const;
 };
 
 KOINOS_REFLECT( test_block, (previous)(height)(nonce) )
@@ -78,9 +78,9 @@ typedef mira::multi_index_adapter<
 
 KOINOS_REFLECT( book, (id)(a)(b) )
 
-multihash test_block::get_id()const
+koinos::multihash test_block::get_id()const
 {
-   return hash( CRYPTO_SHA2_256_ID, *this );
+   return koinos::crypto::hash( CRYPTO_SHA2_256_ID, *this );
 }
 
 struct statedb_fixture
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.b = 4;
    book get_book;
 
-   multihash state_id = hash( CRYPTO_SHA2_256_ID, 1 );
+   koinos::multihash state_id = hash( CRYPTO_SHA2_256_ID, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
 
    put_object_args put_args;
@@ -251,7 +251,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
    BOOST_TEST_MESSAGE( "Basic fork tests on statedb" );
-   multihash id, prev_id, block_1000_id;
+   koinos::multihash id, prev_id, block_1000_id;
    test_block b;
 
    prev_id = db.get_root()->id();
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( db.get_root()->id() == block_1000_id );
    BOOST_REQUIRE( db.get_root()->revision() == 1000 );
 
-   multihash block_2000_id = id;
+   koinos::multihash block_2000_id = id;
 
    BOOST_TEST_MESSAGE( "Test discard" );
    b.previous = db.get_head()->id();
@@ -312,10 +312,10 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( !db.create_writable_node( db.get_head()->parent_id(), db.get_head()->id() ) );
 
    BOOST_TEST_MESSAGE( "Check failed linking" );
-   multihash zero = zero_hash( CRYPTO_SHA2_256_ID );
+   koinos::multihash zero = zero_hash( CRYPTO_SHA2_256_ID );
    BOOST_REQUIRE( !db.create_writable_node( zero, id ) );
 
-   multihash head_id = db.get_head()->id();
+   koinos::multihash head_id = db.get_head()->id();
    uint64_t head_rev = db.get_head()->revision();
 
    BOOST_TEST_MESSAGE( "Test minority fork" );

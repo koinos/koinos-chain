@@ -81,17 +81,17 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
-      using koinos::types::thunks::thunk_id;                                                                         \
-      using koinos::types::system::contract_call_bundle;                                                             \
-      using koinos::types::system::system_call_id;                                                                   \
-      using koinos::types::system::system_call_target;                                                               \
+      using koinos::thunk::thunk_id;                                                                                 \
+      using koinos::system::contract_call_bundle;                                                                    \
+      using koinos::system::system_call_id;                                                                          \
+      using koinos::system::system_call_target;                                                                      \
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( system_call_id::SYSCALL );                                            \
                                                                                                                      \
       /* TODO Do we need to invoke serialization here? */                                                            \
       statedb::object_key _key = _sid;                                                                               \
                                                                                                                      \
-      koinos::types::variable_blob _vl_target = db_get_object_thunk(                                                 \
+      koinos::variable_blob _vl_target = db_get_object_thunk(                                                        \
          context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, _key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );                 \
                                                                                                                      \
       system_call_target _target;                                                                                    \
@@ -120,7 +120,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                thunk_dispatcher::instance().call_thunk<                                                              \
                   RETURN_TYPE                                                                                        \
                   TYPES >(                                                                                           \
-                     koinos::types::thunks::thunk_id(_tid),                                                          \
+                     koinos::thunk::thunk_id(_tid),                                                                  \
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \

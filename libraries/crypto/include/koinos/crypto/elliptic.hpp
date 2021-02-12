@@ -6,9 +6,6 @@
 
 namespace koinos::crypto {
 
-   using koinos::types::multihash;
-   using koinos::types::fixed_blob;
-
    using recoverable_signature = fixed_blob< 65 >;                         ///< A 65 byte recoverable ECDSA siganture
    using public_key_data       = fixed_blob< sizeof( secp256k1_pubkey ) >; ///< The full non-compressed ECDSA public key point
    using compressed_public_key = fixed_blob< 33 >;                         ///< The 33 byte compressed ECDSA public key
