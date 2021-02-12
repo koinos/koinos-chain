@@ -24,6 +24,8 @@ public:
 
    bfs::path state_dir() const;
 
+   std::future< std::shared_ptr< koinos::types::rpc::submission_result > > submit( const koinos::types::rpc::submission_item& item );
+
    static const std::string& name() { static std::string name = KOINOS_CHAIN_PLUGIN_NAME; return name; }
 
    virtual void set_program_options( appbase::options_description& cli, appbase::options_description& cfg ) override;

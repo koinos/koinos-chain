@@ -29,7 +29,7 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-//      reqhandler           _reqhandler;
+      reqhandler           _reqhandler;
 
       bool                                   _mq_disable = false;
       std::string                            _amqp_url;
@@ -115,7 +115,7 @@ void chain_plugin::plugin_startup()
 
    try
    {
-//      my->_reqhandler.open( my->state_dir, database_config );
+      my->_reqhandler.open( my->state_dir, database_config );
    }
    catch( std::exception& e )
    {
@@ -123,7 +123,7 @@ void chain_plugin::plugin_startup()
       exit( EXIT_FAILURE );
    }
 
-//   my->_reqhandler.start_threads();
+   my->_reqhandler.start_threads();
 
    my->_mq_reqhandler = std::make_shared< mq::request_handler >();
 
@@ -131,7 +131,7 @@ void chain_plugin::plugin_startup()
    {
       try
       {
-//         my->_reqhandler.connect( my->_amqp_url );
+         my->_reqhandler.connect( my->_amqp_url );
       }
       catch( std::exception& e )
       {
@@ -160,57 +160,57 @@ void chain_plugin::plugin_startup()
             pack::from_json( j, args );
 
             // Convert chain_rpc_params -> submission_item
-//            types::rpc::submission_item submit;
-//            std::visit(
-//               koinos::overloaded {
-//                  [&]( const rpc::chain::get_head_info_params& p )
-//                  {
-//                     submit = types::rpc::query_param_item( p );
-//                  },
-//                  [&]( const rpc::chain::get_chain_id_params& p )
-//                  {
-//                     submit = types::rpc::query_param_item( p );
-//                  },
-//                  [&]( const auto& p )
-//                  {
-//                     submit = p;
-//                  }
-//               },
-//               args );
-//
-//            auto res = my->_reqhandler.submit( submit );
-//
-//            // Convert submission_result -> chain_rpc_result
-//            rpc::chain::chain_rpc_result result;
-//            std::visit(
-//               koinos::overloaded {
-//                  [&]( const types::rpc::query_submission_result& r )
-//                  {
-//                     r.unbox();
-//                     if ( r.is_unboxed() )
-//                     {
-//                        std::visit(
-//                           koinos::overloaded {
-//                              [&]( const auto& q )
-//                              {
-//                                 result = q;
-//                              }
-//                           },
-//                        r.get_const_native() );
-//                     }
-//                     else
-//                     {
-//                        result = rpc::chain::rpc_error{ "Unknown serialization returned for query submission result" };
-//                     }
-//                  },
-//                  [&]( const auto& r )
-//                  {
-//                     result = r;
-//                  }
-//               },
-//               *(res.get()) );
-//
-//            pack::to_json( j, result );
+            types::rpc::submission_item submit;
+            std::visit(
+               koinos::overloaded {
+                  [&]( const rpc::chain::get_head_info_request& p )
+                  {
+                     submit = types::rpc::query_param_item( p );
+                  },
+                  [&]( const rpc::chain::get_chain_id_request& p )
+                  {
+                     submit = types::rpc::query_param_item( p );
+                  },
+                  [&]( const auto& p )
+                  {
+                     submit = p;
+                  }
+               },
+               args );
+
+            auto res = my->_reqhandler.submit( submit );
+
+            // Convert submission_result -> chain_rpc_result
+            rpc::chain::chain_rpc_response result;
+            std::visit(
+               koinos::overloaded {
+                  [&]( const types::rpc::query_submission_result& r )
+                  {
+                     r.unbox();
+                     if ( r.is_unboxed() )
+                     {
+                        std::visit(
+                           koinos::overloaded {
+                              [&]( const auto& q )
+                              {
+                                 result = q;
+                              }
+                           },
+                        r.get_const_native() );
+                     }
+                     else
+                     {
+                        result = rpc::chain::chain_error_response{ "Unknown serialization returned for query submission result" };
+                     }
+                  },
+                  [&]( const auto& r )
+                  {
+                     result = r;
+                  }
+               },
+               *(res.get()) );
+
+            pack::to_json( j, result );
             return j.dump();
          }
       );
@@ -262,8 +262,13 @@ void chain_plugin::plugin_shutdown()
 
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
-//   my->_reqhandler.stop_threads();
+   my->_reqhandler.stop_threads();
    LOG(info) << "database closed successfully";
+}
+
+std::future< std::shared_ptr< koinos::types::rpc::submission_result > > chain_plugin::submit( const koinos::types::rpc::submission_item& item )
+{
+   return my->_reqhandler.submit( item );
 }
 
 } // namespace koinos::plugis::chain

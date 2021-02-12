@@ -45,7 +45,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#if 0
+
 namespace koinos::plugins::chain {
 
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
@@ -336,7 +336,7 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
             _ctx->set_state_node( _state_db.get_head() );
             auto head_info = get_head_info( *_ctx );
             ret = types::rpc::query_submission_result(
-               koinos::rpc::chain::get_head_info_result {
+               koinos::rpc::chain::get_head_info_response {
                   .id = head_info.id,
                   .height = head_info.height
                }
@@ -532,6 +532,6 @@ void reqhandler::stop_threads()
 {
    _my->stop_threads();
 }
-*/
+
 } // koinos::plugins::chain
-#endif
+

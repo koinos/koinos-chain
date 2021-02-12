@@ -1,6 +1,5 @@
 #pragma once
 #include <koinos/crypto/multihash.hpp>
-//#include <koinos/pack/rt/json.hpp>
 #include <koinos/pack/classes.hpp>
 
 #include <iostream>
