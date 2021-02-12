@@ -14,15 +14,11 @@ host_api::host_api( apply_context& _ctx ) : context( _ctx ) {}
 void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.privilege_level == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
-   thunk_dispatcher::instance().call_thunk( koinos::thunk::thunk_id(tid), context, ret_ptr, ret_len, arg_ptr, arg_len );
+   thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
-   using koinos::thunk::thunk_id;
-   using koinos::system::contract_call_bundle;
-   using koinos::system::system_call_target;
-
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
 
@@ -37,7 +33,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
 
    if( blob_target.size() == 0 )
    {
-      auto maybe_thunk_id = get_default_system_call_entry( system::system_call_id(sid) );
+      auto maybe_thunk_id = get_default_system_call_entry( system_call_id( sid ) );
       KOINOS_ASSERT( maybe_thunk_id,
          unknown_system_call,
          "system call table dispatch entry ${sid} does not exist",

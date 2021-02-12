@@ -8,9 +8,6 @@
 
 namespace koinos::chain {
 
-using namespace koinos::system;
-using namespace koinos::thunk;
-
 /*
  * This is a list of syscalls registered at genesis.
  *

@@ -81,10 +81,6 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
-      using koinos::thunk::thunk_id;                                                                                 \
-      using koinos::system::contract_call_bundle;                                                                    \
-      using koinos::system::system_call_id;                                                                          \
-      using koinos::system::system_call_target;                                                                      \
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( system_call_id::SYSCALL );                                            \
                                                                                                                      \
@@ -120,14 +116,14 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                thunk_dispatcher::instance().call_thunk<                                                              \
                   RETURN_TYPE                                                                                        \
                   TYPES >(                                                                                           \
-                     koinos::thunk::thunk_id(_tid),                                                                  \
+                     thunk_id(_tid),                                                                                 \
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
-               auto _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );   \
+               auto _contract_ret = execute_contract( context, _scb.contract_id, _scb.entry_point, _args );          \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \

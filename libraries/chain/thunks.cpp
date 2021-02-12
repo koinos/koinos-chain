@@ -8,9 +8,6 @@
 
 namespace koinos::chain {
 
-using namespace koinos;
-using namespace koinos::thunk;
-
 void register_thunks( thunk_dispatcher& td )
 {
    REGISTER_THUNKS( td,
@@ -243,15 +240,15 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    // Ensure override exists
    std::visit(
    koinos::overloaded{
-      [&]( const koinos::thunk::thunk_id& tid ) {
+      [&]( const thunk_id& tid ) {
          KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), unknown_thunk, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
       },
-      [&]( const koinos::system::contract_call_bundle& scb ) {
+      [&]( const contract_call_bundle& scb ) {
          uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
          auto contract = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
          KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
          KOINOS_TODO( "Make a better exception for execute_contract" );
-         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system::system_call_id::execute_contract ) ), invalid_contract, "Cannot override execute_contract." );
+         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), invalid_contract, "Cannot override execute_contract." );
       },
       [&]( const auto& ) {
          KOINOS_THROW( unknown_system_call, "set_system_call invoked with unimplemented type ${tag}",
