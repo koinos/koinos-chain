@@ -17,7 +17,6 @@
 
 #include <iostream>
 
-using namespace koinos::crypto;
 using namespace koinos::statedb;
 using detail::merge_index;
 using detail::state_delta;
@@ -116,7 +115,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.b = 4;
    book get_book;
 
-   koinos::multihash state_id = hash( CRYPTO_SHA2_256_ID, 1 );
+   koinos::multihash state_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
 
    put_object_args put_args;
@@ -180,7 +179,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
 
-   state_id = hash( CRYPTO_SHA2_256_ID, 2 );
+   state_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, 2 );
    auto state_2 = db.create_writable_node( state_1->id(), state_id );
    BOOST_REQUIRE( !state_2 );
 
@@ -271,7 +270,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
       if( i == 1000 ) block_1000_id = id;
    }
 
-   BOOST_REQUIRE( db.get_root()->id() == zero_hash( CRYPTO_SHA2_256_ID ) );
+   BOOST_REQUIRE( db.get_root()->id() == koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
    BOOST_REQUIRE( db.get_root()->revision() == 0 );
 
    BOOST_REQUIRE( db.get_head()->id() == prev_id );
@@ -312,7 +311,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( !db.create_writable_node( db.get_head()->parent_id(), db.get_head()->id() ) );
 
    BOOST_TEST_MESSAGE( "Check failed linking" );
-   koinos::multihash zero = zero_hash( CRYPTO_SHA2_256_ID );
+   koinos::multihash zero = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
    BOOST_REQUIRE( !db.create_writable_node( zero, id ) );
 
    koinos::multihash head_id = db.get_head()->id();
