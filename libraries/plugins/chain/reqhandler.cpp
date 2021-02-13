@@ -283,7 +283,11 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
    if ( _publisher.is_connected() )
    {
       json j;
-      koinos::pack::to_json( j, block.submission );
+      koinos::broadcast::block_accepted block_accepted_msg;
+
+      block_accepted_msg.topology = block.submission.topology;
+      block_accepted_msg.block    = block.submission.block;
+      koinos::pack::to_json( j, block_accepted_msg );
 
       mq::message msg;
       msg.exchange     = "koinos_event";
@@ -306,7 +310,12 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
    if ( _publisher.is_connected() )
    {
       json j;
-      koinos::pack::to_json( j, tx.submission );
+      koinos::broadcast::transaction_accepted transaction_accepted_msg;
+
+      transaction_accepted_msg.id = crypto::hash( CRYPTO_SHA2_256_ID, tx.submission.active_data );
+      transaction_accepted_msg.transaction.active_data  = tx.submission.active_data;
+      transaction_accepted_msg.transaction.passive_data = tx.submission.passive_data;
+      koinos::pack::to_json( j, transaction_accepted_msg );
 
       mq::message msg;
       msg.exchange     = "koinos_event";
