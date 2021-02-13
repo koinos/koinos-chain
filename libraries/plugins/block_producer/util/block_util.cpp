@@ -40,10 +40,8 @@ void set_block_merkle_roots( protocol::block& block, uint64_t code, uint64_t siz
    crypto::merkle_hash_leaves( trx_active_hashes, code, size );
    crypto::merkle_hash_leaves( passive_hashes,    code, size );
 
-   block.active_data->header_hashes.digests.resize( size_t(protocol::header_hash_index::NUM_HEADER_HASHES) );
-   block.active_data->header_hashes.digests[(uint32_t)protocol::header_hash_index::transaction_merkle_root_hash_index] = trx_active_hashes[0].digest;
-   block.active_data->header_hashes.digests[(uint32_t)protocol::header_hash_index::passive_data_merkle_root_hash_index] = passive_hashes[0].digest;
-   block.active_data->header_hashes.id = code;
+   block.active_data->transaction_merkle_root  = trx_active_hashes[0];
+   block.active_data->passive_data_merkle_root = passive_hashes[0];
 }
 
 void sign_block( protocol::block& block, crypto::private_key& block_signing_key )

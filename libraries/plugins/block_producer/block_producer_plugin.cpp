@@ -35,7 +35,6 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
    active_data.timestamp = timestamp_now();
-   active_data.header_hashes.digests.resize( size_t(protocol::header_hash_index::NUM_HEADER_HASHES) );
 
    // Get previous block data
    block_topology topology;
@@ -50,7 +49,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
       std::visit( koinos::overloaded {
          [&]( const types::rpc::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
-            active_data.header_hashes.digests[(uint32_t)protocol::header_hash_index::previous_block_hash_index] = head_info.id.digest;
+            active_data.previous_block = head_info.id;
             topology.previous = head_info.id;
             topology.height = active_data.height;
          },

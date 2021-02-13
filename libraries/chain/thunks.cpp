@@ -88,10 +88,8 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_TODO( "Specify allowed set of hashing algorithms" );
 
    block.active_data.unbox();
-   std::vector< multihash > header_hashes;
-   header_hashes = crypto::from_multihash_vector( block.active_data->header_hashes );
 
-   const multihash& tx_root = header_hashes[ (size_t)protocol::header_hash_index::transaction_merkle_root_hash_index ];
+   const multihash& tx_root = block.active_data->transaction_merkle_root;
    size_t tx_count = block.transactions.size();
 
    // Check transaction Merkle root
@@ -125,7 +123,7 @@ THUNK_DEFINE( void, apply_block,
       // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
       // during the block building process.
 
-      const multihash& passive_root = header_hashes[(uint32_t)protocol::header_hash_index::passive_data_merkle_root_hash_index];
+      const multihash& passive_root = block.active_data->passive_data_merkle_root;
       size_t passive_count = 2 * ( block.transactions.size() + 1 );
       hashes.resize( passive_count );
 

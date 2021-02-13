@@ -171,11 +171,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
    block_submission.block.active_data->height = 2;
-   block_submission.block.active_data->header_hashes.digests.resize(3);
 
    block_submission.topology.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_submission.topology.height = block_submission.block.active_data->height;
-   block_submission.block.active_data->header_hashes.digests[(uint32_t)koinos::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
+   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -207,7 +206,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_submission.topology.previous = koinos::crypto::empty_hash( CRYPTO_SHA2_256_ID );
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->header_hashes.digests[(uint32_t)koinos::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
+   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -223,7 +222,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_submission.topology.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->header_hashes.digests[(uint32_t)koinos::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
+   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
