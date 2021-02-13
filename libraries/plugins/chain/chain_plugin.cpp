@@ -228,10 +228,10 @@ void chain_plugin::plugin_startup()
          []( const std::string& content_type ) { return content_type == "application/json"; },
          [&]( const std::string& msg )
          {
-//            auto j = nlohmann::json::parse( msg );
-//            ::rpc::block_submission args;
-//            pack::from_json( j, args );
-//            my->_reqhandler.submit( args );
+            auto j = nlohmann::json::parse( msg );
+            types::rpc::block_submission args;
+            pack::from_json( j, args );
+            my->_reqhandler.submit( args );
          }
       );
 
