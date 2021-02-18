@@ -14,7 +14,7 @@ void register_thunks( thunk_dispatcher& td )
       (prints)
       (exit_contract)
 
-      (verify_block_sig)
+      (verify_block_signature)
       (verify_merkle_root)
 
       (apply_block)
@@ -60,10 +60,10 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( bool, verify_block_sig, ((const variable_blob&) sig_data, (const multihash&) digest) )
+THUNK_DEFINE( bool, verify_block_signature, ((const variable_blob&) signature_data, (const multihash&) digest) )
 {
    crypto::recoverable_signature sig;
-   pack::from_variable_blob( sig_data, sig );
+   pack::from_variable_blob( signature_data, sig );
    return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
 }
 
@@ -105,7 +105,7 @@ THUNK_DEFINE( void, apply_block,
    {
       multihash active_block_hash;
       active_block_hash = crypto::hash_like( tx_root, block.active_data );
-      KOINOS_ASSERT( verify_block_sig( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
+      KOINOS_ASSERT( verify_block_signature( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
    // Check passive Merkle root

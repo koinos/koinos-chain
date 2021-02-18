@@ -59,7 +59,7 @@ KOINOS_DECLARE_EXCEPTION( invalid_block_signature );
 THUNK_DECLARE( void, prints, const std::string& str );
 THUNK_DECLARE( void, exit_contract, uint8_t exit_code );
 
-THUNK_DECLARE( bool, verify_block_sig, const variable_blob& sig_data, const multihash& digest );
+THUNK_DECLARE( bool, verify_block_signature, const variable_blob& signature_data, const multihash& digest );
 THUNK_DECLARE( bool, verify_merkle_root, const multihash& root, const std::vector< multihash >& hashes );
 
 THUNK_DECLARE( void, apply_block,

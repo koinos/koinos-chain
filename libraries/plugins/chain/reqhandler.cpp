@@ -54,7 +54,6 @@ using koinos::statedb::state_db;
 using json = nlohmann::json;
 
 using namespace std::string_literals;
-using namespace koinos;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
@@ -282,23 +281,26 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
    if ( _publisher.is_connected() )
    {
-      json j;
-      koinos::broadcast::block_accepted block_accepted_msg;
-
-      block_accepted_msg.topology = block.submission.topology;
-      block_accepted_msg.block    = block.submission.block;
-      koinos::pack::to_json( j, block_accepted_msg );
-
-      mq::message msg;
-      msg.exchange     = "koinos_event";
-      msg.routing_key  = "koinos.block.accept";
-      msg.content_type = "application/json";
-      msg.data         = j.dump();
-
-      auto err = _publisher.publish( msg );
-      if ( err != mq::error_code::success )
+      if ( _publisher.is_connected() )
       {
-         LOG(error) << "failed to publish block application to message broker";
+         json j;
+
+         pack::to_json( j, broadcast::block_accepted {
+            .topology = block.submission.topology,
+            .block    = block.submission.block
+         } );
+
+         auto err = _publisher.publish( mq::message{
+            .exchange     = "koinos_event",
+            .routing_key  = "koinos.block.accept",
+            .content_type = "application/json",
+            .data         = j.dump()
+         } );
+
+         if ( err != mq::error_code::success )
+         {
+            LOG(error) << "failed to publish block application to message broker";
+         }
       }
    }
 }
@@ -310,23 +312,22 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
    if ( _publisher.is_connected() )
    {
       json j;
-      koinos::broadcast::transaction_accepted transaction_accepted_msg;
 
-      transaction_accepted_msg.id = crypto::hash( CRYPTO_SHA2_256_ID, tx.submission.active_data );
-      transaction_accepted_msg.transaction.active_data  = tx.submission.active_data;
-      transaction_accepted_msg.transaction.passive_data = tx.submission.passive_data;
-      koinos::pack::to_json( j, transaction_accepted_msg );
+      pack::to_json( j, broadcast::transaction_accepted {
+         .topology    = tx.submission.topology,
+         .transaction = tx.submission.transaction
+      } );
 
-      mq::message msg;
-      msg.exchange     = "koinos_event";
-      msg.routing_key  = "koinos.transaction.accept";
-      msg.content_type = "application/json";
-      msg.data         = j.dump();
+      auto err = _publisher.publish( mq::message {
+         .exchange     = "koinos_event",
+         .routing_key  = "koinos.transaction.accept",
+         .content_type = "application/json",
+         .data         = j.dump()
+      } );
 
-      auto err = _publisher.publish( msg );
       if ( err != mq::error_code::success )
       {
-         LOG(error) << "failed to publish transaction application to message broker";
+         LOG(error) << "failed to publish block application to message broker";
       }
    }
 }
@@ -345,7 +346,7 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
             _ctx->set_state_node( _state_db.get_head() );
             auto head_info = get_head_info( *_ctx );
             ret = types::rpc::query_submission_result(
-               koinos::rpc::chain::get_head_info_response {
+               rpc::chain::get_head_info_response {
                   .id = head_info.id,
                   .height = head_info.height
                }
