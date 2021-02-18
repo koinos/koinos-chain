@@ -68,6 +68,7 @@ int main( int argc, char** argv )
          LOG(info) << msg;
       });
       appbase::app().startup();
+      LOG(info) << "koinosd startup complete";
       appbase::app().exec();
       LOG(info) << "exited cleanly";
 
