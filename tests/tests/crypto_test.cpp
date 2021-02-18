@@ -9,8 +9,6 @@
 #include <iterator>
 #include <vector>
 
-using namespace koinos;
-
 BOOST_FIXTURE_TEST_SUITE( crypto_tests, crypto_fixture )
 
 BOOST_AUTO_TEST_CASE( ripemd160_test )
@@ -61,27 +59,27 @@ BOOST_AUTO_TEST_CASE( sha512_test )
 
 BOOST_AUTO_TEST_CASE( ecc )
 {
-   crypto::private_key nullkey;
+   koinos::crypto::private_key nullkey;
    std::string pass = "foobar";
 
    for( uint32_t i = 0; i < 100; ++ i )
    {
-      multihash h = crypto::hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
-      crypto::private_key priv = crypto::private_key::regenerate( h );
+      koinos::multihash h = koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      koinos::crypto::private_key priv = koinos::crypto::private_key::regenerate( h );
       BOOST_CHECK( nullkey != priv );
-      crypto::public_key pub = priv.get_public_key();
+      koinos::crypto::public_key pub = priv.get_public_key();
 
       pass += "1";
-      multihash h2 = crypto::hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
-      crypto::public_key  pub1  = pub.add( h2 );
-      crypto::private_key priv1 = crypto::private_key::generate_from_seed(h, h2);
+      koinos::multihash h2 = koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, pass.c_str(), pass.size() );
+      koinos::crypto::public_key  pub1  = pub.add( h2 );
+      koinos::crypto::private_key priv1 = koinos::crypto::private_key::generate_from_seed(h, h2);
 
       std::string b58 = pub1.to_base58();
-      crypto::public_key pub2 = crypto::public_key::from_base58(b58);
+      koinos::crypto::public_key pub2 = koinos::crypto::public_key::from_base58(b58);
       BOOST_CHECK( pub1 == pub2 );
 
       auto sig = priv.sign_compact( h );
-      auto recover = crypto::public_key::recover( sig, h );
+      auto recover = koinos::crypto::public_key::recover( sig, h );
       BOOST_CHECK( recover == pub );
    }
 }
@@ -90,10 +88,10 @@ BOOST_AUTO_TEST_CASE( private_wif )
 {
    std::string secret = "foobar";
    std::string wif = "5KJTiKfLEzvFuowRMJqDZnSExxxwspVni1G4RcggoPtDqP5XgM1";
-   crypto::private_key key1 = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, secret.c_str(), secret.size() ) );
+   koinos::crypto::private_key key1 = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, secret.c_str(), secret.size() ) );
    BOOST_CHECK_EQUAL( key1.to_wif(), wif );
 
-   crypto::private_key key2 = crypto::private_key::from_wif( wif );
+   koinos::crypto::private_key key2 = koinos::crypto::private_key::from_wif( wif );
    BOOST_CHECK( key1 == key2 );
 
    // Encoding:
@@ -102,21 +100,21 @@ BOOST_AUTO_TEST_CASE( private_wif )
 
    // Wrong checksum, change last octal (4->3)
    wif = "5KJTiKfLEzvFuowRMJqDZnSExxxwspVni1G4RcggoPtDqP5XgLz";
-   BOOST_REQUIRE_THROW( crypto::private_key::from_wif( wif ), crypto::key_serialization_error );
+   BOOST_REQUIRE_THROW( koinos::crypto::private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
 
    // Wrong seed, change first octal of secret (C->D)
    wif = "5KRWQqW5riLTcB39nLw6K7iv2HWBMYvbP7Ch4kUgRd8kEvLH5jH";
-   BOOST_REQUIRE_THROW( crypto::private_key::from_wif( wif ), crypto::key_serialization_error );
+   BOOST_REQUIRE_THROW( koinos::crypto::private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
 
    // Wrong prefix, change first octal of prefix (8->7)
    wif = "4nCYtcUpcC6dkge8r2uEJeqrK97TUZ1n7n8LXDgLtun1wRyxU2P";
-   BOOST_REQUIRE_THROW( crypto::private_key::from_wif( wif ), crypto::key_serialization_error );
+   BOOST_REQUIRE_THROW( koinos::crypto::private_key::from_wif( wif ), koinos::crypto::key_serialization_error );
 }
 
 BOOST_AUTO_TEST_CASE( public_address )
 {
    std::string private_wif = "5J1F7GHadZG3sCCKHCwg8Jvys9xUbFsjLnGec4H125Ny1V9nR6V";
-   auto priv_key = crypto::private_key::from_wif( private_wif );
+   auto priv_key = koinos::crypto::private_key::from_wif( private_wif );
    auto pub_key = priv_key.get_public_key();
    auto address = pub_key.to_address();
 
@@ -125,25 +123,25 @@ BOOST_AUTO_TEST_CASE( public_address )
 
 BOOST_AUTO_TEST_CASE( zerohash )
 {
-   multihash mh;
-   mh = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   koinos::multihash mh;
+   mh = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
    BOOST_CHECK( mh.id == CRYPTO_SHA2_256_ID );
    BOOST_CHECK( mh.digest.size() == 256/8 );
 
-   mh = crypto::zero_hash( CRYPTO_RIPEMD160_ID );
+   mh = koinos::crypto::zero_hash( CRYPTO_RIPEMD160_ID );
    BOOST_CHECK( mh.id == CRYPTO_RIPEMD160_ID );
    BOOST_CHECK( mh.digest.size() == 160/8 );
 }
 
 BOOST_AUTO_TEST_CASE( emptyhash )
 {
-   multihash mh = crypto::empty_hash( CRYPTO_SHA2_256_ID );
+   koinos::multihash mh = koinos::crypto::empty_hash( CRYPTO_SHA2_256_ID );
    BOOST_CHECK_EQUAL( "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex_string( mh.digest ) );
 }
 
 BOOST_AUTO_TEST_CASE( merkle )
 {
-   multihash mh;
+   koinos::multihash mh;
    std::vector< std::string > values {
       "the", "quick", "brown", "fox", "jumps", "over", "a", "lazy", "dog" };
    std::vector< std::string > wh_hex {
@@ -157,20 +155,20 @@ BOOST_AUTO_TEST_CASE( merkle )
       "81fd67d02f679b818a4df6a50139958aa857eddc4d8f3561630dfb905e6d3c24",
       "cd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944"
       };
-   auto h = [&]( const multihash& ha, const multihash& hb ) -> multihash
+   auto h = [&]( const koinos::multihash& ha, const koinos::multihash& hb ) -> koinos::multihash
    {
       std::vector<char> temp;
       std::copy( ha.digest.begin(), ha.digest.end(), std::back_inserter( temp ) );
       std::copy( hb.digest.begin(), hb.digest.end(), std::back_inserter( temp ) );
-      multihash result = crypto::hash_str( CRYPTO_SHA2_256_ID, temp.data(), temp.size() );
+      koinos::multihash result = koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, temp.data(), temp.size() );
       return result;
    };
 
    // Hash of each word
-   std::vector< multihash > wh;
+   std::vector< koinos::multihash > wh;
    for( size_t i = 0; i < values.size(); i++ )
    {
-      wh.push_back( crypto::hash_str( CRYPTO_SHA2_256_ID, values[i].c_str(), values[i].size() ) );
+      wh.push_back( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, values[i].c_str(), values[i].size() ) );
       BOOST_CHECK_EQUAL( wh_hex[i], hex_string( wh[i].digest ) );
    }
 
@@ -184,15 +182,15 @@ BOOST_AUTO_TEST_CASE( merkle )
    const std::string n8           = "cd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944";
    const std::string n012345678   = "e24e552e0b6cf8835af179a14a766fb58c23e4ee1f7c6317d57ce39cc578cfac";
 
-   multihash h01             = h( wh[0], wh[1] );
-   multihash h23             = h( wh[2], wh[3] );
-   multihash h0123           = h( h01, h23 );
-   multihash h45             = h( wh[4], wh[5] );
-   multihash h67             = h( wh[6], wh[7] );
-   multihash h4567           = h( h45, h67 );
-   multihash h01234567       = h( h0123, h4567 );
-   multihash h8              = wh[8];
-   multihash h012345678      = h( h01234567, h8 );
+   koinos::multihash h01             = h( wh[0], wh[1] );
+   koinos::multihash h23             = h( wh[2], wh[3] );
+   koinos::multihash h0123           = h( h01, h23 );
+   koinos::multihash h45             = h( wh[4], wh[5] );
+   koinos::multihash h67             = h( wh[6], wh[7] );
+   koinos::multihash h4567           = h( h45, h67 );
+   koinos::multihash h01234567       = h( h0123, h4567 );
+   koinos::multihash h8              = wh[8];
+   koinos::multihash h012345678      = h( h01234567, h8 );
 
    BOOST_CHECK_EQUAL( n01       , hex_string(        h01.digest ) );
    BOOST_CHECK_EQUAL( n23       , hex_string(        h23.digest ) );
@@ -203,15 +201,15 @@ BOOST_AUTO_TEST_CASE( merkle )
    BOOST_CHECK_EQUAL( n01234567 , hex_string(  h01234567.digest ) );
    BOOST_CHECK_EQUAL( n012345678, hex_string( h012345678.digest ) );
 
-   multihash merkle_root;
+   koinos::multihash merkle_root;
 
-   std::vector< variable_blob > blob_values;
+   std::vector< koinos::variable_blob > blob_values;
    for( size_t i = 0; i < values.size(); i++ )
    {
       blob_values.emplace_back( values[i].begin(), values[i].end() );
    }
 
-   merkle_root = crypto::merkle_hash( CRYPTO_SHA2_256_ID, blob_values );
+   merkle_root = koinos::crypto::merkle_hash( CRYPTO_SHA2_256_ID, blob_values );
    BOOST_CHECK_EQUAL( n012345678, hex_string( merkle_root.digest ) );
 }
 
