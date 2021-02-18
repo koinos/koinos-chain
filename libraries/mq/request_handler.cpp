@@ -231,11 +231,19 @@ void request_handler::publisher( std::shared_ptr< message_broker > broker )
          break;
       }
 
+      uint64_t delivery_tag = 0;
+
+      if ( m->delivery_tag )
+      {
+         delivery_tag = m->delivery_tag;
+         m->delivery_tag = 0;
+      }
+
       auto r = broker->publish( *m );
 
-      if ( r == error_code::success )
+      if ( r == error_code::success && delivery_tag )
       {
-         broker->ack_message( m->delivery_tag );
+         //broker->ack_message( m->delivery_tag );
       }
       else
       {

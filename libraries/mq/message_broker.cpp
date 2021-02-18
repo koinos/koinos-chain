@@ -405,7 +405,7 @@ std::pair< error_code, std::shared_ptr< message > > message_broker_impl::consume
       return result;
    }
 
-   uint64_t delivery_tag;
+   uint64_t delivery_tag = 0;
 
    snprintf( buf, bufsize, "%u", (unsigned)envelope.delivery_tag );
    try

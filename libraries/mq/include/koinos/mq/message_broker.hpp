@@ -20,7 +20,7 @@ enum class error_code : int64_t
 
 struct message
 {
-   uint64_t                     delivery_tag;
+   uint64_t                     delivery_tag = 0;
    std::string                  exchange;
    std::string                  routing_key;
    std::string                  content_type;
