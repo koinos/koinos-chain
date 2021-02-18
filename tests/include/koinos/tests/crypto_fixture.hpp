@@ -32,12 +32,15 @@ struct crypto_fixture
    {
       static const char hex[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 
-      std::stringstream ss;
+      std::string s;
 
-      for( auto c : b )
-         ss << hex[(c & 0xF0) >> 4] << hex[c & 0x0F];
+      for ( auto c : b )
+      {
+         s += hex[(c & 0xF0) >> 4];
+         s += hex[c & 0x0F];
+      }
 
-      return ss.str();
+      return s;
    }
 
    void test( uint64_t code, const std::string& to_hash, const std::string& expected )
