@@ -19,7 +19,6 @@
 #include <chrono>
 #include <sstream>
 
-using namespace koinos;
 using koinos::plugins::block_producer::util::set_block_merkle_roots;
 using koinos::plugins::block_producer::util::sign_block;
 
@@ -86,7 +85,7 @@ struct reqhandler_fixture
    }
 
    boost::program_options::variables_map    _options;
-   plugins::chain::chain_plugin             _chain_plugin;
+   koinos::plugins::chain::chain_plugin     _chain_plugin;
    boost::filesystem::path                  _state_dir;
 };
 
@@ -94,6 +93,7 @@ BOOST_FIXTURE_TEST_SUITE( reqhandler_tests, reqhandler_fixture )
 
 BOOST_AUTO_TEST_CASE( setup_tests )
 { try {
+   using namespace koinos;
 
    BOOST_TEST_MESSAGE( "Test when chain_plugin has not been started" );
 
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE( setup_tests )
    auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
 
    BOOST_CHECK_EQUAL( head_info_res.height, 0 );
-   BOOST_CHECK_EQUAL( head_info_res.id, crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
+   BOOST_CHECK_EQUAL( head_info_res.id, koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
 
    BOOST_TEST_MESSAGE( "Shut down chain_plugin" );
 
@@ -126,6 +126,8 @@ BOOST_AUTO_TEST_CASE( setup_tests )
 
 BOOST_AUTO_TEST_CASE( submission_tests )
 { try {
+   using namespace koinos;
+
    using koinos::plugins::chain::unknown_submission_type;
    _chain_plugin.plugin_initialize( _options );
    _chain_plugin.plugin_startup();
@@ -147,12 +149,14 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test submit transaction" );
 
-   types::protocol::operation o = types::protocol::nop_operation();
-   types::protocol::transaction transaction;
+   protocol::operation o = protocol::nop_operation();
+   protocol::transaction transaction;
    transaction.operations.push_back( o );
 
    types::rpc::transaction_submission trx;
-   pack::to_variable_blob( trx.active_bytes, transaction );
+   trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   trx.transaction.active_data = transaction.active_data;
+   trx.transaction.passive_data = transaction.passive_data;
 
    future = _chain_plugin.submit( trx );
    submit_res = *(future.get());
@@ -170,11 +174,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
    block_submission.block.active_data->height = 2;
-   block_submission.block.active_data->header_hashes.digests.resize(3);
 
    block_submission.topology.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_submission.topology.height = block_submission.block.active_data->height;
-   block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
+   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -206,7 +209,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_submission.topology.previous = crypto::empty_hash( CRYPTO_SHA2_256_ID );
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
+   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -222,7 +225,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_submission.topology.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = block_submission.topology.previous.digest;
+   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -237,9 +240,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    auto query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
    auto chain_id_result = std::get< types::rpc::get_chain_id_result >( query_submission_result.get_const_native() );
    std::string chain_id = "koinos";
-   BOOST_CHECK_EQUAL( chain_id_result.chain_id, crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() ) );
+   BOOST_CHECK_EQUAL( chain_id_result.chain_id, koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() ) );
 
    _chain_plugin.plugin_shutdown();
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
+

@@ -28,19 +28,19 @@ const variable_blob& apply_context::get_contract_call_args()
    return contract_call_args;
 }
 
-types::variable_blob apply_context::get_contract_return()
+variable_blob apply_context::get_contract_return()
 {
    auto ret = contract_return;
-   contract_return = types::variable_blob();
+   contract_return = variable_blob();
    return ret;
 }
 
-void apply_context::set_contract_return( const types::variable_blob& ret )
+void apply_context::set_contract_return( const variable_blob& ret )
 {
    contract_return = ret;
 }
 
-void apply_context::set_key_authority( const koinos::crypto::public_key& key )
+void apply_context::set_key_authority( const crypto::public_key& key )
 {
    key_auth = key;
 }

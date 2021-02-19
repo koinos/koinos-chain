@@ -20,13 +20,13 @@ enum class error_code : int64_t
 
 struct message
 {
-   uint64_t                     delivery_tag;
    std::string                  exchange;
    std::string                  routing_key;
    std::string                  content_type;
+   std::string                  data;
+   uint64_t                     delivery_tag;
    std::optional< std::string > reply_to;
    std::optional< std::string > correlation_id;
-   std::string                  data;
 };
 
 namespace detail { struct message_broker_impl; }

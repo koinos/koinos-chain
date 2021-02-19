@@ -156,18 +156,18 @@ void chain_plugin::plugin_startup()
          [&]( const std::string& msg ) -> std::string
          {
             auto j = nlohmann::json::parse( msg );
-            rpc::chain::chain_rpc_params args;
+            rpc::chain::chain_rpc_request args;
             pack::from_json( j, args );
 
             // Convert chain_rpc_params -> submission_item
             types::rpc::submission_item submit;
             std::visit(
                koinos::overloaded {
-                  [&]( const rpc::chain::get_head_info_params& p )
+                  [&]( const rpc::chain::get_head_info_request& p )
                   {
                      submit = types::rpc::query_param_item( p );
                   },
-                  [&]( const rpc::chain::get_chain_id_params& p )
+                  [&]( const rpc::chain::get_chain_id_request& p )
                   {
                      submit = types::rpc::query_param_item( p );
                   },
@@ -181,7 +181,7 @@ void chain_plugin::plugin_startup()
             auto res = my->_reqhandler.submit( submit );
 
             // Convert submission_result -> chain_rpc_result
-            rpc::chain::chain_rpc_result result;
+            rpc::chain::chain_rpc_response result;
             std::visit(
                koinos::overloaded {
                   [&]( const types::rpc::query_submission_result& r )
@@ -200,7 +200,7 @@ void chain_plugin::plugin_startup()
                      }
                      else
                      {
-                        result = rpc::chain::rpc_error{ "Unknown serialization returned for query submission result" };
+                        result = rpc::chain::chain_error_response{ "Unknown serialization returned for query submission result" };
                      }
                   },
                   [&]( const auto& r )

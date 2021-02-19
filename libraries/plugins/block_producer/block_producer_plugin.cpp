@@ -14,17 +14,15 @@
 
 namespace koinos::plugins::block_producer {
 
-using namespace koinos::types;
-
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 namespace bfs = boost::filesystem;
 
-static types::timestamp_type timestamp_now()
+static timestamp_type timestamp_now()
 {
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    auto ticks = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
 
-   types::timestamp_type t;
+   timestamp_type t;
    t = ticks;
    return t;
 }
@@ -37,10 +35,9 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
    active_data.timestamp = timestamp_now();
-   active_data.header_hashes.digests.resize( size_t(types::protocol::header_hash_index::NUM_HEADER_HASHES) );
 
    // Get previous block data
-   koinos::rpc::chain::block_topology topology;
+   block_topology topology;
 
    chain::chain_plugin& ch = appbase::app().get_plugin< chain::chain_plugin >();
    auto r = ch.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
@@ -52,7 +49,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
       std::visit( koinos::overloaded {
          [&]( const types::rpc::get_head_info_result& head_info ) {
             active_data.height = head_info.height + 1;
-            active_data.header_hashes.digests[(uint32_t)types::protocol::header_hash_index::previous_block_hash_index] = head_info.id.digest;
+            active_data.previous_block = head_info.id;
             topology.previous = head_info.id;
             topology.height = active_data.height;
          },

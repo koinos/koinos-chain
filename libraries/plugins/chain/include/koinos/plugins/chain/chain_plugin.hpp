@@ -24,15 +24,14 @@ public:
 
    bfs::path state_dir() const;
 
+   std::future< std::shared_ptr< koinos::types::rpc::submission_result > > submit( const koinos::types::rpc::submission_item& item );
+
    static const std::string& name() { static std::string name = KOINOS_CHAIN_PLUGIN_NAME; return name; }
 
    virtual void set_program_options( appbase::options_description& cli, appbase::options_description& cfg ) override;
    virtual void plugin_initialize( const appbase::variables_map& options ) override;
    virtual void plugin_startup() override;
    virtual void plugin_shutdown() override;
-
-   // Temporary, this will go away when block_producer talks over RPC
-   std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
 private:
    std::unique_ptr< detail::chain_plugin_impl > my;

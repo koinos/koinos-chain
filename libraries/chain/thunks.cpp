@@ -8,16 +8,13 @@
 
 namespace koinos::chain {
 
-using namespace koinos::types;
-using namespace koinos::types::thunks;
-
 void register_thunks( thunk_dispatcher& td )
 {
    REGISTER_THUNKS( td,
       (prints)
       (exit_contract)
 
-      (verify_block_sig)
+      (verify_block_signature)
       (verify_merkle_root)
 
       (apply_block)
@@ -63,10 +60,10 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( bool, verify_block_sig, ((const variable_blob&) sig_data, (const crypto::multihash&) digest) )
+THUNK_DEFINE( bool, verify_block_signature, ((const variable_blob&) signature_data, (const multihash&) digest) )
 {
    crypto::recoverable_signature sig;
-   pack::from_variable_blob( sig_data, sig );
+   pack::from_variable_blob( signature_data, sig );
    return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
 }
 
@@ -79,10 +76,10 @@ THUNK_DEFINE( bool, verify_merkle_root, ((const multihash&) root, (const std::ve
 
 THUNK_DEFINE( void, apply_block,
    (
-      (const types::protocol::block&) block,
-      (types::boolean) enable_check_passive_data,
-      (types::boolean) enable_check_block_signature,
-      (types::boolean) enable_check_transaction_signatures)
+      (const protocol::block&) block,
+      (boolean) enable_check_passive_data,
+      (boolean) enable_check_block_signature,
+      (boolean) enable_check_transaction_signatures)
    )
 {
    KOINOS_TODO( "Check previous block hash" );
@@ -91,10 +88,8 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_TODO( "Specify allowed set of hashing algorithms" );
 
    block.active_data.unbox();
-   std::vector< multihash > header_hashes;
-   header_hashes = crypto::from_multihash_vector( block.active_data->header_hashes );
 
-   const multihash& tx_root = header_hashes[ (size_t)types::protocol::header_hash_index::transaction_merkle_root_hash_index ];
+   const multihash& tx_root = block.active_data->transaction_merkle_root;
    size_t tx_count = block.transactions.size();
 
    // Check transaction Merkle root
@@ -110,7 +105,7 @@ THUNK_DEFINE( void, apply_block,
    {
       multihash active_block_hash;
       active_block_hash = crypto::hash_like( tx_root, block.active_data );
-      KOINOS_ASSERT( verify_block_sig( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
+      KOINOS_ASSERT( verify_block_signature( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
    // Check passive Merkle root
@@ -128,7 +123,7 @@ THUNK_DEFINE( void, apply_block,
       // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
       // during the block building process.
 
-      const multihash& passive_root = header_hashes[(uint32_t)types::protocol::header_hash_index::passive_data_merkle_root_hash_index];
+      const multihash& passive_root = block.active_data->passive_data_merkle_root;
       size_t passive_count = 2 * ( block.transactions.size() + 1 );
       hashes.resize( passive_count );
 
@@ -193,7 +188,7 @@ THUNK_DEFINE( void, apply_block,
 
 THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&) trx) )
 {
-   using namespace koinos::types::protocol;
+   using namespace koinos::protocol;
 
    trx.unbox();
 
@@ -229,7 +224,7 @@ THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operati
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
-   types::uint256_t contract_id = pack::from_fixed_blob< types::uint160_t >( o.contract_id );
+   uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
    db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
 }
 
@@ -243,11 +238,11 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    // Ensure override exists
    std::visit(
    koinos::overloaded{
-      [&]( const types::thunks::thunk_id& tid ) {
+      [&]( const thunk_id& tid ) {
          KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), unknown_thunk, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
       },
-      [&]( const koinos::types::system::contract_call_bundle& scb ) {
-         types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( scb.contract_id );
+      [&]( const contract_call_bundle& scb ) {
+         uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
          auto contract = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
          KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
          KOINOS_TODO( "Make a better exception for execute_contract" );
@@ -350,9 +345,9 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
-THUNK_DEFINE( variable_blob, execute_contract, ((const types::contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
+THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
 {
-   types::uint256_t contract_key = pack::from_fixed_blob< types::uint160_t >( contract_id );
+   uint256_t contract_key = pack::from_fixed_blob< uint160_t >( contract_id );
    auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
    wasm_allocator_type wa;
 
@@ -387,18 +382,18 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
    context.set_contract_return( ret );
 }
 
-THUNK_DEFINE_VOID( types::system::head_info, get_head_info )
+THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 {
    auto head = context.get_state_node();
 
-   types::system::head_info hi;
+   chain::head_info hi;
    hi.id = head->id();
    hi.height = head->revision();
 
    return hi;
 }
 
-THUNK_DEFINE( types::multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
+THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
    KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
    return crypto::hash_str( id, obj.data(), obj.size(), size );

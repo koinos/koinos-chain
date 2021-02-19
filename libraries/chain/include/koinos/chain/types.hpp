@@ -31,8 +31,6 @@ namespace koinos::chain {
    using std::pair;
    using std::make_pair;
 
-   using koinos::types::variable_blob;
-
    using wasm_allocator_type = eosio::vm::wasm_allocator;
    using backend_type        = eosio::vm::backend< apply_context, eosio::vm::jit >;
    using registrar_type      = eosio::vm::registered_host_functions< apply_context >;

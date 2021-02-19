@@ -17,20 +17,20 @@
 
 #include <iostream>
 
-using namespace koinos::crypto;
+using namespace koinos;
 using namespace koinos::statedb;
-using detail::merge_index;
-using detail::state_delta;
+using statedb::detail::merge_index;
+using statedb::detail::state_delta;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
 struct test_block
 {
-   multihash      previous;
-   uint64_t       height = 0;
-   uint64_t       nonce = 0;
+   multihash         previous;
+   uint64_t          height = 0;
+   uint64_t          nonce = 0;
 
-   multihash get_id() const;
+   multihash         get_id() const;
 };
 
 KOINOS_REFLECT( test_block, (previous)(height)(nonce) )
@@ -61,7 +61,7 @@ struct by_sum;
 
 typedef mira::multi_index_adapter<
    book,
-   koinos::pack::binary_serializer,
+   pack::binary_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< book, book::id_type, &book::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_a >,  mira::multi_index::member< book, int,           &book::a  > >,
@@ -80,7 +80,7 @@ KOINOS_REFLECT( book, (id)(a)(b) )
 
 multihash test_block::get_id()const
 {
-   return hash( CRYPTO_SHA2_256_ID, *this );
+   return crypto::hash( CRYPTO_SHA2_256_ID, *this );
 }
 
 struct statedb_fixture
@@ -116,13 +116,13 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.b = 4;
    book get_book;
 
-   multihash state_id = hash( CRYPTO_SHA2_256_ID, 1 );
+   multihash state_id = crypto::hash( CRYPTO_SHA2_256_ID, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
 
    put_object_args put_args;
    put_object_result put_res;
    vectorstream vs;
-   koinos::pack::to_binary( vs, book_a );
+   pack::to_binary( vs, book_a );
    put_args.space = space;
    put_args.key = book_a.id;
    put_args.buf = const_cast< char* >( vs.vector().data() );
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
    BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   koinos::pack::from_binary( vs, get_book );
+   pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.a = 5;
    book_a.b = 6;
    vs.swap_vector( other_buf );
-   koinos::pack::to_binary( vs, book_a );
+   pack::to_binary( vs, book_a );
    put_args.buf = const_cast< char* >( vs.vector().data() );
    put_args.object_size = vs.vector().size();
 
@@ -174,13 +174,13 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
    BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   koinos::pack::from_binary( vs, get_book );
+   pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
 
-   state_id = hash( CRYPTO_SHA2_256_ID, 2 );
+   state_id = crypto::hash( CRYPTO_SHA2_256_ID, 2 );
    auto state_2 = db.create_writable_node( state_1->id(), state_id );
    BOOST_REQUIRE( !state_2 );
 
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_2 = db.create_writable_node( state_1->id(), state_id );
    book_a.a = 7;
    book_a.b = 8;
-   koinos::pack::to_binary( vs, book_a );
+   pack::to_binary( vs, book_a );
    put_args.buf = const_cast< char* >( vs.vector().data() );
    state_2->put_object( put_res, put_args );
    BOOST_REQUIRE( put_res.object_existed );
@@ -204,7 +204,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_2->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
    BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   koinos::pack::from_binary( vs, get_book );
+   pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
    BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   koinos::pack::from_binary( vs, get_book );
+   pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, 5 );
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    state_1->get_object( get_res, get_args );
    BOOST_REQUIRE( get_res.key == get_args.key );
    BOOST_REQUIRE( get_res.size == (int64_t)other_buf.size() );
-   koinos::pack::from_binary( vs, get_book );
+   pack::from_binary( vs, get_book );
 
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, 5 );
@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
       if( i == 1000 ) block_1000_id = id;
    }
 
-   BOOST_REQUIRE( db.get_root()->id() == zero_hash( CRYPTO_SHA2_256_ID ) );
+   BOOST_REQUIRE( db.get_root()->id() == crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
    BOOST_REQUIRE( db.get_root()->revision() == 0 );
 
    BOOST_REQUIRE( db.get_head()->id() == prev_id );
@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( !db.create_writable_node( db.get_head()->parent_id(), db.get_head()->id() ) );
 
    BOOST_TEST_MESSAGE( "Check failed linking" );
-   multihash zero = zero_hash( CRYPTO_SHA2_256_ID );
+   multihash zero = crypto::zero_hash( CRYPTO_SHA2_256_ID );
    BOOST_REQUIRE( !db.create_writable_node( zero, id ) );
 
    multihash head_id = db.get_head()->id();

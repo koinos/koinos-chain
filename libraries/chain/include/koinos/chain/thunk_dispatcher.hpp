@@ -18,8 +18,6 @@
 
 namespace koinos::chain {
 
-using koinos::types::thunks::thunk_id;
-
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_thunk, chain_exception );
 
 namespace detail
@@ -36,7 +34,7 @@ namespace detail
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      static_assert( std::is_same< RetStruct, koinos::types::thunks::void_type >::value, "Thunk return does not match defined return in koinos-types" );
+      static_assert( std::is_same< RetStruct, void_type >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), pack::reflector< ArgStruct >::make_tuple( arg ) );
       std::apply( thunk, thunk_args );
       return 0;
@@ -79,7 +77,7 @@ class thunk_dispatcher
       auto call_thunk( thunk_id id, apply_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< types::thunks::thunk_id >( id ) ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< thunk_id >( id ) ) );
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 

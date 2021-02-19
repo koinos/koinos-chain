@@ -8,9 +8,6 @@
 
 namespace koinos::chain {
 
-using namespace koinos::types::system;
-using namespace koinos::types::thunks;
-
 /*
  * This is a list of syscalls registered at genesis.
  *
@@ -23,7 +20,7 @@ DEFAULT_SYSTEM_CALLS(
    (prints)
    (exit_contract)
 
-   (verify_block_sig)
+   (verify_block_signature)
    (verify_merkle_root)
 
    (apply_block)

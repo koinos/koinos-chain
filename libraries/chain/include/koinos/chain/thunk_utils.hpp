@@ -17,7 +17,7 @@
 #define _THUNK_SUFFIX _thunk
 #define _THUNK_TYPE_SUFFIX _type
 #define _THUNK_ARGS_SUFFIX _args
-#define _THUNK_RET_SUFFIX  _ret
+#define _THUNK_RET_SUFFIX  _return
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
 data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( thunk_id::elem, thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
@@ -81,17 +81,13 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
-      using koinos::types::thunks::thunk_id;                                                                         \
-      using koinos::types::system::contract_call_bundle;                                                             \
-      using koinos::types::system::system_call_id;                                                                   \
-      using koinos::types::system::system_call_target;                                                               \
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( system_call_id::SYSCALL );                                            \
                                                                                                                      \
       /* TODO Do we need to invoke serialization here? */                                                            \
       statedb::object_key _key = _sid;                                                                               \
                                                                                                                      \
-      koinos::types::variable_blob _vl_target = db_get_object_thunk(                                                 \
+      koinos::variable_blob _vl_target = db_get_object_thunk(                                                        \
          context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, _key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );                 \
                                                                                                                      \
       system_call_target _target;                                                                                    \
@@ -103,7 +99,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             "system call table dispatch entry ${sid} does not exist",                                                \
             ("sid", _sid)                                                                                            \
             );                                                                                                       \
-         _target = static_cast< thunk_id >( *maybe_thunk_id );                                                       \
+         _target = *maybe_thunk_id;                                                                                  \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \
@@ -120,14 +116,14 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                thunk_dispatcher::instance().call_thunk<                                                              \
                   RETURN_TYPE                                                                                        \
                   TYPES >(                                                                                           \
-                     koinos::types::thunks::thunk_id(_tid),                                                          \
+                     _tid,                                                                                           \
                      context                                                                                         \
                      FWD );                                                                                          \
             },                                                                                                       \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
-               auto _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );   \
+               auto _contract_ret = execute_contract( context, _scb.contract_id, _scb.entry_point, _args );          \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \
