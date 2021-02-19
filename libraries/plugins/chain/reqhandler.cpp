@@ -281,26 +281,23 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
    if ( _publisher.is_connected() )
    {
-      if ( _publisher.is_connected() )
+      json j;
+
+      pack::to_json( j, broadcast::block_accepted {
+         .topology = block.submission.topology,
+         .block    = block.submission.block
+      } );
+
+      auto err = _publisher.publish( mq::message{
+         .exchange     = "koinos_event",
+         .routing_key  = "koinos.block.accept",
+         .content_type = "application/json",
+         .data         = j.dump()
+      } );
+
+      if ( err != mq::error_code::success )
       {
-         json j;
-
-         pack::to_json( j, broadcast::block_accepted {
-            .topology = block.submission.topology,
-            .block    = block.submission.block
-         } );
-
-         auto err = _publisher.publish( mq::message{
-            .exchange     = "koinos_event",
-            .routing_key  = "koinos.block.accept",
-            .content_type = "application/json",
-            .data         = j.dump()
-         } );
-
-         if ( err != mq::error_code::success )
-         {
-            LOG(error) << "failed to publish block application to message broker";
-         }
+         LOG(error) << "failed to publish block application to message broker";
       }
    }
 }
