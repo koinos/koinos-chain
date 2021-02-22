@@ -313,8 +313,7 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
    LOG(info) << "Applying transaction - id: " << tx.submission.topology.id;
    {
       std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _ctx->set_state_node( _state_db.get_head() );
-      auto tmp_node = _state_db.create_writable_node( get_head_info( *_ctx ).id, tmp_id );
+      auto tmp_node = _state_db.create_writable_node( _state_db.get_head(), tmp_id );
 
       try
       {
