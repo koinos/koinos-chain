@@ -63,6 +63,7 @@ using koinos::chain::host_api;
 using koinos::chain::apply_context;
 using koinos::chain::privilege;
 using koinos::chain::thunk::apply_block;
+using koinos::chain::thunk::apply_transaction;
 using koinos::chain::thunk::get_head_info;
 
 struct block_submission_impl
@@ -304,7 +305,33 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
 void reqhandler_impl::process_submission( types::rpc::transaction_submission_result& ret, const transaction_submission_impl& tx )
 {
-   std::lock_guard< std::mutex > lock( _state_db_mutex );
+   const multihash tmp_id = multihash {
+      .id = CRYPTO_SHA2_256_ID,
+      .digest = { 1 }
+   };
+
+   LOG(info) << "Applying transaction - id: " << tx.submission.topology.id;
+   {
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
+      _ctx->set_state_node( _state_db.get_head() );
+      auto tmp_node = _state_db.create_writable_node( get_head_info( *_ctx ).id, tmp_id );
+
+      try
+      {
+         _ctx->set_state_node( tmp_node );
+
+         apply_transaction( *_ctx, tx.submission.transaction );
+
+         _ctx->clear_state_node();
+         _state_db.discard_node( tmp_id );
+      }
+      catch( const koinos::exception& )
+      {
+         _ctx->clear_state_node();
+         _state_db.discard_node( tmp_id );
+         throw;
+      }
+   }
 
    if ( _publisher.is_connected() )
    {
@@ -364,6 +391,13 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
             .chain_id = crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() )
          };
          ret = types::rpc::query_submission_result( std::move( cir ) );
+      },
+      [&]( const types::rpc::get_pending_transactions_params& p )
+      {
+         types::rpc::query_error err;
+         std::string err_msg = "Unimplemented";
+         std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
+         ret = types::rpc::query_submission_result( std::move( err ) );
       },
       [&]( const auto& )
       {
@@ -541,4 +575,3 @@ void reqhandler::stop_threads()
 }
 
 } // koinos::plugins::chain
-

@@ -1,9 +1,9 @@
 hunter_config(Boost
    VERSION ${HUNTER_Boost_VERSION}
    CMAKE_ARGS
-   USE_CONFIG_FROM_BOOST=ON
-   Boost_USE_STATIC_LIBS=ON
-   Boost_NO_BOOST_CMAKE=ON
+      USE_CONFIG_FROM_BOOST=ON
+      Boost_USE_STATIC_LIBS=ON
+      Boost_NO_BOOST_CMAKE=ON
 )
 
 hunter_config(rocksdb
@@ -25,7 +25,7 @@ hunter_config(rocksdb
 hunter_config(rabbitmq-c
    VERSION 0.10.0-773b883-t1
    CMAKE_ARGS
+      ENABLE_SSL_SUPPORT=OFF
       CMAKE_C_FLAGS=-Wno-implicit-fallthrough
       CMAKE_CXX_FLAGS=-Wno-implicit-fallthrough
 )
-
