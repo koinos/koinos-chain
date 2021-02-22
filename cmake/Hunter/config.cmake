@@ -25,7 +25,6 @@ hunter_config(rocksdb
 hunter_config(rabbitmq-c
    VERSION 0.10.0-773b883-t1
    CMAKE_ARGS
-      ENABLE_SSL_SUPPORT=OFF
       CMAKE_C_FLAGS=-Wno-implicit-fallthrough
       CMAKE_CXX_FLAGS=-Wno-implicit-fallthrough
 )
