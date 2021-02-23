@@ -149,19 +149,19 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test submit transaction" );
 
-   protocol::operation o = protocol::nop_operation();
-   protocol::transaction transaction;
-   transaction.operations.push_back( o );
-
    types::rpc::transaction_submission trx;
-   trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   trx.transaction.active_data = transaction.active_data;
-   trx.transaction.passive_data = transaction.passive_data;
+   trx.transaction.operations.push_back( protocol::nop_operation() );
+   trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
 
    future = _chain_plugin.submit( trx );
    submit_res = *(future.get());
    auto& trx_res = std::get< types::rpc::transaction_submission_result >( submit_res );
 
+   trx.transaction.operations.push_back( protocol::reserved_operation() );
+   future = _chain_plugin.submit( trx );
+   submit_res = *(future.get());
+   auto& trx_res2 = std::get< rpc::chain::chain_error_response >( submit_res );
+   BOOST_CHECK_EQUAL( trx_res2.error_text, "Unable to apply reserved operation" );
 
    BOOST_TEST_MESSAGE( "Test submit block" );
    BOOST_TEST_MESSAGE( "Error when first block does not have height of 1" );
@@ -246,4 +246,3 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
-
