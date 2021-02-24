@@ -5,3 +5,6 @@
 	path = libraries/vendor/koinos-types
 	url = git@github.com:koinos/koinos-types.git
 	branch = master
+[submodule "libraries/log"]
+	path = libraries/log
+	url = git@github.com:koinos/koinos-log-cpp.git

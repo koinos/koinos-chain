@@ -29,3 +29,6 @@ hunter_config(rabbitmq-c
       CMAKE_CXX_FLAGS=-Wno-implicit-fallthrough
 )
 
+hunter_config(koinos-log
+   GIT_SUBMODULE "libraries/log"
+)

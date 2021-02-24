@@ -1,7 +1,6 @@
 add_subdirectory(chain)
 add_subdirectory(crypto)
 add_subdirectory(exception)
-add_subdirectory(log)
 add_subdirectory(manifest)
 add_subdirectory(mq)
 add_subdirectory(net)
@@ -9,4 +8,3 @@ add_subdirectory(plugins)
 add_subdirectory(statedb)
 add_subdirectory(util)
 add_subdirectory(vendor)
-
