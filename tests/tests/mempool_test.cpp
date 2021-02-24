@@ -3,6 +3,7 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/mempool.hpp>
+#include <koinos/chain/thunks.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -68,17 +69,20 @@ BOOST_FIXTURE_TEST_SUITE( mempool_tests, mempool_fixture )
 
 BOOST_AUTO_TEST_CASE( mempool_basic_test )
 {
-   chain::mempool mempool( _ctx );
+   chain::mempool mempool;
 
    protocol::transaction t1;
    t1.active_data->resource_limit = 10;
    auto t1_id = sign( _key1, t1 );
 
    BOOST_TEST_MESSAGE( "adding pending transaction" );
-   mempool.add_pending_transaction( t1_id, t1, block_height_type{ 1 } );
+   auto payer = chain::thunk::get_transaction_payer( *_ctx, t1 );
+   auto max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   auto trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, t1 );
+   mempool.add_pending_transaction( t1_id, t1, block_height_type{ 1 }, payer, max_payer_resources, trx_resource_limit );
 
    BOOST_TEST_MESSAGE( "adding duplicate pending transaction" );
-   BOOST_REQUIRE_THROW( mempool.add_pending_transaction( t1_id, t1, block_height_type{ 2 } ), chain::pending_transaction_insertion_failure );
+   BOOST_REQUIRE_THROW( mempool.add_pending_transaction( t1_id, t1, block_height_type{ 2 }, payer, max_payer_resources, trx_resource_limit ), chain::pending_transaction_insertion_failure );
 
    BOOST_TEST_MESSAGE( "checking pending transaction list" );
    {
@@ -97,7 +101,10 @@ BOOST_AUTO_TEST_CASE( mempool_basic_test )
    auto t2_id = sign( _key1, t2 );
 
    BOOST_TEST_MESSAGE( "adding pending transaction that exceeds accout resources" );
-   BOOST_REQUIRE_THROW( mempool.add_pending_transaction( t2_id, t2, block_height_type{ 3 } ), chain::transaction_exceeds_resources );
+   payer = chain::thunk::get_transaction_payer( *_ctx, t2 );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, t2 );
+   BOOST_REQUIRE_THROW( mempool.add_pending_transaction( t2_id, t2, block_height_type{ 3 }, payer, max_payer_resources, trx_resource_limit ), chain::transaction_exceeds_resources );
 
    BOOST_TEST_MESSAGE( "removing pending transaction" );
    mempool.remove_pending_transaction( t1_id );

@@ -9,8 +9,6 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-#include <koinos/chain/thunks.hpp>
-
 namespace koinos::chain {
 
 namespace detail {
@@ -73,20 +71,24 @@ private:
    pending_transaction_index        _pending_transaction_idx;
    std::mutex                       _pending_transaction_mutex;
 
-   std::shared_ptr< apply_context > _ctx;
-
 public:
-   mempool_impl( std::shared_ptr< apply_context > _ctx );
+   mempool_impl();
    virtual ~mempool_impl();
 
    bool has_pending_transaction( const multihash& id );
    std::vector< protocol::transaction > get_pending_transactions( const multihash& start, std::size_t limit );
-   void add_pending_transaction( const multihash& id, const protocol::transaction& t, block_height_type h );
+   void add_pending_transaction(
+      const multihash& id,
+      const protocol::transaction& t,
+      block_height_type h,
+      account_type payer,
+      uint128 max_payer_resources,
+      uint128 trx_resource_limit );
    void remove_pending_transaction( const multihash& id );
    void prune( block_height_type h );
 };
 
-mempool_impl::mempool_impl( std::shared_ptr< apply_context > ctx ) : _ctx( ctx ) {}
+mempool_impl::mempool_impl() {}
 mempool_impl::~mempool_impl() = default;
 
 bool mempool_impl::has_pending_transaction( const multihash& id )
@@ -120,44 +122,45 @@ std::vector< protocol::transaction > mempool_impl::get_pending_transactions( con
    return pending_transactions;
 }
 
-void mempool_impl::add_pending_transaction( const multihash& id, const protocol::transaction& t, block_height_type h )
+void mempool_impl::add_pending_transaction(
+   const multihash& id,
+      const protocol::transaction& t,
+      block_height_type h,
+      account_type payer,
+      uint128 max_payer_resources,
+      uint128 trx_resource_limit )
 {
-   auto account = thunk::get_transaction_payer( *_ctx, t );
-   auto resource_limit = thunk::get_transaction_resource_limit( *_ctx, t );
-
    {
       std::lock_guard< std::mutex > guard( _account_resources_mutex );
 
       auto& account_idx = _account_resources_idx.get< by_account >();
-      auto it = account_idx.find( account );
+      auto it = account_idx.find( payer );
 
       if ( it == account_idx.end() )
       {
-         auto max_resources = thunk::get_max_account_resources( *_ctx, account );
-
          KOINOS_ASSERT(
-            resource_limit <= max_resources,
+            trx_resource_limit <= max_payer_resources,
             transaction_exceeds_resources,
-            "transaction would exceed maximum resources for account: ${a}", ("a", account)
+            "transaction would exceed maximum resources for account: ${a}", ("a", payer)
          );
 
          _account_resources_idx.insert( account_resources_object {
-            .account = account,
-            .resources = max_resources - resource_limit,
+            .account = payer,
+            .resources = max_payer_resources - trx_resource_limit,
             .last_update = h
          } );
       }
       else
       {
          KOINOS_ASSERT(
-            resource_limit <= it->resources,
+            trx_resource_limit <= it->resources,
             transaction_exceeds_resources,
-            "transaction would exceed resources for account: ${a}", ("a", account)
+            "transaction would exceed resources for account: ${a}", ("a", payer)
          );
 
          account_idx.modify( it, [&]( account_resources_object& aro )
          {
-            aro.resources -= resource_limit;
+            aro.resources -= trx_resource_limit;
             aro.last_update = h;
          } );
       }
@@ -196,7 +199,7 @@ void mempool_impl::prune( block_height_type h )
 
 } // detail
 
-mempool::mempool( std::shared_ptr< apply_context > ctx ) : _my( std::make_unique< detail::mempool_impl >( ctx ) ) {}
+mempool::mempool() : _my( std::make_unique< detail::mempool_impl >() ) {}
 mempool::~mempool() = default;
 
 bool mempool::has_pending_transaction( const multihash& id )
@@ -209,9 +212,14 @@ std::vector< protocol::transaction > mempool::get_pending_transactions( const mu
    return _my->get_pending_transactions( start, limit );
 }
 
-void mempool::add_pending_transaction( const multihash& id, const protocol::transaction& t, block_height_type h )
+void mempool::add_pending_transaction( const multihash& id,
+      const protocol::transaction& t,
+      block_height_type h,
+      account_type payer,
+      uint128 max_payer_resources,
+      uint128 trx_resource_limit )
 {
-   _my->add_pending_transaction( id, t, h );
+   _my->add_pending_transaction( id, t, h, payer, max_payer_resources, trx_resource_limit );
 }
 
 void mempool::remove_pending_transaction( const multihash& id )
