@@ -24,7 +24,7 @@ public:
    virtual ~mempool();
 
    bool has_pending_transaction( const multihash& id );
-   std::vector< protocol::transaction > get_pending_transactions( const multihash& start, std::size_t limit );
+   std::vector< protocol::transaction > get_pending_transactions( const multihash& start = multihash(), std::size_t limit = 100 );
    void add_pending_transaction( const multihash& id, const protocol::transaction& t, block_height_type h );
    void remove_pending_transaction( const multihash& id );
    void prune( block_height_type h );

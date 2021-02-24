@@ -3,7 +3,7 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/thunks.hpp>
 #include <koinos/chain/system_calls.hpp>
-
+#include <koinos/log.hpp>
 #include <koinos/crypto/multihash.hpp>
 
 #include <algorithm>
@@ -420,10 +420,17 @@ THUNK_DEFINE( account_type, get_transaction_payer, ((const opaque< protocol::tra
    crypto::recoverable_signature signature;
    std::copy_n( transaction.signature_data.begin(), transaction.signature_data.size(), signature.begin() );
 
-   auto public_key = crypto::public_key::recover( signature, digest );
+   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_transaction_signature, "Signature must be canonical" );
+
+   auto pub_key = crypto::public_key::recover( signature, digest );
+
+   KOINOS_ASSERT( pub_key.valid(), invalid_transaction_signature, "Public key is invalid" );
 
    account_type account;
-   pack::to_variable_blob( account, public_key.to_base58() );
+   pack::to_variable_blob( account, pub_key.to_address() );
+
+   LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
+   LOG(debug) << "(get_transaction_payer) public_key: " << pub_key.to_base58();
 
    return account;
 }
