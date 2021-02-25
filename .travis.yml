@@ -23,8 +23,7 @@ jobs:
       dist: bionic
       env:
         - RUN_TYPE=test
-        - MATRIX_EVAL="CC=gcc && CXX=g++"
-        - export HUNTER_PYTHON_LOCATION=$(dirname $(which python))
+        - MATRIX_EVAL="CC=gcc && CXX=g++ && HUNTER_PYTHON_LOCATION=$(dirname $(which python3))"
     - os: linux
       dist: focal
       env:
