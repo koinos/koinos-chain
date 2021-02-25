@@ -49,7 +49,7 @@ struct mempool_fixture
 
    multihash sign( crypto::private_key& key, protocol::transaction& t )
    {
-      auto digest = crypto::hash( CRYPTO_SHA2_256_ID, t.active_data );
+      auto digest = crypto::hash( CRYPTO_SHA2_256_ID, t.active_data.get_const_native() );
       auto signature = key.sign_compact( digest );
       t.signature_data = variable_blob( signature.begin(), signature.end() );
       return digest;
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE( mempool_basic_test )
       BOOST_TEST_MESSAGE( "checking pending transactions size" );
       BOOST_REQUIRE_EQUAL( pending_txs.size(), 1 );
       BOOST_TEST_MESSAGE( "checking pending transaction id" );
-      BOOST_REQUIRE_EQUAL( crypto::hash( CRYPTO_SHA2_256_ID, pending_txs[0].active_data ), t1_id );
+      BOOST_REQUIRE_EQUAL( crypto::hash( CRYPTO_SHA2_256_ID, pending_txs[0].active_data.get_const_native() ), t1_id );
    }
 
    BOOST_TEST_MESSAGE( "pending transaction existence check" );
@@ -141,12 +141,7 @@ BOOST_AUTO_TEST_CASE( pending_transaction_pagination )
       mempool.add_pending_transaction( trx_id, trx, block_height_type( i ), payer, max_payer_resources, trx_resource_limit );
    }
 
-   try
-   {
-      mempool.get_pending_transactions( multihash(), MAX_PENDING_TRANSACTION_REQUEST + 1 );
-      BOOST_REQUIRE(false);
-   }
-   catch ( const chain::pending_transaction_request_overflow& ) {}
+   BOOST_REQUIRE_THROW( mempool.get_pending_transactions( multihash(), MAX_PENDING_TRANSACTION_REQUEST + 1 ), chain::pending_transaction_request_overflow );
 
    auto pending_trxs = mempool.get_pending_transactions();
    BOOST_REQUIRE( pending_trxs.size() == MAX_PENDING_TRANSACTION_REQUEST );
@@ -155,7 +150,7 @@ BOOST_AUTO_TEST_CASE( pending_transaction_pagination )
       BOOST_CHECK_EQUAL( pending_trxs[i].active_data.get_const_native().resource_limit, 10 * i );
    }
 
-   auto last_id = crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.rbegin()->active_data );
+   auto last_id = crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.rbegin()->active_data.get_const_native() );
    pending_trxs = mempool.get_pending_transactions( last_id, MAX_PENDING_TRANSACTION_REQUEST / 2 );
    BOOST_REQUIRE( pending_trxs.size() == MAX_PENDING_TRANSACTION_REQUEST / 2 );
    for( uint64_t i = 0; i < MAX_PENDING_TRANSACTION_REQUEST / 2; i++ )
@@ -163,7 +158,7 @@ BOOST_AUTO_TEST_CASE( pending_transaction_pagination )
       BOOST_CHECK_EQUAL( pending_trxs[i].active_data.get_const_native().resource_limit, 10 * (i + MAX_PENDING_TRANSACTION_REQUEST) );
    }
 
-   last_id = crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.rbegin()->active_data );
+   last_id = crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.rbegin()->active_data.get_const_native() );
    pending_trxs = mempool.get_pending_transactions( last_id );
    BOOST_REQUIRE( pending_trxs.size() == (MAX_PENDING_TRANSACTION_REQUEST + 1) / 2 + 1 );
    for( uint64_t i = 0; i < MAX_PENDING_TRANSACTION_REQUEST / 2; i++ )
