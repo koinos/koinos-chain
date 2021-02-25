@@ -43,6 +43,10 @@ DEFAULT_SYSTEM_CALLS(
 
    (get_head_info)
    (hash)
+
+   (get_transaction_payer)
+   (get_max_account_resources)
+   (get_transaction_resource_limit)
 )
 
 } // koinos::chain

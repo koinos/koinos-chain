@@ -3,8 +3,10 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/thunks.hpp>
 #include <koinos/chain/system_calls.hpp>
-
+#include <koinos/log.hpp>
 #include <koinos/crypto/multihash.hpp>
+
+#include <algorithm>
 
 namespace koinos::chain {
 
@@ -37,6 +39,10 @@ void register_thunks( thunk_dispatcher& td )
 
       (get_head_info)
       (hash)
+
+      (get_transaction_payer)
+      (get_max_account_resources)
+      (get_transaction_resource_limit)
    )
 }
 
@@ -397,6 +403,53 @@ THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint
 {
    KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
    return crypto::hash_str( id, obj.data(), obj.size(), size );
+}
+
+THUNK_DEFINE( account_type, get_transaction_payer, ((const opaque< protocol::transaction >&) tx) )
+{
+   tx.unbox();
+   const auto& transaction = tx.get_const_native();
+
+   transaction.active_data.unbox();
+   const auto& active_data = transaction.active_data.get_const_native();
+
+   KOINOS_ASSERT( transaction.signature_data.size() == 65, invalid_transaction_signature, "Unexpected signature length" );
+
+   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, active_data );
+
+   crypto::recoverable_signature signature;
+   std::copy_n( transaction.signature_data.begin(), transaction.signature_data.size(), signature.begin() );
+
+   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_transaction_signature, "Signature must be canonical" );
+
+   auto pub_key = crypto::public_key::recover( signature, digest );
+
+   KOINOS_ASSERT( pub_key.valid(), invalid_transaction_signature, "Public key is invalid" );
+
+   account_type account;
+   pack::to_variable_blob( account, pub_key.to_address() );
+
+   LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
+   LOG(debug) << "(get_transaction_payer) public_key: " << pub_key.to_base58();
+
+   return account;
+}
+
+THUNK_DEFINE( uint128, get_max_account_resources, ((const account_type&) account) )
+{
+   uint128 max_resources = 1000000000000;
+   return max_resources;
+}
+
+THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const opaque< protocol::transaction >&) tx) )
+{
+   tx.unbox();
+   const auto& transaction = tx.get_const_native();
+
+   transaction.active_data.unbox();
+   const auto& active_data = transaction.active_data.get_const_native();
+
+   return active_data.resource_limit;
 }
 
 } } // koinos::chain::thunk
