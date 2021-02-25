@@ -21,6 +21,7 @@
 
 using koinos::plugins::block_producer::util::set_block_merkle_roots;
 using koinos::plugins::block_producer::util::sign_block;
+using namespace std::string_literals;
 
 /**
  * We want to test the chain_plugin behavior when we've specified --state-dir=path/to/temp/dir
@@ -149,15 +150,36 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test submit transaction" );
 
+   crypto::private_key key;
+   key = crypto::private_key::generate_from_seed( crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
    types::rpc::transaction_submission trx;
    trx.transaction.operations.push_back( protocol::nop_operation() );
+   trx.transaction.active_data.make_mutable();
+   trx.transaction.active_data->resource_limit = 20;
    trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
+   auto signature = key.sign_compact( trx.topology.id );
+   trx.transaction.signature_data = variable_blob( signature.begin(), signature.end() );
 
    future = _chain_plugin.submit( trx );
    submit_res = *(future.get());
    auto& trx_res = std::get< types::rpc::transaction_submission_result >( submit_res );
 
+   future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_pending_transactions_params{
+      .start = multihash(),
+      .limit = 20
+   } ) );
+   submit_res = *(future.get());
+   auto& query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
+   auto& pending_trxs = std::get< types::rpc::get_pending_transactions_result >( query_submission_result.get_const_native() );
+   BOOST_CHECK_EQUAL( pending_trxs.transactions.size(), 1 );
+   BOOST_CHECK_EQUAL( trx.topology.id, crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.transactions[0].active_data ) );
+
    trx.transaction.operations.push_back( protocol::reserved_operation() );
+   trx.transaction.active_data.make_mutable();
+   trx.transaction.active_data->resource_limit = 10;
+   trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
+   signature = key.sign_compact( trx.topology.id );
+   trx.transaction.signature_data = variable_blob( signature.begin(), signature.end() );
    future = _chain_plugin.submit( trx );
    submit_res = *(future.get());
    auto& trx_res2 = std::get< rpc::chain::chain_error_response >( submit_res );
@@ -237,7 +259,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Test chain ID retrieval" );
    future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_chain_id_params() ) );
    submit_res = *(future.get());
-   auto query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
+   query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
    auto chain_id_result = std::get< types::rpc::get_chain_id_result >( query_submission_result.get_const_native() );
    std::string chain_id = "koinos";
    BOOST_CHECK_EQUAL( chain_id_result.chain_id, koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() ) );
