@@ -84,6 +84,7 @@ public:
       uint128 trx_resource_limit );
    void remove_pending_transaction( const multihash& id );
    void prune( block_height_type h );
+   std::size_t payer_entries_size();
    void cleanup_account_resources( const pending_transaction_object& pending_trx );
 };
 
@@ -223,13 +224,19 @@ void mempool_impl::prune( block_height_type h )
    }
 }
 
+std::size_t mempool_impl::payer_entries_size()
+{
+   std::lock_guard< std::mutex > guard( _account_resources_mutex );
+   return _account_resources_idx.size();
+}
+
 void mempool_impl::cleanup_account_resources( const pending_transaction_object& pending_trx )
 {
    auto itr = _account_resources_idx.find( pending_trx.payer );
    if ( itr != _account_resources_idx.end() )
    {
       uint128 new_max_resources = itr->max_resources - pending_trx.resource_limit;
-      if ( new_max_resources <= itr->max_resources )
+      if ( new_max_resources <= itr->resources )
       {
          _account_resources_idx.erase( itr );
       }
@@ -276,6 +283,11 @@ void mempool::remove_pending_transaction( const multihash& id )
 void mempool::prune( block_height_type h )
 {
    _my->prune( h );
+}
+
+std::size_t mempool::payer_entries_size()
+{
+   return _my->payer_entries_size();
 }
 
 } // koinos::chain

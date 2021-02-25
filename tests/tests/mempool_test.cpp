@@ -34,11 +34,14 @@ struct mempool_fixture
 
       _host_api = std::make_unique< chain::host_api >( *_ctx );
 
-      std::string seed1 = "alpha beta gamma delta";
-      _key1 = crypto::private_key::generate_from_seed( crypto::hash( CRYPTO_SHA2_256_ID, seed1 ) );
+      std::string seed1 = "alpha bravo charlie delta";
+      _key1 = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, seed1 ) );
 
       std::string seed2 = "echo foxtrot golf hotel";
-      _key2 = crypto::private_key::generate_from_seed( crypto::hash( CRYPTO_SHA2_256_ID, seed2 ) );
+      _key2 = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, seed2 ) );
+
+      std::string seed3 = "india juliet kilo lima";
+      _key3 = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, seed3 ) );
    }
 
    ~mempool_fixture()
@@ -63,6 +66,7 @@ struct mempool_fixture
 
    crypto::private_key                     _key1;
    crypto::private_key                     _key2;
+   crypto::private_key                     _key3;
 };
 
 BOOST_FIXTURE_TEST_SUITE( mempool_tests, mempool_fixture )
@@ -165,6 +169,71 @@ BOOST_AUTO_TEST_CASE( pending_transaction_pagination )
    {
       BOOST_CHECK_EQUAL( pending_trxs[i].active_data.get_const_native().resource_limit, 10 * (i + MAX_PENDING_TRANSACTION_REQUEST + (MAX_PENDING_TRANSACTION_REQUEST + 1) / 2) );
    }
+}
+
+BOOST_AUTO_TEST_CASE( pending_transaction_pruning )
+{
+   // Add payerA transactions to blocks 1 and 2
+   // Add payerB transaction to block 1
+   // Add payerC transaction to block 2
+   // Prune 1, payerA trx2 and payerC trx exist
+   // Prune 2, no trx exist
+   chain::mempool mempool;
+   protocol::transaction trx;
+   multihash trx_id;
+   chain::account_type payer;
+   uint128 max_payer_resources;
+   uint128 trx_resource_limit;
+
+   trx.active_data.make_mutable();
+   trx.active_data->resource_limit = 1;
+   trx_id = sign( _key1, trx );
+   payer = chain::thunk::get_transaction_payer( *_ctx, trx );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, trx );
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 1 ), payer, max_payer_resources, trx_resource_limit );
+
+   trx.active_data.make_mutable();
+   trx.active_data->resource_limit = 2;
+   trx_id = sign( _key2, trx );
+   payer = chain::thunk::get_transaction_payer( *_ctx, trx );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, trx );
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 1 ), payer, max_payer_resources, trx_resource_limit );
+
+   trx.active_data.make_mutable();
+   trx.active_data->resource_limit = 3;
+   trx_id = sign( _key1, trx );
+   payer = chain::thunk::get_transaction_payer( *_ctx, trx );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, trx );
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 2 ), payer, max_payer_resources, trx_resource_limit );
+
+   trx.active_data.make_mutable();
+   trx.active_data->resource_limit = 4;
+   trx_id = sign( _key3, trx );
+   payer = chain::thunk::get_transaction_payer( *_ctx, trx );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, trx );
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 2 ), payer, max_payer_resources, trx_resource_limit );
+
+   auto pending_trxs = mempool.get_pending_transactions();
+   BOOST_CHECK_EQUAL( mempool.payer_entries_size(), 3 );
+   BOOST_REQUIRE_EQUAL( pending_trxs.size(), 4 );
+   for( size_t i = 0; i < pending_trxs.size(); i++ )
+      BOOST_REQUIRE_EQUAL( pending_trxs[i].active_data.get_const_native().resource_limit, i + 1 );
+
+   mempool.prune( block_height_type( 1 ) );
+   pending_trxs = mempool.get_pending_transactions();
+   BOOST_CHECK_EQUAL( mempool.payer_entries_size(), 2 );
+   BOOST_REQUIRE_EQUAL( pending_trxs.size(), 2 );
+   for( size_t i = 0; i < pending_trxs.size(); i++ )
+      BOOST_REQUIRE_EQUAL( pending_trxs[i].active_data.get_const_native().resource_limit, i + 3 );
+
+   mempool.prune( block_height_type( 2 ) );
+   pending_trxs = mempool.get_pending_transactions();
+   BOOST_CHECK_EQUAL( mempool.payer_entries_size(), 0 );
+   BOOST_REQUIRE_EQUAL( pending_trxs.size(), 0 );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
