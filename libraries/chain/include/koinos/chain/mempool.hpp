@@ -7,10 +7,13 @@
 #include <koinos/exception.hpp>
 #include <koinos/pack/classes.hpp>
 
+#define MAX_PENDING_TRANSACTION_REQUEST 100
+
 namespace koinos::chain {
 
 KOINOS_DECLARE_EXCEPTION( pending_transaction_insertion_failure );
 KOINOS_DECLARE_EXCEPTION( transaction_exceeds_resources );
+KOINOS_DECLARE_EXCEPTION( pending_transaction_request_overflow );
 
 namespace detail { class mempool_impl; }
 
