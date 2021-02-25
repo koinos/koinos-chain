@@ -8,6 +8,7 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 
 namespace koinos::chain {
 
@@ -24,22 +25,16 @@ struct pending_transaction_object
 
 struct by_id;
 struct by_height;
-struct by_height_id;
 
 using pending_transaction_index = multi_index_container<
    pending_transaction_object,
    multi_index::indexed_by<
+      multi_index::sequenced<>,
       multi_index::ordered_unique< multi_index::tag< by_id >,
          multi_index::member< pending_transaction_object, multihash, &pending_transaction_object::id >
       >,
       multi_index::ordered_non_unique< multi_index::tag< by_height >,
          multi_index::member< pending_transaction_object, block_height_type, &pending_transaction_object::last_update >
-      >,
-      multi_index::ordered_unique< multi_index::tag< by_height_id >,
-         multi_index::composite_key< pending_transaction_object,
-            multi_index::member< pending_transaction_object, block_height_type, &pending_transaction_object::last_update >,
-            multi_index::member< pending_transaction_object, multihash, &pending_transaction_object::id >
-         >
       >
    >
 >;
@@ -104,18 +99,31 @@ bool mempool_impl::has_pending_transaction( const multihash& id )
 
 std::vector< protocol::transaction > mempool_impl::get_pending_transactions( const multihash& start, std::size_t limit )
 {
+   KOINOS_ASSERT( limit < MAX_PENDING_TRANSACTION_REQUEST, pending_transaction_request_overflow, "Requested too many pending transactions. Max: ${max}", ("max", MAX_PENDING_TRANSACTION_REQUEST) );
+
    std::lock_guard< std::mutex > guard( _pending_transaction_mutex );
 
-   auto& height_id_idx = _pending_transaction_idx.get< by_height_id >();
-
    std::vector< protocol::transaction > pending_transactions;
+   pending_transactions.reserve(limit);
 
-   auto it = height_id_idx.lower_bound( std::make_tuple( block_height_type{ 0 }, start ) );
+   auto itr = _pending_transaction_idx.begin();
    std::size_t count = 0;
-   while ( it != height_id_idx.end() && count < limit )
+
+   if ( start.digest.size() )
    {
-      pending_transactions.push_back( it->transaction );
-      ++it;
+      const auto& trx_by_id_idx = _pending_transaction_idx.get< by_id >();
+      auto trx_by_id = trx_by_id_idx.find( start );
+      if ( trx_by_id != trx_by_id_idx.end() )
+      {
+         itr = _pending_transaction_idx.iterator_to( *trx_by_id );
+         ++itr;
+      }
+   }
+
+   while ( itr != _pending_transaction_idx.end() && count < limit )
+   {
+      pending_transactions.push_back( itr->transaction );
+      ++itr;
       count++;
    }
 
@@ -169,7 +177,7 @@ void mempool_impl::add_pending_transaction(
    {
       std::lock_guard< std::mutex > guard( _pending_transaction_mutex );
 
-      auto rval = _pending_transaction_idx.insert( pending_transaction_object {
+      auto rval = _pending_transaction_idx.emplace_back( pending_transaction_object {
          .id = id,
          .last_update = h,
          .transaction = t

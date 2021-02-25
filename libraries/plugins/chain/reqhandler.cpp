@@ -11,6 +11,7 @@
 #include <boost/thread/sync_bounded_queue.hpp>
 
 #include <koinos/chain/host.hpp>
+#include <koinos/chain/mempool.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunks.hpp>
 
@@ -65,6 +66,9 @@ using koinos::chain::privilege;
 using koinos::chain::thunk::apply_block;
 using koinos::chain::thunk::apply_transaction;
 using koinos::chain::thunk::get_head_info;
+using koinos::chain::thunk::get_transaction_payer;
+using koinos::chain::thunk::get_max_account_resources;
+using koinos::chain::thunk::get_transaction_resource_limit;
 
 struct block_submission_impl
 {
@@ -151,6 +155,7 @@ class reqhandler_impl
       std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
       mq::message_broker                                                       _publisher;
+      koinos::chain::mempool                                                   _mempool;
 
       // Item lifetime:
       //
@@ -289,7 +294,7 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
          .block    = block.submission.block
       } );
 
-      auto err = _publisher.publish( mq::message{
+      auto err = _publisher.publish( mq::message {
          .exchange     = "koinos_event",
          .routing_key  = "koinos.block.accept",
          .content_type = "application/json",
@@ -319,6 +324,19 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       {
          _ctx->set_state_node( tmp_node );
 
+         auto payer = get_transaction_payer( *_ctx, tx.submission.transaction );
+         auto max_payer_resources = get_max_account_resources( *_ctx, payer );
+         auto trx_resource_limit = get_transaction_resource_limit( *_ctx, tx.submission.transaction );
+
+         _mempool.add_pending_transaction(
+            tx.submission.topology.id,
+            tx.submission.transaction,
+            block_height_type( _state_db.get_head()->revision() ),
+            payer,
+            max_payer_resources,
+            trx_resource_limit
+         );
+
          apply_transaction( *_ctx, tx.submission.transaction );
 
          _ctx->clear_state_node();
@@ -328,6 +346,7 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       {
          _ctx->clear_state_node();
          _state_db.discard_node( tmp_id );
+         _mempool.remove_pending_transaction( tx.submission.topology.id );
          throw;
       }
    }
@@ -393,10 +412,9 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
       },
       [&]( const types::rpc::get_pending_transactions_params& p )
       {
-         types::rpc::query_error err;
-         std::string err_msg = "Unimplemented";
-         std::copy( err_msg.begin(), err_msg.end(), std::back_inserter( err.error_text ) );
-         ret = types::rpc::query_submission_result( std::move( err ) );
+         ret = types::rpc::query_submission_result( types::rpc::get_pending_transactions_result {
+            .transactions = _mempool.get_pending_transactions( p.start, p.limit )
+         } );
       },
       [&]( const auto& )
       {
