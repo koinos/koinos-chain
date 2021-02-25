@@ -99,7 +99,7 @@ bool mempool_impl::has_pending_transaction( const multihash& id )
 
 std::vector< protocol::transaction > mempool_impl::get_pending_transactions( const multihash& start, std::size_t limit )
 {
-   KOINOS_ASSERT( limit < MAX_PENDING_TRANSACTION_REQUEST, pending_transaction_request_overflow, "Requested too many pending transactions. Max: ${max}", ("max", MAX_PENDING_TRANSACTION_REQUEST) );
+   KOINOS_ASSERT( limit <= MAX_PENDING_TRANSACTION_REQUEST, pending_transaction_request_overflow, "Requested too many pending transactions. Max: ${max}", ("max", MAX_PENDING_TRANSACTION_REQUEST) );
 
    std::lock_guard< std::mutex > guard( _pending_transaction_mutex );
 
