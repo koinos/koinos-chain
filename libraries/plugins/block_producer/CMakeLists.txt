@@ -7,7 +7,7 @@ add_library(koinos_block_producer_plugin
             util/block_util.cpp
 	    ${HEADERS})
 
-target_link_libraries(koinos_block_producer_plugin appbase Koinos::chain Koinos::types Koinos::chain_plugin Koinos::crypto Koinos::koinos_log Koinos::util)
+target_link_libraries(koinos_block_producer_plugin appbase Koinos::chain Koinos::types Koinos::chain_plugin Koinos::crypto Koinos::log Koinos::util)
 target_include_directories(koinos_block_producer_plugin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(Koinos::block_producer_plugin ALIAS koinos_block_producer_plugin)
 install(TARGETS

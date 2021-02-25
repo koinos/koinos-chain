@@ -56,7 +56,7 @@ add_boost_test(koinos_tests
 find_package(koinos_log CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED log log_setup filesystem)
 
-target_link_libraries(koinos_tests mira Koinos::types Koinos::chain Koinos::crypto Koinos::statedb Koinos::koinos_log Koinos::util Koinos::exception Koinos::plugins Koinos::net ${PLATFORM_SPECIFIC_LIBS})
+target_link_libraries(koinos_tests mira Koinos::types Koinos::chain Koinos::crypto Koinos::statedb Koinos::log Koinos::util Koinos::exception Koinos::plugins Koinos::net ${PLATFORM_SPECIFIC_LIBS})
 target_include_directories(koinos_tests PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>  # <prefix>/include
