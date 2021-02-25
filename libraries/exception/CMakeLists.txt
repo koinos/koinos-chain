@@ -1,7 +1,7 @@
 file(GLOB HEADERS "include/koinos/*.hpp")
 
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(koinos_log CONFIG REQUIRED log)
+find_package(koinos_log CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED log log_setup filesystem)
 
 add_library(koinos_exception ${HEADERS} exception.cpp)
