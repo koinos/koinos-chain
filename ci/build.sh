@@ -3,7 +3,7 @@
 set -e
 set -x
 
-export HUNTER_PYTHON_LOCATION=$(dirname $(which python))
+export HUNTER_PYTHON_LOCATION=$(which python)
 
 mkdir build
 cd build
