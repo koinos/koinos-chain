@@ -1,3 +1,6 @@
+find_package(Boost CONFIG REQUIRED log log_setup filesystem)
+find_package(koinos_log CONFIG REQUIRED)
+
 file(GLOB HEADERS "include/koinos/chain/*.hpp" "include/koinos/chain/wasm/*.hpp")
 add_library(koinos_chain
             apply_context.cpp
@@ -6,6 +9,6 @@ add_library(koinos_chain
             thunk_dispatcher.cpp
             thunks.cpp
             ${HEADERS})
-target_link_libraries(koinos_chain Koinos::statedb Koinos::exception Koinos::crypto koinos-log Koinos::util builtins eos-vm mira softfloat)
+target_link_libraries(koinos_chain Koinos::statedb Koinos::exception Koinos::crypto Koinos::koinos_log Koinos::util builtins eos-vm mira softfloat)
 target_include_directories(koinos_chain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(Koinos::chain ALIAS koinos_chain)

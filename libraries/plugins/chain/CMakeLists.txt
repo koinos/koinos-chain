@@ -1,3 +1,5 @@
+find_package(koinos_log CONFIG REQUIRED)
+find_package(Boost CONFIG REQUIRED log log_setup filesystem)
 
 file(GLOB HEADERS "include/koinos/plugins/chain/*.hpp")
 add_library(koinos_chain_plugin
@@ -5,7 +7,7 @@ add_library(koinos_chain_plugin
             reqhandler.cpp
             ${HEADERS})
 
-target_link_libraries(koinos_chain_plugin appbase Koinos::chain Koinos::mq Koinos::net Koinos::crypto koinos-log Koinos::util)
+target_link_libraries(koinos_chain_plugin appbase Koinos::chain Koinos::mq Koinos::net Koinos::crypto Koinos::koinos_log Koinos::util)
 target_include_directories(koinos_chain_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 add_library(Koinos::chain_plugin ALIAS koinos_chain_plugin)
 install(TARGETS

@@ -99,7 +99,7 @@ hunter_add_package(OpenSSL)
 hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
 
-hunter_add_package(koinos-log)
+hunter_add_package(koinos_log)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)
