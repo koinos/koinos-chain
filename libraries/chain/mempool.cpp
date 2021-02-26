@@ -153,7 +153,7 @@ void mempool_impl::add_pending_transaction(
       {
          KOINOS_ASSERT(
             trx_resource_limit <= max_payer_resources,
-            transaction_exceeds_resources,
+            pending_transaction_exceeds_resources,
             "transaction would exceed maximum resources for account: ${a}", ("a", payer)
          );
 
@@ -170,7 +170,7 @@ void mempool_impl::add_pending_transaction(
          KOINOS_ASSERT(
             new_resources > 0 &&
             trx_resource_limit <= uint128(new_resources),
-            transaction_exceeds_resources,
+            pending_transaction_exceeds_resources,
             "transaction would exceed resources for account: ${a}", ("a", payer)
          );
 

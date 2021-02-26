@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE( mempool_basic_test )
    payer = chain::thunk::get_transaction_payer( *_ctx, t2 );
    max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
    trx_resource_limit = chain::thunk::get_transaction_resource_limit( *_ctx, t2 );
-   BOOST_REQUIRE_THROW( mempool.add_pending_transaction( t2_id, t2, block_height_type{ 3 }, payer, max_payer_resources, trx_resource_limit ), chain::transaction_exceeds_resources );
+   BOOST_REQUIRE_THROW( mempool.add_pending_transaction( t2_id, t2, block_height_type{ 3 }, payer, max_payer_resources, trx_resource_limit ), chain::pending_transaction_exceeds_resources );
 
    BOOST_TEST_MESSAGE( "removing pending transaction" );
    mempool.remove_pending_transaction( t1_id );
@@ -234,6 +234,80 @@ BOOST_AUTO_TEST_CASE( pending_transaction_pruning )
    pending_trxs = mempool.get_pending_transactions();
    BOOST_CHECK_EQUAL( mempool.payer_entries_size(), 0 );
    BOOST_REQUIRE_EQUAL( pending_trxs.size(), 0 );
+}
+
+BOOST_AUTO_TEST_CASE( pending_transaction_dynamic_max_resource )
+{
+   chain::mempool mempool;
+   protocol::transaction trx;
+   multihash trx_id;
+   chain::account_type payer;
+   uint128 max_payer_resources;
+   uint128 trx_resource_limit;
+
+   BOOST_TEST_MESSAGE( "gain max account resources" );
+
+   trx.active_data.make_mutable();
+   trx.active_data->resource_limit = 1000000000000;
+   trx_id = sign( _key1, trx );
+
+   payer = chain::thunk::get_transaction_payer( *_ctx, trx );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = 1000000000000;
+
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 1 ), payer, max_payer_resources, trx_resource_limit );
+
+   for ( unsigned int i = 2; i < 10; i++ )
+   {
+      max_payer_resources = max_payer_resources + i * 10;
+      trx_resource_limit = i * 10;
+
+      trx.active_data->resource_limit = trx_resource_limit;
+      trx_id = sign( _key1, trx );
+
+      mempool.add_pending_transaction( trx_id, trx, block_height_type( i ), payer, max_payer_resources, trx_resource_limit );
+   }
+
+   max_payer_resources = max_payer_resources + 99;
+   trx_resource_limit = 100;
+
+   trx.active_data->resource_limit = trx_resource_limit;
+   trx_id = sign( _key1, trx );
+
+   BOOST_REQUIRE_THROW(
+      mempool.add_pending_transaction( trx_id, trx, block_height_type( 10 ), payer, max_payer_resources, trx_resource_limit ),
+      chain::pending_transaction_exceeds_resources
+   );
+
+   BOOST_TEST_MESSAGE( "lose max account resources" );
+
+   trx.active_data.make_mutable();
+   trx.active_data->resource_limit = 999999999980;
+   trx_id = sign( _key2, trx );
+
+   payer = chain::thunk::get_transaction_payer( *_ctx, trx );
+   max_payer_resources = chain::thunk::get_max_account_resources( *_ctx, payer );
+   trx_resource_limit = 999999999980;
+
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 1 ), payer, max_payer_resources, trx_resource_limit );
+
+   max_payer_resources = 999999999990;
+   trx_resource_limit = 10;
+
+   trx.active_data->resource_limit = trx_resource_limit;
+   trx_id = sign( _key2, trx );
+
+   mempool.add_pending_transaction( trx_id, trx, block_height_type( 2 ), payer, max_payer_resources, trx_resource_limit );
+
+   trx_resource_limit = 1;
+
+   trx.active_data->resource_limit = trx_resource_limit;
+   trx_id = sign( _key2, trx );
+
+   BOOST_REQUIRE_THROW(
+      mempool.add_pending_transaction( trx_id, trx, block_height_type( 3 ), payer, max_payer_resources, trx_resource_limit ),
+      chain::pending_transaction_exceeds_resources
+   );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
