@@ -18,9 +18,11 @@ using namespace boost;
 
 struct pending_transaction_object
 {
-   multihash             id;          //< Transaction ID
-   block_height_type     last_update; //< Chain height at the time of submission
+   multihash             id;             //< Transaction ID
+   block_height_type     last_update;    //< Chain height at the time of submission
    protocol::transaction transaction;
+   account_type          payer;          //< Payer at the time of submission
+   uint128               resource_limit; //< Max resources at the time of submission
 };
 
 struct by_id;
@@ -43,6 +45,7 @@ struct account_resources_object
 {
    account_type      account;
    uint128           resources;
+   uint128           max_resources;
    block_height_type last_update;
 };
 
@@ -81,6 +84,8 @@ public:
       uint128 trx_resource_limit );
    void remove_pending_transaction( const multihash& id );
    void prune( block_height_type h );
+   std::size_t payer_entries_size();
+   void cleanup_account_resources( const pending_transaction_object& pending_trx );
 };
 
 mempool_impl::mempool_impl() {}
@@ -148,27 +153,32 @@ void mempool_impl::add_pending_transaction(
       {
          KOINOS_ASSERT(
             trx_resource_limit <= max_payer_resources,
-            transaction_exceeds_resources,
+            pending_transaction_exceeds_resources,
             "transaction would exceed maximum resources for account: ${a}", ("a", payer)
          );
 
          _account_resources_idx.insert( account_resources_object {
             .account = payer,
             .resources = max_payer_resources - trx_resource_limit,
+            .max_resources = max_payer_resources,
             .last_update = h
          } );
       }
       else
       {
+         int256 max_resource_delta = int256(max_payer_resources) - int256(it->max_resources);
+         int256 new_resources = int256(it->resources) + max_resource_delta - int256(trx_resource_limit);
+
          KOINOS_ASSERT(
-            trx_resource_limit <= it->resources,
-            transaction_exceeds_resources,
+            new_resources >= 0,
+            pending_transaction_exceeds_resources,
             "transaction would exceed resources for account: ${a}", ("a", payer)
          );
 
          account_idx.modify( it, [&]( account_resources_object& aro )
          {
-            aro.resources -= trx_resource_limit;
+            aro.max_resources = max_payer_resources;
+            aro.resources = uint128(new_resources);
             aro.last_update = h;
          } );
       }
@@ -180,7 +190,9 @@ void mempool_impl::add_pending_transaction(
       auto rval = _pending_transaction_idx.emplace_back( pending_transaction_object {
          .id = id,
          .last_update = h,
-         .transaction = t
+         .transaction = t,
+         .payer = payer,
+         .resource_limit = trx_resource_limit
       } );
 
       KOINOS_ASSERT( rval.second, pending_transaction_insertion_failure, "failed to insert transaction with id: ${id}", ("id", id) );
@@ -189,20 +201,57 @@ void mempool_impl::add_pending_transaction(
 
 void mempool_impl::remove_pending_transaction( const multihash& id )
 {
-   std::lock_guard< std::mutex > guard( _pending_transaction_mutex );
+   std::lock_guard< std::mutex > account_guard( _account_resources_mutex );
+   std::lock_guard< std::mutex > trx_guard( _pending_transaction_mutex );
 
    auto& id_idx = _pending_transaction_idx.get< by_id >();
 
    auto it = id_idx.find( id );
    if ( it != id_idx.end() )
    {
+      cleanup_account_resources( *it );
       id_idx.erase( it );
    }
 }
 
 void mempool_impl::prune( block_height_type h )
 {
-   std::lock_guard< std::mutex > guard( _pending_transaction_mutex );
+   std::lock_guard< std::mutex > account_guard( _account_resources_mutex );
+   std::lock_guard< std::mutex > trx_guard( _pending_transaction_mutex );
+
+   auto& by_block_idx = _pending_transaction_idx.get< by_height >();
+   auto itr = by_block_idx.begin();
+
+   while( itr != by_block_idx.end() && itr->last_update <= h )
+   {
+      cleanup_account_resources( *itr );
+      itr = by_block_idx.erase( itr );
+   }
+}
+
+std::size_t mempool_impl::payer_entries_size()
+{
+   std::lock_guard< std::mutex > guard( _account_resources_mutex );
+   return _account_resources_idx.size();
+}
+
+void mempool_impl::cleanup_account_resources( const pending_transaction_object& pending_trx )
+{
+   auto itr = _account_resources_idx.find( pending_trx.payer );
+   if ( itr != _account_resources_idx.end() )
+   {
+      if ( itr->resources + pending_trx.resource_limit >= itr->max_resources )
+      {
+         _account_resources_idx.erase( itr );
+      }
+      else
+      {
+         _account_resources_idx.modify( itr, [&]( account_resources_object& aro )
+         {
+            aro.resources += pending_trx.resource_limit;
+         } );
+      }
+   }
 }
 
 } // detail
@@ -238,6 +287,11 @@ void mempool::remove_pending_transaction( const multihash& id )
 void mempool::prune( block_height_type h )
 {
    _my->prune( h );
+}
+
+std::size_t mempool::payer_entries_size()
+{
+   return _my->payer_entries_size();
 }
 
 } // koinos::chain

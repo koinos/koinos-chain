@@ -12,7 +12,7 @@
 namespace koinos::chain {
 
 KOINOS_DECLARE_EXCEPTION( pending_transaction_insertion_failure );
-KOINOS_DECLARE_EXCEPTION( transaction_exceeds_resources );
+KOINOS_DECLARE_EXCEPTION( pending_transaction_exceeds_resources );
 KOINOS_DECLARE_EXCEPTION( pending_transaction_request_overflow );
 
 namespace detail { class mempool_impl; }
@@ -37,6 +37,7 @@ public:
    std::vector< protocol::transaction > get_pending_transactions( const multihash& start = multihash(), std::size_t limit = 100 );
    void remove_pending_transaction( const multihash& id );
    void prune( block_height_type h );
+   std::size_t payer_entries_size();
 };
 
 } // koinos::chain
