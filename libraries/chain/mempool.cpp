@@ -166,14 +166,17 @@ void mempool_impl::add_pending_transaction(
       }
       else
       {
+         int128 new_resources = int128(max_payer_resources) - int128(it->max_resources) + int128(it->resources);
          KOINOS_ASSERT(
-            trx_resource_limit <= it->resources,
+            new_resources > 0 &&
+            trx_resource_limit <= uint128(new_resources),
             transaction_exceeds_resources,
             "transaction would exceed resources for account: ${a}", ("a", payer)
          );
 
          account_idx.modify( it, [&]( account_resources_object& aro )
          {
+            aro.max_resources = uint128(new_resources);
             aro.resources -= trx_resource_limit;
             aro.last_update = h;
          } );
@@ -197,7 +200,8 @@ void mempool_impl::add_pending_transaction(
 
 void mempool_impl::remove_pending_transaction( const multihash& id )
 {
-   std::lock_guard< std::mutex > guard( _pending_transaction_mutex );
+   std::lock_guard< std::mutex > account_guard( _account_resources_mutex );
+   std::lock_guard< std::mutex > trx_guard( _pending_transaction_mutex );
 
    auto& id_idx = _pending_transaction_idx.get< by_id >();
 
@@ -235,8 +239,7 @@ void mempool_impl::cleanup_account_resources( const pending_transaction_object& 
    auto itr = _account_resources_idx.find( pending_trx.payer );
    if ( itr != _account_resources_idx.end() )
    {
-      uint128 new_max_resources = itr->max_resources - pending_trx.resource_limit;
-      if ( new_max_resources <= itr->resources )
+      if ( itr->resources + pending_trx.resource_limit >= itr->max_resources )
       {
          _account_resources_idx.erase( itr );
       }
@@ -244,7 +247,7 @@ void mempool_impl::cleanup_account_resources( const pending_transaction_object& 
       {
          _account_resources_idx.modify( itr, [&]( account_resources_object& aro )
          {
-            aro.max_resources = new_max_resources;
+            aro.resources += pending_trx.resource_limit;
          } );
       }
    }
