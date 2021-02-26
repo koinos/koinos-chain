@@ -166,18 +166,19 @@ void mempool_impl::add_pending_transaction(
       }
       else
       {
-         int128 new_resources = int128(max_payer_resources) - int128(it->max_resources) + int128(it->resources);
+         int256 max_resource_delta = int256(max_payer_resources) - int256(it->max_resources);
+         int256 new_resources = int256(it->resources) + max_resource_delta - int256(trx_resource_limit);
+
          KOINOS_ASSERT(
-            new_resources > 0 &&
-            trx_resource_limit <= uint128(new_resources),
+            new_resources >= 0,
             pending_transaction_exceeds_resources,
             "transaction would exceed resources for account: ${a}", ("a", payer)
          );
 
          account_idx.modify( it, [&]( account_resources_object& aro )
          {
-            aro.max_resources = uint128(new_resources);
-            aro.resources -= trx_resource_limit;
+            aro.max_resources = max_payer_resources;
+            aro.resources = uint128(new_resources);
             aro.last_update = h;
          } );
       }

@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE( pending_transaction_pruning )
    BOOST_REQUIRE_EQUAL( pending_trxs.size(), 0 );
 }
 
-BOOST_AUTO_TEST_CASE( pending_transaction_dynamic_max_resource )
+BOOST_AUTO_TEST_CASE( pending_transaction_dynamic_max_resources )
 {
    chain::mempool mempool;
    protocol::transaction trx;
