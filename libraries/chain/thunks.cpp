@@ -391,10 +391,13 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 {
    auto head = context.get_state_node();
+   const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type(6);
 
    chain::head_info hi;
    hi.id = head->id();
+   hi.previous_id = head->parent_id();
    hi.height = head->revision();
+   hi.last_irreversible_height = (hi.height > IRREVERSIBLE_THRESHOLD) ? (hi.height - IRREVERSIBLE_THRESHOLD) : 1;
 
    return hi;
 }

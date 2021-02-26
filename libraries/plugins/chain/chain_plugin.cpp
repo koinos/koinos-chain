@@ -175,6 +175,10 @@ void chain_plugin::plugin_startup()
                   {
                      submit = types::rpc::query_param_item( p );
                   },
+                  [&]( const rpc::chain::get_fork_heads_request& p )
+                  {
+                     submit = p;
+                  },
                   [&]( const auto& p )
                   {
                      submit = p;
