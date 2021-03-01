@@ -35,3 +35,21 @@ hunter_config(koinos_log
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
+
+hunter_config(koinos_util
+   GIT_SUBMODULE "libraries/util"
+   CMAKE_ARGS
+      BUILD_TESTS=OFF
+)
+
+hunter_config(koinos_types
+   GIT_SUBMODULE "libraries/types"
+   CMAKE_ARGS
+      BUILD_TESTS=OFF
+)
+
+hunter_config(koinos_exception
+   GIT_SUBMODULE "libraries/exception"
+   CMAKE_ARGS
+      BUILD_TESTS=OFF
+)

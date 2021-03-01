@@ -85,12 +85,19 @@ endif()
 
 if(COVERAGE)
   include(CodeCoverage)
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/vendor/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "build/generated/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/exception")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/log")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/types")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/util")
+
   append_coverage_compiler_flags()
   setup_target_for_coverage_lcov(
      NAME coverage
      LCOV_ARGS "--quiet" "--no-external"
      EXECUTABLE koinos_tests
-     EXCLUDE "libraries/vendor/*" "build/generated/*")
+     EXCLUDE ${COVERAGE_EXCLUDE_DIRECTORIES})
 endif()
 
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
@@ -100,6 +107,9 @@ hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
 
 hunter_add_package(koinos_log)
+hunter_add_package(koinos_util)
+hunter_add_package(koinos_types)
+hunter_add_package(koinos_exception)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)

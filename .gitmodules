@@ -4,3 +4,12 @@
 [submodule "libraries/log"]
 	path = libraries/log
 	url = git@github.com:koinos/koinos-log-cpp.git
+[submodule "libraries/types"]
+	path = libraries/types
+	url = https://github.com/koinos/koinos-types.git
+[submodule "libraries/util"]
+	path = libraries/util
+	url = https://github.com/koinos/koinos-util-cpp.git
+[submodule "libraries/exception"]
+	path = libraries/exception
+	url = https://github.com/koinos/koinos-exception-cpp.git
