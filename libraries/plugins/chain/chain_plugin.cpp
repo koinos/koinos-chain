@@ -171,6 +171,10 @@ void chain_plugin::plugin_startup()
                   {
                      submit = types::rpc::query_param_item( p );
                   },
+                  [&]( const rpc::chain::get_pending_transactions_request& p )
+                  {
+                     submit = types::rpc::query_param_item( p );
+                  },
                   [&]( const auto& p )
                   {
                      submit = p;
