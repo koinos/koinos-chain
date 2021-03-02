@@ -113,7 +113,7 @@ find_package(koinos_exception CONFIG REQUIRED)
 find_package(koinos_log CONFIG REQUIRED)
 find_package(koinos_mq CONFIG REQUIRED)
 find_package(koinos_types CONFIG REQUIRED)
-find_package(koinos_exception CONFIG REQUIRED)
+find_package(koinos_util CONFIG REQUIRED)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)
