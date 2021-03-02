@@ -31,16 +31,10 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/koinos/hunter/archive/koinos-v0.1.4.tar.gz"
-   SHA1 "965cbabd1a8afcd2ea43bb9a9ee116998ee9ae98"
+   URL "https://github.com/cpp-pm/hunter/archive/v0.23.295.tar.gz"
+   SHA1 "8a3447594fa5948cc7c6888dd86a9e823259c69f"
    LOCAL
 )
-
-#HunterGate(
-#   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
-#   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
-#   LOCAL
-#)
 
 project(koinos VERSION 0.1.0 LANGUAGES CXX)
 
@@ -107,6 +101,18 @@ hunter_add_package(koinos_types)
 hunter_add_package(koinos_exception)
 hunter_add_package(koinos_mq)
 hunter_add_package(koinos_crypto)
+
+find_package(Boost CONFIG REQUIRED system log log_setup thread date_time filesystem chrono locale unit_test_framework program_options)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(rabbitmq-c CONFIG REQUIRED)
+
+find_package(koinos_log CONFIG REQUIRED)
+find_package(koinos_util CONFIG REQUIRED)
+find_package(koinos_types CONFIG REQUIRED)
+find_package(koinos_exception CONFIG REQUIRED)
+find_package(koinos_crypto CONFIG REQUIRED)
+find_package(koinos_mq CONFIG REQUIRED)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)

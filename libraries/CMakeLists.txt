@@ -1,12 +1,3 @@
-find_package(koinos_log CONFIG REQUIRED)
-find_package(koinos_util CONFIG REQUIRED)
-find_package(koinos_types CONFIG REQUIRED)
-find_package(koinos_exception CONFIG REQUIRED)
-find_package(koinos_crypto CONFIG REQUIRED)
-find_package(koinos_mq CONFIG REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(rabbitmq-c CONFIG REQUIRED)
-
 add_subdirectory(chain)
 add_subdirectory(manifest)
 add_subdirectory(net)
