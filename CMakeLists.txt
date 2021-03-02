@@ -60,24 +60,16 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror" )
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas" )
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unknown-pragmas" )
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-
-if(APPLE)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE")
-   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
-endif()
-
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(Boost_NO_BOOST_CMAKE ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    add_compile_options(/W4 /WX)
+else()
+    # lots of warnings and all warnings as errors
+    add_compile_options(-Werror -Wno-unknown-pragmas)
+endif()
 
 if(${CMAKE_GENERATOR} MATCHES "Xcode")
   set(CMAKE_XCODE_GENERATE_SCHEME YES)
@@ -119,3 +111,4 @@ hunter_add_package(koinos_crypto)
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
+
