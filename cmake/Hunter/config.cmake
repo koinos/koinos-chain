@@ -23,11 +23,15 @@ hunter_config(rocksdb
 )
 
 hunter_config(rabbitmq-c
-   VERSION 0.10.0-773b883-t1
+   URL "https://github.com/alanxz/rabbitmq-c/archive/b8e5f43b082c5399bf1ee723c3fd3c19cecd843e.tar.gz"
+   SHA1 "35d4ce3e4f0a5348de64bbed25c6e1df72da2594"
    CMAKE_ARGS
       ENABLE_SSL_SUPPORT=OFF
-      CMAKE_C_FLAGS=-Wno-implicit-fallthrough
-      CMAKE_CXX_FLAGS=-Wno-implicit-fallthrough
+)
+
+hunter_config(libsecp256k1
+   URL "https://github.com/soramitsu/soramitsu-libsecp256k1/archive/c7630e1bac638c0f16ee66d4dce7b5c49eecbaa5.tar.gz"
+   SHA1 "0534fa8948f279b26fd102905215a56f0ad7fa18"
 )
 
 hunter_config(koinos_log
@@ -65,9 +69,3 @@ hunter_config(koinos_mq
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
-
-hunter_config(libsecp256k1
-   URL "https://github.com/soramitsu/soramitsu-libsecp256k1/archive/c7630e1bac638c0f16ee66d4dce7b5c49eecbaa5.tar.gz"
-   SHA1 "0534fa8948f279b26fd102905215a56f0ad7fa18"
-)
-
