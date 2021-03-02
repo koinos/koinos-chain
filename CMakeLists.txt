@@ -104,7 +104,10 @@ hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chron
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
 hunter_add_package(rabbitmq-c)
+hunter_add_package(libsecp256k1)
 hunter_add_package(rocksdb)
+
+find_package(libsecp256k1 CONFIG REQUIRED)
 
 hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)
