@@ -232,9 +232,12 @@ void chain_plugin::plugin_startup()
          []( const std::string& content_type ) { return content_type == "application/json"; },
          [&]( const std::string& msg )
          {
-            auto j = nlohmann::json::parse( msg );
+            broadcast::block_accepted bam;
+            pack::from_json( nlohmann::json::parse( msg ), bam );
+
             types::rpc::block_submission args;
-            pack::from_json( j, args );
+            args.topology = bam.topology;
+            args.block    = bam.block;
             my->_reqhandler.submit( args );
          }
       );
