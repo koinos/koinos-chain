@@ -35,7 +35,6 @@ if(ENABLE_COVERAGE_TESTING)
 endif()
 
 add_library( mira
-             src/mira.cpp
              src/configuration.cpp
              src/database_configuration.cpp
              ${HEADERS}
