@@ -42,7 +42,7 @@ HunterGate(
 #   LOCAL
 #)
 
-project(koinos)
+project(koinos VERSION 0.1.0 LANGUAGES CXX)
 
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
