@@ -93,8 +93,6 @@ hunter_add_package(rabbitmq-c)
 hunter_add_package(libsecp256k1)
 hunter_add_package(rocksdb)
 
-find_package(libsecp256k1 CONFIG REQUIRED)
-
 hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)
 hunter_add_package(koinos_types)
@@ -102,10 +100,11 @@ hunter_add_package(koinos_exception)
 hunter_add_package(koinos_mq)
 hunter_add_package(koinos_crypto)
 
-find_package(Boost CONFIG REQUIRED system log log_setup thread date_time filesystem chrono locale unit_test_framework program_options)
+find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono locale test program_options)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(rabbitmq-c CONFIG REQUIRED)
+find_package(libsecp256k1 CONFIG REQUIRED)
 
 find_package(koinos_log CONFIG REQUIRED)
 find_package(koinos_util CONFIG REQUIRED)

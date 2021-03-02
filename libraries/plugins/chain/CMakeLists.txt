@@ -1,6 +1,3 @@
-find_package(koinos_log CONFIG REQUIRED)
-find_package(Boost CONFIG REQUIRED log log_setup filesystem)
-
 file(GLOB HEADERS "include/koinos/plugins/chain/*.hpp")
 add_library(koinos_chain_plugin
             chain_plugin.cpp

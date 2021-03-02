@@ -1,5 +1,3 @@
-find_package(Boost CONFIG REQUIRED log log_setup filesystem)
-
 file(GLOB HEADERS "include/koinos/chain/*.hpp" "include/koinos/chain/wasm/*.hpp")
 add_library(koinos_chain
             apply_context.cpp

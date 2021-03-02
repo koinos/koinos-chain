@@ -1,5 +1,3 @@
-find_package(Boost CONFIG REQUIRED log log_setup filesystem)
-
 file(GLOB HEADERS "include/koinos/plugins/block_producer/*.hpp" "include/koinos/plugins/block_producer/util/*.hpp")
 add_library(koinos_block_producer_plugin
             block_producer_plugin.cpp
