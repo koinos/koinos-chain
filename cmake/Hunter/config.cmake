@@ -53,3 +53,15 @@ hunter_config(koinos_exception
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
+
+hunter_config(koinos_crypto
+   GIT_SUBMODULE "libraries/crypto"
+   CMAKE_ARGS
+      BUILD_TESTS=OFF
+)
+
+hunter_config(koinos_mq
+   GIT_SUBMODULE "libraries/mq"
+   CMAKE_ARGS
+      BUILD_TESTS=OFF
+)

@@ -110,6 +110,8 @@ hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)
 hunter_add_package(koinos_types)
 hunter_add_package(koinos_exception)
+hunter_add_package(koinos_mq)
+hunter_add_package(koinos_crypto)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)

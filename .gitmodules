@@ -13,3 +13,9 @@
 [submodule "libraries/exception"]
 	path = libraries/exception
 	url = https://github.com/koinos/koinos-exception-cpp.git
+[submodule "libraries/mq"]
+	path = libraries/mq
+	url = https://github.com/koinos/koinos-mq-cpp.git
+[submodule "libraries/crypto"]
+	path = libraries/crypto
+	url = https://github.com/koinos/koinos-crypto-cpp.git
