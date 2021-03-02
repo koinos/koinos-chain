@@ -7,7 +7,8 @@ hunter_config(Boost
 )
 
 hunter_config(rocksdb
-   VERSION ${HUNTER_rocksdb_VERSION}
+   URL "https://github.com/facebook/rocksdb/archive/v6.15.2.tar.gz"
+   SHA1 "daf7ef3946fd39c910acaaa57789af8515b39251"
    CMAKE_ARGS
       WITH_TESTS=OFF
       WITH_TOOLS=OFF

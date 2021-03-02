@@ -31,8 +31,8 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/cpp-pm/hunter/archive/v0.23.295.tar.gz"
-   SHA1 "8a3447594fa5948cc7c6888dd86a9e823259c69f"
+   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
+   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
    LOCAL
 )
 
@@ -71,12 +71,13 @@ endif()
 
 if(COVERAGE)
   include(CodeCoverage)
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/vendor/*")
   list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "build/generated/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/exception")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/log")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/types")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/util")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/crypto/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/exception/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/log/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/types/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/util/*")
+  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/vendor/*")
 
   append_coverage_compiler_flags()
   setup_target_for_coverage_lcov(
@@ -87,33 +88,32 @@ if(COVERAGE)
 endif()
 
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
+hunter_add_package(libsecp256k1)
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
 hunter_add_package(rabbitmq-c)
-hunter_add_package(libsecp256k1)
 hunter_add_package(rocksdb)
 
-hunter_add_package(koinos_log)
-hunter_add_package(koinos_util)
-hunter_add_package(koinos_types)
-hunter_add_package(koinos_exception)
-hunter_add_package(koinos_mq)
 hunter_add_package(koinos_crypto)
+hunter_add_package(koinos_exception)
+hunter_add_package(koinos_log)
+hunter_add_package(koinos_mq)
+hunter_add_package(koinos_types)
+hunter_add_package(koinos_util)
 
 find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono locale test program_options)
+find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(rabbitmq-c CONFIG REQUIRED)
-find_package(libsecp256k1 CONFIG REQUIRED)
 
+find_package(koinos_crypto CONFIG REQUIRED)
+find_package(koinos_exception CONFIG REQUIRED)
 find_package(koinos_log CONFIG REQUIRED)
-find_package(koinos_util CONFIG REQUIRED)
+find_package(koinos_mq CONFIG REQUIRED)
 find_package(koinos_types CONFIG REQUIRED)
 find_package(koinos_exception CONFIG REQUIRED)
-find_package(koinos_crypto CONFIG REQUIRED)
-find_package(koinos_mq CONFIG REQUIRED)
 
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
-
