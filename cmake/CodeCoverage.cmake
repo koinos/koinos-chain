@@ -118,7 +118,9 @@ include(CMakeParseArguments)
 find_program( GCOV_PATH gcov )
 find_program( LCOV_PATH  NAMES lcov lcov.bat lcov.exe lcov.perl)
 find_program( GENHTML_PATH NAMES genhtml genhtml.perl genhtml.bat )
-find_program( LLVM_COV_PATH llvm-cov )
+if (NOT APPLE)
+   find_program( LLVM_COV_PATH llvm-cov )
+endif()
 find_program( GCOVR_PATH gcovr PATHS ${CMAKE_SOURCE_DIR}/scripts/test)
 find_program( CPPFILT_PATH NAMES c++filt )
 
@@ -205,10 +207,12 @@ function(setup_target_for_coverage_lcov)
         message(FATAL_ERROR "lcov not found! Aborting...")
     endif() # NOT LCOV_PATH
 
-    # Needed for gcov_for_clang.sh
-    if(NOT LLVM_COV_PATH)
-        message(FATAL_ERROR "llvm-cov not found! Aborting...")
-    endif() # NOT LLVM_COV_PATH
+    if(NOT APPLE)
+       # Needed for gcov_for_clang.sh
+       if(NOT LLVM_COV_PATH)
+          message(FATAL_ERROR "llvm-cov not found! Aborting...")
+       endif() # NOT LLVM_COV_PATH
+    endif()
 
     if(NOT GENHTML_PATH)
         message(FATAL_ERROR "genhtml not found! Aborting...")
@@ -232,11 +236,15 @@ function(setup_target_for_coverage_lcov)
     list(REMOVE_DUPLICATES LCOV_EXCLUDES)
 
     # Conditional arguments
-    if(CPPFILT_PATH AND NOT ${Coverage_NO_DEMANGLE})
-      set(GENHTML_EXTRA_ARGS "--demangle-cpp")
+    if(NOT APPLE)
+        if(CPPFILT_PATH AND NOT ${Coverage_NO_DEMANGLE})
+            set(GENHTML_EXTRA_ARGS "--demangle-cpp")
+        endif()
     endif()
 
-    set(GCOV_PATH ${CMAKE_SOURCE_DIR}/cmake/gcov_for_clang.sh)
+    if (NOT APPLE)
+        set(GCOV_PATH ${CMAKE_SOURCE_DIR}/cmake/gcov_for_clang.sh)
+    endif()
 
     # Setup target
     add_custom_target(${Coverage_NAME}
