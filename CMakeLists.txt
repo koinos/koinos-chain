@@ -101,7 +101,7 @@ hunter_add_package(koinos_mq)
 hunter_add_package(koinos_types)
 hunter_add_package(koinos_util)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono locale test program_options)
+find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono locale program_options)
 find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
