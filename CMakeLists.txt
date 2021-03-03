@@ -71,20 +71,19 @@ endif()
 
 if(COVERAGE)
   include(CodeCoverage)
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "build/generated/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/crypto/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/exception/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/log/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/types/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/util/*")
-  list(APPEND COVERAGE_EXCLUDE_DIRECTORIES "libraries/vendor/*")
-
   append_coverage_compiler_flags()
   setup_target_for_coverage_lcov(
      NAME coverage
      LCOV_ARGS "--quiet" "--no-external"
      EXECUTABLE koinos_tests
-     EXCLUDE ${COVERAGE_EXCLUDE_DIRECTORIES})
+     EXCLUDE
+        "build/generated/*"
+        "libraries/crypto/*"
+        "libraries/exception/*"
+        "libraries/log/*"
+        "libraries/types/*"
+        "libraries/util/*"
+        "libraries/vendor/*")
 endif()
 
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
