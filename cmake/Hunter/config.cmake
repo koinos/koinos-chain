@@ -1,7 +1,3 @@
-function(hunter_not_cacheable package)
-  set("__HUNTER_CACHEABLE_${package}" FALSE PARENT_SCOPE)
-endfunction()
-
 hunter_config(Boost
    VERSION ${HUNTER_Boost_VERSION}
    CMAKE_ARGS
@@ -74,11 +70,4 @@ hunter_config(koinos_mq
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
-
-hunter_not_cacheable(koinos_log)
-hunter_not_cacheable(koinos_util)
-hunter_not_cacheable(koinos_types)
-hunter_not_cacheable(koinos_exception)
-hunter_not_cacheable(koinos_crypto)
-hunter_not_cacheable(koinos_mq)
 
