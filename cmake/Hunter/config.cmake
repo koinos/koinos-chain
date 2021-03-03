@@ -69,4 +69,5 @@ hunter_config(koinos_mq
    GIT_SUBMODULE "libraries/mq"
    CMAKE_ARGS
       BUILD_TESTS=OFF
+      HUNTER_STATUS_DEBUG=ON
 )
