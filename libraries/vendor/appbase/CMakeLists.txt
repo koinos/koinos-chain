@@ -36,7 +36,7 @@ add_library( appbase
              application.cpp
              ${HEADERS}
            )
-
+target_compile_options(appbase PUBLIC -pthread)
 target_link_libraries( appbase Threads::Threads ${Boost_LIBRARIES})
 
 target_include_directories( appbase
