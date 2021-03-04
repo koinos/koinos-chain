@@ -35,7 +35,6 @@ if(ENABLE_COVERAGE_TESTING)
 endif()
 
 add_library( mira
-             src/mira.cpp
              src/configuration.cpp
              src/database_configuration.cpp
              ${HEADERS}
@@ -51,7 +50,6 @@ endif( CLANG_TIDY_EXE )
 target_link_libraries(mira PUBLIC Boost::boost Boost::filesystem Boost::thread Boost::system Boost::chrono Boost::date_time Boost::locale RocksDB::rocksdb nlohmann_json::nlohmann_json)
 target_include_directories(mira PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# TODO:  Fix tests properly instead of commenting out the build
 add_subdirectory(test)
 
 install(TARGETS

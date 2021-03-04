@@ -1,4 +1,3 @@
-
 file(GLOB HEADERS "include/koinos/plugins/chain/*.hpp")
 add_library(koinos_chain_plugin
             chain_plugin.cpp
@@ -16,4 +15,3 @@ install(TARGETS
    ARCHIVE DESTINATION lib
 )
 install(FILES ${HEADERS} DESTINATION "include/koinos/plugins/chain")
-

@@ -20,11 +20,6 @@ jobs:
         - RUN_TYPE=coverage
         - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
     - os: linux
-      dist: bionic
-      env:
-        - RUN_TYPE=test
-        - MATRIX_EVAL="CC=gcc && CXX=g++"
-    - os: linux
       dist: focal
       env:
         - RUN_TYPE=test

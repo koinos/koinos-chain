@@ -16,4 +16,3 @@ install(TARGETS
 )
 
 install(FILES ${HEADERS} DESTINATION "include/koinos/plugins/block_producer")
-
