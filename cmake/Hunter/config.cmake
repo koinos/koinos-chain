@@ -70,3 +70,4 @@ hunter_config(koinos_mq
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
+
