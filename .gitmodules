@@ -1,7 +1,21 @@
 [submodule "libraries/vendor/eos-vm"]
 	path = libraries/vendor/eos-vm
 	url = https://github.com/EOSIO/eos-vm.git
-[submodule "libraries/vendor/koinos-types"]
-	path = libraries/vendor/koinos-types
-	url = git@github.com:koinos/koinos-types.git
-	branch = master
+[submodule "libraries/log"]
+	path = libraries/log
+	url = git@github.com:koinos/koinos-log-cpp.git
+[submodule "libraries/types"]
+	path = libraries/types
+	url = https://github.com/koinos/koinos-types.git
+[submodule "libraries/util"]
+	path = libraries/util
+	url = https://github.com/koinos/koinos-util-cpp.git
+[submodule "libraries/exception"]
+	path = libraries/exception
+	url = https://github.com/koinos/koinos-exception-cpp.git
+[submodule "libraries/mq"]
+	path = libraries/mq
+	url = https://github.com/koinos/koinos-mq-cpp.git
+[submodule "libraries/crypto"]
+	path = libraries/crypto
+	url = https://github.com/koinos/koinos-crypto-cpp.git

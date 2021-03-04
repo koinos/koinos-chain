@@ -31,18 +31,12 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/koinos/hunter/archive/koinos-v0.1.4.tar.gz"
-   SHA1 "965cbabd1a8afcd2ea43bb9a9ee116998ee9ae98"
+   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
+   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
    LOCAL
 )
 
-#HunterGate(
-#   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
-#   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
-#   LOCAL
-#)
-
-project(koinos)
+project(koinos VERSION 0.1.0 LANGUAGES CXX C)
 
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
@@ -60,24 +54,16 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror" )
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror" )
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas" )
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unknown-pragmas" )
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-
-if(APPLE)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE")
-   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
-endif()
-
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(Boost_NO_BOOST_CMAKE ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    add_compile_options(/W4 /WX)
+else()
+    # lots of warnings and all warnings as errors
+    add_compile_options(-Werror -Wno-unknown-pragmas)
+endif()
 
 if(${CMAKE_GENERATOR} MATCHES "Xcode")
   set(CMAKE_XCODE_GENERATE_SCHEME YES)
@@ -90,16 +76,43 @@ if(COVERAGE)
      NAME coverage
      LCOV_ARGS "--quiet" "--no-external"
      EXECUTABLE koinos_tests
-     EXCLUDE "libraries/vendor/*" "build/generated/*")
+     EXCLUDE
+        "build/generated/*"
+        "libraries/crypto/*"
+        "libraries/exception/*"
+        "libraries/log/*"
+        "libraries/types/*"
+        "libraries/util/*"
+        "libraries/vendor/*")
 endif()
 
 hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
+hunter_add_package(libsecp256k1)
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
 hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
 
+hunter_add_package(koinos_log)
+hunter_add_package(koinos_util)
+hunter_add_package(koinos_types)
+hunter_add_package(koinos_exception)
+hunter_add_package(koinos_crypto)
+hunter_add_package(koinos_mq)
+
+find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono locale program_options)
+find_package(libsecp256k1 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(rabbitmq-c CONFIG REQUIRED)
+
+find_package(koinos_crypto CONFIG REQUIRED)
+find_package(koinos_exception CONFIG REQUIRED)
+find_package(koinos_log CONFIG REQUIRED)
+find_package(koinos_mq CONFIG REQUIRED)
+find_package(koinos_types CONFIG REQUIRED)
+find_package(koinos_util CONFIG REQUIRED)
+
 add_subdirectory(programs)
 add_subdirectory(libraries)
 add_subdirectory(tests)
-
