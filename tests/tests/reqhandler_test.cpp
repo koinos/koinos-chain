@@ -68,6 +68,7 @@ struct reqhandler_fixture
    reqhandler_fixture()
    {
       _state_dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+      LOG(info) << "Test temp dir: " << _state_dir.string();
       boost::filesystem::create_directory( _state_dir );
 
       _options = create_program_options(
@@ -342,6 +343,8 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
       BOOST_REQUIRE( head_info_res.last_irreversible_height == i - 6 );
    }
+
+   _chain_plugin.plugin_shutdown();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
