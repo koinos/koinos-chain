@@ -130,7 +130,7 @@ void state_db_impl::open( const boost::filesystem::path& p, const std::any& o, s
 {
    auto root = std::make_shared< state_node >();
    root->impl->_state = std::make_shared< state_delta_type >( p, o );
-   if ( init )
+   if ( !root->revision() && init )
    {
       init( root );
    }
