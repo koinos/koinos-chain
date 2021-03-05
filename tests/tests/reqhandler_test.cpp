@@ -83,6 +83,7 @@ struct reqhandler_fixture
 
    virtual ~reqhandler_fixture()
    {
+      _chain_plugin.plugin_shutdown();
       boost::filesystem::remove_all( _state_dir );
    }
 
@@ -265,7 +266,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    std::string chain_id = "koinos";
    BOOST_CHECK_EQUAL( chain_id_result.chain_id, koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() ) );
 
-   _chain_plugin.plugin_shutdown();
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( block_irreversibility )
@@ -343,8 +343,6 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
       BOOST_REQUIRE( head_info_res.last_irreversible_height == i - 6 );
    }
-
-   _chain_plugin.plugin_shutdown();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
