@@ -245,6 +245,12 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
 
          statedb::put_object_result put_res;
          root->put_object( put_res, put_args );
+
+         KOINOS_ASSERT(
+            !put_res.object_existed,
+            koinos::chain::database_exception,
+            "encountered unexpected object in initial state"
+         );
       }
    } );
 }
