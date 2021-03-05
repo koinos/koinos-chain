@@ -135,7 +135,7 @@ class reqhandler_impl
       void stop_threads();
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
-      void open( const boost::filesystem::path& p, const std::any& o );
+      void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data );
       void connect( const std::string& amqp_url );
 
    private:
@@ -231,9 +231,28 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
    return fut_output;
 }
 
-void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o )
+void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data )
 {
-   _state_db.open( p, o );
+   _state_db.open( p, o, [&]( statedb::state_node_ptr root )
+   {
+      for ( const auto& entry : data )
+      {
+         statedb::put_object_args put_args;
+         put_args.space = 0;
+         put_args.key = entry.first;
+         put_args.buf = entry.second.data();
+         put_args.object_size = entry.second.size();
+
+         statedb::put_object_result put_res;
+         root->put_object( put_res, put_args );
+
+         KOINOS_ASSERT(
+            !put_res.object_existed,
+            koinos::chain::database_exception,
+            "encountered unexpected object in initial state"
+         );
+      }
+   } );
 }
 
 void reqhandler_impl::connect( const std::string& amqp_url )
@@ -404,11 +423,34 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
       },
       [&]( const types::rpc::get_chain_id_params& p )
       {
-         std::string chain_id = "koinos";
-         types::rpc::get_chain_id_result cir {
-            .chain_id = crypto::hash_str( CRYPTO_SHA2_256_ID, chain_id.data(), chain_id.size() )
-         };
-         ret = types::rpc::query_submission_result( std::move( cir ) );
+         try
+         {
+            boost::interprocess::basic_vectorstream< statedb::object_value > chain_id_stream;
+            statedb::object_value chain_id_vector;
+            chain_id_vector.resize( 128 );
+            chain_id_stream.swap_vector( chain_id_vector );
+
+            statedb::get_object_result result;
+            statedb::get_object_args   args;
+            args.space    = KOINOS_STATEDB_SPACE;
+            args.key      = KOINOS_STATEDB_CHAIN_ID_KEY;
+            args.buf      = const_cast< char* >( chain_id_stream.vector().data() );
+            args.buf_size = chain_id_stream.vector().size();
+
+            _state_db.get_head()->get_object( result, args );
+
+            KOINOS_ASSERT( result.key == args.key, koinos::chain::database_exception, "unable to retrieve chain id" );
+            KOINOS_ASSERT( result.size <= args.buf_size, koinos::chain::database_exception, "chain id buffer overflow" );
+
+            multihash chain_id;
+            pack::from_binary( chain_id_stream, chain_id, result.size );
+
+            ret = types::rpc::query_submission_result( types::rpc::get_chain_id_result { .chain_id = chain_id } );
+         }
+         catch ( const koinos::exception& e )
+         {
+            ret = types::rpc::query_submission_result( types::rpc::query_error { .error_text = e.what() } );
+         }
       },
       [&]( const types::rpc::get_pending_transactions_params& p )
       {
@@ -571,9 +613,9 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler::subm
    return _my->submit( item );
 }
 
-void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
+void reqhandler::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data  )
 {
-   _my->open( p, o );
+   _my->open( p, o, data );
 }
 
 void reqhandler::connect( const std::string& amqp_url )
