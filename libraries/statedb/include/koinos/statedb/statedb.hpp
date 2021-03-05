@@ -160,11 +160,9 @@ class state_db final
       void close();
 
       /**
-       * Get the state node representing the empty state.
-       *
-       * WARNING:  The chainbase implementation of this method will wipe() the database!
+       * Reset the database.
        */
-      state_node_ptr get_empty_node();
+      void reset();
 
       /**
        * Get a list of recent state nodes.

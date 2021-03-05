@@ -32,6 +32,7 @@ class chain_plugin_impl
       reqhandler           _reqhandler;
 
       bool                                   _mq_disable = false;
+      bool                                   _reset = false;
       std::string                            _amqp_url;
       std::shared_ptr< mq::request_handler > _mq_reqhandler;
 };
@@ -64,7 +65,7 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
          ("mq-disable", bpo::value<bool>()->default_value(false), "Disables MQ connection")
          ;
    cli.add_options()
-         ("force-open", bpo::bool_switch()->default_value(false), "force open the database, skipping the environment check")
+         ("reset", bpo::bool_switch()->default_value(false), "reset the database");
          ;
 }
 
@@ -93,6 +94,7 @@ void chain_plugin::plugin_initialize( const variables_map& options )
 
    my->_amqp_url = options.at( "amqp" ).as< std::string >();
    my->_mq_disable = options.at("mq-disable").as< bool >();
+   my->_reset = options.at("reset").as< bool >();
 }
 
 void chain_plugin::plugin_startup()
@@ -115,7 +117,7 @@ void chain_plugin::plugin_startup()
 
    try
    {
-      my->_reqhandler.open( my->state_dir, database_config );
+      my->_reqhandler.open( my->state_dir, database_config, my->_reset );
    }
    catch( std::exception& e )
    {

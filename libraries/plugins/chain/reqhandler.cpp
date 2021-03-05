@@ -148,7 +148,7 @@ class reqhandler_impl
       void stop_threads();
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
-      void open( const boost::filesystem::path& p, const std::any& o );
+      void open( const boost::filesystem::path& p, const std::any& o, bool reset );
       void connect( const std::string& amqp_url );
 
    private:
@@ -249,9 +249,16 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
    return fut_output;
 }
 
-void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o )
+void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o, bool reset )
 {
    _state_db.open( p, o );
+
+   if ( reset )
+   {
+      LOG(info) << "Resetting database...";
+      _state_db.reset();
+   }
+
    auto head = _state_db.get_head();
    LOG(info) << "Opened database at block - height: " << head->revision() << ", id: " << head->id();
 }
@@ -637,9 +644,9 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler::subm
    return _my->submit( item );
 }
 
-void reqhandler::open( const boost::filesystem::path& p, const std::any& o )
+void reqhandler::open( const boost::filesystem::path& p, const std::any& o, bool reset )
 {
-   _my->open( p, o );
+   _my->open( p, o, reset );
 }
 
 void reqhandler::connect( const std::string& amqp_url )

@@ -87,7 +87,7 @@ class state_db_impl final
       void open( const boost::filesystem::path& p, const std::any& o );
       void close();
 
-      state_node_ptr get_empty_node();
+      void reset();
       void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, uint64_t limit );
       state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child )const;
       state_node_ptr get_node( const state_node_id& node_id )const;
@@ -109,7 +109,7 @@ class state_db_impl final
       state_node_ptr               _root;
 };
 
-state_node_ptr state_db_impl::get_empty_node()
+void state_db_impl::reset()
 {
    //
    // This method closes, wipes and re-opens the database.
@@ -122,8 +122,6 @@ state_node_ptr state_db_impl::get_empty_node()
    _root->impl->_state->clear();
    close();
    open( _path, _options );
-
-   return _head;
 }
 
 void state_db_impl::open( const boost::filesystem::path& p, const std::any& o )
@@ -463,9 +461,9 @@ void state_db::close()
    impl->close();
 }
 
-state_node_ptr state_db::get_empty_node()
+void state_db::reset()
 {
-   return impl->get_empty_node();
+   impl->reset();
 }
 
 void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, uint64_t limit )
