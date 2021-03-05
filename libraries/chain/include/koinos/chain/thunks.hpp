@@ -94,4 +94,6 @@ THUNK_DECLARE( account_type, get_transaction_payer, const opaque< protocol::tran
 THUNK_DECLARE( uint128, get_max_account_resources, const account_type& account );
 THUNK_DECLARE( uint128, get_transaction_resource_limit, const opaque< protocol::transaction >& tx);
 
+THUNK_DECLARE_VOID( block_height_type, get_last_irreversible_block );
+
 } } // koinos::chain::thunk

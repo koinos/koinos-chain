@@ -267,4 +267,82 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    _chain_plugin.plugin_shutdown();
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( block_irreversibility )
+{ try {
+   using namespace koinos;
+
+   _chain_plugin.plugin_initialize( _options );
+   _chain_plugin.plugin_startup();
+   std::string seed = "test seed";
+   auto block_signing_private_key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+
+   types::rpc::block_submission block_submission;
+   block_submission.verify_passive_data = true;
+   block_submission.verify_block_signature = true;
+   block_submission.verify_transaction_signatures = true;
+
+   auto future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
+   auto submit_res = *(future.get());
+   auto& query_res = std::get< types::rpc::query_submission_result >( submit_res );
+   query_res.make_mutable();
+   auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
+
+   for( int i = 1; i <= 6; i++ )
+   {
+      auto duration = std::chrono::system_clock::now().time_since_epoch();
+      block_submission.block.active_data.make_mutable();
+      block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+      block_submission.block.active_data->height = head_info_res.height + 1;
+
+      block_submission.topology.previous = head_info_res.id;
+      block_submission.topology.height = block_submission.block.active_data->height;
+      block_submission.block.active_data->previous_block = block_submission.topology.previous;
+
+      set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
+      sign_block( block_submission.block, block_signing_private_key );
+
+      block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+
+      future = _chain_plugin.submit( block_submission );
+      future.get();
+
+      future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
+      submit_res = *(future.get());
+      query_res = std::get< types::rpc::query_submission_result >( submit_res );
+      query_res.make_mutable();
+      head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
+
+      BOOST_REQUIRE( head_info_res.last_irreversible_height == 0 );
+   }
+
+   for( int i = 7; i <= 10; i++ )
+   {
+      auto duration = std::chrono::system_clock::now().time_since_epoch();
+      block_submission.block.active_data.make_mutable();
+      block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+      block_submission.block.active_data->height = head_info_res.height + 1;
+
+      block_submission.topology.previous = head_info_res.id;
+      block_submission.topology.height = block_submission.block.active_data->height;
+      block_submission.block.active_data->previous_block = block_submission.topology.previous;
+
+      set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
+      sign_block( block_submission.block, block_signing_private_key );
+
+      block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+
+      future = _chain_plugin.submit( block_submission );
+      future.get();
+
+      future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
+      submit_res = *(future.get());
+      query_res = std::get< types::rpc::query_submission_result >( submit_res );
+      query_res.make_mutable();
+      head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
+
+      BOOST_REQUIRE( head_info_res.last_irreversible_height == i - 6 );
+   }
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()

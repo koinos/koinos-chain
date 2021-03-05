@@ -473,7 +473,7 @@ void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, uint64
    impl->get_recent_states( node_list, limit );
 }
 
-state_node_ptr state_db::get_node_at_revision( uint64_t revision, state_node_id& child_id )const
+state_node_ptr state_db::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
 {
    return impl->get_node_at_revision( revision, child_id );
 }

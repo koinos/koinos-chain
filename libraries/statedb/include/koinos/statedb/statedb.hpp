@@ -174,7 +174,7 @@ class state_db final
       /**
        * Get an ancestor of a node at a particular revision
        */
-      state_node_ptr get_node_at_revision( uint64_t revision, state_node_id& child_id )const;
+      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child_id )const;
       state_node_ptr get_node_at_revision( uint64_t revision )const;
 
       /**

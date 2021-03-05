@@ -69,6 +69,7 @@ using koinos::chain::thunk::get_head_info;
 using koinos::chain::thunk::get_transaction_payer;
 using koinos::chain::thunk::get_max_account_resources;
 using koinos::chain::thunk::get_transaction_resource_limit;
+using koinos::chain::thunk::get_last_irreversible_block;
 
 struct block_submission_impl
 {
@@ -251,6 +252,8 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
 void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o )
 {
    _state_db.open( p, o );
+   auto head = _state_db.get_head();
+   LOG(info) << "Opened database at block - height: " << head->revision() << ", id: " << head->id();
 }
 
 void reqhandler_impl::connect( const std::string& amqp_url )
@@ -293,8 +296,15 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
       if (output.length() > 0) { LOG(info) << output; }
 
-      _ctx->clear_state_node();
       _state_db.finalize_node( block_node->id() );
+
+      auto lib = get_last_irreversible_block( *_ctx );
+      if ( lib > _state_db.get_root()->revision() )
+      {
+         _state_db.commit_node( _state_db.get_node_at_revision( uint64_t(lib), block_node->id() )->id() );
+      }
+
+      _ctx->clear_state_node();
    }
    catch( const koinos::exception& )
    {
@@ -475,7 +485,7 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
    ret.fork_heads[0].height = subret_hi.height;
 
    // TODO:  Fill in last irreversible ID and previous
-   ret.last_irr.height = subret_hi.last_irreversible_height;
+   ret.last_irreversible_block.height = subret_hi.last_irreversible_height;
 }
 
 std::shared_ptr< types::rpc::submission_result > reqhandler_impl::process_item( std::shared_ptr< item_submission_impl > item )
