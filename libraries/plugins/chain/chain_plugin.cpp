@@ -98,7 +98,11 @@ void chain_plugin::plugin_initialize( const variables_map& options )
 
    my->_amqp_url = options.at( "amqp" ).as< std::string >();
    my->_mq_disable = options.at("mq-disable").as< bool >();
-   my->_reset = options.at("reset").as< bool >();
+
+   if ( options.count( "reset" ) )
+   {
+      my->_reset = options.at("reset").as< bool >();
+   }
 
    multihash chain_id;
    chain_id.id = options.at( "chain-id-code" ).as< uint64_t >();

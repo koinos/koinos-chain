@@ -62,6 +62,7 @@ class state_node_impl final
       void get_next_object( get_object_result& result, const get_object_args& args )const;
       void get_prev_object( get_object_result& result, const get_object_args& args )const;
       void put_object( put_object_result& result, const put_object_args& args );
+      bool is_empty()const;
 
       state_delta_ptr   _state;
       bool              _is_writable = true;
@@ -101,12 +102,13 @@ class state_db_impl final
 
       bool is_open()const;
 
-      boost::filesystem::path      _path;
-      std::any                     _options;
+      boost::filesystem::path                 _path;
+      std::any                                _options;
+      std::function< void( state_node_ptr ) > _init_func = nullptr;
 
-      state_multi_index_type       _index;
-      state_node_ptr               _head;
-      state_node_ptr               _root;
+      state_multi_index_type                  _index;
+      state_node_ptr                          _head;
+      state_node_ptr                          _root;
 };
 
 void state_db_impl::reset()
@@ -121,14 +123,16 @@ void state_db_impl::reset()
    // Wipe and start over from empty database!
    _root->impl->_state->clear();
    close();
-   open( _path, _options );
+   open( _path, _options, _init_func );
 }
 
 void state_db_impl::open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
 {
    auto root = std::make_shared< state_node >();
    root->impl->_state = std::make_shared< state_delta_type >( p, o );
-   if ( !root->revision() && init )
+   _init_func = init;
+
+   if ( !root->revision() && root->impl->is_empty() && _init_func )
    {
       init( root );
    }
@@ -405,6 +409,11 @@ void state_node_impl::put_object( put_object_result& result, const put_object_ar
          // dne -> dne, do nothing
       }
    }
+}
+
+bool state_node_impl::is_empty()const
+{
+   return _state->is_empty();
 }
 
 } // detail
