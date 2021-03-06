@@ -9,6 +9,7 @@
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
+#include <koinos/pack/rt/util/base58.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/util.hpp>
 
@@ -35,6 +36,7 @@ class chain_plugin_impl
       bool                                   _reset = false;
       std::string                            _amqp_url;
       std::shared_ptr< mq::request_handler > _mq_reqhandler;
+      genesis_data                           _genesis_data;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
@@ -63,6 +65,8 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
          ("database-config", bpo::value<bfs::path>()->default_value("database.cfg"), "The database configuration file location")
          ("amqp", bpo::value<std::string>()->default_value("amqp://guest:guest@localhost:5672/"), "AMQP server URL")
          ("mq-disable", bpo::value<bool>()->default_value(false), "Disables MQ connection")
+         ("chain-id-digest", bpo::value<std::string>()->default_value("z5gosJRaEAWdexTCiVqmjDECb7odR7SrvsNLWxG5NBKhx"), "The Chain ID digest")
+         ("chain-id-code", bpo::value<uint64_t>()->default_value(18), "The Chain ID hash code")
          ;
    cli.add_options()
          ("reset", bpo::bool_switch()->default_value(false), "reset the database");
@@ -95,6 +99,21 @@ void chain_plugin::plugin_initialize( const variables_map& options )
    my->_amqp_url = options.at( "amqp" ).as< std::string >();
    my->_mq_disable = options.at("mq-disable").as< bool >();
    my->_reset = options.at("reset").as< bool >();
+
+   multihash chain_id;
+   chain_id.id = options.at( "chain-id-code" ).as< uint64_t >();
+   std::string digest = options.at( "chain-id-digest" ).as< std::string >();
+   KOINOS_ASSERT(
+      digest.size() > 0 && digest[0] == 'z',
+      exception,
+      "expected chain id digest to be a base58 string prefixed with 'z'"
+   );
+   KOINOS_ASSERT(
+      pack::util::decode_base58( digest.c_str() + 1, chain_id.digest ),
+      exception,
+      "failed to decode chain id digest"
+   );
+   my->_genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
 }
 
 void chain_plugin::plugin_startup()
@@ -117,7 +136,7 @@ void chain_plugin::plugin_startup()
 
    try
    {
-      my->_reqhandler.open( my->state_dir, database_config, my->_reset );
+      my->_reqhandler.open( my->state_dir, database_config, my->_genesis_data, my->_reset );
    }
    catch( std::exception& e )
    {

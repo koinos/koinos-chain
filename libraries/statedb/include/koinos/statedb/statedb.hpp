@@ -152,7 +152,7 @@ class state_db final
       /**
        * Open the database.
        */
-      void open( const boost::filesystem::path& p, const std::any& o );
+      void open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
 
       /**
        * Close the database.

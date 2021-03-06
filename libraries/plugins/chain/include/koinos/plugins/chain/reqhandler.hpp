@@ -1,6 +1,7 @@
 #pragma once
 
 #include <koinos/exception.hpp>
+#include <koinos/statedb/statedb_types.hpp>
 #include <koinos/pack/classes.hpp>
 #include <koinos/util.hpp>
 
@@ -9,6 +10,7 @@
 #include <any>
 #include <chrono>
 #include <future>
+#include <map>
 #include <memory>
 
 namespace koinos::plugins::chain {
@@ -28,6 +30,11 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( previous_id_mismatch, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( mq_connection_failure, reqhandler_exception );
 
+using genesis_data = std::map< statedb::object_key, statedb::object_value >;
+
+#define KOINOS_STATEDB_SPACE        0
+#define KOINOS_STATEDB_CHAIN_ID_KEY 0
+
 class reqhandler
 {
    public:
@@ -36,7 +43,7 @@ class reqhandler
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
-      void open( const boost::filesystem::path& p, const std::any& o, bool reset = false );
+      void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void connect( const std::string& amqp_url );
 
       void start_threads();

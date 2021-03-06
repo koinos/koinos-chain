@@ -76,7 +76,9 @@ struct reqhandler_fixture
          {
             {"state-dir", _state_dir.string()},
             {"database-config", "database.cfg"},
-            {"mq-disable", "true"}
+            {"mq-disable", "true"},
+            {"chain-id-digest", "z5p2FM6VuDJDjSw74zrBeoJwBmPF7c2ryKZSQXiVzuCNm"},
+            {"chain-id-code", "18"}
          }
       );
    }
