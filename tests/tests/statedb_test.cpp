@@ -1384,4 +1384,54 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    }
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( reset_test )
+{ try {
+   BOOST_TEST_MESSAGE( "Creating book" );
+   object_space space = 0;
+   book book_a;
+   book_a.id = 1;
+   book_a.a = 3;
+   book_a.b = 4;
+   book get_book;
+
+   multihash state_id = crypto::hash( CRYPTO_SHA2_256_ID, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+
+   put_object_args put_args;
+   put_object_result put_res;
+   vectorstream vs;
+   pack::to_binary( vs, book_a );
+   put_args.space = space;
+   put_args.key = book_a.id;
+   put_args.buf = const_cast< char* >( vs.vector().data() );
+   put_args.object_size = vs.vector().size();
+
+   state_1->put_object( put_res, put_args );
+   BOOST_REQUIRE( !put_res.object_existed );
+   state_1.reset();
+
+   BOOST_TEST_MESSAGE( "Resetting database" );
+   db.reset();
+   auto head = db.get_head();
+
+   std::vector< char > other_buf;
+   // More than enough space...
+   other_buf.resize( 1024 );
+   vs.swap_vector( other_buf );
+   get_object_args get_args;
+   get_object_result get_res;
+   get_args.space = space;
+   get_args.key = book_a.id;
+   get_args.buf = const_cast< char* >( vs.vector().data() );
+   get_args.buf_size = vs.vector().size();
+
+   // Book should not exist on reset db
+   head->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == object_key() );
+   BOOST_REQUIRE_EQUAL( get_res.size, -1 );
+   BOOST_REQUIRE( head->id() == crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
+   BOOST_REQUIRE( head->revision() == 0 );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
