@@ -47,6 +47,8 @@ DEFAULT_SYSTEM_CALLS(
    (get_transaction_payer)
    (get_max_account_resources)
    (get_transaction_resource_limit)
+
+   (get_last_irreversible_block)
 )
 
 } // koinos::chain

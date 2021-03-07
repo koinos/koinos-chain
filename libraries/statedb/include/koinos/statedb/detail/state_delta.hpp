@@ -243,6 +243,10 @@ namespace koinos::statedb::detail {
                _next_object_id = 0;
             else
                _next_object_id = _parent->_next_object_id;
+
+            _revision = 0;
+            _id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+            _indices->put_metadata( ID_KEY, _id );
          }
 
          void wipe( const boost::filesystem::path& dir )
@@ -334,6 +338,16 @@ namespace koinos::statedb::detail {
          std::shared_ptr< state_delta > parent() const
          {
             return _parent;
+         }
+
+         bool is_empty() const
+         {
+            if ( _indices->size() )
+               return false;
+            else if ( _parent )
+               return _parent->is_empty();
+
+            return true;
          }
 
       private:

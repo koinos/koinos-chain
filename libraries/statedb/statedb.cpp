@@ -62,6 +62,7 @@ class state_node_impl final
       void get_next_object( get_object_result& result, const get_object_args& args )const;
       void get_prev_object( get_object_result& result, const get_object_args& args )const;
       void put_object( put_object_result& result, const put_object_args& args );
+      bool is_empty()const;
 
       state_delta_ptr   _state;
       bool              _is_writable = true;
@@ -87,7 +88,7 @@ class state_db_impl final
       void open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
       void close();
 
-      state_node_ptr get_empty_node();
+      void reset();
       void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, uint64_t limit );
       state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child )const;
       state_node_ptr get_node( const state_node_id& node_id )const;
@@ -101,15 +102,16 @@ class state_db_impl final
 
       bool is_open()const;
 
-      boost::filesystem::path      _path;
-      std::any                     _options;
+      boost::filesystem::path                 _path;
+      std::any                                _options;
+      std::function< void( state_node_ptr ) > _init_func = nullptr;
 
-      state_multi_index_type       _index;
-      state_node_ptr               _head;
-      state_node_ptr               _root;
+      state_multi_index_type                  _index;
+      state_node_ptr                          _head;
+      state_node_ptr                          _root;
 };
 
-state_node_ptr state_db_impl::get_empty_node()
+void state_db_impl::reset()
 {
    //
    // This method closes, wipes and re-opens the database.
@@ -121,16 +123,16 @@ state_node_ptr state_db_impl::get_empty_node()
    // Wipe and start over from empty database!
    _root->impl->_state->clear();
    close();
-   open( _path, _options );
-
-   return _head;
+   open( _path, _options, _init_func );
 }
 
 void state_db_impl::open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
 {
    auto root = std::make_shared< state_node >();
    root->impl->_state = std::make_shared< state_delta_type >( p, o );
-   if ( !root->revision() && init )
+   _init_func = init;
+
+   if ( !root->revision() && root->impl->is_empty() && _init_func )
    {
       init( root );
    }
@@ -409,6 +411,11 @@ void state_node_impl::put_object( put_object_result& result, const put_object_ar
    }
 }
 
+bool state_node_impl::is_empty()const
+{
+   return _state->is_empty();
+}
+
 } // detail
 
 state_node::state_node() : impl( new detail::state_node_impl() ) {}
@@ -467,9 +474,9 @@ void state_db::close()
    impl->close();
 }
 
-state_node_ptr state_db::get_empty_node()
+void state_db::reset()
 {
-   return impl->get_empty_node();
+   impl->reset();
 }
 
 void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, uint64_t limit )
@@ -477,7 +484,7 @@ void state_db::get_recent_states( std::vector<state_node_ptr>& node_list, uint64
    impl->get_recent_states( node_list, limit );
 }
 
-state_node_ptr state_db::get_node_at_revision( uint64_t revision, state_node_id& child_id )const
+state_node_ptr state_db::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
 {
    return impl->get_node_at_revision( revision, child_id );
 }

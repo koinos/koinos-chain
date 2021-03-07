@@ -43,6 +43,8 @@ void register_thunks( thunk_dispatcher& td )
       (get_transaction_payer)
       (get_max_account_resources)
       (get_transaction_resource_limit)
+
+      (get_last_irreversible_block)
    )
 }
 
@@ -391,10 +393,13 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 {
    auto head = context.get_state_node();
+   const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type(6);
 
    chain::head_info hi;
    hi.id = head->id();
+   hi.previous_id = head->parent_id();
    hi.height = head->revision();
+   hi.last_irreversible_height = get_last_irreversible_block( context );
 
    return hi;
 }
@@ -450,6 +455,14 @@ THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const opaque< protocol:
    const auto& active_data = transaction.active_data.get_const_native();
 
    return active_data.resource_limit;
+}
+
+THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
+{
+   static const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type(6);
+
+   auto head = context.get_state_node();
+   return block_height_type( head->revision() > IRREVERSIBLE_THRESHOLD ? head->revision() - IRREVERSIBLE_THRESHOLD : 0 );
 }
 
 } } // koinos::chain::thunk

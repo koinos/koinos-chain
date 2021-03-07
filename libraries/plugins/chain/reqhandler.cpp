@@ -69,29 +69,42 @@ using koinos::chain::thunk::get_head_info;
 using koinos::chain::thunk::get_transaction_payer;
 using koinos::chain::thunk::get_max_account_resources;
 using koinos::chain::thunk::get_transaction_resource_limit;
+using koinos::chain::thunk::get_last_irreversible_block;
 
 struct block_submission_impl
 {
    block_submission_impl( const types::rpc::block_submission& s ) : submission( s ) {}
 
-   types::rpc::block_submission          submission;
+   types::rpc::block_submission            submission;
 };
 
 struct transaction_submission_impl
 {
    transaction_submission_impl( const types::rpc::transaction_submission& s ) : submission( s ) {}
 
-   types::rpc::transaction_submission   submission;
+   types::rpc::transaction_submission      submission;
 };
 
 struct query_submission_impl
 {
    query_submission_impl( const types::rpc::query_submission& s ) : submission( s ) {}
 
-   types::rpc::query_submission         submission;
+   types::rpc::query_submission            submission;
 };
 
-using item_submission_impl = std::variant< block_submission_impl, transaction_submission_impl, query_submission_impl >;
+struct get_fork_heads_submission_impl
+{
+   get_fork_heads_submission_impl( const types::rpc::get_fork_heads_submission& s ) : submission( s ) {}
+
+   types::rpc::get_fork_heads_submission   submission;
+};
+
+using item_submission_impl = std::variant<
+   block_submission_impl,
+   transaction_submission_impl,
+   query_submission_impl,
+   get_fork_heads_submission_impl
+   >;
 
 struct work_item
 {
@@ -135,7 +148,7 @@ class reqhandler_impl
       void stop_threads();
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
-      void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data );
+      void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void connect( const std::string& amqp_url );
 
    private:
@@ -144,6 +157,7 @@ class reqhandler_impl
       void process_submission( types::rpc::block_submission_result& ret,       const block_submission_impl& block );
       void process_submission( types::rpc::transaction_submission_result& ret, const transaction_submission_impl& tx );
       void process_submission( types::rpc::query_submission_result& ret,       const query_submission_impl& query );
+      void process_submission( types::rpc::get_fork_heads_submission_result& ret, const get_fork_heads_submission_impl& query );
 
       void feed_thread_main();
       void work_thread_main();
@@ -207,6 +221,10 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
       {
          impl_item = std::make_shared< item_submission_impl >( query_submission_impl( sub ) );
       },
+      [&]( const types::rpc::get_fork_heads_submission& sub )
+      {
+         impl_item = std::make_shared< item_submission_impl >( get_fork_heads_submission_impl( sub ) );
+      },
       [&]( const auto& )
       {
          KOINOS_THROW( unknown_submission_type, "Unimplemented submission type" );
@@ -231,7 +249,7 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
    return fut_output;
 }
 
-void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data )
+void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
    _state_db.open( p, o, [&]( statedb::state_node_ptr root )
    {
@@ -253,6 +271,15 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
          );
       }
    } );
+
+   if ( reset )
+   {
+      LOG(info) << "Resetting database...";
+      _state_db.reset();
+   }
+
+   auto head = _state_db.get_head();
+   LOG(info) << "Opened database at block - height: " << head->revision() << ", id: " << head->id();
 }
 
 void reqhandler_impl::connect( const std::string& amqp_url )
@@ -295,8 +322,15 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
       if (output.length() > 0) { LOG(info) << output; }
 
-      _ctx->clear_state_node();
       _state_db.finalize_node( block_node->id() );
+
+      auto lib = get_last_irreversible_block( *_ctx );
+      if ( lib > _state_db.get_root()->revision() )
+      {
+         _state_db.commit_node( _state_db.get_node_at_revision( uint64_t(lib), block_node->id() )->id() );
+      }
+
+      _ctx->clear_state_node();
    }
    catch( const koinos::exception& )
    {
@@ -409,7 +443,9 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
             ret = types::rpc::query_submission_result(
                rpc::chain::get_head_info_response {
                   .id = head_info.id,
-                  .height = head_info.height
+                  .previous_id = head_info.previous_id,
+                  .height = head_info.height,
+                  .last_irreversible_height = head_info.last_irreversible_height
                }
             );
          }
@@ -470,6 +506,37 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
    ret.make_immutable();
 }
 
+void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_result& ret,  const get_fork_heads_submission_impl& query )
+{
+   // get_fork_heads_submission can't be a query_submission because query_submission is for asking questions about the chain state.
+   // Fork heads are kept outside the chain state.
+
+   //
+   // This is currently a stub implementation that simply calls get_head_info().
+   //
+   // The "proper" way to handle this is to implement an API to fetch all fork heads
+   // (perhaps as part of StateDB but I'm open to suggestions).
+   //
+   // We should also probably extend state nodes to cache the LIB ID and height information.
+
+   types::rpc::query_submission_result subret;
+   query_submission_impl subq = types::rpc::query_submission( types::rpc::query_param_item( types::rpc::get_head_info_params() ) );
+
+   process_submission(subret, subq);
+
+   ret.fork_heads.resize(1);
+   subret.unbox();
+   const types::rpc::query_item_result& subret_qi = subret.get_native();
+   const types::rpc::get_head_info_result& subret_hi = std::get< types::rpc::get_head_info_result >( subret_qi );
+
+   ret.fork_heads[0].id = subret_hi.id;
+   ret.fork_heads[0].previous = subret_hi.previous_id;
+   ret.fork_heads[0].height = subret_hi.height;
+
+   // TODO:  Fill in last irreversible ID and previous
+   ret.last_irreversible_block.height = subret_hi.last_irreversible_height;
+}
+
 std::shared_ptr< types::rpc::submission_result > reqhandler_impl::process_item( std::shared_ptr< item_submission_impl > item )
 {
    types::rpc::submission_result result;
@@ -492,6 +559,12 @@ std::shared_ptr< types::rpc::submission_result > reqhandler_impl::process_item( 
          types::rpc::block_submission_result bres;
          process_submission( bres, s );
          result.emplace< types::rpc::block_submission_result >( std::move( bres ) );
+      },
+      [&]( get_fork_heads_submission_impl& s )
+      {
+         types::rpc::get_fork_heads_submission_result fres;
+         process_submission( fres, s );
+         result.emplace< types::rpc::get_fork_heads_submission_result >( std::move( fres ) );
       }
    }, *item );
 
@@ -613,9 +686,9 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler::subm
    return _my->submit( item );
 }
 
-void reqhandler::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data  )
+void reqhandler::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
-   _my->open( p, o, data );
+   _my->open( p, o, data, reset );
 }
 
 void reqhandler::connect( const std::string& amqp_url )

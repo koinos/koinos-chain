@@ -77,7 +77,7 @@ if(COVERAGE)
      LCOV_ARGS "--quiet" "--no-external"
      EXECUTABLE koinos_tests
      EXCLUDE
-        "build/generated/*"
+        "build/*"
         "libraries/crypto/*"
         "libraries/exception/*"
         "libraries/log/*"

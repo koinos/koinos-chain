@@ -33,6 +33,7 @@ class chain_plugin_impl
       reqhandler           _reqhandler;
 
       bool                                   _mq_disable = false;
+      bool                                   _reset = false;
       std::string                            _amqp_url;
       std::shared_ptr< mq::request_handler > _mq_reqhandler;
       genesis_data                           _genesis_data;
@@ -68,7 +69,7 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
          ("chain-id-code", bpo::value<uint64_t>()->default_value(18), "The Chain ID hash code")
          ;
    cli.add_options()
-         ("force-open", bpo::bool_switch()->default_value(false), "force open the database, skipping the environment check")
+         ("reset", bpo::bool_switch()->default_value(false), "reset the database");
          ;
 }
 
@@ -97,6 +98,11 @@ void chain_plugin::plugin_initialize( const variables_map& options )
 
    my->_amqp_url = options.at( "amqp" ).as< std::string >();
    my->_mq_disable = options.at("mq-disable").as< bool >();
+
+   if ( options.count( "reset" ) )
+   {
+      my->_reset = options.at("reset").as< bool >();
+   }
 
    multihash chain_id;
    chain_id.id = options.at( "chain-id-code" ).as< uint64_t >();
@@ -134,7 +140,7 @@ void chain_plugin::plugin_startup()
 
    try
    {
-      my->_reqhandler.open( my->state_dir, database_config, my->_genesis_data );
+      my->_reqhandler.open( my->state_dir, database_config, my->_genesis_data, my->_reset );
    }
    catch( std::exception& e )
    {
@@ -193,6 +199,10 @@ void chain_plugin::plugin_startup()
                   [&]( const rpc::chain::get_pending_transactions_request& p )
                   {
                      submit = types::rpc::query_param_item( p );
+                  },
+                  [&]( const rpc::chain::get_fork_heads_request& p )
+                  {
+                     submit = p;
                   },
                   [&]( const auto& p )
                   {

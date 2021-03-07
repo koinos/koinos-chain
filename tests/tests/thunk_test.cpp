@@ -355,4 +355,24 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
+{ try {
+
+   BOOST_TEST_MESSAGE( "last irreversible block test" );
+   const int last_irreversible_threshold = 6;
+
+   for( int i = 0; i < last_irreversible_threshold; i++ )
+   {
+      auto lib = thunk::get_last_irreversible_block( ctx );
+      BOOST_REQUIRE_EQUAL( lib, 0 );
+
+      db.finalize_node( ctx.get_state_node()->id() );
+      ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), koinos::crypto::hash( CRYPTO_RIPEMD160_ID, i ) ) );
+   }
+
+   auto lib = thunk::get_last_irreversible_block( ctx );
+   BOOST_REQUIRE_EQUAL( lib, 1 );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
