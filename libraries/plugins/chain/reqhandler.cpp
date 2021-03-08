@@ -526,7 +526,7 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
 
    ret.fork_heads.resize(1);
    subret.unbox();
-   const types::rpc::query_item_result& subret_qi = subret.get_native();
+   const types::rpc::query_item_result& subret_qi = subret.get_const_native();
    const types::rpc::get_head_info_result& subret_hi = std::get< types::rpc::get_head_info_result >( subret_qi );
 
    ret.fork_heads[0].id = subret_hi.id;
