@@ -117,6 +117,7 @@ void chain_plugin::plugin_initialize( const variables_map& options )
       exception,
       "failed to decode chain id digest"
    );
+   LOG(info) << "Genesis chain ID would be " << chain_id;
    my->_genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
 }
 
