@@ -57,6 +57,18 @@ bfs::path chain_plugin::state_dir() const
    return my->state_dir;
 }
 
+std::string get_default_chain_id_string()
+{
+   std::string default_chain_id_hash_str = "koinos testing default chain";
+   multihash chain_id = crypto::hash( CRYPTO_SHA2_256_ID, default_chain_id_hash_str );
+
+   variable_blob blob;
+   pack::to_variable_blob( blob, chain_id );
+   std::string chain_id_str;
+   pack::util::encode_base58( chain_id_str, blob );
+   return "z"+chain_id_str;
+}
+
 void chain_plugin::set_program_options( options_description& cli, options_description& cfg )
 {
    cfg.add_options()
@@ -65,8 +77,7 @@ void chain_plugin::set_program_options( options_description& cli, options_descri
          ("database-config", bpo::value<bfs::path>()->default_value("database.cfg"), "The database configuration file location")
          ("amqp", bpo::value<std::string>()->default_value("amqp://guest:guest@localhost:5672/"), "AMQP server URL")
          ("mq-disable", bpo::value<bool>()->default_value(false), "Disables MQ connection")
-         ("chain-id-digest", bpo::value<std::string>()->default_value("z5gosJRaEAWdexTCiVqmjDECb7odR7SrvsNLWxG5NBKhx"), "The Chain ID digest")
-         ("chain-id-code", bpo::value<uint64_t>()->default_value(18), "The Chain ID hash code")
+         ("chain-id", bpo::value<std::string>()->default_value(get_default_chain_id_string()), "Chain ID to initialize empty node state")
          ;
    cli.add_options()
          ("reset", bpo::bool_switch()->default_value(false), "reset the database");
@@ -104,19 +115,21 @@ void chain_plugin::plugin_initialize( const variables_map& options )
       my->_reset = options.at("reset").as< bool >();
    }
 
-   multihash chain_id;
-   chain_id.id = options.at( "chain-id-code" ).as< uint64_t >();
-   std::string digest = options.at( "chain-id-digest" ).as< std::string >();
+   std::string chain_id_str = options.at("chain-id").as< std::string >();
    KOINOS_ASSERT(
-      digest.size() > 0 && digest[0] == 'z',
+      chain_id_str.size() > 0 && chain_id_str[0] == 'z',
       exception,
-      "expected chain id digest to be a base58 string prefixed with 'z'"
+      "expected chain id to be a base58 string prefixed with 'z'"
    );
+
+   variable_blob chain_id_blob;
    KOINOS_ASSERT(
-      pack::util::decode_base58( digest.c_str() + 1, chain_id.digest ),
+      pack::util::decode_base58( chain_id_str.c_str() + 1, chain_id_blob ),
       exception,
       "failed to decode chain id digest"
    );
+   multihash chain_id = pack::from_variable_blob< multihash >(chain_id_blob);
+
    LOG(info) << "Genesis chain ID would be " << chain_id;
    my->_genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
 }
