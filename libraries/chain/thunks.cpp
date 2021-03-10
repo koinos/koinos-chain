@@ -365,14 +365,18 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    backend.set_wasm_allocator( &wa );
    backend.initialize();
 
-   context.set_contract_call_args( args );
+   context.push_frame( stack_frame {
+      .call = pack::to_variable_blob( contract_id ),
+      .call_args = args
+   } );
+
    try
    {
       backend( &context, "env", "_start" );
    }
    catch( const exit_success& ) {}
 
-   return context.get_contract_return();
+   return context.pop_frame().call_return;
 }
 
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )

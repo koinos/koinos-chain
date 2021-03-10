@@ -173,18 +173,6 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::protocol::reserved_operation() ), reserved_operation_exception );
 
-   BOOST_TEST_MESSAGE( "Test context return" );
-
-   auto ret_val = std::vector< char > { 1, 2, 3, 4, 5, 6 };
-   ctx.set_contract_return( ret_val );
-   // First get should return the given blob
-   auto ret = ctx.get_contract_return();
-   BOOST_REQUIRE( ret.size() == ret_val.size() );
-   BOOST_REQUIRE( std::equal( ret.begin(), ret.begin()+ret.size(), ret_val.begin() ) );
-   // Ensure the return was cleared
-   ret = ctx.get_contract_return();
-   BOOST_REQUIRE( ret.size() == 0 );
-
    BOOST_TEST_MESSAGE( "Test contract return" );
 
    // Upload the return test contract

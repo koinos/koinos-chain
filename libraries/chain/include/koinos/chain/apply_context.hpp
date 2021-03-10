@@ -2,9 +2,10 @@
 
 #include <koinos/chain/privilege.hpp>
 #include <koinos/statedb/statedb.hpp>
-#include <koinos/pack/rt/basetypes.hpp>
+#include <koinos/pack/classes.hpp>
 #include <koinos/crypto/elliptic.hpp>
 
+#include <deque>
 #include <optional>
 #include <string>
 
@@ -13,32 +14,30 @@ namespace koinos::chain {
 using boost::container::flat_set;
 using koinos::statedb::state_node_ptr;
 
+struct stack_frame
+{
+   account_type  call;
+   variable_blob call_args;
+   variable_blob call_return;
+};
+
 class apply_context
 {
    public:
       apply_context() = default;
 
       /// Console methods:
-      void console_append( const std::string& val )
-      {
-         pending_console_output += val;
-      }
-
-      std::string get_pending_console_output()
-      {
-         std::string buf = pending_console_output;
-         pending_console_output.clear();
-         return buf;
-      }
+      void console_append( const std::string& val );
+      std::string get_pending_console_output();
 
       void set_state_node( state_node_ptr );
       state_node_ptr get_state_node() const;
       void clear_state_node();
 
       void set_contract_call_args( const variable_blob& args );
-      const variable_blob& get_contract_call_args();
+      const variable_blob& get_contract_call_args() const;
 
-      variable_blob get_contract_return();
+      variable_blob get_contract_return() const;
       void set_contract_return( const variable_blob& ret );
 
       /**
@@ -48,16 +47,21 @@ class apply_context
       void set_key_authority( const crypto::public_key& key );
       void clear_authority();
 
+      void push_frame( stack_frame&& frame );
+      stack_frame pop_frame();
+
+      const account_type& get_caller()const;
+
    /// Fields:
    public:
       privilege                     privilege_level = privilege::user_mode;
 
    private:
-      std::string                   pending_console_output;
-      state_node_ptr                current_state_node;
-      variable_blob                 contract_call_args;
-      variable_blob                 contract_return;
-      std::optional< crypto::public_key > key_auth;
+      state_node_ptr                      _current_state_node;
+      std::string                         _pending_console_output;
+      std::optional< crypto::public_key > _key_auth;
+
+      std::vector< stack_frame >          _stack;
 };
 
 } // koinos::chain
