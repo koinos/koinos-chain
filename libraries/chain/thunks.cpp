@@ -49,6 +49,8 @@ void register_thunks( thunk_dispatcher& td )
       (get_caller)
       (get_transaction_signature)
       (require_authority)
+
+      (set_user_mode)
    )
 }
 
@@ -283,6 +285,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
+   set_user_mode( context );
    execute_contract( context, o.contract_id, o.entry_point, o.args );
 }
 
@@ -412,6 +415,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
 
    context.push_frame( stack_frame {
       .call = pack::to_variable_blob( contract_id ),
+      .call_privilege = context.get_privilege(),
       .call_args = args
    } );
 
@@ -532,6 +536,11 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
    account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );
    KOINOS_ASSERT( sig_account.size() == account.size() &&
       std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match" );
+}
+
+THUNK_DEFINE_VOID( void, set_user_mode )
+{
+   context.set_privilege( privilege::user_mode );
 }
 
 } } // koinos::chain::thunk

@@ -53,6 +53,8 @@ DEFAULT_SYSTEM_CALLS(
    (get_caller)
    (get_transaction_signature)
    (require_authority)
+
+   (set_user_mode)
 )
 
 } // koinos::chain

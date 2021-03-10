@@ -22,6 +22,7 @@ KOINOS_DECLARE_EXCEPTION( stack_overflow );
 struct stack_frame
 {
    account_type  call;
+   privilege     call_privilege;
    variable_blob call_args;
    variable_blob call_return;
 };
@@ -65,16 +66,15 @@ class apply_context
 
       const account_type& get_caller()const;
 
-   /// Fields:
-   public:
-      privilege                     privilege_level = privilege::user_mode;
+      void set_privilege( privilege );
+      privilege get_privilege()const;
 
    private:
-      state_node_ptr                      _current_state_node;
-      std::string                         _pending_console_output;
-      std::optional< crypto::public_key > _key_auth;
+      state_node_ptr                         _current_state_node;
+      std::string                            _pending_console_output;
+      std::optional< crypto::public_key >    _key_auth;
 
-      std::vector< stack_frame >          _stack;
+      std::vector< stack_frame >             _stack;
 
       const protocol::block*                 _block = nullptr;
       const opaque< protocol::transaction >* _trx = nullptr;

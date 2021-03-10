@@ -21,7 +21,10 @@ struct mempool_fixture
    mempool_fixture()
    {
       _ctx = std::make_shared< chain::apply_context >();
-      _ctx->privilege_level = chain::privilege::kernel_mode;
+      _ctx->push_frame( chain::stack_frame {
+         .call = pack::to_variable_blob( std::string( "mempool_tests" ) ),
+         .call_privilege = chain::privilege::kernel_mode
+      } );
 
       _temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
       boost::filesystem::create_directory( _temp );

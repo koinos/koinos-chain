@@ -123,7 +123,10 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
+               auto previous_privilege = context.get_privilege();                                                    \
+               context.set_privilege( privilege::kernel_mode );                                                      \
                auto _contract_ret = execute_contract( context, _scb.contract_id, _scb.entry_point, _args );          \
+               context.set_privilege( previous_privilege );                                                          \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \

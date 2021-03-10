@@ -36,7 +36,11 @@ struct thunk_fixture
 
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
-      ctx.privilege_level = koinos::chain::privilege::kernel_mode;
+      ctx.push_frame( koinos::chain::stack_frame {
+         .call = koinos::pack::to_variable_blob( std::string( "thunk_tests" ) ),
+         .call_privilege = koinos::chain::privilege::kernel_mode
+      } );
+
       koinos::chain::register_host_functions();
    }
 

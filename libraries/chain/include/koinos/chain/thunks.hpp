@@ -101,4 +101,6 @@ THUNK_DECLARE_VOID( account_type, get_caller );
 THUNK_DECLARE_VOID( variable_blob, get_transaction_signature );
 THUNK_DECLARE( void, require_authority, const account_type& );
 
+THUNK_DECLARE_VOID( void, set_user_mode );
+
 } } // koinos::chain::thunk

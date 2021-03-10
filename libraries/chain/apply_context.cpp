@@ -94,6 +94,18 @@ const account_type& apply_context::get_caller()const
    return _stack[ _stack.size() - 2 ].call;
 }
 
+void apply_context::set_privilege( privilege p )
+{
+   KOINOS_ASSERT( _stack.size() , koinos::exception, "" );
+   _stack[ _stack.size() - 1 ].call_privilege = p;
+}
+
+privilege apply_context::get_privilege()const
+{
+   KOINOS_ASSERT( _stack.size() , koinos::exception, "" );
+   return _stack[ _stack.size() - 1 ].call_privilege;
+}
+
 void apply_context::push_frame( stack_frame&& frame )
 {
    KOINOS_ASSERT( _stack.size() < STACK_LIMIT, stack_overflow, "apply context stack overflow" );
