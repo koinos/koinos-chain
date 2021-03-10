@@ -96,4 +96,8 @@ THUNK_DECLARE( uint128, get_transaction_resource_limit, const opaque< protocol::
 
 THUNK_DECLARE_VOID( block_height_type, get_last_irreversible_block );
 
+THUNK_DECLARE_VOID( account_type, get_caller );
+THUNK_DECLARE_VOID( variable_blob, get_transaction_signature );
+THUNK_DECLARE( void, require_authority, const account_type& );
+
 } } // koinos::chain::thunk

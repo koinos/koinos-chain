@@ -30,6 +30,36 @@ void apply_context::clear_state_node()
    _current_state_node.reset();
 }
 
+void apply_context::set_block( const protocol::block& block )
+{
+   _block = &block;
+}
+
+const protocol::block& apply_context::get_block()const
+{
+   return *_block;
+}
+
+void apply_context::clear_block()
+{
+   _block = nullptr;
+}
+
+void apply_context::set_transaction( const opaque< protocol::transaction >& trx )
+{
+   _trx = &trx;
+}
+
+const opaque< protocol::transaction >& apply_context::get_transaction()const
+{
+   return *_trx;
+}
+
+void apply_context::clear_transaction()
+{
+   _trx = nullptr;
+}
+
 const variable_blob& apply_context::get_contract_call_args() const
 {
    KOINOS_ASSERT( _stack.size(), koinos::exception, "" );

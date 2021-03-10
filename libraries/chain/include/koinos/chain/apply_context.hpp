@@ -34,6 +34,14 @@ class apply_context
       state_node_ptr get_state_node() const;
       void clear_state_node();
 
+      void set_block( const protocol::block& );
+      const protocol::block& get_block() const;
+      void clear_block();
+
+      void set_transaction( const opaque< protocol::transaction >& );
+      const opaque< protocol::transaction >& get_transaction() const;
+      void clear_transaction();
+
       void set_contract_call_args( const variable_blob& args );
       const variable_blob& get_contract_call_args() const;
 
@@ -62,6 +70,9 @@ class apply_context
       std::optional< crypto::public_key > _key_auth;
 
       std::vector< stack_frame >          _stack;
+
+      const protocol::block*                 _block = nullptr;
+      const opaque< protocol::transaction >* _trx = nullptr;
 };
 
 } // koinos::chain
