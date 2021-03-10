@@ -29,6 +29,7 @@ KOINOS_DECLARE_EXCEPTION( transaction_root_mismatch );
 KOINOS_DECLARE_EXCEPTION( passive_root_mismatch );
 KOINOS_DECLARE_EXCEPTION( invalid_block_signature );
 KOINOS_DECLARE_EXCEPTION( invalid_transaction_signature );
+KOINOS_DECLARE_EXCEPTION( invalid_signature );
 
 /*
  * When defining a new thunk, we have essentially two different implementations.

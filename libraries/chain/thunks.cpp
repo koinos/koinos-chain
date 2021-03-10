@@ -531,7 +531,7 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
    pack::from_variable_blob( get_transaction_signature( context ), sig );
    account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );
    KOINOS_ASSERT( sig_account.size() == account.size() &&
-      std::equal(sig_account.begin(), sig_account.end(), account.begin()), koinos::exception, "Signature does not match" );
+      std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match" );
 }
 
 } } // koinos::chain::thunk
