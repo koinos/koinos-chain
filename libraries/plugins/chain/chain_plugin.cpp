@@ -59,14 +59,8 @@ bfs::path chain_plugin::state_dir() const
 
 std::string get_default_chain_id_string()
 {
-   std::string default_chain_id_hash_str = "koinos testing default chain";
-   multihash chain_id = crypto::hash( CRYPTO_SHA2_256_ID, default_chain_id_hash_str );
-
-   variable_blob blob;
-   pack::to_variable_blob( blob, chain_id );
-   std::string chain_id_str;
-   pack::util::encode_base58( chain_id_str, blob );
-   return "z"+chain_id_str;
+   // Following is equivalent to {"digest":"z5gosJRaEAWdexTCiVqmjDECb7odR7SrvsNLWxG5NBKhx","hash":18}
+   return "zQmT2TaQZZjwW7HZ6ctY3VCsPvadHV1m6RcwgMNeRUgP1mx";
 }
 
 void chain_plugin::set_program_options( options_description& cli, options_description& cfg )
