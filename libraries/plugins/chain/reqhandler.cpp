@@ -28,8 +28,6 @@
 
 #include <koinos/log.hpp>
 
-#include <koinos/mq/message_broker.hpp>
-
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
@@ -150,7 +148,7 @@ class reqhandler_impl
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
-      void connect( const std::string& amqp_url );
+      void set_client( std::shared_ptr< mq::client > c );
 
    private:
       std::shared_ptr< types::rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
@@ -169,7 +167,7 @@ class reqhandler_impl
       std::mutex                                                               _state_db_mutex;
       std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
-      mq::message_broker                                                       _publisher;
+      std::shared_ptr< mq::client >                                            _client;
       std::mutex                                                               _client_mutex;
       koinos::chain::mempool                                                   _mempool;
 
@@ -287,13 +285,10 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
    LOG(info) << "Opened database at block - height: " << head->revision() << ", id: " << head->id();
 }
 
-void reqhandler_impl::connect( const std::string& amqp_url )
+void reqhandler_impl::set_client( std::shared_ptr< mq::client > c )
 {
    std::lock_guard< std::mutex > lock( _client_mutex );
-   if ( _publisher.connect( amqp_url ) != mq::error_code::success )
-   {
-      KOINOS_THROW( mq_connection_failure, "Unable to connect to MQ server" );
-   }
+   _client = c;
 }
 
 void reqhandler_impl::process_submission( types::rpc::block_submission_result& ret, const block_submission_impl& block )
@@ -333,37 +328,33 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       auto lib = get_last_irreversible_block( *_ctx );
       if ( lib > _state_db.get_root()->revision() )
       {
-         auto node      = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-         auto id        = node->id();
-         auto height    = block_height_type( node->revision() );
-         auto parent_id = node->parent_id();
+         auto node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+
+         broadcast::block_irreversible msg {
+            .topology = {
+               .id       = node->id(),
+               .height   = block_height_type( node->revision() ),
+               .previous = node->parent_id()
+            }
+         };
 
          _state_db.commit_node( node->id() );
 
          {
             std::lock_guard< std::mutex > lock( _client_mutex );
-            if ( _publisher.is_connected() )
+            if ( _client && _client->is_connected() )
             {
-               json j;
-
-               pack::to_json( j, broadcast::block_irreversible {
-                  .topology = {
-                     .id       = std::move( id ),
-                     .height   = std::move( height ),
-                     .previous = std::move( parent_id )
-                  }
-               } );
-
-               auto err = _publisher.publish( mq::message {
-                  .exchange     = "koinos_event",
-                  .routing_key  = "koinos.block.irreversible",
-                  .content_type = "application/json",
-                  .data         = j.dump()
-               } );
-
-               if ( err != mq::error_code::success )
+               try
                {
-                  LOG(error) << "failed to publish block irreversible to message broker";
+                  json j;
+
+                  pack::to_json( j, msg );
+
+                  _client->broadcast( "koinos.block.irreversible", j.dump() );
+               }
+               catch ( const std::exception& e )
+               {
+                  LOG(error) << "failed to publish block irreversible to message broker: " << e.what();
                }
             }
          }
@@ -379,25 +370,22 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
    {
       std::lock_guard< std::mutex > lock( _client_mutex );
-      if ( _publisher.is_connected() )
+      if ( _client && _client->is_connected() )
       {
-         json j;
-
-         pack::to_json( j, broadcast::block_accepted {
-            .topology = block.submission.topology,
-            .block    = block.submission.block
-         } );
-
-         auto err = _publisher.publish( mq::message {
-            .exchange     = "koinos_event",
-            .routing_key  = "koinos.block.accept",
-            .content_type = "application/json",
-            .data         = j.dump()
-         } );
-
-         if ( err != mq::error_code::success )
+         try
          {
-            LOG(error) << "failed to publish block application to message broker";
+            json j;
+
+            pack::to_json( j, broadcast::block_accepted {
+               .topology = block.submission.topology,
+               .block    = block.submission.block
+            } );
+
+            _client->broadcast( "koinos.block.accept", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "failed to publish block application to message broker: " << e.what();
          }
       }
    }
@@ -448,25 +436,22 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
 
    {
       std::lock_guard< std::mutex > lock( _client_mutex );
-      if ( _publisher.is_connected() )
+      if ( _client && _client->is_connected() )
       {
-         json j;
-
-         pack::to_json( j, broadcast::transaction_accepted {
-            .topology    = tx.submission.topology,
-            .transaction = tx.submission.transaction
-         } );
-
-         auto err = _publisher.publish( mq::message {
-            .exchange     = "koinos_event",
-            .routing_key  = "koinos.transaction.accept",
-            .content_type = "application/json",
-            .data         = j.dump()
-         } );
-
-         if ( err != mq::error_code::success )
+         try
          {
-            LOG(error) << "failed to publish block application to message broker";
+            json j;
+
+            pack::to_json( j, broadcast::transaction_accepted {
+               .topology    = tx.submission.topology,
+               .transaction = tx.submission.transaction
+            } );
+
+            _client->broadcast( "koinos.transaction.accept", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "failed to publish block application to message broker: " << e.what();
          }
       }
    }
@@ -744,9 +729,9 @@ void reqhandler::open( const boost::filesystem::path& p, const std::any& o, cons
    _my->open( p, o, data, reset );
 }
 
-void reqhandler::connect( const std::string& amqp_url )
+void reqhandler::set_client( std::shared_ptr< mq::client > c )
 {
-   _my->connect( amqp_url );
+   _my->set_client( c );
 }
 
 void reqhandler::start_threads()

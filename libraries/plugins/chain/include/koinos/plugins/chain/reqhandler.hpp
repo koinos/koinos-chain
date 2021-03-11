@@ -1,6 +1,7 @@
 #pragma once
 
 #include <koinos/exception.hpp>
+#include <koinos/mq/client.hpp>
 #include <koinos/statedb/statedb_types.hpp>
 #include <koinos/pack/classes.hpp>
 #include <koinos/util.hpp>
@@ -45,7 +46,7 @@ class reqhandler
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
 
       void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
-      void connect( const std::string& amqp_url );
+      void set_client( std::shared_ptr< mq::client > c );
 
       void start_threads();
       void stop_threads();

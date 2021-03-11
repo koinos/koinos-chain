@@ -14,6 +14,8 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/util.hpp>
 
+#include <chrono>
+
 namespace koinos::plugins::chain {
 
 using namespace appbase;
@@ -58,23 +60,25 @@ void chain_plugin_impl::reindex()
    using namespace rpc::block_store;
    try
    {
+      const auto before = std::chrono::system_clock::now();
+
       LOG(info) << "Retrieving last irreversible block";
       nlohmann::json j;
       pack::to_json( j, block_store_request{ get_last_irreversible_block_request{} } );
-      auto future = _mq_client->rpc( "application/json", "koinos_block", j.dump() );
+      auto future = _mq_client->rpc( "koinos_block", j.dump() );
 
       block_store_response resp;
       pack::from_json( nlohmann::json::parse( future.get() ), resp );
       auto target_head = std::get< get_last_irreversible_block_response >( resp );
 
       LOG(info) << "Reindexing to target block: " << target_head.block_id;
-      block_height_type last_height{ 1 };
+      block_height_type last_height{ 0 };
       multihash last_id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
       while ( last_id != target_head.block_id )
       {
          get_blocks_by_height_request req {
             .head_block_id         = target_head.block_id,
-            .ancestor_start_height = last_height,
+            .ancestor_start_height = block_height_type{ ++last_height.t },
             .num_blocks            = 1000,
             .return_block          = true,
             .return_receipt        = false
@@ -82,7 +86,7 @@ void chain_plugin_impl::reindex()
 
          pack::to_json( j, block_store_request{ req } );
 
-         future = _mq_client->rpc( "application/json", "koinos_block", j.dump() );
+         future = _mq_client->rpc( "koinos_block", j.dump() );
 
          pack::from_json( nlohmann::json::parse( future.get() ), resp );
          auto batch = std::get< get_blocks_by_height_response >( resp );
@@ -99,7 +103,6 @@ void chain_plugin_impl::reindex()
             };
             args.block    = block_item.block.get_native();
 
-            LOG(info) << "Submitting block: " << args.topology;
             _reqhandler.submit( args );
 
             last_id     = block_item.block_id;
@@ -108,7 +111,10 @@ void chain_plugin_impl::reindex()
       }
 
       _reqhandler.stop_threads();
-      LOG(info) << "Finished reindexing " << last_height << " blocks";
+
+      const std::chrono::duration< double > duration = std::chrono::system_clock::now() - before;
+      LOG(info) << "Finished reindexing " << last_height << " blocks, took " << duration.count() << " seconds";
+
       _reqhandler.start_threads();
    }
    catch ( const std::exception& e )
@@ -133,7 +139,7 @@ void chain_plugin_impl::attach_request_handler()
 {
    try
    {
-      _reqhandler.connect( _amqp_url );
+      _reqhandler.set_client( _mq_client );
    }
    catch( std::exception& e )
    {
