@@ -133,7 +133,7 @@ struct work_item
  *
  * However, the state of C++ support for CSP style multithreading is rather unfortunate.
  * There is no thread-safe queue in the standard library, and the Boost sync_bounded_queue
- * class is marked as experimental.  Some quick Googling suggests that if you want avoid open( const boost::filesystem::path& p, const std::any& o );
+ * class is marked as experimental.  Some quick Googling suggests that if you want a
  * thread-safe queue class in C++, the accepted practice is to "roll your own" -- ugh.
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
@@ -270,6 +270,7 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
             "encountered unexpected object in initial state"
          );
       }
+      LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
    } );
 
    if ( reset )
@@ -510,6 +511,7 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
 
             multihash chain_id;
             pack::from_binary( chain_id_stream, chain_id, result.size );
+            LOG(info) << "get_chain_id returning " << chain_id;
 
             ret = types::rpc::query_submission_result( types::rpc::get_chain_id_result { .chain_id = chain_id } );
          }
