@@ -102,9 +102,7 @@ BOOST_AUTO_TEST_CASE( setup_tests )
 
    BOOST_TEST_MESSAGE( "Test when chain_plugin has not been started" );
 
-   auto future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
-   auto status = future.wait_for( std::chrono::milliseconds( 50 ) );
-   BOOST_CHECK( status == std::future_status::timeout );
+   BOOST_CHECK_THROW( _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) ), plugins::chain::request_handler_not_running );
 
    BOOST_TEST_MESSAGE( "Start chain_plugin" );
    _chain_plugin.plugin_initialize( _options );
@@ -112,7 +110,7 @@ BOOST_AUTO_TEST_CASE( setup_tests )
 
    BOOST_TEST_MESSAGE( "Check success with chain_plugin started" );
 
-   future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
+   auto future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
    auto submit_res = *(future.get());
    auto& query_res = std::get< types::rpc::query_submission_result >( submit_res );
    query_res.make_mutable();

@@ -209,6 +209,8 @@ std::chrono::time_point< std::chrono::steady_clock > reqhandler_impl::now()
 
 std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl::submit( const types::rpc::submission_item& item )
 {
+   KOINOS_ASSERT( _input_queue != nullptr, request_handler_not_running, "Request handler has not been started" );
+
    std::shared_ptr< item_submission_impl > impl_item;
 
    std::visit( koinos::overloaded {

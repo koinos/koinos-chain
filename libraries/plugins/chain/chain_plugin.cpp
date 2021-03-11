@@ -68,7 +68,7 @@ void chain_plugin_impl::reindex()
       auto target_head = std::get< get_last_irreversible_block_response >( resp );
 
       LOG(info) << "Reindexing to target block: " << target_head.block_id;
-      block_height_type last_height{ 0 };
+      block_height_type last_height{ 1 };
       multihash last_id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
       while ( last_id != target_head.block_id )
       {
@@ -89,8 +89,6 @@ void chain_plugin_impl::reindex()
 
          for ( auto& block_item : batch.block_items )
          {
-            if ( !block_item.block_height ) continue;
-
             block_item.block.unbox();
 
             types::rpc::block_submission args;
