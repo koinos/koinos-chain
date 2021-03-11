@@ -253,7 +253,6 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
 {
    _state_db.open( p, o, [&]( statedb::state_node_ptr root )
    {
-      uint64_t n = 0;
       for ( const auto& entry : data )
       {
          statedb::put_object_args put_args;
@@ -270,9 +269,8 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
             koinos::chain::database_exception,
             "encountered unexpected object in initial state"
          );
-         n++;
       }
-      LOG(info) << "Wrote " << n << " genesis objects into new database";
+      LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
    } );
 
    if ( reset )
