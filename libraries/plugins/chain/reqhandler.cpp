@@ -556,14 +556,21 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
 
    process_submission(subret, subq);
 
-   ret.fork_heads.resize(1);
    subret.unbox();
-   const types::rpc::query_item_result& subret_qi = subret.get_native();
+   const types::rpc::query_item_result& subret_qi = subret.get_const_native();
    const types::rpc::get_head_info_result& subret_hi = std::get< types::rpc::get_head_info_result >( subret_qi );
 
-   ret.fork_heads[0].id = subret_hi.id;
-   ret.fork_heads[0].previous = subret_hi.previous_id;
-   ret.fork_heads[0].height = subret_hi.height;
+   if( subret_hi.height == 0 )
+   {
+      ret.fork_heads.clear();
+   }
+   else
+   {
+      ret.fork_heads.resize(1);
+      ret.fork_heads[0].id = subret_hi.id;
+      ret.fork_heads[0].previous = subret_hi.previous_id;
+      ret.fork_heads[0].height = subret_hi.height;
+   }
 
    // TODO:  Fill in last irreversible ID and previous
    ret.last_irreversible_block.height = subret_hi.last_irreversible_height;
