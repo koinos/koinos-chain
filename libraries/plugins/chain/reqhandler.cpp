@@ -340,9 +340,9 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
             pack::to_json( j, broadcast::block_irreversible {
                .topology = {
-                  .id       = id,
-                  .height   = height,
-                  .previous = parent_id
+                  .id       = std::move( id ),
+                  .height   = std::move( height ),
+                  .previous = std::move( parent_id )
                }
             } );
 
