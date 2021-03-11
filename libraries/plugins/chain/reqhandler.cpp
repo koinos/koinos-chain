@@ -530,7 +530,7 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
 
    if( subret_hi.height == 0 )
    {
-      ret.fork_heads.resize(0);
+      ret.fork_heads.clear();
    }
    else
    {
