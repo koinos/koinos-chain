@@ -21,13 +21,16 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
 {
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
+   variable_blob blob_target;
 
-   variable_blob blob_target = thunk::db_get_object_thunk(
-      context,
-      SYS_CALL_DISPATCH_TABLE_SPACE_ID,
-      key,
-      SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE
-   );
+   with_privilege( context, privilege::kernel_mode, [&]() {
+      blob_target = thunk::db_get_object_thunk(
+         context,
+         SYS_CALL_DISPATCH_TABLE_SPACE_ID,
+         key,
+         SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE
+      );
+   });
 
    system_call_target target;
 
@@ -57,10 +60,11 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
             KOINOS_TODO( "Pointer validation" )
             args.resize( arg_len );
             std::memcpy( args.data(), arg_ptr.value, arg_len );
-            auto previous_privilege = context.get_privilege();
-            context.set_privilege( privilege::kernel_mode );
-            auto ret = thunk::execute_contract( context, scb.contract_id, scb.entry_point, args );
-            context.set_privilege( previous_privilege );
+            variable_blob ret;
+            with_privilege( context, privilege::kernel_mode, [&]()
+            {
+               ret = thunk::execute_contract( context, scb.contract_id, scb.entry_point, args );
+            });
             KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "Return buffer too small" );
             std::memcpy( ret.data(), ret_ptr.value, ret.size() );
          },

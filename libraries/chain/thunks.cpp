@@ -54,6 +54,14 @@ void register_thunks( thunk_dispatcher& td )
    )
 }
 
+// TODO: Should this be a thunk?
+bool is_system_space( const statedb::object_space& space_id )
+{
+   return space_id == CONTRACT_SPACE_ID ||
+          space_id == SYS_CALL_DISPATCH_TABLE_SPACE_ID ||
+          space_id == KERNEL_SPACE_ID;
+}
+
 namespace thunk {
 
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
@@ -285,8 +293,9 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
-   set_user_mode( context );
-   execute_contract( context, o.contract_id, o.entry_point, o.args );
+   with_privilege( context, privilege::user_mode, [&]() {
+      execute_contract( context, o.contract_id, o.entry_point, o.args );
+   });
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
@@ -315,6 +324,12 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
+   if ( context.get_privilege() == privilege::kernel_mode )
+      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+   else
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+         "contract attempted access of non-contract database space" );
+
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
    statedb::put_object_args put_args;
@@ -331,6 +346,12 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   if ( context.get_privilege() == privilege::kernel_mode )
+      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+   else
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+         "contract attempted access of non-contract database space" );
+
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
 
@@ -355,6 +376,12 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
 
 THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   if ( context.get_privilege() == privilege::kernel_mode )
+      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+   else
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+         "contract attempted access of non-contract database space" );
+
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
    statedb::get_object_args get_args;
@@ -379,6 +406,12 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
 
 THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   if ( context.get_privilege() == privilege::kernel_mode )
+      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+   else
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+         "contract attempted access of non-contract database space" );
+
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
    statedb::get_object_args get_args;
@@ -404,7 +437,13 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
 THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
 {
    uint256_t contract_key = pack::from_fixed_blob< uint160_t >( contract_id );
-   auto bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+
+   // We need to be in kernel mode to read the contract data
+   variable_blob bytecode;
+   with_privilege( context, privilege::kernel_mode, [&]()
+   {
+      bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+   });
    wasm_allocator_type wa;
 
    wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );

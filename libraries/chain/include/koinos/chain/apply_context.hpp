@@ -80,4 +80,30 @@ class apply_context
       const opaque< protocol::transaction >* _trx = nullptr;
 };
 
+struct privilege_restorer
+{
+   privilege_restorer( apply_context& ctx, privilege p ) :
+      _ctx( ctx )
+   {
+      _p = ctx.get_privilege();
+      ctx.set_privilege( p );
+   }
+
+   ~privilege_restorer()
+   {
+      _ctx.set_privilege( _p );
+   }
+
+   private:
+      apply_context& _ctx;
+      privilege      _p;
+};
+
+template< typename Lambda >
+void with_privilege( apply_context& ctx, privilege p, Lambda&& l )
+{
+   privilege_restorer r( ctx, p );
+   l();
+}
+
 } // koinos::chain
