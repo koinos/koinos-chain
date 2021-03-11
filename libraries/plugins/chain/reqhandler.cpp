@@ -327,7 +327,37 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       auto lib = get_last_irreversible_block( *_ctx );
       if ( lib > _state_db.get_root()->revision() )
       {
-         _state_db.commit_node( _state_db.get_node_at_revision( uint64_t(lib), block_node->id() )->id() );
+         auto node      = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+         auto id        = node->id();
+         auto height    = block_height_type( node->revision() );
+         auto parent_id = node->parent_id();
+
+         _state_db.commit_node( node->id() );
+
+         if ( _publisher.is_connected() )
+         {
+            json j;
+
+            pack::to_json( j, broadcast::block_irreversible {
+               .topology = {
+                  .id       = std::move( id ),
+                  .height   = std::move( height ),
+                  .previous = std::move( parent_id )
+               }
+            } );
+
+            auto err = _publisher.publish( mq::message {
+               .exchange     = "koinos_event",
+               .routing_key  = "koinos.block.irreversible",
+               .content_type = "application/json",
+               .data         = j.dump()
+            } );
+
+            if ( err != mq::error_code::success )
+            {
+               LOG(error) << "failed to publish block irreversible to message broker";
+            }
+         }
       }
 
       _ctx->clear_state_node();
