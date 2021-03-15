@@ -133,7 +133,7 @@ struct work_item
  *
  * However, the state of C++ support for CSP style multithreading is rather unfortunate.
  * There is no thread-safe queue in the standard library, and the Boost sync_bounded_queue
- * class is marked as experimental.  Some quick Googling suggests that if you want avoid open( const boost::filesystem::path& p, const std::any& o );
+ * class is marked as experimental.  Some quick Googling suggests that if you want a
  * thread-safe queue class in C++, the accepted practice is to "roll your own" -- ugh.
  * We'll use the sync_bounded_queue class here for now, which means we need to use Boost
  * threading internally.  Let's keep the interface based on std::future.
@@ -270,6 +270,7 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
             "encountered unexpected object in initial state"
          );
       }
+      LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
    } );
 
    if ( reset )
@@ -327,7 +328,37 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       auto lib = get_last_irreversible_block( *_ctx );
       if ( lib > _state_db.get_root()->revision() )
       {
-         _state_db.commit_node( _state_db.get_node_at_revision( uint64_t(lib), block_node->id() )->id() );
+         auto node      = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+         auto id        = node->id();
+         auto height    = block_height_type( node->revision() );
+         auto parent_id = node->parent_id();
+
+         _state_db.commit_node( node->id() );
+
+         if ( _publisher.is_connected() )
+         {
+            json j;
+
+            pack::to_json( j, broadcast::block_irreversible {
+               .topology = {
+                  .id       = std::move( id ),
+                  .height   = std::move( height ),
+                  .previous = std::move( parent_id )
+               }
+            } );
+
+            auto err = _publisher.publish( mq::message {
+               .exchange     = "koinos_event",
+               .routing_key  = "koinos.block.irreversible",
+               .content_type = "application/json",
+               .data         = j.dump()
+            } );
+
+            if ( err != mq::error_code::success )
+            {
+               LOG(error) << "failed to publish block irreversible to message broker";
+            }
+         }
       }
 
       _ctx->clear_state_node();
@@ -480,6 +511,7 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
 
             multihash chain_id;
             pack::from_binary( chain_id_stream, chain_id, result.size );
+            LOG(info) << "get_chain_id returning " << chain_id;
 
             ret = types::rpc::query_submission_result( types::rpc::get_chain_id_result { .chain_id = chain_id } );
          }
@@ -524,14 +556,21 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
 
    process_submission(subret, subq);
 
-   ret.fork_heads.resize(1);
    subret.unbox();
-   const types::rpc::query_item_result& subret_qi = subret.get_native();
+   const types::rpc::query_item_result& subret_qi = subret.get_const_native();
    const types::rpc::get_head_info_result& subret_hi = std::get< types::rpc::get_head_info_result >( subret_qi );
 
-   ret.fork_heads[0].id = subret_hi.id;
-   ret.fork_heads[0].previous = subret_hi.previous_id;
-   ret.fork_heads[0].height = subret_hi.height;
+   if( subret_hi.height == 0 )
+   {
+      ret.fork_heads.clear();
+   }
+   else
+   {
+      ret.fork_heads.resize(1);
+      ret.fork_heads[0].id = subret_hi.id;
+      ret.fork_heads[0].previous = subret_hi.previous_id;
+      ret.fork_heads[0].height = subret_hi.height;
+   }
 
    // TODO:  Fill in last irreversible ID and previous
    ret.last_irreversible_block.height = subret_hi.last_irreversible_height;
