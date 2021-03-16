@@ -90,13 +90,13 @@ void apply_context::clear_authority()
 
 const account_type& apply_context::get_caller()const
 {
-   KOINOS_ASSERT( _stack.size(), stack_exception, "stack has no calling frame" );
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
    return _stack[ _stack.size() - 2 ].call;
 }
 
 void apply_context::push_frame( stack_frame&& frame )
 {
-   KOINOS_ASSERT( _stack.size() < STACK_LIMIT, stack_overflow, "apply context stack overflow" );
+   KOINOS_ASSERT( _stack.size() < APPLY_CONTEXT_STACK_LIMIT, stack_overflow, "apply context stack overflow" );
    _stack.emplace_back( std::move(frame) );
 }
 

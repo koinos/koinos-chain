@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 
-#define STACK_LIMIT 256
+#define APPLY_CONTEXT_STACK_LIMIT 256
 
 namespace koinos::chain {
 

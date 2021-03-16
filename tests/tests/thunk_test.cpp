@@ -363,4 +363,30 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( stack_tests )
+{ try {
+   BOOST_TEST_MESSAGE( "apply context stack tests" );
+
+   BOOST_REQUIRE_THROW( ctx.pop_frame(), koinos::chain::stack_exception );
+
+   auto call1_vb = koinos::pack::to_variable_blob( "call1"s );
+   ctx.push_frame( koinos::chain::stack_frame{ .call = call1_vb } );
+   BOOST_REQUIRE_THROW( ctx.get_caller(), koinos::chain::stack_exception );
+
+   auto call2_vb = koinos::pack::to_variable_blob( "call2"s );
+   ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
+   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
+
+   auto last_frame = ctx.pop_frame();
+   BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
+
+   for( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
+   {
+      ctx.push_frame( koinos::chain::stack_frame{ .call = koinos::pack::to_variable_blob( "call"s + std::to_string(i) ) } );
+   }
+
+   BOOST_REQUIRE_THROW( ctx.push_frame( koinos::chain::stack_frame{} ), koinos::chain::stack_overflow );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
