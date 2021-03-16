@@ -381,6 +381,7 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 BOOST_AUTO_TEST_CASE( stack_tests )
 { try {
    BOOST_TEST_MESSAGE( "apply context stack tests" );
+   ctx.pop_frame();
 
    BOOST_REQUIRE_THROW( ctx.pop_frame(), koinos::chain::stack_exception );
 
@@ -407,8 +408,8 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 
 BOOST_AUTO_TEST_CASE( require_authority )
 { try {
-   auto foo_key = koinos::crypto::private_key::generate_from_seed( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
-   auto bar_key = koinos::crypto::private_key::generate_from_seed( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
+   auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
+   auto bar_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
 
    koinos::protocol::transaction trx;
    auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data.get_const_native() ) );
