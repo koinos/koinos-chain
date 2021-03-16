@@ -376,6 +376,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    auto call2_vb = koinos::pack::to_variable_blob( "call2"s );
    ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
    BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
+   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), thunk::get_caller(ctx).begin() ) );
 
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
@@ -386,6 +387,25 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    }
 
    BOOST_REQUIRE_THROW( ctx.push_frame( koinos::chain::stack_frame{} ), koinos::chain::stack_overflow );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( require_authority )
+{ try {
+   auto foo_key = koinos::crypto::private_key::generate_from_seed( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
+   auto bar_key = koinos::crypto::private_key::generate_from_seed( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
+
+   koinos::protocol::transaction trx;
+   auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data.get_const_native() ) );
+   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   auto opaque = koinos::opaque< koinos::protocol::transaction >( trx );
+   ctx.set_transaction( opaque );
+
+   auto foo_account = koinos::pack::to_variable_blob( foo_key.get_public_key().to_address() );
+   auto bar_account = koinos::pack::to_variable_blob( bar_key.get_public_key().to_address() );
+   thunk::require_authority( ctx, foo_account );
+
+   BOOST_REQUIRE_THROW( thunk::require_authority( ctx, bar_account ), koinos::chain::thunk::invalid_signature );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
