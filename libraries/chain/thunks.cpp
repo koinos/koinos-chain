@@ -49,8 +49,6 @@ void register_thunks( thunk_dispatcher& td )
       (get_caller)
       (get_transaction_signature)
       (require_authority)
-
-      (set_user_mode)
    )
 }
 
@@ -126,6 +124,8 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_TODO( "Check height" );
    KOINOS_TODO( "Check timestamp" );
    KOINOS_TODO( "Specify allowed set of hashing algorithms" );
+
+   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
 
    auto setter = block_setter( context, block );
    block.active_data.unbox();
@@ -247,6 +247,8 @@ struct transaction_setter
 
 THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&) trx) )
 {
+   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+
    using namespace koinos::protocol;
 
    auto setter = transaction_setter( context, trx );
@@ -281,11 +283,14 @@ THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&)
 
 THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
 {
+   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
    KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" );
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
+   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
    db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
@@ -293,6 +298,8 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
+   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+
    with_privilege( context, privilege::user_mode, [&]() {
       execute_contract( context, o.contract_id, o.entry_point, o.args );
    });
@@ -300,6 +307,8 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
+   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+
    // Ensure override exists
    std::visit(
    koinos::overloaded{
@@ -575,11 +584,6 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
    account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );
    KOINOS_ASSERT( sig_account.size() == account.size() &&
       std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match" );
-}
-
-THUNK_DEFINE_VOID( void, set_user_mode )
-{
-   context.set_privilege( privilege::user_mode );
 }
 
 } } // koinos::chain::thunk

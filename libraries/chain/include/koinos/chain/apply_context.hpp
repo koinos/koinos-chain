@@ -69,11 +69,17 @@ class apply_context
       void set_privilege( privilege );
       privilege get_privilege()const;
 
+      void set_in_user_code( bool );
+      bool is_in_user_code()const;
+
    private:
+      friend struct privilege_restorer;
+
       state_node_ptr                         _current_state_node;
       std::string                            _pending_console_output;
       std::optional< crypto::public_key >    _key_auth;
 
+      bool                                   _is_in_user_code = false;
       std::vector< stack_frame >             _stack;
 
       const protocol::block*                 _block = nullptr;
@@ -85,17 +91,23 @@ struct privilege_restorer
    privilege_restorer( apply_context& ctx, privilege p ) :
       _ctx( ctx )
    {
-      _p = ctx.get_privilege();
-      ctx.set_privilege( p );
+      _p = _ctx.get_privilege();
+      _user_code = _ctx.is_in_user_code();
+      if ( p == privilege::user_mode )
+         _ctx.set_in_user_code( true );
+
+      _ctx.set_privilege( p );
    }
 
    ~privilege_restorer()
    {
       _ctx.set_privilege( _p );
+      _ctx.set_in_user_code( _user_code );
    }
 
    private:
       apply_context& _ctx;
+      bool           _user_code;
       privilege      _p;
 };
 

@@ -347,6 +347,17 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( privileged_calls )
+{
+   ctx.set_in_user_code( true );
+   BOOST_REQUIRE_THROW( thunk::apply_block( ctx, koinos::protocol::block{}, false, false, false ), koinos::chain::thunk::thunk_privilege_error );
+   BOOST_REQUIRE_THROW( thunk::apply_transaction( ctx, koinos::opaque< koinos::protocol::transaction >() ), koinos::chain::thunk::thunk_privilege_error );
+   BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::protocol::reserved_operation{} ), koinos::chain::thunk::thunk_privilege_error );
+   BOOST_REQUIRE_THROW( thunk::apply_upload_contract_operation( ctx, koinos::protocol::create_system_contract_operation{} ), koinos::chain::thunk::thunk_privilege_error );
+   BOOST_REQUIRE_THROW( thunk::apply_execute_contract_operation( ctx, koinos::protocol::contract_call_operation{} ), koinos::chain::thunk::thunk_privilege_error );
+   BOOST_REQUIRE_THROW( thunk::apply_set_system_call_operation( ctx, koinos::protocol::set_system_call_operation{} ), koinos::chain::thunk::thunk_privilege_error );
+}
+
 BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 { try {
 

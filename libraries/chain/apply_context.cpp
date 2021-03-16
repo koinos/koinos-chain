@@ -88,6 +88,20 @@ void apply_context::clear_authority()
    _key_auth.reset();
 }
 
+void apply_context::push_frame( stack_frame&& frame )
+{
+   KOINOS_ASSERT( _stack.size() < STACK_LIMIT, stack_overflow, "apply context stack overflow" );
+   _stack.emplace_back( std::move(frame) );
+}
+
+stack_frame apply_context::pop_frame()
+{
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   auto frame = _stack[ _stack.size() - 1 ];
+   _stack.pop_back();
+   return frame;
+}
+
 const account_type& apply_context::get_caller()const
 {
    KOINOS_ASSERT( _stack.size(), stack_exception, "stack has no calling frame" );
@@ -106,18 +120,14 @@ privilege apply_context::get_privilege()const
    return _stack[ _stack.size() - 1 ].call_privilege;
 }
 
-void apply_context::push_frame( stack_frame&& frame )
+void apply_context::set_in_user_code( bool is_in_user_code )
 {
-   KOINOS_ASSERT( _stack.size() < STACK_LIMIT, stack_overflow, "apply context stack overflow" );
-   _stack.emplace_back( std::move(frame) );
+   _is_in_user_code = is_in_user_code;
 }
 
-stack_frame apply_context::pop_frame()
+bool apply_context::is_in_user_code()const
 {
-   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
-   auto frame = _stack[ _stack.size() - 1 ];
-   _stack.pop_back();
-   return frame;
+   return _is_in_user_code;
 }
 
 } // koinos::chain

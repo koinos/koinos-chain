@@ -23,6 +23,7 @@ namespace thunk {
 KOINOS_DECLARE_EXCEPTION( exit_success );
 KOINOS_DECLARE_EXCEPTION( exit_failure );
 KOINOS_DECLARE_EXCEPTION( unknown_exit_code );
+KOINOS_DECLARE_EXCEPTION( thunk_privilege_error );
 KOINOS_DECLARE_EXCEPTION( unknown_hash_code );
 KOINOS_DECLARE_EXCEPTION( empty_block_header );
 KOINOS_DECLARE_EXCEPTION( transaction_root_mismatch );
@@ -100,7 +101,5 @@ THUNK_DECLARE_VOID( block_height_type, get_last_irreversible_block );
 THUNK_DECLARE_VOID( account_type, get_caller );
 THUNK_DECLARE_VOID( variable_blob, get_transaction_signature );
 THUNK_DECLARE( void, require_authority, const account_type& );
-
-THUNK_DECLARE_VOID( void, set_user_mode );
 
 } } // koinos::chain::thunk
