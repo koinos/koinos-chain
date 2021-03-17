@@ -193,7 +193,10 @@ reqhandler_impl::reqhandler_impl()
 {
    koinos::chain::register_host_functions();
    _ctx = std::make_unique< apply_context >();
-   _ctx->privilege_level = privilege::kernel_mode;
+   _ctx->push_frame( koinos::chain::stack_frame {
+      .call = pack::to_variable_blob( "reqhandler"s ),
+      .call_privilege = privilege::kernel_mode
+   } );
    _host_api = std::make_unique< host_api >( *_ctx );
 }
 

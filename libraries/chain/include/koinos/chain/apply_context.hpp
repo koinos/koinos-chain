@@ -22,6 +22,7 @@ KOINOS_DECLARE_EXCEPTION( stack_overflow );
 struct stack_frame
 {
    account_type  call;
+   privilege     call_privilege;
    variable_blob call_args;
    variable_blob call_return;
 };
@@ -65,19 +66,56 @@ class apply_context
 
       const account_type& get_caller()const;
 
-   /// Fields:
-   public:
-      privilege                     privilege_level = privilege::user_mode;
+      void set_privilege( privilege );
+      privilege get_privilege()const;
+
+      void set_in_user_code( bool );
+      bool is_in_user_code()const;
 
    private:
-      state_node_ptr                      _current_state_node;
-      std::string                         _pending_console_output;
-      std::optional< crypto::public_key > _key_auth;
+      friend struct privilege_restorer;
 
-      std::vector< stack_frame >          _stack;
+      state_node_ptr                         _current_state_node;
+      std::string                            _pending_console_output;
+      std::optional< crypto::public_key >    _key_auth;
+
+      bool                                   _is_in_user_code = false;
+      std::vector< stack_frame >             _stack;
 
       const protocol::block*                 _block = nullptr;
       const opaque< protocol::transaction >* _trx = nullptr;
 };
+
+struct privilege_restorer
+{
+   privilege_restorer( apply_context& ctx, privilege p ) :
+      _ctx( ctx )
+   {
+      _p = _ctx.get_privilege();
+      _user_code = _ctx.is_in_user_code();
+      if ( p == privilege::user_mode )
+         _ctx.set_in_user_code( true );
+
+      _ctx.set_privilege( p );
+   }
+
+   ~privilege_restorer()
+   {
+      _ctx.set_privilege( _p );
+      _ctx.set_in_user_code( _user_code );
+   }
+
+   private:
+      apply_context& _ctx;
+      bool           _user_code;
+      privilege      _p;
+};
+
+template< typename Lambda >
+void with_privilege( apply_context& ctx, privilege p, Lambda&& l )
+{
+   privilege_restorer r( ctx, p );
+   l();
+}
 
 } // koinos::chain

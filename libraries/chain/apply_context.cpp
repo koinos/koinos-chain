@@ -88,12 +88,6 @@ void apply_context::clear_authority()
    _key_auth.reset();
 }
 
-const account_type& apply_context::get_caller()const
-{
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
-   return _stack[ _stack.size() - 2 ].call;
-}
-
 void apply_context::push_frame( stack_frame&& frame )
 {
    KOINOS_ASSERT( _stack.size() < APPLY_CONTEXT_STACK_LIMIT, stack_overflow, "apply context stack overflow" );
@@ -106,6 +100,34 @@ stack_frame apply_context::pop_frame()
    auto frame = _stack[ _stack.size() - 1 ];
    _stack.pop_back();
    return frame;
+}
+
+const account_type& apply_context::get_caller()const
+{
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
+   return _stack[ _stack.size() - 2 ].call;
+}
+
+void apply_context::set_privilege( privilege p )
+{
+   KOINOS_ASSERT( _stack.size() , koinos::exception, "" );
+   _stack[ _stack.size() - 1 ].call_privilege = p;
+}
+
+privilege apply_context::get_privilege()const
+{
+   KOINOS_ASSERT( _stack.size() , koinos::exception, "" );
+   return _stack[ _stack.size() - 1 ].call_privilege;
+}
+
+void apply_context::set_in_user_code( bool is_in_user_code )
+{
+   _is_in_user_code = is_in_user_code;
+}
+
+bool apply_context::is_in_user_code()const
+{
+   return _is_in_user_code;
 }
 
 } // koinos::chain
