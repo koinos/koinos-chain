@@ -1,6 +1,3 @@
-#include <cstdlib>
-#include <string>
-
 #include <boost/program_options.hpp>
 
 #include <koinos/exception.hpp>
