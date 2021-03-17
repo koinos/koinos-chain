@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <boost/program_options.hpp>
+#include <nlohmann/json.hpp>
 
 #include <koinos/exception.hpp>
 #include <koinos/log.hpp>
@@ -22,7 +23,21 @@ int main( int argc, char** argv )
    {
       boost::program_options::options_description options;
 
-      std::cout << std::cin.rdbuf();
+      // Read STDIN to a string
+      std::string transaction_json;
+      std::getline( std::cin, transaction_json );
+
+      // Parse and deserialize the json to a transaction
+      auto j = nlohmann::json::parse( transaction_json );
+      koinos::protocol::transaction transaction;
+      koinos::pack::from_json( j, transaction );
+
+      // TODO: Read the private key
+      // TODO: Sign the transaction
+      // TODO: Optionally wrap the transaction
+
+      // Write the resulting transaction's json to STDOUT
+      std::cout << transaction;
       
       return EXIT_SUCCESS;
    }
