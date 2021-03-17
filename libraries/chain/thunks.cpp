@@ -45,6 +45,10 @@ void register_thunks( thunk_dispatcher& td )
       (get_transaction_resource_limit)
 
       (get_last_irreversible_block)
+
+      (get_caller)
+      (get_transaction_signature)
+      (require_authority)
    )
 }
 
@@ -82,6 +86,24 @@ THUNK_DEFINE( bool, verify_merkle_root, ((const multihash&) root, (const std::ve
    return (tmp[0] == root);
 }
 
+// RAII class to ensure apply context block state is consistent if there is an error applying
+// the block.
+struct block_setter
+{
+   block_setter( apply_context& context, const protocol::block& block ) :
+      ctx( context )
+   {
+      ctx.set_block( block );
+   }
+
+   ~block_setter()
+   {
+      ctx.clear_block();
+   }
+
+   apply_context& ctx;
+};
+
 THUNK_DEFINE( void, apply_block,
    (
       (const protocol::block&) block,
@@ -95,6 +117,7 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_TODO( "Check timestamp" );
    KOINOS_TODO( "Specify allowed set of hashing algorithms" );
 
+   auto setter = block_setter( context, block );
    block.active_data.unbox();
 
    const multihash& tx_root = block.active_data->transaction_merkle_root;
@@ -194,11 +217,33 @@ THUNK_DEFINE( void, apply_block,
    }
 }
 
+// RAII class to ensure apply context transaction state is consistent if there is an error applying
+// the transaction.
+struct transaction_setter
+{
+   transaction_setter( apply_context& context, const opaque< protocol::transaction >& trx ) :
+      ctx( context )
+   {
+      ctx.set_transaction( trx );
+   }
+
+   ~transaction_setter()
+   {
+      ctx.clear_transaction();
+   }
+
+   apply_context& ctx;
+};
+
 THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&) trx) )
 {
    using namespace koinos::protocol;
 
+   auto setter = transaction_setter( context, trx );
    trx.unbox();
+
+   auto payer = get_transaction_payer( context, trx );
+   require_authority( context, payer );
 
    for( const auto& o : trx->operations )
    {
@@ -365,14 +410,18 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    backend.set_wasm_allocator( &wa );
    backend.initialize();
 
-   context.set_contract_call_args( args );
+   context.push_frame( stack_frame {
+      .call = pack::to_variable_blob( contract_id ),
+      .call_args = args
+   } );
+
    try
    {
       backend( &context, "env", "_start" );
    }
    catch( const exit_success& ) {}
 
-   return context.get_contract_return();
+   return context.pop_frame().call_return;
 }
 
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
@@ -463,6 +512,26 @@ THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 
    auto head = context.get_state_node();
    return block_height_type( head->revision() > IRREVERSIBLE_THRESHOLD ? head->revision() - IRREVERSIBLE_THRESHOLD : 0 );
+}
+
+THUNK_DEFINE_VOID( account_type, get_caller )
+{
+   return context.get_caller();
+}
+
+THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
+{
+   return context.get_transaction()->signature_data;
+}
+
+THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
+{
+   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction()->active_data.get_const_native() );
+   crypto::recoverable_signature sig;
+   pack::from_variable_blob( get_transaction_signature( context ), sig );
+   account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );
+   KOINOS_ASSERT( sig_account.size() == account.size() &&
+      std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match" );
 }
 
 } } // koinos::chain::thunk

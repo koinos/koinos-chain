@@ -29,6 +29,7 @@ KOINOS_DECLARE_EXCEPTION( transaction_root_mismatch );
 KOINOS_DECLARE_EXCEPTION( passive_root_mismatch );
 KOINOS_DECLARE_EXCEPTION( invalid_block_signature );
 KOINOS_DECLARE_EXCEPTION( invalid_transaction_signature );
+KOINOS_DECLARE_EXCEPTION( invalid_signature );
 
 /*
  * When defining a new thunk, we have essentially two different implementations.
@@ -95,5 +96,9 @@ THUNK_DECLARE( uint128, get_max_account_resources, const account_type& account )
 THUNK_DECLARE( uint128, get_transaction_resource_limit, const opaque< protocol::transaction >& tx);
 
 THUNK_DECLARE_VOID( block_height_type, get_last_irreversible_block );
+
+THUNK_DECLARE_VOID( account_type, get_caller );
+THUNK_DECLARE_VOID( variable_blob, get_transaction_signature );
+THUNK_DECLARE( void, require_authority, const account_type& );
 
 } } // koinos::chain::thunk

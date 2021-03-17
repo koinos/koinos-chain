@@ -49,6 +49,10 @@ DEFAULT_SYSTEM_CALLS(
    (get_transaction_resource_limit)
 
    (get_last_irreversible_block)
+
+   (get_caller)
+   (get_transaction_signature)
+   (require_authority)
 )
 
 } // koinos::chain
