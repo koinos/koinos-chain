@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 
 #include <boost/program_options.hpp>
 #include <nlohmann/json.hpp>
@@ -17,11 +18,50 @@ void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypt
    koinos::pack::to_variable_blob( transaction.signature_data, signature );
 }
 
+koinos::crypto::private_key read_keyfile( std::string key_filename )
+{
+   // Read base58 wif string from given file
+   std::string key_string;
+   std::ifstream instream;
+   instream.open( key_filename );
+   std::getline( instream, key_string );
+   instream.close();
+
+   // Create and return the key from the wif
+   auto key = koinos::crypto::private_key::from_wif( key_string );
+   return key;
+}
+
 int main( int argc, char** argv )
 {
    try
    {
-      boost::program_options::options_description options;
+      // Setup command line options
+      boost::program_options::options_description options( "Koinos Transaction Signing Tool\n"
+                                                           "Accepts a json transaction to sign via STDIN\n"
+                                                           "Returns the signed transaction via STDOUT\n\n"
+                                                           "Options" );
+      options.add_options()
+      ( "help,h",        "print usage message" )
+      ( "private-key,p", boost::program_options::value< std::string >()->default_value( "private.key" ), "private key file" )
+      ;
+
+      // Parse command-line options
+      boost::program_options::variables_map vm;
+      boost::program_options::store( boost::program_options::parse_command_line( argc, argv, options ), vm );
+
+      // Handle help message
+      if ( vm.count( "help" ) )
+      {
+         std::cout << options << std::endl;
+         return EXIT_SUCCESS;
+      }
+
+      // Read options into variables
+      std::string key_filename = vm[ "private-key" ].as< std::string >();
+      
+      // Read the keyfile
+      auto private_key = read_keyfile( key_filename );
 
       // Read STDIN to a string
       std::string transaction_json;
@@ -32,12 +72,13 @@ int main( int argc, char** argv )
       koinos::protocol::transaction transaction;
       koinos::pack::from_json( j, transaction );
 
-      // TODO: Read the private key
-      // TODO: Sign the transaction
+      // Sign the transaction
+      sign_transaction( transaction, private_key );
+
       // TODO: Optionally wrap the transaction
 
       // Write the resulting transaction's json to STDOUT
-      std::cout << transaction;
+      std::cout << transaction << std::endl;
       
       return EXIT_SUCCESS;
    }
