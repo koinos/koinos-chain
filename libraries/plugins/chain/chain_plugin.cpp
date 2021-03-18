@@ -164,7 +164,7 @@ void chain_plugin_impl::attach_client()
 
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "Unable to connect amqp client";
+      LOG(error) << "Unable to connect AMQP client";
       exit( EXIT_FAILURE );
    }
 }
@@ -177,7 +177,7 @@ void chain_plugin_impl::attach_request_handler()
    }
    catch( std::exception& e )
    {
-      LOG(error) << "Error connecting to mq server: " << e.what();
+      LOG(error) << "Error connecting to AMQP server: " << e.what();
       exit( EXIT_FAILURE );
    }
 
@@ -186,7 +186,7 @@ void chain_plugin_impl::attach_request_handler()
    ec = _mq_reqhandler->connect( _amqp_url );
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "Unable to connect request handler to mq server";
+      LOG(error) << "Unable to connect request handler to AMQP server";
       exit( EXIT_FAILURE );
    }
 
@@ -450,14 +450,14 @@ void chain_plugin::plugin_shutdown()
 
    if ( !my->_mq_disable )
    {
-      LOG(info) << "Closing mq request handler";
+      LOG(info) << "Closing AMQP request handler";
       my->_mq_reqhandler->stop();
    }
 
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
    my->_reqhandler.stop_threads();
-   LOG(info) << "Catabase closed successfully";
+   LOG(info) << "Database closed successfully";
 }
 
 std::future< std::shared_ptr< koinos::types::rpc::submission_result > > chain_plugin::submit( const koinos::types::rpc::submission_item& item )
