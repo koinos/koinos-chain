@@ -72,11 +72,13 @@ int main( int argc, char** argv )
       koinos::protocol::transaction transaction;
       koinos::pack::from_json( j, transaction );
 
-      // TODO: Sign the transaction
+      // Sign the transaction
+      sign_transaction( transaction, private_key );
+
       // TODO: Optionally wrap the transaction
 
       // Write the resulting transaction's json to STDOUT
-      std::cout << transaction;
+      std::cout << transaction << std::endl;
       
       return EXIT_SUCCESS;
    }
