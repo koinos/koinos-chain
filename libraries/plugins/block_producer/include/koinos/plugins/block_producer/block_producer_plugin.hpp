@@ -6,7 +6,7 @@
 #include <koinos/crypto/elliptic.hpp>
 
 #define KOINOS_BLOCK_PRODUCER_PLUGIN_NAME "block_producer"
-#define KOINOS_BLOCK_TIME_MS              500
+#define KOINOS_BLOCK_TIME_MS              10000
 
 namespace koinos::plugins::block_producer {
 
