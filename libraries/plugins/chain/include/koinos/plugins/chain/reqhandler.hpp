@@ -30,7 +30,6 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( block_height_mismatch, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( previous_id_mismatch, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, reqhandler_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( mq_connection_failure, reqhandler_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( request_handler_not_running, reqhandler_exception );
 
 using genesis_data = std::map< statedb::object_key, statedb::object_value >;
 
