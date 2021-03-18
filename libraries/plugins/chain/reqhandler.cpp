@@ -8,7 +8,7 @@
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/interprocess/streams/vectorstream.hpp>
 #include <boost/thread/future.hpp>
-#include <boost/thread/sync_bounded_queue.hpp>
+#include <boost/thread/sync_queue.hpp>
 
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/mempool.hpp>
@@ -28,8 +28,6 @@
 
 #include <koinos/log.hpp>
 
-#include <koinos/mq/message_broker.hpp>
-
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
@@ -46,6 +44,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <thread>
 
 namespace koinos::plugins::chain {
 
@@ -146,12 +145,14 @@ class reqhandler_impl
 
       void start_threads();
       void stop_threads();
+      void wait_for_jobs();
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
-      void connect( const std::string& amqp_url );
+      void set_client( std::shared_ptr< mq::client > c );
 
    private:
+      using queue_type = boost::concurrent::sync_queue< std::shared_ptr< work_item > >;
       std::shared_ptr< types::rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
       void process_submission( types::rpc::block_submission_result& ret,       const block_submission_impl& block );
@@ -168,7 +169,7 @@ class reqhandler_impl
       std::mutex                                                               _state_db_mutex;
       std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
-      mq::message_broker                                                       _publisher;
+      std::shared_ptr< mq::client >                                            _client;
       koinos::chain::mempool                                                   _mempool;
 
       // Item lifetime:
@@ -180,9 +181,8 @@ class reqhandler_impl
       //
       // Feed thread contains scheduler logic, moves items that can be worked on concurrently from input queue to work queue.
       // Work threads consume the work queue and move completed work to the output queue.
-
-      boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _input_queue{ MAX_QUEUE_SIZE };
-      boost::concurrent::sync_bounded_queue< std::shared_ptr< work_item > >    _work_queue{ MAX_QUEUE_SIZE };
+      queue_type                                                               _input_queue;
+      queue_type                                                               _work_queue;
 
       size_t                                                                   _thread_stack_size = 4096*1024;
       std::optional< boost::thread >                                           _feed_thread;
@@ -241,7 +241,7 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
    std::future< std::shared_ptr< types::rpc::submission_result > > fut_output = work->prom_output.get_future();
    try
    {
-      _input_queue.push_back( work );
+      _input_queue.push( work );
    }
    catch( const boost::concurrent::sync_queue_is_closed& e )
    {
@@ -286,12 +286,9 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
    LOG(info) << "Opened database at block - height: " << head->revision() << ", id: " << head->id();
 }
 
-void reqhandler_impl::connect( const std::string& amqp_url )
+void reqhandler_impl::set_client( std::shared_ptr< mq::client > c )
 {
-   if ( _publisher.connect( amqp_url ) != mq::error_code::success )
-   {
-      KOINOS_THROW( mq_connection_failure, "Unable to connect to MQ server" );
-   }
+   _client = c;
 }
 
 void reqhandler_impl::process_submission( types::rpc::block_submission_result& ret, const block_submission_impl& block )
@@ -331,35 +328,31 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       auto lib = get_last_irreversible_block( *_ctx );
       if ( lib > _state_db.get_root()->revision() )
       {
-         auto node      = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-         auto id        = node->id();
-         auto height    = block_height_type( node->revision() );
-         auto parent_id = node->parent_id();
+         auto node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+
+         broadcast::block_irreversible msg {
+            .topology = {
+               .id       = node->id(),
+               .height   = block_height_type( node->revision() ),
+               .previous = node->parent_id()
+            }
+         };
 
          _state_db.commit_node( node->id() );
 
-         if ( _publisher.is_connected() )
+         if ( _client && _client->is_connected() )
          {
-            json j;
-
-            pack::to_json( j, broadcast::block_irreversible {
-               .topology = {
-                  .id       = std::move( id ),
-                  .height   = std::move( height ),
-                  .previous = std::move( parent_id )
-               }
-            } );
-
-            auto err = _publisher.publish( mq::message {
-               .exchange     = "koinos_event",
-               .routing_key  = "koinos.block.irreversible",
-               .content_type = "application/json",
-               .data         = j.dump()
-            } );
-
-            if ( err != mq::error_code::success )
+            try
             {
-               LOG(error) << "failed to publish block irreversible to message broker";
+               json j;
+
+               pack::to_json( j, msg );
+
+               _client->broadcast( "koinos.block.irreversible", j.dump() );
+            }
+            catch ( const std::exception& e )
+            {
+               LOG(error) << "Failed to publish block irreversible to message broker: " << e.what();
             }
          }
       }
@@ -372,25 +365,23 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       throw;
    }
 
-   if ( _publisher.is_connected() )
+
+   if ( _client && _client->is_connected() )
    {
-      json j;
-
-      pack::to_json( j, broadcast::block_accepted {
-         .topology = block.submission.topology,
-         .block    = block.submission.block
-      } );
-
-      auto err = _publisher.publish( mq::message {
-         .exchange     = "koinos_event",
-         .routing_key  = "koinos.block.accept",
-         .content_type = "application/json",
-         .data         = j.dump()
-      } );
-
-      if ( err != mq::error_code::success )
+      try
       {
-         LOG(error) << "failed to publish block application to message broker";
+         json j;
+
+         pack::to_json( j, broadcast::block_accepted {
+            .topology = block.submission.topology,
+            .block    = block.submission.block
+         } );
+
+         _client->broadcast( "koinos.block.accept", j.dump() );
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Failed to publish block application to message broker: " << e.what();
       }
    }
 }
@@ -438,25 +429,22 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       }
    }
 
-   if ( _publisher.is_connected() )
+   if ( _client && _client->is_connected() )
    {
-      json j;
-
-      pack::to_json( j, broadcast::transaction_accepted {
-         .topology    = tx.submission.topology,
-         .transaction = tx.submission.transaction
-      } );
-
-      auto err = _publisher.publish( mq::message {
-         .exchange     = "koinos_event",
-         .routing_key  = "koinos.transaction.accept",
-         .content_type = "application/json",
-         .data         = j.dump()
-      } );
-
-      if ( err != mq::error_code::success )
+      try
       {
-         LOG(error) << "failed to publish block application to message broker";
+         json j;
+
+         pack::to_json( j, broadcast::transaction_accepted {
+            .topology    = tx.submission.topology,
+            .transaction = tx.submission.transaction
+         } );
+
+         _client->broadcast( "koinos.transaction.accept", j.dump() );
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Failed to publish block application to message broker: " << e.what();
       }
    }
 }
@@ -620,8 +608,8 @@ void reqhandler_impl::feed_thread_main()
       std::shared_ptr< work_item > work;
       try
       {
-         _input_queue.pull_front( work );
-         _work_queue.push_back( work );
+         _input_queue.pull( work );
+         _work_queue.push( work );
       }
       catch( const boost::concurrent::sync_queue_is_closed& e )
       {
@@ -646,7 +634,7 @@ void reqhandler_impl::work_thread_main()
       std::shared_ptr< work_item > work;
       try
       {
-         _work_queue.pull_front( work );
+         _work_queue.pull( work );
       }
       catch( const boost::concurrent::sync_queue_is_closed& e )
       {
@@ -699,6 +687,14 @@ void reqhandler_impl::start_threads()
    _feed_thread.emplace( attrs, [this]() { feed_thread_main(); } );
 }
 
+void reqhandler_impl::wait_for_jobs()
+{
+   while ( !_work_queue.empty() || !_input_queue.empty() )
+   {
+      std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+   }
+}
+
 void reqhandler_impl::stop_threads()
 {
    //
@@ -733,9 +729,9 @@ void reqhandler::open( const boost::filesystem::path& p, const std::any& o, cons
    _my->open( p, o, data, reset );
 }
 
-void reqhandler::connect( const std::string& amqp_url )
+void reqhandler::set_client( std::shared_ptr< mq::client > c )
 {
-   _my->connect( amqp_url );
+   _my->set_client( c );
 }
 
 void reqhandler::start_threads()
@@ -746,6 +742,11 @@ void reqhandler::start_threads()
 void reqhandler::stop_threads()
 {
    _my->stop_threads();
+}
+
+void reqhandler::wait_for_jobs()
+{
+   _my->wait_for_jobs();
 }
 
 } // koinos::plugins::chain
