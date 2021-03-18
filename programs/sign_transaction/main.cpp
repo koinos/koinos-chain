@@ -10,6 +10,7 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/pack/classes.hpp>
 
+// Sign the given transaction
 void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypto::private_key& transaction_signing_key )
 {
    // Signature is on the hash of the active data
@@ -18,18 +19,22 @@ void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypt
    koinos::pack::to_variable_blob( transaction.signature_data, signature );
 }
 
+// Wrap the given transaction in a request
 koinos::rpc::chain::chain_rpc_request wrap_transaction( koinos::protocol::transaction& transaction )
 {
+   // Construct a submit_transaction_request from the transaction
    koinos::rpc::chain::submit_transaction_request transaction_request;
    transaction_request.transaction = transaction;
    transaction_request.topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
 
+   // Put the request in a chain_request
    koinos::rpc::chain::chain_rpc_request chain_request;
    chain_request = transaction_request;
 
    return chain_request;
 }
 
+// Read a base58 WIF private key from the given file
 koinos::crypto::private_key read_keyfile( std::string key_filename )
 {
    // Read base58 wif string from given file
