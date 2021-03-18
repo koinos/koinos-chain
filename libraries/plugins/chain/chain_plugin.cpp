@@ -50,7 +50,7 @@ class chain_plugin_impl
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
 {
-   LOG(info) << "writing database configuration: " << p.string();
+   LOG(info) << "Writing database configuration: " << p.string();
    boost::filesystem::ofstream config_file( p, std::ios::binary );
    config_file << mira::utilities::default_database_configuration();
 }
@@ -60,36 +60,72 @@ void chain_plugin_impl::reindex()
    using namespace rpc::block_store;
    try
    {
+      constexpr uint64_t batch_size = 1000;
       const auto before = std::chrono::system_clock::now();
 
       LOG(info) << "Retrieving last irreversible block";
       nlohmann::json j;
-      pack::to_json( j, block_store_request{ get_last_irreversible_block_request{} } );
+      pack::to_json( j, block_store_request{ get_highest_block_request{} } );
       auto future = _mq_client->rpc( "koinos_block", j.dump() );
 
       block_store_response resp;
       pack::from_json( nlohmann::json::parse( future.get() ), resp );
-      auto target_head = std::get< get_last_irreversible_block_response >( resp );
+      auto target_head = std::get< get_highest_block_response >( resp ).topology;
 
-      LOG(info) << "Reindexing to target block: " << target_head.block_id;
-      block_height_type last_height{ 0 };
+      LOG(info) << "Reindexing to target block: " << target_head;
+
       multihash last_id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
-      while ( last_id != target_head.block_id )
+      block_height_type last_height = block_height_type{ 0 };
+
+      get_blocks_by_height_request req {
+         .head_block_id         = target_head.id,
+         .ancestor_start_height = block_height_type{ 1 },
+         .num_blocks            = batch_size,
+         .return_block          = true,
+         .return_receipt        = false
+      };
+
+      pack::to_json( j, block_store_request{ req } );
+      future = _mq_client->rpc( "koinos_block", j.dump() );
+
+      while ( last_id != target_head.id )
       {
-         get_blocks_by_height_request req {
-            .head_block_id         = target_head.block_id,
-            .ancestor_start_height = block_height_type{ ++last_height.t },
-            .num_blocks            = 1000,
-            .return_block          = true,
-            .return_receipt        = false
-         };
-
-         pack::to_json( j, block_store_request{ req } );
-
-         future = _mq_client->rpc( "koinos_block", j.dump() );
-
          pack::from_json( nlohmann::json::parse( future.get() ), resp );
-         auto batch = std::get< get_blocks_by_height_response >( resp );
+         get_blocks_by_height_response batch;
+
+         std::visit( koinos::overloaded {
+            [&]( get_blocks_by_height_response& r )
+            {
+               batch = std::move( r );
+            },
+            [&]( block_store_error_response& e )
+            {
+               throw koinos::exception( e.error_text );
+            },
+            [&]( auto& )
+            {
+               throw koinos::exception( "unexpected block store response" );
+            }
+         }, resp );
+
+         if ( !batch.block_items.empty() )
+         {
+            const auto& last_block = batch.block_items.back();
+
+            if ( last_block.block_id != target_head.id )
+            {
+               get_blocks_by_height_request req {
+                  .head_block_id         = target_head.id,
+                  .ancestor_start_height = block_height_type{ last_block.block_height + 1 },
+                  .num_blocks            = batch_size,
+                  .return_block          = true,
+                  .return_receipt        = false
+               };
+
+               pack::to_json( j, block_store_request{ req } );
+               future = _mq_client->rpc( "koinos_block", j.dump() );
+            }
+         }
 
          for ( auto& block_item : batch.block_items )
          {
@@ -97,29 +133,27 @@ void chain_plugin_impl::reindex()
 
             types::rpc::block_submission args;
             args.topology = block_topology {
-               .id       = block_item.block_id,
-               .height   = block_item.block_height,
-               .previous = last_id
+               .id        = block_item.block_id,
+               .height    = block_item.block_height,
+               .previous  = last_id
             };
             args.block    = block_item.block.get_native();
 
-            _reqhandler.submit( args );
-
             last_id     = block_item.block_id;
             last_height = block_item.block_height;
+
+            _reqhandler.submit( args );
          }
       }
 
-      _reqhandler.stop_threads();
+      _reqhandler.wait_for_jobs();
 
       const std::chrono::duration< double > duration = std::chrono::system_clock::now() - before;
       LOG(info) << "Finished reindexing " << last_height << " blocks, took " << duration.count() << " seconds";
-
-      _reqhandler.start_threads();
    }
    catch ( const std::exception& e )
    {
-      LOG(error) << e.what();
+      LOG(error) << "Reindex error: " << e.what();
       exit( EXIT_FAILURE );
    }
 }
@@ -130,7 +164,7 @@ void chain_plugin_impl::attach_client()
 
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "unable to connect amqp client";
+      LOG(error) << "Unable to connect amqp client";
       exit( EXIT_FAILURE );
    }
 }
@@ -143,7 +177,7 @@ void chain_plugin_impl::attach_request_handler()
    }
    catch( std::exception& e )
    {
-      LOG(error) << "error connecting to mq server: " << e.what();
+      LOG(error) << "Error connecting to mq server: " << e.what();
       exit( EXIT_FAILURE );
    }
 
@@ -152,7 +186,7 @@ void chain_plugin_impl::attach_request_handler()
    ec = _mq_reqhandler->connect( _amqp_url );
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "unable to connect request handler to mq server";
+      LOG(error) << "Unable to connect request handler to mq server";
       exit( EXIT_FAILURE );
    }
 
@@ -371,7 +405,7 @@ void chain_plugin::plugin_startup()
    }
    catch ( const std::exception& e )
    {
-      LOG(error) << "error while parsing database configuration: " << e.what();
+      LOG(error) << "Error while parsing database configuration: " << e.what();
       exit( EXIT_FAILURE );
    }
 
@@ -381,7 +415,7 @@ void chain_plugin::plugin_startup()
    }
    catch( std::exception& e )
    {
-      LOG(error) << "error opening database: " << e.what();
+      LOG(error) << "Error opening database: " << e.what();
       exit( EXIT_FAILURE );
    }
 
@@ -393,37 +427,37 @@ void chain_plugin::plugin_startup()
    if ( !my->_mq_disable )
    {
       my->attach_client();
-      LOG(info) << "connected to AMQP server";
+      LOG(info) << "Connected to AMQP server";
 
       if ( my->_reindex )
       {
-         LOG(info) << "recreating chain state...";
+         LOG(info) << "Recreating chain state...";
          my->reindex();
       }
 
       my->attach_request_handler();
-      LOG(info) << "listening for requests over AMQP";
+      LOG(info) << "Listening for requests over AMQP";
    }
    else
    {
-      LOG(warning) << "application is running without AMQP support";
+      LOG(warning) << "Application is running without AMQP support";
    }
 }
 
 void chain_plugin::plugin_shutdown()
 {
-   LOG(info) << "closing chain database";
+   LOG(info) << "Closing chain database";
 
    if ( !my->_mq_disable )
    {
-      LOG(info) << "closing mq request handler";
+      LOG(info) << "Closing mq request handler";
       my->_mq_reqhandler->stop();
    }
 
    KOINOS_TODO( "We eventually need to call close() from somewhere" )
    //my->db.close();
    my->_reqhandler.stop_threads();
-   LOG(info) << "database closed successfully";
+   LOG(info) << "Catabase closed successfully";
 }
 
 std::future< std::shared_ptr< koinos::types::rpc::submission_result > > chain_plugin::submit( const koinos::types::rpc::submission_item& item )

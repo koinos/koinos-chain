@@ -145,12 +145,14 @@ class reqhandler_impl
 
       void start_threads();
       void stop_threads();
+      void wait_for_jobs();
 
       std::future< std::shared_ptr< types::rpc::submission_result > > submit( const types::rpc::submission_item& item );
       void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
    private:
+      using queue_type = boost::concurrent::sync_queue< std::shared_ptr< work_item > >;
       std::shared_ptr< types::rpc::submission_result > process_item( std::shared_ptr< item_submission_impl > item );
 
       void process_submission( types::rpc::block_submission_result& ret,       const block_submission_impl& block );
@@ -168,7 +170,6 @@ class reqhandler_impl
       std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
       std::shared_ptr< mq::client >                                            _client;
-      std::mutex                                                               _client_mutex;
       koinos::chain::mempool                                                   _mempool;
 
       // Item lifetime:
@@ -180,10 +181,8 @@ class reqhandler_impl
       //
       // Feed thread contains scheduler logic, moves items that can be worked on concurrently from input queue to work queue.
       // Work threads consume the work queue and move completed work to the output queue.
-
-      using queue_type = boost::concurrent::sync_queue< std::shared_ptr< work_item > >;
-      std::unique_ptr< queue_type >                                            _input_queue;
-      std::unique_ptr< queue_type >                                            _work_queue;
+      queue_type                                                               _input_queue;
+      queue_type                                                               _work_queue;
 
       size_t                                                                   _thread_stack_size = 4096*1024;
       std::optional< boost::thread >                                           _feed_thread;
@@ -207,8 +206,6 @@ std::chrono::time_point< std::chrono::steady_clock > reqhandler_impl::now()
 
 std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl::submit( const types::rpc::submission_item& item )
 {
-   KOINOS_ASSERT( _input_queue != nullptr, request_handler_not_running, "Request handler has not been started" );
-
    std::shared_ptr< item_submission_impl > impl_item;
 
    std::visit( koinos::overloaded {
@@ -241,7 +238,7 @@ std::future< std::shared_ptr< types::rpc::submission_result > > reqhandler_impl:
    std::future< std::shared_ptr< types::rpc::submission_result > > fut_output = work->prom_output.get_future();
    try
    {
-      _input_queue->push( work );
+      _input_queue.push( work );
    }
    catch( const boost::concurrent::sync_queue_is_closed& e )
    {
@@ -288,7 +285,6 @@ void reqhandler_impl::open( const boost::filesystem::path& p, const std::any& o,
 
 void reqhandler_impl::set_client( std::shared_ptr< mq::client > c )
 {
-   std::lock_guard< std::mutex > lock( _client_mutex );
    _client = c;
 }
 
@@ -341,22 +337,19 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
 
          _state_db.commit_node( node->id() );
 
+         if ( _client && _client->is_connected() )
          {
-            std::lock_guard< std::mutex > lock( _client_mutex );
-            if ( _client && _client->is_connected() )
+            try
             {
-               try
-               {
-                  json j;
+               json j;
 
-                  pack::to_json( j, msg );
+               pack::to_json( j, msg );
 
-                  _client->broadcast( "koinos.block.irreversible", j.dump() );
-               }
-               catch ( const std::exception& e )
-               {
-                  LOG(error) << "failed to publish block irreversible to message broker: " << e.what();
-               }
+               _client->broadcast( "koinos.block.irreversible", j.dump() );
+            }
+            catch ( const std::exception& e )
+            {
+               LOG(error) << "Failed to publish block irreversible to message broker: " << e.what();
             }
          }
       }
@@ -369,25 +362,23 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
       throw;
    }
 
+
+   if ( _client && _client->is_connected() )
    {
-      std::lock_guard< std::mutex > lock( _client_mutex );
-      if ( _client && _client->is_connected() )
+      try
       {
-         try
-         {
-            json j;
+         json j;
 
-            pack::to_json( j, broadcast::block_accepted {
-               .topology = block.submission.topology,
-               .block    = block.submission.block
-            } );
+         pack::to_json( j, broadcast::block_accepted {
+            .topology = block.submission.topology,
+            .block    = block.submission.block
+         } );
 
-            _client->broadcast( "koinos.block.accept", j.dump() );
-         }
-         catch ( const std::exception& e )
-         {
-            LOG(error) << "failed to publish block application to message broker: " << e.what();
-         }
+         _client->broadcast( "koinos.block.accept", j.dump() );
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Failed to publish block application to message broker: " << e.what();
       }
    }
 }
@@ -435,25 +426,22 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       }
    }
 
+   if ( _client && _client->is_connected() )
    {
-      std::lock_guard< std::mutex > lock( _client_mutex );
-      if ( _client && _client->is_connected() )
+      try
       {
-         try
-         {
-            json j;
+         json j;
 
-            pack::to_json( j, broadcast::transaction_accepted {
-               .topology    = tx.submission.topology,
-               .transaction = tx.submission.transaction
-            } );
+         pack::to_json( j, broadcast::transaction_accepted {
+            .topology    = tx.submission.topology,
+            .transaction = tx.submission.transaction
+         } );
 
-            _client->broadcast( "koinos.transaction.accept", j.dump() );
-         }
-         catch ( const std::exception& e )
-         {
-            LOG(error) << "failed to publish block application to message broker: " << e.what();
-         }
+         _client->broadcast( "koinos.transaction.accept", j.dump() );
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Failed to publish block application to message broker: " << e.what();
       }
    }
 }
@@ -617,8 +605,8 @@ void reqhandler_impl::feed_thread_main()
       std::shared_ptr< work_item > work;
       try
       {
-         _input_queue->pull( work );
-         _work_queue->push( work );
+         _input_queue.pull( work );
+         _work_queue.push( work );
       }
       catch( const boost::concurrent::sync_queue_is_closed& e )
       {
@@ -643,7 +631,7 @@ void reqhandler_impl::work_thread_main()
       std::shared_ptr< work_item > work;
       try
       {
-         _work_queue->pull( work );
+         _work_queue.pull( work );
       }
       catch( const boost::concurrent::sync_queue_is_closed& e )
       {
@@ -687,9 +675,6 @@ void reqhandler_impl::start_threads()
    boost::thread::attributes attrs;
    attrs.set_stack_size( _thread_stack_size );
 
-   _work_queue = std::make_unique< queue_type >();
-   _input_queue = std::make_unique< queue_type >();
-
    std::size_t num_threads = boost::thread::hardware_concurrency()+1;
    for( std::size_t i = 0; i < num_threads; i++ )
    {
@@ -699,25 +684,28 @@ void reqhandler_impl::start_threads()
    _feed_thread.emplace( attrs, [this]() { feed_thread_main(); } );
 }
 
+void reqhandler_impl::wait_for_jobs()
+{
+   while ( !_work_queue.empty() || !_input_queue.empty() )
+   {
+      std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+   }
+}
+
 void reqhandler_impl::stop_threads()
 {
-   using namespace std::chrono_literals;
-   while ( !_work_queue->empty() || !_input_queue->empty() )
-   {
-      std::this_thread::sleep_for(500ms);
-   }
    //
    // We must close the queues in order from last to first:  A later queue may be waiting on
    // a future supplied by an earlier queue.
    // If the earlier threads are still alive, these futures will eventually complete.
    // Then the later thread will wait on its queue and see close() has been called.
    //
-   _work_queue->close();
+   _work_queue.close();
    for( boost::thread& t : _work_threads )
        t.join();
    _work_threads.clear();
 
-   _input_queue->close();
+   _input_queue.close();
    _feed_thread->join();
    _feed_thread.reset();
 }
@@ -751,6 +739,11 @@ void reqhandler::start_threads()
 void reqhandler::stop_threads()
 {
    _my->stop_threads();
+}
+
+void reqhandler::wait_for_jobs()
+{
+   _my->wait_for_jobs();
 }
 
 } // koinos::plugins::chain

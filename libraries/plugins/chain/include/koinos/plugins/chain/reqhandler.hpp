@@ -50,6 +50,7 @@ class reqhandler
 
       void start_threads();
       void stop_threads();
+      void wait_for_jobs();
 
    private:
       std::unique_ptr< detail::reqhandler_impl > _my;
