@@ -76,7 +76,7 @@ int main( int argc, char** argv )
       boost::program_options::store( boost::program_options::parse_command_line( argc, argv, options ), vm );
 
       // Handle help message
-      if ( vm.count( "help" ) )
+      if ( vm.count( HELP_OPTION ) )
       {
          std::cout << "Koinos Transaction Signing Tool" << std::endl;
          std::cout << "Accepts a json transaction to sign via STDIN" << std::endl;
@@ -86,8 +86,8 @@ int main( int argc, char** argv )
       }
 
       // Read options into variables
-      std::string key_filename = vm[ "private-key" ].as< std::string >();
-      bool wrap                = vm.count( "wrap" );
+      std::string key_filename = vm[ PRIVATE_KEY_OPTION ].as< std::string >();
+      bool wrap                = vm.count( WRAP_OPTION );
       
       // Read the keyfile
       auto private_key = read_keyfile( key_filename );
