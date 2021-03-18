@@ -10,6 +10,16 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/pack/classes.hpp>
 
+// Command line option definitions
+#define HELP_OPTION        "help"
+#define HELP_FLAG          "h"
+
+#define PRIVATE_KEY_OPTION "private-key"
+#define PRIVATE_KEY_FLAG   "p"
+
+#define WRAP_OPTION        "wrap"
+#define WRAP_FLAG          "w"
+
 // Sign the given transaction
 void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypto::private_key& transaction_signing_key )
 {
@@ -54,14 +64,11 @@ int main( int argc, char** argv )
    try
    {
       // Setup command line options
-      boost::program_options::options_description options( "Koinos Transaction Signing Tool\n"
-                                                           "Accepts a json transaction to sign via STDIN\n"
-                                                           "Returns the signed transaction via STDOUT\n\n"
-                                                           "Options" );
+      boost::program_options::options_description options( "Options" );
       options.add_options()
-      ( "help,h",        "print usage message" )
-      ( "private-key,p", boost::program_options::value< std::string >()->default_value( "private.key" ), "private key file" )
-      ( "wrap,w",        "wrap signed transaction in a request" )
+      ( HELP_OPTION "," HELP_FLAG,               "print usage message" )
+      ( PRIVATE_KEY_OPTION "," PRIVATE_KEY_FLAG, boost::program_options::value< std::string >()->default_value( "private.key" ), "private key file" )
+      ( WRAP_OPTION "," WRAP_FLAG,               "wrap signed transaction in a request" )
       ;
 
       // Parse command-line options
@@ -71,6 +78,9 @@ int main( int argc, char** argv )
       // Handle help message
       if ( vm.count( "help" ) )
       {
+         std::cout << "Koinos Transaction Signing Tool" << std::endl;
+         std::cout << "Accepts a json transaction to sign via STDIN" << std::endl;
+         std::cout << "Returns the signed transaction via STDOUT" << std::endl << std::endl;
          std::cout << options << std::endl;
          return EXIT_SUCCESS;
       }
