@@ -18,6 +18,18 @@ void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypt
    koinos::pack::to_variable_blob( transaction.signature_data, signature );
 }
 
+koinos::rpc::chain::chain_rpc_request wrap_transaction( koinos::protocol::transaction& transaction )
+{
+   koinos::rpc::chain::submit_transaction_request transaction_request;
+   transaction_request.transaction = transaction;
+   transaction_request.topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+
+   koinos::rpc::chain::chain_rpc_request chain_request;
+   chain_request = transaction_request;
+
+   return chain_request;
+}
+
 koinos::crypto::private_key read_keyfile( std::string key_filename )
 {
    // Read base58 wif string from given file
@@ -44,6 +56,7 @@ int main( int argc, char** argv )
       options.add_options()
       ( "help,h",        "print usage message" )
       ( "private-key,p", boost::program_options::value< std::string >()->default_value( "private.key" ), "private key file" )
+      ( "wrap,w",        "wrap signed transaction in a request" )
       ;
 
       // Parse command-line options
@@ -59,6 +72,7 @@ int main( int argc, char** argv )
 
       // Read options into variables
       std::string key_filename = vm[ "private-key" ].as< std::string >();
+      bool wrap                = vm.count( "wrap" );
       
       // Read the keyfile
       auto private_key = read_keyfile( key_filename );
@@ -75,11 +89,16 @@ int main( int argc, char** argv )
       // Sign the transaction
       sign_transaction( transaction, private_key );
 
-      // TODO: Optionally wrap the transaction
+      if (wrap) // Wrap the transaction if requested
+      {
+         auto request = wrap_transaction( transaction );
+         std::cout << request << std::endl;
+      }
+      else // Else simply output the signed transaction
+      {
+         std::cout << transaction << std::endl;
+      }
 
-      // Write the resulting transaction's json to STDOUT
-      std::cout << transaction << std::endl;
-      
       return EXIT_SUCCESS;
    }
    catch ( const boost::exception& e )
