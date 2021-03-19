@@ -10,6 +10,17 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/pack/classes.hpp>
 
+// Command line option definitions
+#define HELP_OPTION        "help"
+#define HELP_FLAG          "h"
+
+#define PRIVATE_KEY_OPTION "private-key"
+#define PRIVATE_KEY_FLAG   "p"
+
+#define WRAP_OPTION        "wrap"
+#define WRAP_FLAG          "w"
+
+// Sign the given transaction
 void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypto::private_key& transaction_signing_key )
 {
    // Signature is on the hash of the active data
@@ -18,6 +29,22 @@ void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypt
    koinos::pack::to_variable_blob( transaction.signature_data, signature );
 }
 
+// Wrap the given transaction in a request
+koinos::rpc::chain::chain_rpc_request wrap_transaction( koinos::protocol::transaction& transaction )
+{
+   // Construct a submit_transaction_request from the transaction
+   koinos::rpc::chain::submit_transaction_request transaction_request;
+   transaction_request.transaction = transaction;
+   transaction_request.topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+
+   // Put the request in a chain_request
+   koinos::rpc::chain::chain_rpc_request chain_request;
+   chain_request = transaction_request;
+
+   return chain_request;
+}
+
+// Read a base58 WIF private key from the given file
 koinos::crypto::private_key read_keyfile( std::string key_filename )
 {
    // Read base58 wif string from given file
@@ -37,13 +64,11 @@ int main( int argc, char** argv )
    try
    {
       // Setup command line options
-      boost::program_options::options_description options( "Koinos Transaction Signing Tool\n"
-                                                           "Accepts a json transaction to sign via STDIN\n"
-                                                           "Returns the signed transaction via STDOUT\n\n"
-                                                           "Options" );
+      boost::program_options::options_description options( "Options" );
       options.add_options()
-      ( "help,h",        "print usage message" )
-      ( "private-key,p", boost::program_options::value< std::string >()->default_value( "private.key" ), "private key file" )
+      ( HELP_OPTION "," HELP_FLAG,               "print usage message" )
+      ( PRIVATE_KEY_OPTION "," PRIVATE_KEY_FLAG, boost::program_options::value< std::string >()->default_value( "private.key" ), "private key file" )
+      ( WRAP_OPTION "," WRAP_FLAG,               "wrap signed transaction in a request" )
       ;
 
       // Parse command-line options
@@ -51,14 +76,18 @@ int main( int argc, char** argv )
       boost::program_options::store( boost::program_options::parse_command_line( argc, argv, options ), vm );
 
       // Handle help message
-      if ( vm.count( "help" ) )
+      if ( vm.count( HELP_OPTION ) )
       {
+         std::cout << "Koinos Transaction Signing Tool" << std::endl;
+         std::cout << "Accepts a json transaction to sign via STDIN" << std::endl;
+         std::cout << "Returns the signed transaction via STDOUT" << std::endl << std::endl;
          std::cout << options << std::endl;
          return EXIT_SUCCESS;
       }
 
       // Read options into variables
-      std::string key_filename = vm[ "private-key" ].as< std::string >();
+      std::string key_filename = vm[ PRIVATE_KEY_OPTION ].as< std::string >();
+      bool wrap                = vm.count( WRAP_OPTION );
       
       // Read the keyfile
       auto private_key = read_keyfile( key_filename );
@@ -75,11 +104,16 @@ int main( int argc, char** argv )
       // Sign the transaction
       sign_transaction( transaction, private_key );
 
-      // TODO: Optionally wrap the transaction
+      if (wrap) // Wrap the transaction if requested
+      {
+         auto request = wrap_transaction( transaction );
+         std::cout << request << std::endl;
+      }
+      else // Else simply output the signed transaction
+      {
+         std::cout << transaction << std::endl;
+      }
 
-      // Write the resulting transaction's json to STDOUT
-      std::cout << transaction << std::endl;
-      
       return EXIT_SUCCESS;
    }
    catch ( const boost::exception& e )
