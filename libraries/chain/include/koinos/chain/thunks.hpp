@@ -67,10 +67,10 @@ THUNK_DECLARE( bool, verify_merkle_root, const multihash& root, const std::vecto
 
 THUNK_DECLARE( void, apply_block,
    const protocol::block& block,
-   boolean enable_check_passive_data,
-   boolean enable_check_block_signature,
-   boolean enable_check_transaction_signatures );
-THUNK_DECLARE( void, apply_transaction, const opaque< protocol::transaction >& trx );
+   boolean check_passive_data,
+   boolean check_block_signature,
+   boolean check_transaction_signatures );
+THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
 THUNK_DECLARE( void, apply_reserved_operation, const protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
@@ -92,9 +92,9 @@ THUNK_DECLARE_VOID( chain::head_info, get_head_info );
 
 THUNK_DECLARE( multihash, hash, uint64_t code, const variable_blob& obj, uint64_t size = 0 );
 
-THUNK_DECLARE( account_type, get_transaction_payer, const opaque< protocol::transaction >& tx );
+THUNK_DECLARE( account_type, get_transaction_payer, const protocol::transaction& tx );
 THUNK_DECLARE( uint128, get_max_account_resources, const account_type& account );
-THUNK_DECLARE( uint128, get_transaction_resource_limit, const opaque< protocol::transaction >& tx);
+THUNK_DECLARE( uint128, get_transaction_resource_limit, const protocol::transaction& tx);
 
 THUNK_DECLARE_VOID( block_height_type, get_last_irreversible_block );
 

@@ -115,9 +115,9 @@ struct block_setter
 THUNK_DEFINE( void, apply_block,
    (
       (const protocol::block&) block,
-      (boolean) enable_check_passive_data,
-      (boolean) enable_check_block_signature,
-      (boolean) enable_check_transaction_signatures)
+      (boolean) check_passive_data,
+      (boolean) check_block_signature,
+      (boolean) check_transaction_signatures)
    )
 {
    KOINOS_TODO( "Check previous block hash" );
@@ -138,19 +138,19 @@ THUNK_DEFINE( void, apply_block,
 
    for( size_t i=0; i<tx_count; i++ )
    {
-      hashes[i] = crypto::hash_like( tx_root, block.transactions[i]->active_data );
+      hashes[i] = crypto::hash_like( tx_root, block.transactions[i].active_data );
    }
    KOINOS_ASSERT( verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
 
-   if( enable_check_block_signature )
+   if( check_block_signature )
    {
-      multihash active_block_hash;
-      active_block_hash = crypto::hash_like( tx_root, block.active_data );
-      KOINOS_ASSERT( verify_block_signature( context, block.signature_data, active_block_hash ), invalid_block_signature, "Block signature does not match" );
+      multihash block_hash;
+      block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
+      KOINOS_ASSERT( verify_block_signature( context, block.signature_data, block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
    // Check passive Merkle root
-   if( enable_check_passive_data )
+   if( check_passive_data )
    {
       // Passive Merkle root verifies:
       //
@@ -165,17 +165,17 @@ THUNK_DEFINE( void, apply_block,
       // during the block building process.
 
       const multihash& passive_root = block.active_data->passive_data_merkle_root;
-      size_t passive_count = 2 * ( block.transactions.size() + 1 );
+      std::size_t passive_count = 2 * ( block.transactions.size() + 1 );
       hashes.resize( passive_count );
 
       hashes[0] = crypto::hash_like( passive_root, block.passive_data );
       hashes[1] = crypto::empty_hash_like( passive_root );
 
       // We hash in this order so that the two hashes for each transaction have a common Merkle parent
-      for ( size_t i = 0; i < tx_count; i++ )
+      for ( std::size_t i = 0; i < tx_count; i++ )
       {
-         hashes[2*(i+1)]   = crypto::hash_like( passive_root, block.transactions[i]->passive_data );
-         hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i]->signature_data );
+         hashes[2*(i+1)]   = crypto::hash_like( passive_root, block.transactions[i].passive_data );
+         hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i].signature_data );
       }
 
       KOINOS_ASSERT( verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
@@ -202,17 +202,16 @@ THUNK_DEFINE( void, apply_block,
 
    for( const auto& tx : block.transactions )
    {
-      if( enable_check_transaction_signatures )
+      if( check_transaction_signatures )
       {
          context.clear_authority();
          //check_transaction_signature( tx_blob );
-         tx.unbox();
-         multihash tx_hash = crypto::hash_like( tx_root, tx->active_data );
+         multihash tx_hash = crypto::hash_like( tx_root, tx.active_data );
 
-         if( tx->signature_data.size() )
+         if( tx.signature_data.size() )
          {
             crypto::recoverable_signature sig;
-            pack::from_variable_blob( tx->signature_data, sig );
+            pack::from_variable_blob( tx.signature_data, sig );
 
             context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
          }
@@ -231,7 +230,7 @@ THUNK_DEFINE( void, apply_block,
 // the transaction.
 struct transaction_setter
 {
-   transaction_setter( apply_context& context, const opaque< protocol::transaction >& trx ) :
+   transaction_setter( apply_context& context, const protocol::transaction& trx ) :
       ctx( context )
    {
       ctx.set_transaction( trx );
@@ -245,19 +244,20 @@ struct transaction_setter
    apply_context& ctx;
 };
 
-THUNK_DEFINE( void, apply_transaction, ((const opaque< protocol::transaction >&) trx) )
+THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
 
    using namespace koinos::protocol;
 
+   trx.active_data.unbox();
+   
    auto setter = transaction_setter( context, trx );
-   trx.unbox();
 
    auto payer = get_transaction_payer( context, trx );
    require_authority( context, payer );
 
-   for( const auto& o : trx->operations )
+   for( const auto& o : trx.active_data->operations )
    {
       std::visit( koinos::overloaded {
          [&]( const nop_operation& op ) { /* intentional fallthrough */ },
@@ -494,12 +494,12 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 {
    auto head = context.get_state_node();
-   const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type(6);
+   const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type{ 6 };
 
    chain::head_info hi;
-   hi.id = head->id();
-   hi.previous_id = head->parent_id();
-   hi.height = head->revision();
+   hi.head_topology.id       = head->id();
+   hi.head_topology.previous = head->parent_id();
+   hi.head_topology.height   = head->revision();
    hi.last_irreversible_height = get_last_irreversible_block( context );
 
    return hi;
@@ -511,11 +511,8 @@ THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint
    return crypto::hash_str( id, obj.data(), obj.size(), size );
 }
 
-THUNK_DEFINE( account_type, get_transaction_payer, ((const opaque< protocol::transaction >&) tx) )
+THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
-   tx.unbox();
-   const auto& transaction = tx.get_const_native();
-
    transaction.active_data.unbox();
    const auto& active_data = transaction.active_data.get_const_native();
 
@@ -547,11 +544,8 @@ THUNK_DEFINE( uint128, get_max_account_resources, ((const account_type&) account
    return max_resources;
 }
 
-THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const opaque< protocol::transaction >&) tx) )
+THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
 {
-   tx.unbox();
-   const auto& transaction = tx.get_const_native();
-
    transaction.active_data.unbox();
    const auto& active_data = transaction.active_data.get_const_native();
 
@@ -560,7 +554,7 @@ THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const opaque< protocol:
 
 THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 {
-   static const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type(6);
+   static const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type{ 6 };
 
    auto head = context.get_state_node();
    return block_height_type( head->revision() > IRREVERSIBLE_THRESHOLD ? head->revision() - IRREVERSIBLE_THRESHOLD : 0 );
@@ -573,12 +567,12 @@ THUNK_DEFINE_VOID( account_type, get_caller )
 
 THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
 {
-   return context.get_transaction()->signature_data;
+   return context.get_transaction().signature_data;
 }
 
 THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 {
-   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction()->active_data.get_const_native() );
+   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data.get_const_native() );
    crypto::recoverable_signature sig;
    pack::from_variable_blob( get_transaction_signature( context ), sig );
    account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );

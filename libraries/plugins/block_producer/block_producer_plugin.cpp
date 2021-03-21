@@ -34,10 +34,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
 
    // Make active data, fetch timestamp
    protocol::active_block_data active_data;
-   active_data.timestamp = timestamp_now();
-
-   // Get previous block data
-   block_topology topology;
+   block->header.timestamp = timestamp_now();
 
    chain::chain_plugin& ch = appbase::app().get_plugin< chain::chain_plugin >();
    auto r = ch.submit( types::rpc::query_submission( types::rpc::get_head_info_params() ) );
@@ -48,10 +45,8 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
       res.unbox();
       std::visit( koinos::overloaded {
          [&]( const types::rpc::get_head_info_result& head_info ) {
-            active_data.height = head_info.height + 1;
-            active_data.previous_block = head_info.id;
-            topology.previous = head_info.id;
-            topology.height = active_data.height;
+            block->header.height   = head_info.head_topology.height + 1;
+            block->header.previous = head_info.head_topology.id;
          },
          []( const auto& ){}
       }, res.get_const_native() );
@@ -74,11 +69,10 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    util::sign_block( *block, block_signing_private_key );
 
    // Store hash of header as ID
-   topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
+   block->id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
 
    // Submit the block
    r = ch.submit( types::rpc::block_submission{
-      .topology = topology,
       .block = *block,
       .verify_passive_data = true,
       .verify_block_signature = true,
@@ -93,7 +87,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
       block.reset();
    }
 
-   LOG(info) << "produced block: " << topology;
+   LOG(info) << "Produced block: " << block->id;
 
    return block;
 }

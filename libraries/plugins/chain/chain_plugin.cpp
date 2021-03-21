@@ -64,12 +64,12 @@ void chain_plugin_impl::reindex()
       const auto before = std::chrono::system_clock::now();
 
       LOG(info) << "Retrieving last irreversible block";
-      nlohmann::json j;
+      pack::json j;
       pack::to_json( j, block_store_request{ get_highest_block_request{} } );
       auto future = _mq_client->rpc( "koinos_block", j.dump() );
 
       block_store_response resp;
-      pack::from_json( nlohmann::json::parse( future.get() ), resp );
+      pack::from_json( pack::json::parse( future.get() ), resp );
       auto target_head = std::get< get_highest_block_response >( resp ).topology;
 
       LOG(info) << "Reindexing to target block: " << target_head;
@@ -90,7 +90,7 @@ void chain_plugin_impl::reindex()
 
       while ( last_id != target_head.id )
       {
-         pack::from_json( nlohmann::json::parse( future.get() ), resp );
+         pack::from_json( pack::json::parse( future.get() ), resp );
          get_blocks_by_height_response batch;
 
          std::visit( koinos::overloaded {
@@ -110,13 +110,13 @@ void chain_plugin_impl::reindex()
 
          if ( !batch.block_items.empty() )
          {
-            const auto& last_block = batch.block_items.back();
+            const auto& last_block_item = batch.block_items.back();
 
-            if ( last_block.block_id != target_head.id )
+            if ( last_block_item.block.id != target_head.id )
             {
                get_blocks_by_height_request req {
                   .head_block_id         = target_head.id,
-                  .ancestor_start_height = block_height_type{ last_block.block_height + 1 },
+                  .ancestor_start_height = block_height_type{ last_block_item.block.header.height + 1 },
                   .num_blocks            = batch_size,
                   .return_block          = true,
                   .return_receipt        = false
@@ -129,18 +129,10 @@ void chain_plugin_impl::reindex()
 
          for ( auto& block_item : batch.block_items )
          {
-            block_item.block.unbox();
-
             types::rpc::block_submission args;
-            args.topology = block_topology {
-               .id        = block_item.block_id,
-               .height    = block_item.block_height,
-               .previous  = last_id
-            };
-            args.block    = block_item.block.get_native();
-
-            last_id     = block_item.block_id;
-            last_height = block_item.block_height;
+            args.block  = block_item.block;
+            last_id     = block_item.block.id;
+            last_height = block_item.block.header.height;
 
             _reqhandler.submit( args );
          }
@@ -197,7 +189,7 @@ void chain_plugin_impl::attach_request_handler()
       []( const std::string& content_type ) { return content_type == "application/json"; },
       [&]( const std::string& msg ) -> std::string
       {
-         auto j = nlohmann::json::parse( msg );
+         auto j = pack::json::parse( msg );
          rpc::chain::chain_rpc_request args;
          pack::from_json( j, args );
 
@@ -282,11 +274,10 @@ void chain_plugin_impl::attach_request_handler()
       [&]( const std::string& msg )
       {
          broadcast::block_accepted bam;
-         pack::from_json( nlohmann::json::parse( msg ), bam );
+         pack::from_json( pack::json::parse( msg ), bam );
 
          types::rpc::block_submission args;
-         args.topology = bam.topology;
-         args.block    = bam.block;
+         args.block = bam.block;
          _reqhandler.submit( args );
       }
    );
@@ -396,7 +387,7 @@ void chain_plugin::plugin_startup()
    // Check for state directory, and create if necessary
    if ( !bfs::exists( my->state_dir ) ) { bfs::create_directory( my->state_dir ); }
 
-   nlohmann::json database_config;
+   pack::json database_config;
 
    try
    {
