@@ -69,7 +69,7 @@ std::shared_ptr< protocol::block > block_producer_plugin::produce_block()
    util::sign_block( *block, block_signing_private_key );
 
    // Store hash of header as ID
-   block->id = crypto::hash( CRYPTO_SHA2_256_ID, block->active_data );
+   block->id = crypto::hash_n( CRYPTO_SHA2_256_ID, block->header, block->active_data );
 
    // Submit the block
    r = ch.submit( types::rpc::block_submission{
