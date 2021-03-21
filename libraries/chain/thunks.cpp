@@ -120,10 +120,7 @@ THUNK_DEFINE( void, apply_block,
       (boolean) check_transaction_signatures)
    )
 {
-   KOINOS_TODO( "Check previous block hash" );
-   KOINOS_TODO( "Check height" );
-   KOINOS_TODO( "Check timestamp" );
-   KOINOS_TODO( "Specify allowed set of hashing algorithms" );
+   KOINOS_TODO( "Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms" );
 
    KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
 
@@ -136,7 +133,7 @@ THUNK_DEFINE( void, apply_block,
    // Check transaction Merkle root
    std::vector< multihash > hashes( tx_count );
 
-   for( size_t i=0; i<tx_count; i++ )
+   for( std::size_t i = 0; i < tx_count; i++ )
    {
       hashes[i] = crypto::hash_like( tx_root, block.transactions[i].active_data );
    }
@@ -319,8 +316,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
          uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
          auto contract = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
          KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
-         KOINOS_TODO( "Make a better exception for execute_contract" );
-         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), invalid_contract, "Cannot override execute_contract." );
+         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), forbidden_override, "Cannot override execute_contract." );
       },
       [&]( const auto& ) {
          KOINOS_THROW( unknown_system_call, "set_system_call invoked with unimplemented type ${tag}",

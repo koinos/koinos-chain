@@ -445,8 +445,6 @@ void chain_plugin::plugin_shutdown()
       my->_mq_reqhandler->stop();
    }
 
-   KOINOS_TODO( "We eventually need to call close() from somewhere" )
-   //my->db.close();
    my->_reqhandler.stop_threads();
    LOG(info) << "Database closed successfully";
 }
