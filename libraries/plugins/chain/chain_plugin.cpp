@@ -63,14 +63,29 @@ void chain_plugin_impl::reindex()
       constexpr uint64_t batch_size = 1000;
       const auto before = std::chrono::system_clock::now();
 
-      LOG(info) << "Retrieving last irreversible block";
+      LOG(info) << "Retrieving highest block";
       pack::json j;
       pack::to_json( j, block_store_request{ get_highest_block_request{} } );
       auto future = _mq_client->rpc( "koinos_block", j.dump() );
 
       block_store_response resp;
       pack::from_json( pack::json::parse( future.get() ), resp );
-      auto target_head = std::get< get_highest_block_response >( resp ).topology;
+
+      block_topology target_head;
+      std::visit( koinos::overloaded {
+         [&]( get_highest_block_response& r )
+         {
+            target_head = r.topology;
+         },
+         [&]( block_store_error_response& e )
+         {
+            throw koinos::exception( e.error_text );
+         },
+         [&]( auto& )
+         {
+            throw koinos::exception( "unexpected block store response" );
+         }
+      }, resp );
 
       LOG(info) << "Reindexing to target block: " << target_head;
 

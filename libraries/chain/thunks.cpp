@@ -247,9 +247,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    using namespace koinos::protocol;
 
-   trx.active_data.unbox();
-   
    auto setter = transaction_setter( context, trx );
+   trx.active_data.unbox();
 
    auto payer = get_transaction_payer( context, trx );
    require_authority( context, payer );
