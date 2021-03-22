@@ -66,7 +66,7 @@ void chain_plugin_impl::reindex()
       LOG(info) << "Retrieving highest block";
       pack::json j;
       pack::to_json( j, block_store_request{ get_highest_block_request{} } );
-      auto future = _mq_client->rpc( "koinos_block", j.dump() );
+      auto future = _mq_client->rpc( mq::service::block_store, j.dump() );
 
       block_store_response resp;
       pack::from_json( pack::json::parse( future.get() ), resp );
@@ -101,7 +101,7 @@ void chain_plugin_impl::reindex()
       };
 
       pack::to_json( j, block_store_request{ req } );
-      future = _mq_client->rpc( "koinos_block", j.dump() );
+      future = _mq_client->rpc( mq::service::block_store, j.dump() );
 
       while ( last_id != target_head.id )
       {
@@ -138,7 +138,7 @@ void chain_plugin_impl::reindex()
                };
 
                pack::to_json( j, block_store_request{ req } );
-               future = _mq_client->rpc( "koinos_block", j.dump() );
+               future = _mq_client->rpc( mq::service::block_store, j.dump() );
             }
          }
 
@@ -197,11 +197,8 @@ void chain_plugin_impl::attach_request_handler()
       exit( EXIT_FAILURE );
    }
 
-   ec = _mq_reqhandler->add_msg_handler(
-      "koinos_rpc",
-      "koinos_rpc_chain",
-      true,
-      []( const std::string& content_type ) { return content_type == "application/json"; },
+   ec = _mq_reqhandler->add_rpc_handler(
+      mq::service::chain,
       [&]( const std::string& msg ) -> std::string
       {
          auto j = pack::json::parse( msg );
@@ -281,11 +278,8 @@ void chain_plugin_impl::attach_request_handler()
       exit( EXIT_FAILURE );
    }
 
-   _mq_reqhandler->add_msg_handler(
-      "koinos_event",
+   _mq_reqhandler->add_broadcast_handler(
       "koinos.block.accept",
-      false,
-      []( const std::string& content_type ) { return content_type == "application/json"; },
       [&]( const std::string& msg )
       {
          broadcast::block_accepted bam;
