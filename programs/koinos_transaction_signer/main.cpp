@@ -2,7 +2,6 @@
 #include <fstream>
 
 #include <boost/program_options.hpp>
-#include <nlohmann/json.hpp>
 
 #include <koinos/exception.hpp>
 #include <koinos/log.hpp>

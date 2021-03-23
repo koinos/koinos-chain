@@ -1,3 +1,3 @@
 add_subdirectory(koinosd)
-add_subdirectory(koinos_vm)
-add_subdirectory(sign_transaction)
+add_subdirectory(koinos_vm_driver)
+add_subdirectory(koinos_transaction_signer)
