@@ -167,16 +167,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    submit_res = *(future.get());
    auto& trx_res = std::get< types::rpc::transaction_submission_result >( submit_res );
 
-   /*future = _chain_plugin.submit( types::rpc::query_submission( types::rpc::get_pending_transactions_params{
-      .start = multihash(),
-      .limit = 20
-   } ) );
-   submit_res = *(future.get());
-   auto& query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
-   auto& pending_trxs = std::get< types::rpc::get_pending_transactions_result >( query_submission_result.get_const_native() );
-   BOOST_CHECK_EQUAL( pending_trxs.transactions.size(), 1 );
-   BOOST_CHECK_EQUAL( trx.transaction.id, crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.transactions[0].active_data ) );*/
-
    trx.transaction.active_data.make_mutable();
    trx.transaction.active_data->operations.push_back( protocol::reserved_operation() );
    trx.transaction.active_data->resource_limit = 10;
