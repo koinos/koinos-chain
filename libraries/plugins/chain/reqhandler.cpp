@@ -11,7 +11,6 @@
 #include <boost/thread/sync_queue.hpp>
 
 #include <koinos/chain/host.hpp>
-#include <koinos/chain/mempool.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunks.hpp>
 
@@ -170,7 +169,6 @@ class reqhandler_impl
       std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
       std::shared_ptr< mq::client >                                            _client;
-      koinos::chain::mempool                                                   _mempool;
 
       // Item lifetime:
       //
@@ -392,6 +390,10 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       .digest = { 1 }
    };
 
+   koinos::chain::account_type payer;
+   uint128 max_payer_resources;
+   uint128 trx_resource_limit;
+
    LOG(info) << "Applying transaction - id: " << tx.submission.transaction.id;
    {
       std::lock_guard< std::mutex > lock( _state_db_mutex );
@@ -401,20 +403,44 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       {
          _ctx->set_state_node( tmp_node );
 
-         auto payer = get_transaction_payer( *_ctx, tx.submission.transaction );
-         auto max_payer_resources = get_max_account_resources( *_ctx, payer );
-         auto trx_resource_limit = get_transaction_resource_limit( *_ctx, tx.submission.transaction );
-
-         _mempool.add_pending_transaction(
-            tx.submission.transaction.id,
-            tx.submission.transaction,
-            block_height_type( _state_db.get_head()->revision() ),
-            payer,
-            max_payer_resources,
-            trx_resource_limit
-         );
+         payer = get_transaction_payer( *_ctx, tx.submission.transaction );
+         max_payer_resources = get_max_account_resources( *_ctx, payer );
+         trx_resource_limit = get_transaction_resource_limit( *_ctx, tx.submission.transaction );
 
          apply_transaction( *_ctx, tx.submission.transaction );
+
+         rpc::mempool::check_pending_account_resources_request check_req
+         {
+            .payer = payer,
+            .max_payer_resources = max_payer_resources,
+            .trx_resource_limit = trx_resource_limit
+         };
+
+         rpc::mempool::mempool_rpc_request mem_req = check_req;
+         pack::json j;
+         pack::to_json( j, check_req );
+         auto future = _client->rpc( mq::service::mempool, j.dump() );
+
+         rpc::mempool::mempool_rpc_response resp;
+         pack::from_json( pack::json::parse( future.get() ), resp );
+
+         std::visit( koinos::overloaded {
+            [&]( const rpc::mempool::check_pending_account_resources_response& r )
+            {
+               if ( !r.success ) 
+               {
+                  throw koinos::exception( "Insufficient pending account resources" );
+               }
+            },
+            [&] ( const rpc::mempool::mempool_error_response& r )
+            {
+               throw koinos::exception( r.error_text );
+            },
+            [&] ( const auto& r )
+            {
+               throw koinos::exception( "Unexpected response from mempool" );
+            }
+         }, resp );
 
          _ctx->clear_state_node();
          _state_db.discard_node( tmp_id );
@@ -423,7 +449,6 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       {
          _ctx->clear_state_node();
          _state_db.discard_node( tmp_id );
-         _mempool.remove_pending_transaction( tx.submission.transaction.id );
          throw;
       }
    }
@@ -435,7 +460,11 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
          json j;
 
          pack::to_json( j, broadcast::transaction_accepted {
-            .transaction = tx.submission.transaction
+            .transaction = tx.submission.transaction,
+            .payer = payer,
+            .max_payer_resources = max_payer_resources,
+            .trx_resource_limit = trx_resource_limit,
+            .height = block_height_type{ _state_db.get_head()->revision() }
          } );
 
          _client->broadcast( "koinos.transaction.accept", j.dump() );
@@ -506,12 +535,6 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
          {
             ret = types::rpc::query_submission_result( types::rpc::query_error { .error_text = e.what() } );
          }
-      },
-      [&]( const types::rpc::get_pending_transactions_params& p )
-      {
-         ret = types::rpc::query_submission_result( types::rpc::get_pending_transactions_result {
-            .transactions = _mempool.get_pending_transactions( p.start, p.limit )
-         } );
       },
       [&]( const auto& )
       {
