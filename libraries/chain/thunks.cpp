@@ -256,8 +256,12 @@ inline void require_payer_transaction_nonce( apply_context& ctx, account_type pa
       KOINOS_ASSERT(
          unpacked_nonce == (nonce - 1),
          chain::chain_exception,
-         "Mismatching transaction nonce, last nonce: ${d}, expected: ${e}", ("d", unpacked_nonce)("e", unpacked_nonce + 1)
+         "Mismatching transaction nonce - last nonce: ${d}, expected: ${e}", ("d", unpacked_nonce)("e", unpacked_nonce + 1)
       );
+   }
+   else
+   {
+      KOINOS_ASSERT( nonce == 0, chain::chain_exception, "Initial transaction nonce should be 0" );
    }
 }
 

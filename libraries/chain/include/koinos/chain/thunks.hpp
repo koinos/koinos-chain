@@ -13,7 +13,7 @@
 
 #define KOINOS_EXIT_SUCCESS 0
 #define KOINOS_EXIT_FAILURE 1
-#define KOINOS_TRANSACTION_NONCE_KEY "tnonce"
+#define KOINOS_TRANSACTION_NONCE_KEY "nonce"
 
 namespace koinos::chain {
 

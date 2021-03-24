@@ -435,7 +435,9 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    variable_blob obj_blob;
    crypto::private_key key;
-   key = crypto::private_key::generate_from_seed( crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
+   std::string seed = "alpha bravo charlie delta";
+
+   key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
 
    protocol::transaction transaction;
    transaction.active_data.make_mutable();
