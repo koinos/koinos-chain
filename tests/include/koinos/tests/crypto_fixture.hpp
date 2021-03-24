@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-using nlohmann::json;
+using koinos::pack::json;
 
 // SHA test vectors taken from http://www.di-mgt.com.au/sha_testvectors.html
 static const std::string TEST1("abc");

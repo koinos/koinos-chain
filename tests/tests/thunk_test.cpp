@@ -311,8 +311,8 @@ BOOST_AUTO_TEST_CASE( chain_thunks_test )
 { try {
    BOOST_TEST_MESSAGE( "get_head_info test" );
 
-   auto head = koinos::chain::thunk::get_head_info( ctx );
-   BOOST_CHECK_EQUAL( head.height, 1 );
+   auto info = koinos::chain::thunk::get_head_info( ctx );
+   BOOST_CHECK_EQUAL( info.head_topology.height, 1 );
    // Test exception when null state pointer is passed
    ctx.set_state_node( nullptr );
    BOOST_REQUIRE_THROW( thunk::get_head_info( ctx ), koinos::chain::database_exception );
@@ -351,7 +351,7 @@ BOOST_AUTO_TEST_CASE( privileged_calls )
 {
    ctx.set_in_user_code( true );
    BOOST_REQUIRE_THROW( thunk::apply_block( ctx, koinos::protocol::block{}, false, false, false ), koinos::chain::thunk::thunk_privilege_error );
-   BOOST_REQUIRE_THROW( thunk::apply_transaction( ctx, koinos::opaque< koinos::protocol::transaction >() ), koinos::chain::thunk::thunk_privilege_error );
+   BOOST_REQUIRE_THROW( thunk::apply_transaction( ctx, koinos::protocol::transaction() ), koinos::chain::thunk::thunk_privilege_error );
    BOOST_REQUIRE_THROW( thunk::apply_reserved_operation( ctx, koinos::protocol::reserved_operation{} ), koinos::chain::thunk::thunk_privilege_error );
    BOOST_REQUIRE_THROW( thunk::apply_upload_contract_operation( ctx, koinos::protocol::create_system_contract_operation{} ), koinos::chain::thunk::thunk_privilege_error );
    BOOST_REQUIRE_THROW( thunk::apply_execute_contract_operation( ctx, koinos::protocol::contract_call_operation{} ), koinos::chain::thunk::thunk_privilege_error );
@@ -414,8 +414,7 @@ BOOST_AUTO_TEST_CASE( require_authority )
    koinos::protocol::transaction trx;
    auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data.get_const_native() ) );
    trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
-   auto opaque = koinos::opaque< koinos::protocol::transaction >( trx );
-   ctx.set_transaction( opaque );
+   ctx.set_transaction( trx );
 
    auto foo_account = koinos::pack::to_variable_blob( foo_key.get_public_key().to_address() );
    auto bar_account = koinos::pack::to_variable_blob( bar_key.get_public_key().to_address() );

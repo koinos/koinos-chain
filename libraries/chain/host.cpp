@@ -56,8 +56,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          },
          [&]( contract_call_bundle& scb ) {
             variable_blob args;
-            KOINOS_TODO( "Brainstorm how to avoid arg/ret copy" )
-            KOINOS_TODO( "Pointer validation" )
+            KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" )
             args.resize( arg_len );
             std::memcpy( args.data(), arg_ptr.value, arg_len );
             variable_blob ret;

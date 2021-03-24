@@ -32,9 +32,9 @@ void set_block_merkle_roots( protocol::block& block, uint64_t code, uint64_t siz
    // Hash transaction actives, passives, and signatures for merkle roots
    for ( size_t i = 0; i < block.transactions.size(); i++ )
    {
-      trx_active_hashes[i]      = crypto::hash( code, block.transactions[i]->active_data, size );
-      passive_hashes[2*(i+1)]   = crypto::hash( code, block.transactions[i]->passive_data, size );
-      passive_hashes[2*(i+1)+1] = crypto::hash_blob( code, block.transactions[i]->signature_data, size );
+      trx_active_hashes[i]      = crypto::hash( code, block.transactions[i].active_data, size );
+      passive_hashes[2*(i+1)]   = crypto::hash( code, block.transactions[i].passive_data, size );
+      passive_hashes[2*(i+1)+1] = crypto::hash_blob( code, block.transactions[i].signature_data, size );
    }
 
    crypto::merkle_hash_leaves( trx_active_hashes, code, size );
@@ -47,7 +47,7 @@ void set_block_merkle_roots( protocol::block& block, uint64_t code, uint64_t siz
 void sign_block( protocol::block& block, crypto::private_key& block_signing_key )
 {
    // Signature is on the hash of the active data
-   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, block.active_data );
+   multihash digest = crypto::hash_n( CRYPTO_SHA2_256_ID, block.header, block.active_data );
    auto signature = block_signing_key.sign_compact( digest );
    pack::to_variable_blob( block.signature_data, signature );
 }

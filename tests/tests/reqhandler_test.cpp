@@ -117,8 +117,8 @@ BOOST_AUTO_TEST_CASE( setup_tests )
    query_res.make_mutable();
    auto& head_info_res = std::get< types::rpc::get_head_info_result >( query_res.get_native() );
 
-   BOOST_CHECK_EQUAL( head_info_res.height, 0 );
-   BOOST_CHECK_EQUAL( head_info_res.id, koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
+   BOOST_CHECK_EQUAL( head_info_res.head_topology.height, 0 );
+   BOOST_CHECK_EQUAL( head_info_res.head_topology.id, koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID ) );
 
    BOOST_TEST_MESSAGE( "Shut down chain_plugin" );
 
@@ -156,11 +156,11 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    crypto::private_key key;
    key = crypto::private_key::generate_from_seed( crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
    types::rpc::transaction_submission trx;
-   trx.transaction.operations.push_back( protocol::nop_operation() );
    trx.transaction.active_data.make_mutable();
+   trx.transaction.active_data->operations.push_back( protocol::nop_operation() );
    trx.transaction.active_data->resource_limit = 20;
-   trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
-   auto signature = key.sign_compact( trx.topology.id );
+   trx.transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
+   auto signature = key.sign_compact( trx.transaction.id );
    trx.transaction.signature_data = variable_blob( signature.begin(), signature.end() );
 
    future = _chain_plugin.submit( trx );
@@ -175,13 +175,13 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    auto& query_submission_result = std::get< types::rpc::query_submission_result >( submit_res );
    auto& pending_trxs = std::get< types::rpc::get_pending_transactions_result >( query_submission_result.get_const_native() );
    BOOST_CHECK_EQUAL( pending_trxs.transactions.size(), 1 );
-   BOOST_CHECK_EQUAL( trx.topology.id, crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.transactions[0].active_data ) );
+   BOOST_CHECK_EQUAL( trx.transaction.id, crypto::hash( CRYPTO_SHA2_256_ID, pending_trxs.transactions[0].active_data ) );
 
-   trx.transaction.operations.push_back( protocol::reserved_operation() );
    trx.transaction.active_data.make_mutable();
+   trx.transaction.active_data->operations.push_back( protocol::reserved_operation() );
    trx.transaction.active_data->resource_limit = 10;
-   trx.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
-   signature = key.sign_compact( trx.topology.id );
+   trx.transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, trx.transaction.active_data );
+   signature = key.sign_compact( trx.transaction.id );
    trx.transaction.signature_data = variable_blob( signature.begin(), signature.end() );
    future = _chain_plugin.submit( trx );
    submit_res = *(future.get());
@@ -197,17 +197,14 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_submission.verify_transaction_signatures = true;
 
    auto duration = std::chrono::system_clock::now().time_since_epoch();
-   block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-   block_submission.block.active_data->height = 2;
-
-   block_submission.topology.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
-   block_submission.topology.height = block_submission.block.active_data->height;
-   block_submission.block.active_data->previous_block = block_submission.topology.previous;
+   block_submission.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+   block_submission.block.header.height = 2;
+   block_submission.block.header.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
 
-   block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.block.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
 
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
@@ -219,9 +216,9 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
 
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->height = 1;
-   block_submission.topology.height = block_submission.block.active_data->height;
-   block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.block.active_data->signer_address = crypto::hash( CRYPTO_SHA2_256_ID, std::string( "random" ) );
+   block_submission.block.header.height = 1;
+   block_submission.block.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
 
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
@@ -232,9 +229,8 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
-   block_submission.topology.previous = crypto::empty_hash( CRYPTO_SHA2_256_ID );
+   block_submission.block.header.previous = crypto::empty_hash( CRYPTO_SHA2_256_ID );
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -248,9 +244,8 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test succesful block" );
 
-   block_submission.topology.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   block_submission.block.header.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_submission.block.active_data.make_mutable();
-   block_submission.block.active_data->previous_block = block_submission.topology.previous;
 
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
@@ -293,17 +288,14 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
       block_submission.block.active_data.make_mutable();
-      block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-      block_submission.block.active_data->height = head_info_res.height + 1;
-
-      block_submission.topology.previous = head_info_res.id;
-      block_submission.topology.height = block_submission.block.active_data->height;
-      block_submission.block.active_data->previous_block = block_submission.topology.previous;
+      block_submission.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+      block_submission.block.header.height    = head_info_res.head_topology.height + 1;
+      block_submission.block.header.previous  = head_info_res.head_topology.id;
 
       set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
       sign_block( block_submission.block, block_signing_private_key );
 
-      block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+      block_submission.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_submission.block.header, block_submission.block.active_data );
 
       future = _chain_plugin.submit( block_submission );
       future.get();
@@ -321,17 +313,14 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
       block_submission.block.active_data.make_mutable();
-      block_submission.block.active_data->timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-      block_submission.block.active_data->height = head_info_res.height + 1;
-
-      block_submission.topology.previous = head_info_res.id;
-      block_submission.topology.height = block_submission.block.active_data->height;
-      block_submission.block.active_data->previous_block = block_submission.topology.previous;
+      block_submission.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+      block_submission.block.header.height    = head_info_res.head_topology.height + 1;
+      block_submission.block.header.previous  = head_info_res.head_topology.id;
 
       set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
       sign_block( block_submission.block, block_signing_private_key );
 
-      block_submission.topology.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+      block_submission.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_submission.block.header, block_submission.block.active_data );
 
       future = _chain_plugin.submit( block_submission );
       future.get();

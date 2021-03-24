@@ -51,7 +51,7 @@ namespace koinos::plugins::chain {
 constexpr std::size_t MAX_QUEUE_SIZE = 1024;
 
 using koinos::statedb::state_db;
-using json = nlohmann::json;
+using json = pack::json;
 
 using namespace std::string_literals;
 
@@ -294,19 +294,19 @@ void reqhandler_impl::set_client( std::shared_ptr< mq::client > c )
 void reqhandler_impl::process_submission( types::rpc::block_submission_result& ret, const block_submission_impl& block )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
-   if( crypto::multihash_is_zero( block.submission.topology.previous ) )
+   if( crypto::multihash_is_zero( block.submission.block.header.previous ) )
    {
       // Genesis case
-      KOINOS_ASSERT( block.submission.topology.height == 1, root_height_mismatch, "First block must have height of 1" );
+      KOINOS_ASSERT( block.submission.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
    }
 
    // Check if the block has already been applied
-   auto block_node = _state_db.get_node( block.submission.topology.id );
+   auto block_node = _state_db.get_node( block.submission.block.id );
    if ( block_node ) return; // Block has been applied
 
-   LOG(info) << "Applying block - height: " << block.submission.topology.height
-      << ", id: " << block.submission.topology.id;
-   block_node = _state_db.create_writable_node( block.submission.topology.previous, block.submission.topology.id );
+   LOG(info) << "Applying block - height: " << block.submission.block.header.height
+      << ", id: " << block.submission.block.id;
+   block_node = _state_db.create_writable_node( block.submission.block.header.previous, block.submission.block.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
    try
@@ -373,8 +373,7 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
          json j;
 
          pack::to_json( j, broadcast::block_accepted {
-            .topology = block.submission.topology,
-            .block    = block.submission.block
+            .block = block.submission.block
          } );
 
          _client->broadcast( "koinos.block.accept", j.dump() );
@@ -393,7 +392,7 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       .digest = { 1 }
    };
 
-   LOG(info) << "Applying transaction - id: " << tx.submission.topology.id;
+   LOG(info) << "Applying transaction - id: " << tx.submission.transaction.id;
    {
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       auto tmp_node = _state_db.create_writable_node( _state_db.get_head()->id(), tmp_id );
@@ -407,7 +406,7 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
          auto trx_resource_limit = get_transaction_resource_limit( *_ctx, tx.submission.transaction );
 
          _mempool.add_pending_transaction(
-            tx.submission.topology.id,
+            tx.submission.transaction.id,
             tx.submission.transaction,
             block_height_type( _state_db.get_head()->revision() ),
             payer,
@@ -424,7 +423,7 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
       {
          _ctx->clear_state_node();
          _state_db.discard_node( tmp_id );
-         _mempool.remove_pending_transaction( tx.submission.topology.id );
+         _mempool.remove_pending_transaction( tx.submission.transaction.id );
          throw;
       }
    }
@@ -436,7 +435,6 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
          json j;
 
          pack::to_json( j, broadcast::transaction_accepted {
-            .topology    = tx.submission.topology,
             .transaction = tx.submission.transaction
          } );
 
@@ -464,9 +462,7 @@ void reqhandler_impl::process_submission( types::rpc::query_submission_result& r
             auto head_info = get_head_info( *_ctx );
             ret = types::rpc::query_submission_result(
                rpc::chain::get_head_info_response {
-                  .id = head_info.id,
-                  .previous_id = head_info.previous_id,
-                  .height = head_info.height,
+                  .head_topology            = head_info.head_topology,
                   .last_irreversible_height = head_info.last_irreversible_height
                }
             );
@@ -551,16 +547,14 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
    const types::rpc::query_item_result& subret_qi = subret.get_const_native();
    const types::rpc::get_head_info_result& subret_hi = std::get< types::rpc::get_head_info_result >( subret_qi );
 
-   if( subret_hi.height == 0 )
+   if( subret_hi.head_topology.height == 0 )
    {
       ret.fork_heads.clear();
    }
    else
    {
       ret.fork_heads.resize(1);
-      ret.fork_heads[0].id = subret_hi.id;
-      ret.fork_heads[0].previous = subret_hi.previous_id;
-      ret.fork_heads[0].height = subret_hi.height;
+      ret.fork_heads[0] = subret_hi.head_topology;
    }
 
    // TODO:  Fill in last irreversible ID and previous

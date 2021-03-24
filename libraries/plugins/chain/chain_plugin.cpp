@@ -63,14 +63,29 @@ void chain_plugin_impl::reindex()
       constexpr uint64_t batch_size = 1000;
       const auto before = std::chrono::system_clock::now();
 
-      LOG(info) << "Retrieving last irreversible block";
-      nlohmann::json j;
+      LOG(info) << "Retrieving highest block";
+      pack::json j;
       pack::to_json( j, block_store_request{ get_highest_block_request{} } );
-      auto future = _mq_client->rpc( "koinos_block", j.dump() );
+      auto future = _mq_client->rpc( mq::service::block_store, j.dump() );
 
       block_store_response resp;
-      pack::from_json( nlohmann::json::parse( future.get() ), resp );
-      auto target_head = std::get< get_highest_block_response >( resp ).topology;
+      pack::from_json( pack::json::parse( future.get() ), resp );
+
+      block_topology target_head;
+      std::visit( koinos::overloaded {
+         [&]( get_highest_block_response& r )
+         {
+            target_head = r.topology;
+         },
+         [&]( block_store_error_response& e )
+         {
+            throw koinos::exception( e.error_text );
+         },
+         [&]( auto& )
+         {
+            throw koinos::exception( "unexpected block store response" );
+         }
+      }, resp );
 
       LOG(info) << "Reindexing to target block: " << target_head;
 
@@ -86,11 +101,11 @@ void chain_plugin_impl::reindex()
       };
 
       pack::to_json( j, block_store_request{ req } );
-      future = _mq_client->rpc( "koinos_block", j.dump() );
+      future = _mq_client->rpc( mq::service::block_store, j.dump() );
 
       while ( last_id != target_head.id )
       {
-         pack::from_json( nlohmann::json::parse( future.get() ), resp );
+         pack::from_json( pack::json::parse( future.get() ), resp );
          get_blocks_by_height_response batch;
 
          std::visit( koinos::overloaded {
@@ -110,37 +125,29 @@ void chain_plugin_impl::reindex()
 
          if ( !batch.block_items.empty() )
          {
-            const auto& last_block = batch.block_items.back();
+            const auto& last_block_item = batch.block_items.back();
 
-            if ( last_block.block_id != target_head.id )
+            if ( last_block_item.block.id != target_head.id )
             {
                get_blocks_by_height_request req {
                   .head_block_id         = target_head.id,
-                  .ancestor_start_height = block_height_type{ last_block.block_height + 1 },
+                  .ancestor_start_height = block_height_type{ last_block_item.block.header.height + 1 },
                   .num_blocks            = batch_size,
                   .return_block          = true,
                   .return_receipt        = false
                };
 
                pack::to_json( j, block_store_request{ req } );
-               future = _mq_client->rpc( "koinos_block", j.dump() );
+               future = _mq_client->rpc( mq::service::block_store, j.dump() );
             }
          }
 
          for ( auto& block_item : batch.block_items )
          {
-            block_item.block.unbox();
-
             types::rpc::block_submission args;
-            args.topology = block_topology {
-               .id        = block_item.block_id,
-               .height    = block_item.block_height,
-               .previous  = last_id
-            };
-            args.block    = block_item.block.get_native();
-
-            last_id     = block_item.block_id;
-            last_height = block_item.block_height;
+            args.block  = block_item.block;
+            last_id     = block_item.block.id;
+            last_height = block_item.block.header.height;
 
             _reqhandler.submit( args );
          }
@@ -190,14 +197,11 @@ void chain_plugin_impl::attach_request_handler()
       exit( EXIT_FAILURE );
    }
 
-   ec = _mq_reqhandler->add_msg_handler(
-      "koinos_rpc",
-      "koinos_rpc_chain",
-      true,
-      []( const std::string& content_type ) { return content_type == "application/json"; },
+   ec = _mq_reqhandler->add_rpc_handler(
+      mq::service::chain,
       [&]( const std::string& msg ) -> std::string
       {
-         auto j = nlohmann::json::parse( msg );
+         auto j = pack::json::parse( msg );
          rpc::chain::chain_rpc_request args;
          pack::from_json( j, args );
 
@@ -274,19 +278,15 @@ void chain_plugin_impl::attach_request_handler()
       exit( EXIT_FAILURE );
    }
 
-   _mq_reqhandler->add_msg_handler(
-      "koinos_event",
+   _mq_reqhandler->add_broadcast_handler(
       "koinos.block.accept",
-      false,
-      []( const std::string& content_type ) { return content_type == "application/json"; },
       [&]( const std::string& msg )
       {
          broadcast::block_accepted bam;
-         pack::from_json( nlohmann::json::parse( msg ), bam );
+         pack::from_json( pack::json::parse( msg ), bam );
 
          types::rpc::block_submission args;
-         args.topology = bam.topology;
-         args.block    = bam.block;
+         args.block = bam.block;
          _reqhandler.submit( args );
       }
    );
@@ -396,7 +396,7 @@ void chain_plugin::plugin_startup()
    // Check for state directory, and create if necessary
    if ( !bfs::exists( my->state_dir ) ) { bfs::create_directory( my->state_dir ); }
 
-   nlohmann::json database_config;
+   pack::json database_config;
 
    try
    {
@@ -454,8 +454,6 @@ void chain_plugin::plugin_shutdown()
       my->_mq_reqhandler->stop();
    }
 
-   KOINOS_TODO( "We eventually need to call close() from somewhere" )
-   //my->db.close();
    my->_reqhandler.stop_threads();
    LOG(info) << "Database closed successfully";
 }

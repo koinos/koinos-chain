@@ -2,7 +2,6 @@
 #include <fstream>
 
 #include <boost/program_options.hpp>
-#include <nlohmann/json.hpp>
 
 #include <koinos/exception.hpp>
 #include <koinos/log.hpp>
@@ -35,7 +34,6 @@ koinos::rpc::chain::chain_rpc_request wrap_transaction( koinos::protocol::transa
    // Construct a submit_transaction_request from the transaction
    koinos::rpc::chain::submit_transaction_request transaction_request;
    transaction_request.transaction = transaction;
-   transaction_request.topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
 
    // Put the request in a chain_request
    koinos::rpc::chain::chain_rpc_request chain_request;
@@ -97,7 +95,7 @@ int main( int argc, char** argv )
       std::getline( std::cin, transaction_json );
 
       // Parse and deserialize the json to a transaction
-      auto j = nlohmann::json::parse( transaction_json );
+      auto j = koinos::pack::json::parse( transaction_json );
       koinos::protocol::transaction transaction;
       koinos::pack::from_json( j, transaction );
 

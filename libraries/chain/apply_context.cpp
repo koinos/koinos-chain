@@ -45,12 +45,12 @@ void apply_context::clear_block()
    _block = nullptr;
 }
 
-void apply_context::set_transaction( const opaque< protocol::transaction >& trx )
+void apply_context::set_transaction( const protocol::transaction& trx )
 {
    _trx = &trx;
 }
 
-const opaque< protocol::transaction >& apply_context::get_transaction()const
+const protocol::transaction& apply_context::get_transaction()const
 {
    return *_trx;
 }

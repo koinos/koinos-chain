@@ -44,8 +44,8 @@ class apply_context
       const protocol::block& get_block() const;
       void clear_block();
 
-      void set_transaction( const opaque< protocol::transaction >& );
-      const opaque< protocol::transaction >& get_transaction() const;
+      void set_transaction( const protocol::transaction& );
+      const protocol::transaction& get_transaction() const;
       void clear_transaction();
 
       void set_contract_call_args( const variable_blob& args );
@@ -83,7 +83,7 @@ class apply_context
       std::vector< stack_frame >             _stack;
 
       const protocol::block*                 _block = nullptr;
-      const opaque< protocol::transaction >* _trx = nullptr;
+      const protocol::transaction*           _trx = nullptr;
 };
 
 struct privilege_restorer
