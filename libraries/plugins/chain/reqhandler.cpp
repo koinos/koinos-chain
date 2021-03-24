@@ -444,10 +444,6 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
                }
             }, resp );
          }
-         else
-         {
-            LOG(error) << "Client is disconnected";
-         }
 
          _ctx->clear_state_node();
          _state_db.discard_node( tmp_id );
