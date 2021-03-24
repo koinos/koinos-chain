@@ -217,10 +217,6 @@ void chain_plugin_impl::attach_request_handler()
                {
                   submit = types::rpc::query_param_item( p );
                },
-               [&]( const rpc::chain::get_pending_transactions_request& p )
-               {
-                  submit = types::rpc::query_param_item( p );
-               },
                [&]( const rpc::chain::get_fork_heads_request& p )
                {
                   submit = p;

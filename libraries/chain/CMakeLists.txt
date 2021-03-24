@@ -2,7 +2,6 @@ file(GLOB HEADERS "include/koinos/chain/*.hpp" "include/koinos/chain/wasm/*.hpp"
 add_library(koinos_chain
             apply_context.cpp
             host.cpp
-            mempool.cpp
             system_calls.cpp
             thunk_dispatcher.cpp
             thunks.cpp
