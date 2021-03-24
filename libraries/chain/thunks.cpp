@@ -241,6 +241,40 @@ struct transaction_setter
    apply_context& ctx;
 };
 
+inline void require_payer_transaction_nonce( apply_context& ctx, account_type payer, uint64 nonce )
+{
+   variable_blob vkey;
+   pack::to_variable_blob( vkey, payer );
+   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
+
+   statedb::object_key key;
+   key = pack::from_variable_blob< statedb::object_key >( vkey );
+   auto obj = thunk::db_get_object( ctx, KERNEL_SPACE_ID, key );
+   if ( obj.size() > 0 )
+   {
+      uint64 unpacked_nonce = pack::from_variable_blob< uint64 >( obj );
+      KOINOS_ASSERT(
+         unpacked_nonce == (nonce - 1),
+         chain::chain_exception,
+         "Mismatching transaction nonce, last nonce: ${d}, expected: ${e}", ("d", unpacked_nonce)("e", unpacked_nonce + 1)
+      );
+   }
+}
+
+inline void update_payer_transaction_nonce( apply_context& ctx, account_type payer, uint64 nonce )
+{
+   variable_blob vkey;
+   pack::to_variable_blob( vkey, payer );
+   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
+
+   statedb::object_key key;
+   key = pack::from_variable_blob< statedb::object_key >( vkey );
+
+   variable_blob obj;
+   pack::to_variable_blob( obj, nonce );
+   thunk::db_put_object( ctx, KERNEL_SPACE_ID, key, obj );
+}
+
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
@@ -252,6 +286,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    auto payer = get_transaction_payer( context, trx );
    require_authority( context, payer );
+   require_payer_transaction_nonce( context, payer, trx.active_data->nonce );
 
    for( const auto& o : trx.active_data->operations )
    {
@@ -275,6 +310,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          },
       }, o );
    }
+
+   update_payer_transaction_nonce( context, payer, trx.active_data->nonce );
 }
 
 THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
@@ -508,12 +545,9 @@ THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint
 
 THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
-   transaction.active_data.unbox();
-   const auto& active_data = transaction.active_data.get_const_native();
-
    KOINOS_ASSERT( transaction.signature_data.size() == 65, invalid_transaction_signature, "Unexpected signature length" );
 
-   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, active_data );
+   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
 
    crypto::recoverable_signature signature;
    std::copy_n( transaction.signature_data.begin(), transaction.signature_data.size(), signature.begin() );
@@ -567,7 +601,7 @@ THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
 
 THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 {
-   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data.get_const_native() );
+   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
    crypto::recoverable_signature sig;
    pack::from_variable_blob( get_transaction_signature( context ), sig );
    account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );
