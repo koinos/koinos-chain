@@ -416,31 +416,34 @@ void reqhandler_impl::process_submission( types::rpc::transaction_submission_res
             .trx_resource_limit = trx_resource_limit
          };
 
-         rpc::mempool::mempool_rpc_request mem_req = check_req;
-         pack::json j;
-         pack::to_json( j, check_req );
-         auto future = _client->rpc( mq::service::mempool, j.dump() );
+         if ( _client && _client->is_connected() )
+         {
+            rpc::mempool::mempool_rpc_request mem_req = check_req;
+            pack::json j;
+            pack::to_json( j, check_req );
+            auto future = _client->rpc( mq::service::mempool, j.dump() );
 
-         rpc::mempool::mempool_rpc_response resp;
-         pack::from_json( pack::json::parse( future.get() ), resp );
+            rpc::mempool::mempool_rpc_response resp;
+            pack::from_json( pack::json::parse( future.get() ), resp );
 
-         std::visit( koinos::overloaded {
-            [&]( const rpc::mempool::check_pending_account_resources_response& r )
-            {
-               if ( !r.success ) 
+            std::visit( koinos::overloaded {
+               [&]( const rpc::mempool::check_pending_account_resources_response& r )
                {
-                  throw koinos::exception( "Insufficient pending account resources" );
+                  if ( !r.success )
+                  {
+                     throw koinos::exception( "Insufficient pending account resources" );
+                  }
+               },
+               [&] ( const rpc::mempool::mempool_error_response& r )
+               {
+                  throw koinos::exception( r.error_text );
+               },
+               [&] ( const auto& r )
+               {
+                  throw koinos::exception( "Unexpected response from mempool" );
                }
-            },
-            [&] ( const rpc::mempool::mempool_error_response& r )
-            {
-               throw koinos::exception( r.error_text );
-            },
-            [&] ( const auto& r )
-            {
-               throw koinos::exception( "Unexpected response from mempool" );
-            }
-         }, resp );
+            }, resp );
+         }
 
          _ctx->clear_state_node();
          _state_db.discard_node( tmp_id );
