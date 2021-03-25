@@ -58,7 +58,7 @@ int main( int argc, char** argv )
       if( !initialized )
          return EXIT_SUCCESS;
 
-      koinos::initialize_logging( appbase::app().data_dir(), "koinos_chain/koinos_chain_%3N.log" );
+      koinos::initialize_logging( appbase::app().data_dir(), "chain/%3N.log" );
 
       appbase::app().set_writer( []( const std::string& msg )
       {
