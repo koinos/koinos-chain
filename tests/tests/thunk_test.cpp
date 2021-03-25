@@ -428,9 +428,6 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 { try {
    using namespace koinos;
 
-   auto node = ctx.get_state_node();
-   ctx.set_state_node( node );
-
    BOOST_TEST_MESSAGE( "Test transaction nonce" );
 
    variable_blob obj_blob;
