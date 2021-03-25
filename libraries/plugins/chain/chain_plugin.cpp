@@ -126,12 +126,13 @@ void chain_plugin_impl::reindex()
          if ( !batch.block_items.empty() )
          {
             const auto& last_block_item = batch.block_items.back();
+            last_block_item.block.unbox();
 
-            if ( last_block_item.block.id != target_head.id )
+            if ( last_block_item.block->id != target_head.id )
             {
                get_blocks_by_height_request req {
                   .head_block_id         = target_head.id,
-                  .ancestor_start_height = block_height_type{ last_block_item.block.header.height + 1 },
+                  .ancestor_start_height = block_height_type{ last_block_item.block->header.height + 1 },
                   .num_blocks            = batch_size,
                   .return_block          = true,
                   .return_receipt        = false
@@ -145,9 +146,9 @@ void chain_plugin_impl::reindex()
          for ( auto& block_item : batch.block_items )
          {
             types::rpc::block_submission args;
-            args.block  = block_item.block;
-            last_id     = block_item.block.id;
-            last_height = block_item.block.header.height;
+            args.block  = block_item.block.get_const_native();
+            last_id     = block_item.block->id;
+            last_height = block_item.block->header.height;
 
             _reqhandler.submit( args );
          }

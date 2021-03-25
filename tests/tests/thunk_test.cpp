@@ -412,7 +412,7 @@ BOOST_AUTO_TEST_CASE( require_authority )
    auto bar_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
 
    koinos::protocol::transaction trx;
-   auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data.get_const_native() ) );
+   auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
    trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
    ctx.set_transaction( trx );
 
@@ -424,4 +424,91 @@ BOOST_AUTO_TEST_CASE( require_authority )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( transaction_nonce_test )
+{ try {
+   using namespace koinos;
+
+   BOOST_TEST_MESSAGE( "Test transaction nonce" );
+
+   variable_blob obj_blob;
+   crypto::private_key key;
+   std::string seed = "alpha bravo charlie delta";
+
+   key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+
+   protocol::transaction transaction;
+   transaction.active_data.make_mutable();
+   transaction.active_data->operations.push_back( protocol::nop_operation() );
+   transaction.active_data->resource_limit = 20;
+   transaction.active_data->nonce = 0;
+   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   auto signature = key.sign_compact( transaction.id );
+   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+
+   thunk::apply_transaction( ctx, transaction );
+
+   variable_blob vkey;
+   pack::to_variable_blob( vkey, thunk::get_transaction_payer( ctx, transaction ) );
+   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
+
+   statedb::object_key nonce_key;
+   nonce_key = pack::from_variable_blob< statedb::object_key >( vkey );
+
+   obj_blob = thunk::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
+   BOOST_REQUIRE( obj_blob.size() );
+   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 0 );
+
+   BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
+   transaction.active_data.make_mutable();
+   transaction.active_data->resource_limit = 25;
+   transaction.active_data->nonce = 0;
+   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   signature = key.sign_compact( transaction.id );
+   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+
+   BOOST_REQUIRE_THROW( thunk::apply_transaction( ctx, transaction ), chain::chain_exception );
+
+   obj_blob = thunk::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
+   BOOST_REQUIRE( obj_blob.size() );
+   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 0 );
+
+   BOOST_TEST_MESSAGE( "Test next transaction nonce" );
+   transaction.active_data.make_mutable();
+   transaction.active_data->nonce = 1;
+   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   signature = key.sign_compact( transaction.id );
+   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+
+   thunk::apply_transaction( ctx, transaction );
+
+   obj_blob = thunk::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
+   BOOST_REQUIRE( obj_blob.size() );
+   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 1 );
+
+   BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
+   transaction.active_data.make_mutable();
+   transaction.active_data->resource_limit = 30;
+   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   signature = key.sign_compact( transaction.id );
+   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+
+   BOOST_REQUIRE_THROW( thunk::apply_transaction( ctx, transaction ), chain::chain_exception );
+
+   obj_blob = thunk::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
+   BOOST_REQUIRE( obj_blob.size() );
+   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 1 );
+
+   BOOST_TEST_MESSAGE( "Test next transaction nonce" );
+   transaction.active_data.make_mutable();
+   transaction.active_data->nonce = 2;
+   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   signature = key.sign_compact( transaction.id );
+   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+
+   thunk::apply_transaction( ctx, transaction );
+
+   obj_blob = thunk::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
+   BOOST_REQUIRE( obj_blob.size() );
+   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 2 );
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 BOOST_AUTO_TEST_SUITE_END()
