@@ -12,7 +12,6 @@
 #include <koinos/manifest/plugins.hpp>
 
 #include <koinos/plugins/chain/chain_plugin.hpp>
-#include <koinos/plugins/block_producer/block_producer_plugin.hpp>
 
 const std::string& version_string()
 {
@@ -50,27 +49,26 @@ int main( int argc, char** argv )
       koinos::plugins::register_plugins();
 
       appbase::app().set_version_string( version_string() );
-      appbase::app().set_app_name( "koinosd" );
+      appbase::app().set_app_name( "koinos" );
 
-      appbase::app().set_default_plugins<
-         koinos::plugins::chain::chain_plugin,
-         koinos::plugins::block_producer::block_producer_plugin >();
+      appbase::app().set_default_plugins< koinos::plugins::chain::chain_plugin >();
 
-      bool initialized = appbase::app().initialize<
-         koinos::plugins::chain::chain_plugin >
-         ( argc, argv );
+      bool initialized = appbase::app().initialize< koinos::plugins::chain::chain_plugin >( argc, argv );
 
-      if( !initialized ) return EXIT_SUCCESS;
+      if( !initialized )
+         return EXIT_SUCCESS;
 
-      koinos::initialize_logging( appbase::app().data_dir(), "koinosd_%3N.log" );
+      koinos::initialize_logging( appbase::app().data_dir(), "koinos_chain/koinos_chain_%3N.log" );
+
       appbase::app().set_writer( []( const std::string& msg )
       {
          LOG(info) << msg;
       });
+
       appbase::app().startup();
-      LOG(info) << "koinosd startup complete";
+      LOG(info) << "Koinos chain startup complete";
       appbase::app().exec();
-      LOG(info) << "exited cleanly";
+      LOG(info) << "Exited cleanly";
 
       return EXIT_SUCCESS;
    }
@@ -84,7 +82,7 @@ int main( int argc, char** argv )
    }
    catch ( ... )
    {
-      LOG(fatal) << "unknown exception" << std::endl;
+      LOG(fatal) << "Unknown exception" << std::endl;
    }
 
    return EXIT_FAILURE;
