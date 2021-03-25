@@ -114,7 +114,7 @@ struct reqhandler_fixture
       koinos::pack::to_variable_blob(
          block.signature_data,
          block_signing_key.sign_compact(
-            koinos::crypto::hash( CRYPTO_SHA2_256_ID, block.active_data )
+            koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block.header, block.active_data )
          )
       );
    }
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
 
-   block_submission.block.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_submission.block.header, block_submission.block.active_data );
 
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
@@ -239,7 +239,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_submission.block.active_data.make_mutable();
    block_submission.block.active_data->signer_address = crypto::hash( CRYPTO_SHA2_256_ID, std::string( "random" ) );
    block_submission.block.header.height = 1;
-   block_submission.block.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_submission.block.header, block_submission.block.active_data );
 
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
