@@ -166,7 +166,6 @@ class reqhandler_impl
 
       state_db                                                                 _state_db;
       std::mutex                                                               _state_db_mutex;
-      std::unique_ptr< host_api >                                              _host_api;
       std::unique_ptr< apply_context >                                         _ctx;
       std::shared_ptr< mq::client >                                            _client;
 
@@ -195,7 +194,6 @@ reqhandler_impl::reqhandler_impl()
       .call = pack::to_variable_blob( "reqhandler"s ),
       .call_privilege = privilege::kernel_mode
    } );
-   _host_api = std::make_unique< host_api >( *_ctx );
 }
 
 reqhandler_impl::~reqhandler_impl() = default;
@@ -563,28 +561,28 @@ void reqhandler_impl::process_submission( types::rpc::get_fork_heads_submission_
    // (perhaps as part of StateDB but I'm open to suggestions).
    //
    // We should also probably extend state nodes to cache the LIB ID and height information.
+   ret.fork_heads.clear();
+
+   auto ctx = std::make_unique< apply_context >();
+   ctx->push_frame( koinos::chain::stack_frame {
+      .call = pack::to_variable_blob( "reqhandler"s ),
+      .call_privilege = privilege::kernel_mode
+   } );
 
    types::rpc::query_submission_result subret;
    query_submission_impl subq = types::rpc::query_submission( types::rpc::query_param_item( types::rpc::get_head_info_params() ) );
 
-   process_submission(subret, subq);
+   auto fork_heads = _state_db.get_fork_heads();
 
-   subret.unbox();
-   const types::rpc::query_item_result& subret_qi = subret.get_const_native();
-   const types::rpc::get_head_info_result& subret_hi = std::get< types::rpc::get_head_info_result >( subret_qi );
-
-   if( subret_hi.head_topology.height == 0 )
+   for( auto& fork : _state_db.get_fork_heads() )
    {
-      ret.fork_heads.clear();
-   }
-   else
-   {
-      ret.fork_heads.resize(1);
-      ret.fork_heads[0] = subret_hi.head_topology;
+      ctx->set_state_node( fork );
+      auto head_info = get_head_info( *ctx );
+      ret.fork_heads.emplace_back( std::move( head_info.head_topology ) );
    }
 
-   // TODO:  Fill in last irreversible ID and previous
-   ret.last_irreversible_block.height = subret_hi.last_irreversible_height;
+   ctx->set_state_node( _state_db.get_root() );
+   ret.last_irreversible_block = get_head_info( *ctx ).head_topology;
 }
 
 std::shared_ptr< types::rpc::submission_result > reqhandler_impl::process_item( std::shared_ptr< item_submission_impl > item )

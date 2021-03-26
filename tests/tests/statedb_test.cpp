@@ -280,10 +280,18 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( db.get_node( block_1000_id )->id() == block_1000_id );
    BOOST_REQUIRE( db.get_node( block_1000_id )->revision() == 1000 );
 
+   auto fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 1 );
+   BOOST_REQUIRE( fork_heads[0]->id() == db.get_head()->id() );
+
    BOOST_TEST_MESSAGE( "Test commit" );
    db.commit_node( block_1000_id );
    BOOST_REQUIRE( db.get_root()->id() == block_1000_id );
    BOOST_REQUIRE( db.get_root()->revision() == 1000 );
+
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 1 );
+   BOOST_REQUIRE( fork_heads[0]->id() == db.get_head()->id() );
 
    multihash block_2000_id = id;
 
@@ -295,10 +303,18 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    auto new_block = db.get_node( id );
    BOOST_REQUIRE( new_block );
 
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 1 );
+   BOOST_REQUIRE( fork_heads[0]->id() == prev_id );
+
    db.discard_node( id );
 
    BOOST_REQUIRE( db.get_head()->id() == prev_id );
    BOOST_REQUIRE( db.get_head()->revision() == 2000 );
+
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 1 );
+   BOOST_REQUIRE( fork_heads[0]->id() == prev_id );
 
    // Shared ptr should still exist, but not be returned with get_node
    BOOST_REQUIRE( new_block );
@@ -323,6 +339,9 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    prev_id = fork_node->id();
    b.nonce = 1;
 
+   auto old_block_1996_id = db.get_node_at_revision( 1996 )->id();
+   auto old_block_1997_id = db.get_node_at_revision( 1997 )->id();
+
    for ( uint64_t i = 1; i <= 5; ++i )
    {
       b.previous = prev_id;
@@ -339,6 +358,12 @@ BOOST_AUTO_TEST_CASE( fork_tests )
       prev_id = id;
    }
 
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 2 );
+   BOOST_REQUIRE( ( fork_heads[0]->id() == db.get_head()->id() && fork_heads[1]->id() == id ) ||
+                  ( fork_heads[1]->id() == db.get_head()->id() && fork_heads[0]->id() == id ) );
+   auto old_head_id = db.get_head()->id();
+
    b.previous = prev_id;
    b.height = head_rev + 1;
    id = b.get_id();
@@ -352,8 +377,24 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    db.finalize_node( id );
 
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 2 );
+   BOOST_REQUIRE( ( fork_heads[0]->id() == id && fork_heads[1]->id() == old_head_id ) ||
+                  ( fork_heads[1]->id() == id && fork_heads[0]->id() == old_head_id ) );
+
    BOOST_CHECK( db.get_head()->id() == id );
    BOOST_CHECK( db.get_head()->revision() == b.height );
+
+   db.discard_node( old_block_1997_id );
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 2 );
+   BOOST_REQUIRE( ( fork_heads[0]->id() == id && fork_heads[1]->id() == old_block_1996_id ) ||
+                  ( fork_heads[1]->id() == id && fork_heads[0]->id() == old_block_1996_id ) );
+
+   db.discard_node( old_block_1996_id );
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE_EQUAL( fork_heads.size(), 1 );
+   BOOST_REQUIRE( fork_heads[0]->id() == id );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
