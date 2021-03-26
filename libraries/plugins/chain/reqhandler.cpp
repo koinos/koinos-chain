@@ -302,8 +302,8 @@ void reqhandler_impl::process_submission( types::rpc::block_submission_result& r
    auto block_node = _state_db.get_node( block.submission.block.id );
    if ( block_node ) return; // Block has been applied
 
-   LOG(info) << "Applying block - height: " << block.submission.block.header.height
-      << ", id: " << block.submission.block.id;
+   LOG(info) << "Applying block - Height: " << block.submission.block.header.height
+      << ", ID: " << block.submission.block.id;
    block_node = _state_db.create_writable_node( block.submission.block.header.previous, block.submission.block.id );
    KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 

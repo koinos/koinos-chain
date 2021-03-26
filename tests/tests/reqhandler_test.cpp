@@ -10,7 +10,7 @@
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/exception.hpp>
 #include <koinos/pack/rt/binary.hpp>
-#include <koinos/plugins/block_producer/util/block_util.hpp>
+
 #include <koinos/plugins/chain/chain_plugin.hpp>
 #include <koinos/plugins/chain/reqhandler.hpp>
 
@@ -19,8 +19,6 @@
 #include <chrono>
 #include <sstream>
 
-using koinos::plugins::block_producer::util::set_block_merkle_roots;
-using koinos::plugins::block_producer::util::sign_block;
 using namespace std::string_literals;
 
 /**
@@ -86,6 +84,39 @@ struct reqhandler_fixture
    {
       _chain_plugin.plugin_shutdown();
       boost::filesystem::remove_all( _state_dir );
+   }
+
+   void set_block_merkle_roots( koinos::protocol::block& block, uint64_t code, uint64_t size = 0 )
+   {
+      std::vector< koinos::multihash > trx_active_hashes( block.transactions.size() );
+      std::vector< koinos::multihash > passive_hashes( 2 * ( block.transactions.size() + 1 ) );
+
+      passive_hashes[0] = koinos::crypto::hash( code, block.passive_data, size );
+      passive_hashes[1] = koinos::crypto::empty_hash( code, size );
+
+      // Hash transaction actives, passives, and signatures for merkle roots
+      for ( size_t i = 0; i < block.transactions.size(); i++ )
+      {
+         trx_active_hashes[i]      = koinos::crypto::hash(      code, block.transactions[i].active_data,    size );
+         passive_hashes[2*(i+1)]   = koinos::crypto::hash(      code, block.transactions[i].passive_data,   size );
+         passive_hashes[2*(i+1)+1] = koinos::crypto::hash_blob( code, block.transactions[i].signature_data, size );
+      }
+
+      koinos::crypto::merkle_hash_leaves( trx_active_hashes, code, size );
+      koinos::crypto::merkle_hash_leaves( passive_hashes,    code, size );
+
+      block.active_data->transaction_merkle_root  = trx_active_hashes[0];
+      block.active_data->passive_data_merkle_root = passive_hashes[0];
+   }
+
+   void sign_block( koinos::protocol::block& block, koinos::crypto::private_key& block_signing_key )
+   {
+      koinos::pack::to_variable_blob(
+         block.signature_data,
+         block_signing_key.sign_compact(
+            koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block.header, block.active_data )
+         )
+      );
    }
 
    boost::program_options::variables_map    _options;
@@ -194,7 +225,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    set_block_merkle_roots( block_submission.block, CRYPTO_SHA2_256_ID );
    sign_block( block_submission.block, block_signing_private_key );
 
-   block_submission.block.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_submission.block.header, block_submission.block.active_data );
 
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
@@ -208,7 +239,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_submission.block.active_data.make_mutable();
    block_submission.block.active_data->signer_address = crypto::hash( CRYPTO_SHA2_256_ID, std::string( "random" ) );
    block_submission.block.header.height = 1;
-   block_submission.block.id = crypto::hash( CRYPTO_SHA2_256_ID, block_submission.block.active_data );
+   block_submission.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_submission.block.header, block_submission.block.active_data );
 
    future = _chain_plugin.submit( block_submission );
    submit_res = *(future.get());
