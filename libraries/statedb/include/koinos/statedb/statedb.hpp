@@ -238,6 +238,14 @@ class state_db final
       state_node_ptr get_head()const;
 
       /**
+       * Get and return a vector of all fork heads.
+       *
+       * Fork heads are any finalized nodes that do
+       * not have children.
+       */
+      std::vector< state_node_ptr > get_fork_heads()const;
+
+      /**
        * Get and return the current "root" node.
        *
        * All state nodes are guaranteed to a descendant of root.

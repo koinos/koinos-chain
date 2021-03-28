@@ -98,17 +98,19 @@ class state_db_impl final
       void commit_node( const state_node_id& node );
 
       state_node_ptr get_head()const;
+      std::vector< state_node_ptr > get_fork_heads()const;
       state_node_ptr get_root()const;
 
       bool is_open()const;
 
-      boost::filesystem::path                 _path;
-      std::any                                _options;
-      std::function< void( state_node_ptr ) > _init_func = nullptr;
+      boost::filesystem::path                   _path;
+      std::any                                  _options;
+      std::function< void( state_node_ptr ) >   _init_func = nullptr;
 
-      state_multi_index_type                  _index;
-      state_node_ptr                          _head;
-      state_node_ptr                          _root;
+      state_multi_index_type                    _index;
+      state_node_ptr                            _head;
+      std::map< state_node_id, state_node_ptr > _fork_heads;
+      state_node_ptr                            _root;
 };
 
 void state_db_impl::reset()
@@ -121,6 +123,7 @@ void state_db_impl::reset()
 
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    // Wipe and start over from empty database!
+   _fork_heads.clear();
    _root->impl->_state->clear();
    close();
    open( _path, _options, _init_func );
@@ -140,6 +143,7 @@ void state_db_impl::open( const boost::filesystem::path& p, const std::any& o, s
    _index.insert( root );
    _root = root;
    _head = root;
+   _fork_heads.insert_or_assign( _head->id(), _head );
 
    _path = p;
    _options = o;
@@ -230,6 +234,14 @@ void state_db_impl::finalize_node( const state_node_id& node_id )
    {
       _head = node;
    }
+
+   // When node is finalized, parent node needs to be removed from heads, if it exists.
+   auto parent_itr = _fork_heads.find( node->parent_id() );
+   if ( parent_itr != _fork_heads.end() )
+   {
+      _fork_heads.erase( parent_itr );
+   }
+   _fork_heads.insert_or_assign( node->id(), node );
 }
 
 void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< state_node_id >& whitelist )
@@ -253,12 +265,20 @@ void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< 
       while ( previtr != previdx.end() && (*previtr)->parent_id() == remove_queue[ i ] )
       {
          // Do not remove nodes on the whitelist
-         if( whitelist.find( (*previtr)->id() ) == whitelist.end() )
+         if ( whitelist.find( (*previtr)->id() ) == whitelist.end() )
          {
             remove_queue.push_back( (*previtr)->id() );
          }
 
          ++previtr;
+      }
+
+      // We may discard one or more fork heads when discarding a minority fork tree
+      // For completeness, we'll check every node to see if it is a fork head
+      auto head_itr = _fork_heads.find( remove_queue[ i ] );
+      if ( head_itr != _fork_heads.end() )
+      {
+         _fork_heads.erase( head_itr );
       }
    }
 
@@ -267,6 +287,15 @@ void state_db_impl::discard_node( const state_node_id& node_id, const flat_set< 
       auto itr = _index.find( id );
       if ( itr != _index.end() )
          _index.erase( itr );
+   }
+
+   // When node is discarded, if the parent node is not a parent of other nodes (no forks), add it to heads.
+   auto fork_itr = previdx.find( node->parent_id() );
+   if ( fork_itr == previdx.end() )
+   {
+      auto parent_itr = _index.find( node->parent_id() );
+      KOINOS_ASSERT( parent_itr != _index.end(), internal_error, "Discarded parent node not found in node index" );
+      _fork_heads.insert_or_assign( (*parent_itr)->id(), *parent_itr );
    }
 }
 
@@ -289,6 +318,20 @@ state_node_ptr state_db_impl::get_head()const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
    return _head;
+}
+
+std::vector< state_node_ptr > state_db_impl::get_fork_heads()const
+{
+   KOINOS_ASSERT( is_open(), database_not_open, "Database is not open" );
+   vector< state_node_ptr > fork_heads;
+   fork_heads.reserve( _fork_heads.size() );
+
+   for( auto& heads : _fork_heads )
+   {
+      fork_heads.push_back( heads.second );
+   }
+
+   return fork_heads;
 }
 
 state_node_ptr state_db_impl::get_root()const
@@ -524,6 +567,11 @@ void state_db::commit_node( const state_node_id& node_id )
 state_node_ptr state_db::get_head()const
 {
    return impl->get_head();
+}
+
+std::vector< state_node_ptr > state_db::get_fork_heads()const
+{
+   return impl->get_fork_heads();
 }
 
 state_node_ptr state_db::get_root()const
