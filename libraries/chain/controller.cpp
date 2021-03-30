@@ -58,6 +58,7 @@ controller_impl::controller_impl()
 
 void controller_impl::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
+   std::lock_guard< std::mutex > lock( _state_db_mutex );
    _state_db.open( p, o, [&]( statedb::state_node_ptr root )
    {
       for ( const auto& entry : data )
@@ -227,13 +228,14 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
    }
 
+   apply_context ctx;
+   ctx.push_frame( stack_frame {
+      .call = pack::to_variable_blob( "submit_transaction"s ),
+      .call_privilege = privilege::kernel_mode
+   } );
+
    try
    {
-      apply_context ctx;
-      ctx.push_frame( stack_frame {
-         .call = pack::to_variable_blob( "submit_transaction"s ),
-         .call_privilege = privilege::kernel_mode
-      } );
       ctx.set_state_node( pending_trx_node );
 
       payer = system_call::get_transaction_payer( ctx, request.transaction );
@@ -299,7 +301,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
             .payer = payer,
             .max_payer_resources = max_payer_resources,
             .trx_resource_limit = trx_resource_limit,
-            .height = block_height_type{ _state_db.get_head()->revision() }
+            .height = block_height_type{ ctx.get_state_node()->revision() }
          } );
 
          _client->broadcast( "koinos.transaction.accept", j.dump() );
@@ -386,7 +388,7 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
    response.last_irreversible_block = system_call::get_head_info( ctx ).head_topology;
 
-   for( auto& fork : _state_db.get_fork_heads() )
+   for( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
       auto head_info = system_call::get_head_info( ctx );
