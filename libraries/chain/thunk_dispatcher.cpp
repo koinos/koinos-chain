@@ -1,6 +1,4 @@
-
 #include <koinos/chain/thunk_dispatcher.hpp>
-#include <koinos/chain/thunks.hpp>
 
 namespace koinos::chain {
 

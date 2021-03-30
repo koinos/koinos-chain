@@ -5,7 +5,7 @@
 
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/thunks.hpp>
+#include <koinos/chain/system_calls.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.block.header.height = 1;
    block_req.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::thunk::invalid_block_signature );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::invalid_block_signature );
 
 
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );

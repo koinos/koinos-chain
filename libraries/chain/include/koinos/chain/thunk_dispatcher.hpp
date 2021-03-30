@@ -1,11 +1,8 @@
 #pragma once
 
-#include <cstdint>
-
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/register_thunks.hpp>
-#include <koinos/chain/thunks.hpp>
+#include <koinos/chain/system_calls.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -13,6 +10,7 @@
 #include <boost/container/flat_map.hpp>
 
 #include <any>
+#include <cstdint>
 #include <functional>
 #include <type_traits>
 

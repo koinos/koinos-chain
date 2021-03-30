@@ -3,7 +3,6 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/system_calls.hpp>
-#include <koinos/chain/thunks.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -129,7 +128,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       ctx.set_state_node( block_node );
 
-      thunk::apply_block(
+      system_call::apply_block(
          ctx,
          request.block,
          request.verify_passive_data,
@@ -139,7 +138,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( output.length() > 0 ) { LOG(info) << output; }
 
-      auto lib = thunk::get_last_irreversible_block( ctx );
+      auto lib = system_call::get_last_irreversible_block( ctx );
 
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.finalize_node( block_node->id() );
@@ -237,11 +236,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       } );
       ctx.set_state_node( pending_trx_node );
 
-      payer = thunk::get_transaction_payer( ctx, request.transaction );
-      max_payer_resources = thunk::get_max_account_resources( ctx, payer );
-      trx_resource_limit = thunk::get_transaction_resource_limit( ctx, request.transaction );
+      payer = system_call::get_transaction_payer( ctx, request.transaction );
+      max_payer_resources = system_call::get_max_account_resources( ctx, payer );
+      trx_resource_limit = system_call::get_transaction_resource_limit( ctx, request.transaction );
 
-      thunk::apply_transaction( ctx, request.transaction );
+      system_call::apply_transaction( ctx, request.transaction );
 
       rpc::mempool::check_pending_account_resources_request check_req
       {
@@ -327,7 +326,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
       ctx.set_state_node( _state_db.get_head() );
    }
 
-   auto head_info = thunk::get_head_info( ctx );
+   auto head_info = system_call::get_head_info( ctx );
    return {
       .head_topology            = head_info.head_topology,
       .last_irreversible_height = head_info.last_irreversible_height
@@ -385,12 +384,12 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
       fork_heads = _state_db.get_fork_heads();
    }
 
-   response.last_irreversible_block = thunk::get_head_info( ctx ).head_topology;
+   response.last_irreversible_block = system_call::get_head_info( ctx ).head_topology;
 
    for( auto& fork : _state_db.get_fork_heads() )
    {
       ctx.set_state_node( fork );
-      auto head_info = thunk::get_head_info( ctx );
+      auto head_info = system_call::get_head_info( ctx );
       response.fork_heads.emplace_back( std::move( head_info.head_topology ) );
    }
 
