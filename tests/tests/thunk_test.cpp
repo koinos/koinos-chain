@@ -108,9 +108,9 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_TEST_MESSAGE( "Test iteration" );
 
    koinos::pack::to_variable_blob( object_data, "object2"s );
-   thunk::db_put_object( ctx, KERNEL_SPACE_ID, 2, object_data );
+   system_call::db_put_object( ctx, KERNEL_SPACE_ID, 2, object_data );
    koinos::pack::to_variable_blob( object_data, "object3"s );
-   thunk::db_put_object( ctx, KERNEL_SPACE_ID, 3, object_data );
+   system_call::db_put_object( ctx, KERNEL_SPACE_ID, 3, object_data );
 
    obj_blob = system_call::db_get_next_object( ctx, KERNEL_SPACE_ID, 2, 8 );
    BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object3" );
@@ -162,7 +162,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
 
-   thunk::apply_upload_contract_operation( ctx, op );
+   system_call::apply_upload_contract_operation( ctx, op );
 
    koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
    auto stored_bytecode = system_call::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
-   BOOST_REQUIRE_THROW( thunk::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
+   BOOST_REQUIRE_THROW( system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -440,9 +440,9 @@ BOOST_AUTO_TEST_CASE( require_authority )
 
    auto foo_account = koinos::pack::to_variable_blob( foo_key.get_public_key().to_address() );
    auto bar_account = koinos::pack::to_variable_blob( bar_key.get_public_key().to_address() );
-   thunk::require_authority( ctx, foo_account );
+   system_call::require_authority( ctx, foo_account );
 
-   BOOST_REQUIRE_THROW( thunk::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
+   BOOST_REQUIRE_THROW( system_call::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -527,7 +527,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    signature = key.sign_compact( transaction.id );
    transaction.signature_data = variable_blob( signature.begin(), signature.end() );
 
-   thunk::apply_transaction( ctx, transaction );
+   system_call::apply_transaction( ctx, transaction );
 
    obj_blob = system_call::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
    BOOST_REQUIRE( obj_blob.size() );
