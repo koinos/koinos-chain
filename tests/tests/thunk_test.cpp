@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    koinos::protocol::create_system_contract_operation op;
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
-   memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
+   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
 
@@ -168,12 +168,12 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    auto stored_bytecode = system_call::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
-   BOOST_REQUIRE( memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
+   BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
    koinos::protocol::contract_call_operation op2;
-   memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
+   std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
    system_call::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    koinos::pack::protocol::create_system_contract_operation contract_op;
    auto return_bytecode = get_contract_return_wasm();
    auto return_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, return_bytecode );
-   memcpy( contract_op.contract_id.data(), return_id.digest.data(), contract_op.contract_id.size() );
+   std::memcpy( contract_op.contract_id.data(), return_id.digest.data(), contract_op.contract_id.size() );
    contract_op.bytecode.insert( contract_op.bytecode.end(), return_bytecode.begin(), return_bytecode.end() );
    system_call::apply_upload_contract_operation( ctx, contract_op );
 
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Ensure exception thrown on invalid contract
    auto false_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1234 );
-   memcpy( bundle.contract_id.data(), false_id.digest.data(), bundle.contract_id.size() );
+   std::memcpy( bundle.contract_id.data(), false_id.digest.data(), bundle.contract_id.size() );
    call_op.target = bundle;
    BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
 
@@ -253,7 +253,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::protocol::create_system_contract_operation contract_op2;
    auto bytecode2 = get_syscall_override_wasm();
    auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode2 );
-   memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
+   std::memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
    contract_op2.bytecode.insert( contract_op2.bytecode.end(), bytecode2.begin(), bytecode2.end() );
    system_call::apply_upload_contract_operation( ctx, contract_op2 );
 
