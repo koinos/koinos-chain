@@ -106,7 +106,7 @@ bool is_system_space( const statedb::object_space& space_id )
           space_id == KERNEL_SPACE_ID;
 }
 
-namespace thunk {
+THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
 {
@@ -354,7 +354,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          {
             apply_execute_contract_operation( context, op );
          },
-         [&]( const protocol::set_system_call_operation& op )
+         [&]( const set_system_call_operation& op )
          {
             apply_set_system_call_operation( context, op );
          },
@@ -659,4 +659,6 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
       std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match" );
 }
 
-} } // koinos::chain::thunk
+THUNK_DEFINE_END();
+
+} // koinos::chain

@@ -154,3 +154,6 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 
 #define THUNK_DEFINE_VOID( RETURN_TYPE, SYSCALL )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, , , )
+
+#define THUNK_DEFINE_BEGIN() namespace thunk {
+#define THUNK_DEFINE_END()   }
