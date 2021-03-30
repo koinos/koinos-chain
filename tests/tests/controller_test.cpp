@@ -30,9 +30,7 @@ struct controller_fixture
       LOG(info) << "Test temp dir: " << _state_dir.string();
       boost::filesystem::create_directory( _state_dir );
 
-      koinos::pack::json database_config;
-      boost::filesystem::ifstream config_file( "database.cfg", std::ios::binary );
-      config_file >> database_config;
+      auto database_config = mira::utilities::default_database_configuration();
 
       koinos::chain::genesis_data genesis_data;
       auto chain_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, TEST_CHAIN_ID_SEED );
