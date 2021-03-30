@@ -1,5 +1,6 @@
 #include <koinos/pack/rt/pack_fwd.hpp>
 
+#include <koinos/chain/constants.hpp>
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
@@ -11,20 +12,20 @@ namespace koinos::chain {
 
 host_api::host_api( apply_context& _ctx ) : context( _ctx ) {}
 
-void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
+void host_api::invoke_thunk( thunk_id_type tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
    thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
+void host_api::invoke_system_call( system_call_id_type sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
    variable_blob blob_target;
 
    with_privilege( context, privilege::kernel_mode, [&]() {
-      blob_target = thunk::db_get_object_thunk(
+      blob_target = thunk::db_get_object(
          context,
          SYS_CALL_DISPATCH_TABLE_SPACE_ID,
          key,
