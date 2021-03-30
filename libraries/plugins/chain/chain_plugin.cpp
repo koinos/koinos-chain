@@ -1,6 +1,6 @@
 #include <koinos/plugins/chain/chain_plugin.hpp>
-#include <koinos/plugins/chain/reqhandler.hpp>
 
+#include <koinos/chain/controller.hpp>
 #include <koinos/log.hpp>
 #include <koinos/mq/request_handler.hpp>
 #include <koinos/mq/client.hpp>
@@ -37,7 +37,7 @@ class chain_plugin_impl
       bfs::path            state_dir;
       bfs::path            database_cfg;
 
-      reqhandler           _reqhandler;
+      koinos::chain::controller              _controller;
 
       bool                                   _reset = false;
       bool                                   _reindex = false;
@@ -45,7 +45,7 @@ class chain_plugin_impl
       std::shared_ptr< mq::client >          _mq_client;
       std::shared_ptr< mq::request_handler > _mq_reqhandler;
       bool                                   _mq_disable = false;
-      genesis_data                           _genesis_data;
+      koinos::chain::genesis_data            _genesis_data;
 };
 
 void chain_plugin_impl::write_default_database_config( bfs::path &p )
@@ -150,11 +150,14 @@ void chain_plugin_impl::reindex()
             last_id     = block_item.block->id;
             last_height = block_item.block->header.height;
 
-            _reqhandler.submit( args );
+            _controller.submit_block( {
+               .block = block_item.block.get_const_native(),
+               .verify_passive_data = false,
+               .verify_block_signature = false,
+               .verify_transaction_signatures = false
+            } );
          }
       }
-
-      _reqhandler.wait_for_jobs();
 
       const std::chrono::duration< double > duration = std::chrono::system_clock::now() - before;
       LOG(info) << "Finished reindexing " << last_height << " blocks, took " << duration.count() << " seconds";
@@ -181,7 +184,7 @@ void chain_plugin_impl::attach_request_handler()
 {
    try
    {
-      _reqhandler.set_client( _mq_client );
+      _controller.set_client( _mq_client );
    }
    catch( std::exception& e )
    {
@@ -203,68 +206,57 @@ void chain_plugin_impl::attach_request_handler()
       [&]( const std::string& msg ) -> std::string
       {
          auto j = pack::json::parse( msg );
-         rpc::chain::chain_rpc_request args;
-         pack::from_json( j, args );
+         rpc::chain::chain_rpc_request request;
+         rpc::chain::chain_rpc_response response;
+         pack::from_json( j, request );
 
-         // Convert chain_rpc_params -> submission_item
-         types::rpc::submission_item submit;
-         std::visit(
-            koinos::overloaded {
-               [&]( const rpc::chain::get_head_info_request& p )
-               {
-                  submit = types::rpc::query_param_item( p );
-               },
-               [&]( const rpc::chain::get_chain_id_request& p )
-               {
-                  submit = types::rpc::query_param_item( p );
-               },
-               [&]( const rpc::chain::get_fork_heads_request& p )
-               {
-                  submit = p;
-               },
-               [&]( const auto& p )
-               {
-                  submit = p;
-               }
-            },
-            args
-         );
-
-         auto res = _reqhandler.submit( submit );
-
-         // Convert submission_result -> chain_rpc_result
-         rpc::chain::chain_rpc_response result;
-         std::visit(
-            koinos::overloaded {
-               [&]( const types::rpc::query_submission_result& r )
-               {
-                  r.unbox();
-                  if ( r.is_unboxed() )
+         try
+         {
+            std::visit(
+               koinos::overloaded {
+                  [&]( const rpc::chain::submit_block_request& r )
                   {
-                     std::visit(
-                        koinos::overloaded {
-                           [&]( const auto& q )
-                           {
-                              result = q;
-                           }
-                        },
-                        r.get_const_native()
-                     );
-                  }
-                  else
+                     response = _controller.submit_block( r );
+                  },
+                  [&]( const rpc::chain::submit_transaction_request& r )
                   {
-                     result = rpc::chain::chain_error_response{ "Unknown serialization returned for query submission result" };
+                     response = _controller.submit_transaction( r );
+                  },
+                  [&]( const rpc::chain::get_head_info_request& r )
+                  {
+                     response = _controller.get_head_info( r );
+                  },
+                  [&]( const rpc::chain::get_chain_id_request& r )
+                  {
+                     response = _controller.get_chain_id( r );
+                  },
+                  [&]( const rpc::chain::get_fork_heads_request& r )
+                  {
+                     response = _controller.get_fork_heads( r );
+                  },
+                  [&]( const auto& r )
+                  {
+                     response = rpc::chain::chain_error_response{ .error_text = "Unknown RPC type" };
                   }
                },
-               [&]( const auto& r )
-               {
-                  result = r;
-               }
-            },
-            *(res.get())
-         );
+               request
+            );
+         }
+         catch( koinos::exception& e )
+         {
+            response = rpc::chain::chain_error_response {
+               .error_text = e.get_message(),
+               .error_data = e.get_stacktrace()
+            };
+         }
+         catch( std::exception& e )
+         {
+            response = rpc::chain::chain_error_response {
+               .error_text = e.what()
+            };
+         }
 
-         pack::to_json( j, result );
+         pack::to_json( j, response );
          return j.dump();
       }
    );
@@ -282,9 +274,12 @@ void chain_plugin_impl::attach_request_handler()
          broadcast::block_accepted bam;
          pack::from_json( pack::json::parse( msg ), bam );
 
-         types::rpc::block_submission args;
-         args.block = bam.block;
-         _reqhandler.submit( args );
+         _controller.submit_block( {
+            .block = bam.block,
+            .verify_passive_data = false,
+            .verify_block_signature = false,
+            .verify_transaction_signatures = false
+         } );
       }
    );
 
@@ -408,15 +403,13 @@ void chain_plugin::plugin_startup()
 
    try
    {
-      my->_reqhandler.open( my->state_dir, database_config, my->_genesis_data, my->_reset );
+      my->_controller.open( my->state_dir, database_config, my->_genesis_data, my->_reset );
    }
    catch( std::exception& e )
    {
       LOG(error) << "Error opening database: " << e.what();
       exit( EXIT_FAILURE );
    }
-
-   my->_reqhandler.start_threads();
 
    my->_mq_client = std::make_shared< mq::client >();
    my->_mq_reqhandler = std::make_shared< mq::request_handler >();
@@ -451,13 +444,7 @@ void chain_plugin::plugin_shutdown()
       my->_mq_reqhandler->stop();
    }
 
-   my->_reqhandler.stop_threads();
    LOG(info) << "Database closed successfully";
-}
-
-std::future< std::shared_ptr< koinos::types::rpc::submission_result > > chain_plugin::submit( const koinos::types::rpc::submission_item& item )
-{
-   return my->_reqhandler.submit( item );
 }
 
 } // namespace koinos::plugis::chain
