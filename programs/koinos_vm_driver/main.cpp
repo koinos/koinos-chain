@@ -3,11 +3,11 @@
 
 #include <boost/program_options.hpp>
 
-#include <koinos/chain/register_thunks.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
+#include <koinos/pack/classes.hpp>
 
 #include <mira/database_configuration.hpp>
 

@@ -3,26 +3,26 @@
 #include <boost/preprocessor/punctuation/comma.hpp>
 #include <boost/vmd/is_empty.hpp>
 
+#include <koinos/pack/classes.hpp>
 #include <koinos/pack/system_call_ids.hpp>
 #include <koinos/pack/thunk_ids.hpp>
 
 #include <koinos/util.hpp>
 
 // This file exposes seven public macros for consumption
-// 1. REGISTER_THUNKS
-// 2. DEFAULT_SYSTEM_CALLS
+// 1. SYSTEM_CALL_DEFAULTS
+// 2. THUNK_REGISTER
 // 3. THUNK_DECLARE
 // 4. THUNK_DEFINE
 
-#define _THUNK_SUFFIX _thunk
 #define _THUNK_TYPE_SUFFIX _type
 #define _THUNK_ARGS_SUFFIX _args
 #define _THUNK_RET_SUFFIX  _return
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( thunk_id::elem, thunk::BOOST_PP_CAT(elem,_THUNK_SUFFIX) );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( thunk_id::elem, thunk::elem );
 
-#define REGISTER_THUNKS( dispatcher, args )                       \
+#define THUNK_REGISTER( dispatcher, args )                        \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
 
 #define _DEFAULT_SYS_CALL_ENTRY( SID, DATA, CALL )                \
@@ -32,7 +32,7 @@ case(system_call_id::CALL):                                       \
    break;                                                         \
 }
 
-#define DEFAULT_SYSTEM_CALLS( args )                                           \
+#define SYSTEM_CALL_DEFAULTS( args )                                           \
 std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 {                                                                              \
    std::optional< thunk_id > retval;                                           \
@@ -47,12 +47,12 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define VA_ARGS(...) , ##__VA_ARGS__
 
 #define THUNK_DECLARE(return_type, name, ...)                                          \
-   return_type name( apply_context& VA_ARGS(__VA_ARGS__) );                            \
-   return_type BOOST_PP_CAT(name,_THUNK_SUFFIX)( apply_context& VA_ARGS(__VA_ARGS__))
+   namespace thunk { return_type name( apply_context& VA_ARGS(__VA_ARGS__) ); }        \
+   namespace system_call { return_type name( apply_context& VA_ARGS(__VA_ARGS__) ); }
 
 #define THUNK_DECLARE_VOID(return_type, name)                                          \
-   return_type name( apply_context& );                                                 \
-   return_type BOOST_PP_CAT(name,_THUNK_SUFFIX)( apply_context& )
+   namespace thunk { return_type name( apply_context& ); }                             \
+   namespace system_call { return_type name( apply_context& ); }
 
 #define _THUNK_RET_TYPE_void 1)(1
 #define _THUNK_IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(_THUNK_RET_TYPE_,type))),2)
@@ -79,6 +79,8 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
+   }                                                                                                                 \
+   namespace system_call {                                                                                           \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
                                                                                                                      \
@@ -90,7 +92,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                                                                                                                      \
       with_privilege( context, privilege::kernel_mode, [&]()                                                         \
       {                                                                                                              \
-         _vl_target = db_get_object_thunk(                                                                           \
+         _vl_target = thunk::db_get_object(                                                                          \
             context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, _key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );              \
       } );                                                                                                           \
                                                                                                                      \
@@ -129,7 +131,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
                variable_blob _contract_ret;                                                                          \
                with_privilege( context, privilege::kernel_mode, [&]()                                                \
                {                                                                                                     \
-                  _contract_ret = execute_contract( context, _scb.contract_id, _scb.entry_point, _args );            \
+                  _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );     \
                } );                                                                                                  \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
@@ -140,7 +142,9 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
             } }, _target );                                                                                          \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret;)                                                         \
    }                                                                                                                 \
-   RETURN_TYPE BOOST_PP_CAT(SYSCALL,_THUNK_SUFFIX)( apply_context& context ARGS )
+   }                                                                                                                 \
+   namespace thunk {                                                                                                 \
+   RETURN_TYPE SYSCALL( apply_context& context ARGS )
 
 #define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \

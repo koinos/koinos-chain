@@ -12,7 +12,6 @@
 
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/system_calls.hpp>
-#include <koinos/chain/thunks.hpp>
 
 #include <koinos/pack/classes.hpp>
 #include <koinos/pack/rt/binary.hpp>
@@ -61,13 +60,13 @@ namespace detail {
 using koinos::chain::host_api;
 using koinos::chain::apply_context;
 using koinos::chain::privilege;
-using koinos::chain::thunk::apply_block;
-using koinos::chain::thunk::apply_transaction;
-using koinos::chain::thunk::get_head_info;
-using koinos::chain::thunk::get_transaction_payer;
-using koinos::chain::thunk::get_max_account_resources;
-using koinos::chain::thunk::get_transaction_resource_limit;
-using koinos::chain::thunk::get_last_irreversible_block;
+using koinos::chain::system_call::apply_block;
+using koinos::chain::system_call::apply_transaction;
+using koinos::chain::system_call::get_head_info;
+using koinos::chain::system_call::get_transaction_payer;
+using koinos::chain::system_call::get_max_account_resources;
+using koinos::chain::system_call::get_transaction_resource_limit;
+using koinos::chain::system_call::get_last_irreversible_block;
 
 struct block_submission_impl
 {
