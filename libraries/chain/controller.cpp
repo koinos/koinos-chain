@@ -34,7 +34,7 @@ class controller_impl final
 {
    public:
       controller_impl();
-      ~controller_impl() = default;
+      ~controller_impl();
 
       void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
@@ -54,6 +54,12 @@ class controller_impl final
 controller_impl::controller_impl()
 {
    register_host_functions();
+}
+
+controller_impl::~controller_impl()
+{
+   std::lock_guard< std::mutex > lock( _state_db_mutex );
+   _state_db.close();
 }
 
 void controller_impl::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
@@ -113,8 +119,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( block_node ) return {}; // Block has been applied
 
-      LOG(info) << "Applying block - Height: " << request.block.header.height
-         << ", ID: " << request.block.id;
+      if ( request.block.header.height % 1000 == 0 )
+      {
+         LOG(info) << "Applying block - Height: " << request.block.header.height
+            << ", ID: " << request.block.id;
+      }
       block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
    }
@@ -147,21 +156,20 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
       if ( lib > _state_db.get_root()->revision() )
       {
          auto node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-
-         broadcast::block_irreversible msg {
-            .topology = {
-               .id       = node->id(),
-               .height   = block_height_type( node->revision() ),
-               .previous = node->parent_id()
-            }
-         };
-
          _state_db.commit_node( node->id() );
 
          if ( _client && _client->is_connected() )
          {
             try
             {
+                broadcast::block_irreversible msg {
+                  .topology = {
+                     .id       = node->id(),
+                     .height   = block_height_type( node->revision() ),
+                     .previous = node->parent_id()
+                  }
+               };
+
                pack::json j;
 
                pack::to_json( j, msg );
