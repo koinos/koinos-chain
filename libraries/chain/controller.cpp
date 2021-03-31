@@ -39,7 +39,7 @@ class controller_impl final
       void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
-      rpc::chain::submit_block_response       submit_block(       const rpc::chain::submit_block_request&       );
+      rpc::chain::submit_block_response       submit_block(       const rpc::chain::submit_block_request&, bool indexing );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
       rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request&      );
       rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request&      );
@@ -102,7 +102,7 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
    _client = c;
 }
 
-rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chain::submit_block_request& request )
+rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
 {
    if( crypto::multihash_is_zero( request.block.header.previous ) )
    {
@@ -119,7 +119,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( block_node ) return {}; // Block has been applied
 
-      if ( request.block.header.height % 1000 == 0 )
+      if ( !indexing || request.block.header.height % 10000 == 0 )
       {
          LOG(info) << "Applying block - Height: " << request.block.header.height
             << ", ID: " << request.block.id;
@@ -422,9 +422,9 @@ void controller::set_client( std::shared_ptr< mq::client > c )
    _my->set_client( c );
 }
 
-rpc::chain::submit_block_response controller::submit_block( const rpc::chain::submit_block_request& request )
+rpc::chain::submit_block_response controller::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
 {
-   return _my->submit_block( request );
+   return _my->submit_block( request, indexing );
 }
 
 rpc::chain::submit_transaction_response controller::submit_transaction( const rpc::chain::submit_transaction_request& request )

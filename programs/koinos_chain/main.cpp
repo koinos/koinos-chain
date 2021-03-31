@@ -237,7 +237,7 @@ void index_loop(
             .verify_passive_data = false,
             .verify_block_signature = false,
             .verify_transaction_signatures = false
-         } );
+         }, true );
       }
    }
 }
@@ -289,7 +289,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
          } );
 
          multihash last_id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
-         block_height_type last_height = block_height_type{ 0 };
+         block_height_type last_height = head_info.head_topology.height;
 
          while ( last_height < target_head.height )
          {
@@ -309,8 +309,10 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
          rpc_queue.close();
          index_thread->join();
 
+         auto new_head_info = controller.get_head_info();
+
          const std::chrono::duration< double > duration = std::chrono::system_clock::now() - before;
-         LOG(info) << "Finished indexing " << last_height - head_info.head_topology.height << " blocks, took " << duration.count() << " seconds";
+         LOG(info) << "Finished indexing " << new_head_info.head_topology.height - head_info.head_topology.height << " blocks, took " << duration.count() << " seconds";
       }
    }
    catch ( const std::exception& e )
