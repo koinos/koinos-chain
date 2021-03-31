@@ -333,8 +333,9 @@ int main( int argc, char** argv )
          (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
          (AMQP_OPTION       ",a", program_options::value< std::string >()->default_value( "amqp://guest:guest@localhost:5672/" ), "AMQP server URL")
          (STATEDIR_OPTION       , program_options::value< std::string >()->default_value("blockchain"),
-            "the location of the blockchain state files (absolute path or relative to base dir)")
-         (DATABASE_CONFIG_OPTION, program_options::value< std::string >()->default_value("database.cfg"), "The database configuration file location")
+            "The location of the blockchain state files (absolute path or relative to basedir/chain)")
+         (DATABASE_CONFIG_OPTION, program_options::value< std::string >()->default_value("database.cfg"),
+            "The location of the database configuration file (absolute path or relative to basedir/chain)")
          (CHAIN_ID_OPTION       , program_options::value< std::string >()->default_value( get_default_chain_id_string()), "Chain ID to initialize empty node state")
          (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
          (RESET_OPTION          , program_options::bool_switch()->default_value(false), "reset the database");
@@ -363,11 +364,11 @@ int main( int argc, char** argv )
       if ( basedir.is_relative() )
          basedir = filesystem::current_path() / basedir;
 
-      koinos::initialize_logging( basedir, "chain/%3N.log" );
+      koinos::initialize_logging( basedir, "chain/log/%3N.log" );
 
       auto statedir = filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
       if ( statedir.is_relative() )
-         statedir = basedir / statedir;
+         statedir = basedir / "chain" / statedir;
 
       if ( !filesystem::exists( statedir ) )
          filesystem::create_directory( statedir );
@@ -375,7 +376,7 @@ int main( int argc, char** argv )
       auto database_config_path = filesystem::path( args[ DATABASE_CONFIG_OPTION ].as< std::string >() );
 
       if ( database_config_path.is_relative() )
-         database_config_path = basedir / database_config_path;
+         database_config_path = basedir / "chain" / database_config_path;
 
       if ( !filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
