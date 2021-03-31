@@ -1,5 +1,0 @@
-file(GLOB HEADERS "include/koinos/net/protocol/jsonrpc/*.hpp" "include/koinos/net/transport/http/*.hpp")
-add_library(koinos_net ${HEADERS} request_handler.cpp server.cpp types.cpp)
-target_include_directories(koinos_net PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(koinos_net PUBLIC Boost::system Koinos::log Koinos::util nlohmann_json::nlohmann_json)
-add_library(Koinos::net ALIAS koinos_net)
