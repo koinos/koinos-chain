@@ -168,7 +168,7 @@ void attach_request_handler(
 
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "Unable to register MQ RPC handler.";
+      LOG(error) << "Unable to register MQ RPC handler";
       exit( EXIT_FAILURE );
    }
 
@@ -200,7 +200,7 @@ void attach_request_handler(
 
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "Unable to register block broadcast handler.";
+      LOG(error) << "Unable to register block broadcast handler";
       exit( EXIT_FAILURE );
    }
 
@@ -427,7 +427,7 @@ int main( int argc, char** argv )
       }
       catch ( const std::exception& e )
       {
-         LOG(error) << "Error pasing chain id: " << e.what();
+         LOG(error) << "Error parsing chain id: " << e.what();
          exit( EXIT_FAILURE );
       }
 
@@ -475,7 +475,7 @@ int main( int argc, char** argv )
       } );
 
       io_service.run();
-      LOG(info) << "Koinos Chain shut down successfully.";
+      LOG(info) << "Shut down successfully";
 
       return EXIT_SUCCESS;
    }
