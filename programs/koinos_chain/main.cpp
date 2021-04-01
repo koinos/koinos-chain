@@ -107,13 +107,15 @@ void attach_request_handler(
       mq::service::chain,
       [&]( const std::string& msg ) -> std::string
       {
-         auto j = pack::json::parse( msg );
-         rpc::chain::chain_rpc_request request;
          rpc::chain::chain_rpc_response response;
-         pack::from_json( j, request );
+         pack::json j;
 
          try
          {
+            j = pack::json::parse( msg );
+            rpc::chain::chain_rpc_request request;
+            pack::from_json( j, request );
+
             std::visit(
                koinos::overloaded {
                   [&]( const rpc::chain::submit_block_request& r )
@@ -158,6 +160,7 @@ void attach_request_handler(
             };
          }
 
+         j.clear();
          pack::to_json( j, response );
          return j.dump();
       }
@@ -165,7 +168,7 @@ void attach_request_handler(
 
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "unable to prepare mq server for processing";
+      LOG(error) << "Unable to register MQ RPC handler.";
       exit( EXIT_FAILURE );
    }
 
@@ -173,21 +176,31 @@ void attach_request_handler(
       "koinos.block.accept",
       [&]( const std::string& msg )
       {
-         broadcast::block_accepted bam;
-         pack::from_json( pack::json::parse( msg ), bam );
+         try {
+            broadcast::block_accepted bam;
+            pack::from_json( pack::json::parse( msg ), bam );
 
-         controller.submit_block( {
-            .block = bam.block,
-            .verify_passive_data = false,
-            .verify_block_signature = false,
-            .verify_transaction_signatures = false
-         } );
+            controller.submit_block( {
+               .block = bam.block,
+               .verify_passive_data = false,
+               .verify_block_signature = false,
+               .verify_transaction_signatures = false
+            } );
+         }
+         catch( const boost::exception& e )
+         {
+            LOG(warning) << "Error handling block broadcast: " << boost::diagnostic_information( e );
+         }
+         catch( const std::exception& e )
+         {
+            LOG(warning) << "Error handling block broadcast: " << e.what();
+         }
       }
    );
 
    if ( ec != mq::error_code::success )
    {
-      LOG(error) << "unable to prepare mq server for processing";
+      LOG(error) << "Unable to register block broadcast handler.";
       exit( EXIT_FAILURE );
    }
 
@@ -211,33 +224,46 @@ void index_loop(
          break;
       }
 
-      rpc::block_store::block_store_response resp;
-      pack::from_json( pack::json::parse( future.get() ), resp );
-      rpc::block_store::get_blocks_by_height_response batch;
-
-      std::visit( koinos::overloaded {
-         [&]( rpc::block_store::get_blocks_by_height_response& r )
-         {
-            batch = std::move( r );
-         },
-         [&]( rpc::block_store::block_store_error_response& e )
-         {
-            throw koinos::exception( e.error_text );
-         },
-         [&]( auto& )
-         {
-            throw koinos::exception( "unexpected block store response" );
-         }
-      }, resp );
-
-      for ( auto& block_item : batch.block_items )
+      try
       {
-         controller.submit_block( {
-            .block = block_item.block.get_const_native(),
-            .verify_passive_data = false,
-            .verify_block_signature = false,
-            .verify_transaction_signatures = false
-         }, true );
+         rpc::block_store::block_store_response resp;
+         pack::from_json( pack::json::parse( future.get() ), resp );
+         rpc::block_store::get_blocks_by_height_response batch;
+
+         std::visit( koinos::overloaded {
+            [&]( rpc::block_store::get_blocks_by_height_response& r )
+            {
+               batch = std::move( r );
+            },
+            [&]( rpc::block_store::block_store_error_response& e )
+            {
+               throw koinos::exception( e.error_text );
+            },
+            [&]( auto& )
+            {
+               throw koinos::exception( "unexpected block store response" );
+            }
+         }, resp );
+
+         for ( auto& block_item : batch.block_items )
+         {
+            controller.submit_block( {
+               .block = block_item.block.get_const_native(),
+               .verify_passive_data = false,
+               .verify_block_signature = false,
+               .verify_transaction_signatures = false
+            }, true );
+         }
+      }
+      catch ( const boost::exception& e )
+      {
+         LOG(error) << "Index error: " << boost::diagnostic_information( e );
+         exit( EXIT_FAILURE );
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Index error: " << e.what();
+         exit( EXIT_FAILURE );
       }
    }
 }
@@ -395,7 +421,16 @@ int main( int argc, char** argv )
       }
 
       multihash chain_id;
-      pack::from_json( pack::json( args[ CHAIN_ID_OPTION ].as< std::string >() ), chain_id );
+      try
+      {
+         pack::from_json( pack::json( args[ CHAIN_ID_OPTION ].as< std::string >() ), chain_id );
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Error pasing chain id: " << e.what();
+         exit( EXIT_FAILURE );
+      }
+
 
       chain::genesis_data genesis_data;
       genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
@@ -440,6 +475,9 @@ int main( int argc, char** argv )
       } );
 
       io_service.run();
+      LOG(info) << "Koinos Chain shut down successfully.";
+
+      return EXIT_SUCCESS;
    }
    catch ( const boost::exception& e )
    {
@@ -453,8 +491,6 @@ int main( int argc, char** argv )
    {
       LOG(fatal) << "Unknown exception" << std::endl;
    }
-
-   LOG(info) << "Koinos Chain shut down successfully.";
 
    return EXIT_FAILURE;
 }
