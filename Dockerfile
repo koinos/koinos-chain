@@ -1,10 +1,7 @@
 FROM phusion/baseimage:focal-1.0.0alpha1-amd64 as builder
 
-ENV RUN_TYPE "test"
-ENV LANG=en_US.UTF-8
-
-RUN apt-get update
-RUN apt-get install -y \
+RUN apt-get update && \
+    apt-get install -y \
         cmake \
         build-essential \
         git \
