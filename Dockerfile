@@ -1,14 +1,20 @@
-FROM phusion/baseimage:focal-1.0.0alpha1-amd64 as builder
+FROM alpine:latest as builder
 
-RUN apt-get update && \
-    apt-get install -y \
+RUN apk update && \
+    apk add  \
+        gcc \
+        g++ \
+        musl-dev \
+        libgcc \
+        linux-headers \
+        libgmpxx \
         cmake \
-        build-essential \
+        make \
         git \
-        libgmp-dev \
+        perl \
         python3 \
-        python3-pip \
-        python3-setuptools && \
+        py3-pip \
+        py3-setuptools && \
     pip3 install --user dataclasses_json Jinja2 importlib_resources pluginbase gitpython
 
 ADD . /koinos-chain
@@ -18,7 +24,7 @@ RUN git submodule update --init --recursive && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     cmake --build . --config Release --parallel
 
-FROM phusion/baseimage:focal-1.0.0alpha1-amd64
+FROM alpine:latest
 COPY --from=builder /koinos-chain/programs/koinos_chain/koinos_chain /usr/local/bin
 COPY --from=builder /koinos-chain/programs/koinos_transaction_signer/koinos_transaction_signer /usr/local/bin
 CMD  /usr/local/bin/koinos_chain
