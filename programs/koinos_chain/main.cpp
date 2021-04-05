@@ -268,7 +268,6 @@ void index_loop(
    }
 }
 
-
 void index( chain::controller& controller, std::shared_ptr< mq::client > mq_client )
 {
    using namespace rpc::block_store;
@@ -453,6 +452,40 @@ int main( int argc, char** argv )
          }
 
          LOG(info) << "Connected client to AMQP server";
+
+         LOG(info) << "Attempting to connect to block_store...";
+         bool connected = false;
+         while ( !connected )
+         {
+            KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
+            pack::json j;
+            pack::to_json( j, rpc::block_store::block_store_request{ rpc::block_store::block_store_reserved_request{} } );
+
+            try
+            {
+               mq_client->rpc( mq::service::block_store, j.dump() ).get();
+               connected = true;
+               LOG(info) << "Connected";
+            }
+            catch( const mq::timeout_error& ) {}
+         }
+
+         LOG(info) << "Attempting to connect to mempool...";
+         connected = false;
+         while ( !connected )
+         {
+            KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
+            pack::json j;
+            pack::to_json( j, rpc::mempool::mempool_rpc_request{ rpc::mempool::mempool_reserved_request{} } );
+
+            try
+            {
+               mq_client->rpc( mq::service::mempool, j.dump() ).get();
+               connected = true;
+               LOG(info) << "Connected";
+            }
+            catch( const mq::timeout_error& ) {}
+         }
 
          index( controller, mq_client );
 
