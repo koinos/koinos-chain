@@ -396,7 +396,7 @@ int main( int argc, char** argv )
          statedir = basedir / "chain" / statedir;
 
       if ( !filesystem::exists( statedir ) )
-         filesystem::create_directory( statedir );
+         filesystem::create_directories( statedir );
 
       auto database_config_path = filesystem::path( args[ DATABASE_CONFIG_OPTION ].as< std::string >() );
 
