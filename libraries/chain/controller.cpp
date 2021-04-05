@@ -221,8 +221,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    uint128 max_payer_resources;
    uint128 trx_resource_limit;
 
-   LOG(info) << "Applying transaction - id: " << request.transaction.id;
-
    statedb::state_node_ptr pending_trx_node;
 
    {
