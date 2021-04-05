@@ -263,7 +263,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       {
          rpc::mempool::mempool_rpc_request mem_req = check_req;
          pack::json j;
-         pack::to_json( j, check_req );
+         pack::to_json( j, mem_req );
          auto future = _client->rpc( mq::service::mempool, j.dump() );
 
          rpc::mempool::mempool_rpc_response resp;
