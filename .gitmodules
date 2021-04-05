@@ -3,7 +3,7 @@
 	url = https://github.com/EOSIO/eos-vm.git
 [submodule "libraries/log"]
 	path = libraries/log
-	url = git@github.com:koinos/koinos-log-cpp.git
+	url = https://github.com/koinos/koinos-log-cpp.git
 [submodule "libraries/types"]
 	path = libraries/types
 	url = https://github.com/koinos/koinos-types.git
