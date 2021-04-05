@@ -212,16 +212,9 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   const multihash tmp_id = multihash {
-      .id = CRYPTO_SHA2_256_ID,
-      .digest = { 1 }
-   };
-
    koinos::chain::account_type payer;
    uint128 max_payer_resources;
    uint128 trx_resource_limit;
-
-   LOG(info) << "Applying transaction - id: " << request.transaction.id;
 
    statedb::state_node_ptr pending_trx_node;
 
@@ -263,7 +256,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       {
          rpc::mempool::mempool_rpc_request mem_req = check_req;
          pack::json j;
-         pack::to_json( j, check_req );
+         pack::to_json( j, mem_req );
          auto future = _client->rpc( mq::service::mempool, j.dump() );
 
          rpc::mempool::mempool_rpc_response resp;
@@ -289,12 +282,12 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       }
 
       std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( tmp_id );
+      _state_db.discard_node( request.transaction.id );
    }
    catch( const koinos::exception& )
    {
       std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( tmp_id );
+      _state_db.discard_node( request.transaction.id );
       throw;
    }
 
