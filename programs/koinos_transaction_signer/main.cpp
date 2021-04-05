@@ -34,6 +34,8 @@ koinos::rpc::chain::chain_rpc_request wrap_transaction( koinos::protocol::transa
    // Construct a submit_transaction_request from the transaction
    koinos::rpc::chain::submit_transaction_request transaction_request;
    transaction_request.transaction = transaction;
+   transaction_request.verify_passive_data = true;
+   transaction_request.verify_transaction_signatures = true;
 
    // Put the request in a chain_request
    koinos::rpc::chain::chain_rpc_request chain_request;
@@ -101,6 +103,9 @@ int main( int argc, char** argv )
 
       // Sign the transaction
       sign_transaction( transaction, private_key );
+
+      // Set the transaction id
+      transaction.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
 
       if (wrap) // Wrap the transaction if requested
       {
