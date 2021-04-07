@@ -1,4 +1,7 @@
 #pragma once
+
+#include <filesystem>
+
 #include <mira/index_converter.hpp>
 #include <mira/iterator_adapter.hpp>
 

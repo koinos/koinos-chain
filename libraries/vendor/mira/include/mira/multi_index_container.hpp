@@ -13,6 +13,7 @@
 
 #include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
 #include <algorithm>
+#include <filesystem>
 #include <memory>
 #include <vector>
 #include <boost/core/addressof.hpp>

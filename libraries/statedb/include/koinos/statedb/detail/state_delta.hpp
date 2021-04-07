@@ -5,6 +5,7 @@
 #include <koinos/crypto/multihash.hpp>
 
 #include <any>
+#include <filesystem>
 #include <memory>
 
 const std::vector< uint8_t > ID_KEY { 'D','E','L','T','A','_','I','D' };

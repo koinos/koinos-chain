@@ -13,6 +13,7 @@
 #include <mira/database_configuration.hpp>
 
 #include <chrono>
+#include <filesystem>
 #include <sstream>
 
 using namespace std::string_literals;
