@@ -259,11 +259,6 @@ THUNK_DEFINE( void, apply_block,
             context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
          }
       }
-      else
-      {
-         // In this case, we need to tell the authority system to allow everything (wildcard authority)
-         KOINOS_THROW( unimplemented_feature, "enable_check_transaction_signatures=false is not implemented" );
-      }
 
       apply_transaction( context, tx );
    }
