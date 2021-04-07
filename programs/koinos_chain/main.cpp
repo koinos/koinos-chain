@@ -1,7 +1,7 @@
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
-
 
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
@@ -32,32 +32,31 @@
 #define MQ_DISABLE_OPTION      "mq-disable"
 #define CHAIN_ID_OPTION        "chain-id"
 #define RESET_OPTION           "reset"
+#define LOG_FILTER_OPTION      "log-filter"
+#define INSTANCE_ID_OPTION     "instance-id"
 
 using namespace boost;
 using namespace koinos;
 
 const std::string& version_string()
 {
-   static std::string v_str = "Koinos Chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
+   static std::string v_str = "Koinos chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
    return v_str;
 }
 
 void splash()
 {
-   const char* BANNER = R"BANNER(
+   const char* banner = R"BANNER(
   _  __     _
  | |/ /___ (_)_ __   ___  ___
  | ' // _ \| | '_ \ / _ \/ __|
  | . \ (_) | | | | | (_) \__ \
  |_|\_\___/|_|_| |_|\___/|___/)BANNER";
 
-   std::cout.write( BANNER, strlen( BANNER ) );
-#ifdef IS_TEST_NET
-   const char* LAUNCH_MESSAGE = "       ...launching test network";
-#else
-   const char* LAUNCH_MESSAGE = "       ...launching main network";
-#endif
-   std::cout.write( LAUNCH_MESSAGE, strlen( LAUNCH_MESSAGE ) );
+   std::cout.write( banner, std::strlen( banner ) );
+   std::cout << std::endl;
+   const char* launch_message = "          ...launching network";
+   std::cout.write( launch_message, std::strlen( launch_message ) );
    std::cout << std::endl << std::flush;
 }
 
@@ -67,10 +66,10 @@ std::string get_default_chain_id_string()
    return "zQmT2TaQZZjwW7HZ6ctY3VCsPvadHV1m6RcwgMNeRUgP1mx";
 }
 
-void write_default_database_config( const filesystem::path& p )
+void write_default_database_config( const std::filesystem::path& p )
 {
    LOG(info) << "Writing database configuration: " << p.string();
-   boost::filesystem::ofstream config_file( p, std::ios::binary );
+   std::ofstream config_file( p, std::ios::binary );
    config_file << mira::utilities::default_database_configuration();
 }
 
@@ -104,7 +103,7 @@ void attach_request_handler(
    }
 
    ec = mq_reqhandler.add_rpc_handler(
-      mq::service::chain,
+      service::chain,
       [&]( const std::string& msg ) -> std::string
       {
          rpc::chain::chain_rpc_response response;
@@ -279,7 +278,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
       LOG(info) << "Retrieving highest block from block store";
       pack::json j;
       pack::to_json( j, block_store_request{ get_highest_block_request{} } );
-      auto future = mq_client->rpc( mq::service::block_store, j.dump() );
+      auto future = mq_client->rpc( service::block_store, j.dump() );
 
       block_store_response resp;
       pack::from_json( pack::json::parse( future.get() ), resp );
@@ -327,7 +326,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
             };
 
             pack::to_json( j, block_store_request{ req } );
-            rpc_queue.push_back( mq_client->rpc( mq::service::block_store, j.dump() ) );
+            rpc_queue.push_back( mq_client->rpc( service::block_store, j.dump() ) );
             last_height += block_height_type{ batch_size };
          }
 
@@ -363,7 +362,9 @@ int main( int argc, char** argv )
             "The location of the database configuration file (absolute path or relative to basedir/chain)")
          (CHAIN_ID_OPTION       , program_options::value< std::string >()->default_value( get_default_chain_id_string()), "Chain ID to initialize empty node state")
          (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
-         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "reset the database");
+         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database")
+         (LOG_FILTER_OPTION ",l", program_options::value< log_level   >()->default_value( log_level::info ), "The log filtering level")
+         (INSTANCE_ID_OPTION",i", program_options::value< std::string >()->default_value( random_alphanumeric( 5 ) ), "An ID that uniquely identifies the instance");
 
 
       program_options::variables_map args;
@@ -385,32 +386,35 @@ int main( int argc, char** argv )
 
       splash();
 
-      auto basedir = filesystem::path( args[ BASEDIR_OPTION ].as< std::string >() );
+      auto basedir = std::filesystem::path( args[ BASEDIR_OPTION ].as< std::string >() );
       if ( basedir.is_relative() )
-         basedir = filesystem::current_path() / basedir;
+         basedir = std::filesystem::current_path() / basedir;
 
-      koinos::initialize_logging( basedir, "chain/log/%3N.log" );
+      auto instance_id = args[ INSTANCE_ID_OPTION ].as< std::string >();
+      auto level       = args[ LOG_FILTER_OPTION  ].as< log_level >();
 
-      auto statedir = filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
+      koinos::initialize_logging( service::chain, instance_id, level, basedir / service::chain );
+
+      auto statedir = std::filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
       if ( statedir.is_relative() )
-         statedir = basedir / "chain" / statedir;
+         statedir = basedir / service::chain / statedir;
 
-      if ( !filesystem::exists( statedir ) )
-         filesystem::create_directories( statedir );
+      if ( !std::filesystem::exists( statedir ) )
+         std::filesystem::create_directories( statedir );
 
-      auto database_config_path = filesystem::path( args[ DATABASE_CONFIG_OPTION ].as< std::string >() );
+      auto database_config_path = std::filesystem::path( args[ DATABASE_CONFIG_OPTION ].as< std::string >() );
 
       if ( database_config_path.is_relative() )
-         database_config_path = basedir / "chain" / database_config_path;
+         database_config_path = basedir / service::chain / database_config_path;
 
-      if ( !filesystem::exists( database_config_path ) )
+      if ( !std::filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
 
       pack::json database_config;
 
       try
       {
-         boost::filesystem::ifstream config_file( database_config_path, std::ios::binary );
+         std::ifstream config_file( database_config_path, std::ios::binary );
          config_file >> database_config;
       }
       catch ( const std::exception& e )
@@ -453,38 +457,20 @@ int main( int argc, char** argv )
 
          LOG(info) << "Connected client to AMQP server";
 
-         LOG(info) << "Attempting to connect to block_store...";
-         bool connected = false;
-         while ( !connected )
          {
-            KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
+            LOG(info) << "Attempting to connect to block_store...";
             pack::json j;
             pack::to_json( j, rpc::block_store::block_store_request{ rpc::block_store::block_store_reserved_request{} } );
-
-            try
-            {
-               mq_client->rpc( mq::service::block_store, j.dump() ).get();
-               connected = true;
-               LOG(info) << "Connected";
-            }
-            catch( const mq::timeout_error& ) {}
+            mq_client->rpc( service::block_store, j.dump() ).get();
+            LOG(info) << "Established connection to block_store";
          }
 
-         LOG(info) << "Attempting to connect to mempool...";
-         connected = false;
-         while ( !connected )
          {
-            KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
+            LOG(info) << "Attempting to connect to mempool...";
             pack::json j;
             pack::to_json( j, rpc::mempool::mempool_rpc_request{ rpc::mempool::mempool_reserved_request{} } );
-
-            try
-            {
-               mq_client->rpc( mq::service::mempool, j.dump() ).get();
-               connected = true;
-               LOG(info) << "Connected";
-            }
-            catch( const mq::timeout_error& ) {}
+            mq_client->rpc( service::mempool, j.dump() ).get();
+            LOG(info) << "Established connection to mempool";
          }
 
          index( controller, mq_client );

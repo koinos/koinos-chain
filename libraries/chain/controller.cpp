@@ -36,7 +36,7 @@ class controller_impl final
       controller_impl();
       ~controller_impl();
 
-      void open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
       rpc::chain::submit_block_response       submit_block(       const rpc::chain::submit_block_request&, bool indexing );
@@ -62,7 +62,7 @@ controller_impl::~controller_impl()
    _state_db.close();
 }
 
-void controller_impl::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
    std::lock_guard< std::mutex > lock( _state_db_mutex );
    _state_db.open( p, o, [&]( statedb::state_node_ptr root )
@@ -94,7 +94,7 @@ void controller_impl::open( const boost::filesystem::path& p, const std::any& o,
    }
 
    auto head = _state_db.get_head();
-   LOG(info) << "Opened database at block - height: " << head->revision() << ", id: " << head->id();
+   LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
@@ -104,6 +104,8 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
 
 rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
 {
+   static constexpr uint64_t index_message_interval = 10000;
+
    if( crypto::multihash_is_zero( request.block.header.previous ) )
    {
       // Genesis case
@@ -119,9 +121,9 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( block_node ) return {}; // Block has been applied
 
-      if ( !indexing || request.block.header.height % 10000 == 0 )
+      if ( !indexing || request.block.header.height % index_message_interval == 0 )
       {
-         LOG(info) << "Applying block - Height: " << request.block.header.height
+         LOG(info) << "Pushing block - Height: " << request.block.header.height
             << ", ID: " << request.block.id;
       }
       block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
@@ -144,6 +146,12 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          request.verify_passive_data,
          request.verify_block_signature,
          request.verify_transaction_signatures );
+
+      if ( !indexing || request.block.header.height % index_message_interval == 0 )
+      {
+         LOG(info) << "Block application successful - Height: " << request.block.header.height << ", ID: " << request.block.id;
+      }
+
       auto output = ctx.get_pending_console_output();
 
       if ( output.length() > 0 ) { LOG(info) << output; }
@@ -185,6 +193,10 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    }
    catch( const koinos::exception& )
    {
+      if ( !indexing || request.block.header.height % index_message_interval == 0 )
+      {
+         LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
+      }
       _state_db.discard_node( block_node->id() );
       throw;
    }
@@ -224,7 +236,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       KOINOS_ASSERT( !pending_trx_node, duplicate_trx_state, "Pending transaction is already being applied" );
 
-      LOG(info) << "Applying transaction - ID: " << request.transaction.id;
+      LOG(info) << "Pushing transaction - ID: " << request.transaction.id;
       pending_trx_node = _state_db.create_writable_node( _state_db.get_head()->id(), request.transaction.id );
       KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
    }
@@ -257,7 +269,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          rpc::mempool::mempool_rpc_request mem_req = check_req;
          pack::json j;
          pack::to_json( j, mem_req );
-         auto future = _client->rpc( mq::service::mempool, j.dump() );
+         auto future = _client->rpc( service::mempool, j.dump() );
 
          rpc::mempool::mempool_rpc_response resp;
          pack::from_json( pack::json::parse( future.get() ), resp );
@@ -281,11 +293,14 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          }, resp );
       }
 
+      LOG(info) << "Transaction application successful - ID: " << request.transaction.id;
+
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
    }
    catch( const koinos::exception& )
    {
+      LOG(info) << "Transaction application failed - ID: " << request.transaction.id;
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
       throw;
@@ -405,7 +420,7 @@ controller::controller() : _my( std::make_unique< detail::controller_impl >() ) 
 
 controller::~controller() = default;
 
-void controller::open( const boost::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
    _my->open( p, o, data, reset );
 }

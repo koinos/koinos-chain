@@ -2,10 +2,10 @@
 #pragma once
 #include <koinos/statedb/statedb_types.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <any>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -152,7 +152,7 @@ class state_db final
       /**
        * Open the database.
        */
-      void open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
+      void open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
 
       /**
        * Close the database.

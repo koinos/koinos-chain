@@ -85,7 +85,7 @@ class state_db_impl final
       state_db_impl() {}
       ~state_db_impl() { close(); }
 
-      void open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
+      void open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
       void close();
 
       void reset();
@@ -103,7 +103,7 @@ class state_db_impl final
 
       bool is_open()const;
 
-      boost::filesystem::path                   _path;
+      std::filesystem::path                     _path;
       std::any                                  _options;
       std::function< void( state_node_ptr ) >   _init_func = nullptr;
 
@@ -129,7 +129,7 @@ void state_db_impl::reset()
    open( _path, _options, _init_func );
 }
 
-void state_db_impl::open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
+void state_db_impl::open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
 {
    auto root = std::make_shared< state_node >();
    root->impl->_state = std::make_shared< state_delta_type >( p, o );
@@ -507,7 +507,7 @@ uint64_t state_node::revision()const
 state_db::state_db() : impl( new detail::state_db_impl() ) {}
 state_db::~state_db() {}
 
-void state_db::open( const boost::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
+void state_db::open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
 {
    impl->open( p, o, init );
 }

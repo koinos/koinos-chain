@@ -138,7 +138,7 @@ public:
       _name = "rocksdb_" + *(split_v.rbegin());
    }
 
-  explicit multi_index_container( const boost::filesystem::path& p, const std::any& cfg ):
+  explicit multi_index_container( const std::filesystem::path& p, const std::any& cfg ):
     super(ctor_args_list()),
     _entry_count(0)
    {
@@ -155,7 +155,7 @@ public:
    }
 
    template< typename InputIterator >
-   explicit multi_index_container( InputIterator& first, InputIterator& last, const boost::filesystem::path& p, const std::any& cfg ):
+   explicit multi_index_container( InputIterator& first, InputIterator& last, const std::filesystem::path& p, const std::any& cfg ):
     super(ctor_args_list()),
     _entry_count(0)
    {
@@ -227,7 +227,7 @@ public:
       return *this;
    }
 
-   bool open( const boost::filesystem::path& p, const std::any& cfg = nullptr )
+   bool open( const std::filesystem::path& p, const std::any& cfg = nullptr )
    {
       assert( p.is_absolute() );
 
@@ -323,7 +323,7 @@ public:
       }
    }
 
-   void wipe( const boost::filesystem::path& p )
+   void wipe( const std::filesystem::path& p )
    {
       assert( !(super::_db) );
 
