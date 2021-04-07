@@ -80,7 +80,7 @@ void controller_impl::open( const boost::filesystem::path& p, const std::any& o,
 
          KOINOS_ASSERT(
             !put_res.object_existed,
-            koinos::chain::database_exception,
+            koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
       }
@@ -359,8 +359,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    head->get_object( result, args );
 
-   KOINOS_ASSERT( result.key == args.key, database_exception, "unable to retrieve chain id" );
-   KOINOS_ASSERT( result.size <= args.buf_size, database_exception, "chain id buffer overflow" );
+   KOINOS_ASSERT( result.key == args.key, retrieval_failure, "unable to retrieve chain id" );
+   KOINOS_ASSERT( result.size <= args.buf_size, insufficent_buffer_size, "chain id buffer overflow" );
 
    multihash chain_id;
    pack::from_binary( chain_id_stream, chain_id, result.size );
