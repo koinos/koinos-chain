@@ -387,13 +387,32 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
       fork_heads = _state_db.get_fork_heads();
    }
 
-   response.last_irreversible_block = system_call::get_head_info( ctx ).head_topology;
+   auto head_info = system_call::get_head_info( ctx );
+   response.last_irreversible_block = head_info.head_topology;
 
    for( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
       auto head_info = system_call::get_head_info( ctx );
       response.fork_heads.emplace_back( std::move( head_info.head_topology ) );
+   }
+
+   // Sort all fork heads by height
+   std::sort( response.fork_heads.begin(), response.fork_heads.end(), []( const block_topology& a, const block_topology& b )
+   {
+      return a.height > b.height;
+   } );
+
+   // If there is a tie for highest block, ensure the head block is first
+   auto fork_itr = response.fork_heads.begin();
+   while ( fork_itr != response.fork_heads.begin() && fork_itr->id != head_info.head_topology.id )
+   {
+      ++fork_itr;
+   }
+
+   if ( fork_itr != response.fork_heads.begin() )
+   {
+      std::iter_swap( fork_itr, response.fork_heads.begin() );
    }
 
    return response;
