@@ -476,8 +476,7 @@ int main( int argc, char** argv )
          }
 
          LOG(info) << "Attempting to connect to block_store...";
-         bool connected = false;
-         while ( !connected )
+         while ( true )
          {
             KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
             pack::json j;
@@ -486,15 +485,14 @@ int main( int argc, char** argv )
             try
             {
                mq_client->rpc( mq::service::block_store, j.dump() ).get();
-               connected = true;
                LOG(info) << "Connected";
+               break;
             }
             catch( const mq::timeout_error& ) {}
          }
 
          LOG(info) << "Attempting to connect to mempool...";
-         connected = false;
-         while ( !connected )
+         while ( true )
          {
             KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
             pack::json j;
@@ -503,8 +501,8 @@ int main( int argc, char** argv )
             try
             {
                mq_client->rpc( mq::service::mempool, j.dump() ).get();
-               connected = true;
                LOG(info) << "Connected";
+               break;
             }
             catch( const mq::timeout_error& ) {}
          }
