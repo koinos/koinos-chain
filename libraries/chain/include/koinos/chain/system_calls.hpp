@@ -20,18 +20,6 @@ namespace koinos::chain {
 class apply_context;
 class thunk_dispatcher;
 
-KOINOS_DECLARE_EXCEPTION( exit_success );
-KOINOS_DECLARE_EXCEPTION( exit_failure );
-KOINOS_DECLARE_EXCEPTION( unknown_exit_code );
-KOINOS_DECLARE_EXCEPTION( thunk_privilege_error );
-KOINOS_DECLARE_EXCEPTION( unknown_hash_code );
-KOINOS_DECLARE_EXCEPTION( empty_block_header );
-KOINOS_DECLARE_EXCEPTION( transaction_root_mismatch );
-KOINOS_DECLARE_EXCEPTION( passive_root_mismatch );
-KOINOS_DECLARE_EXCEPTION( invalid_block_signature );
-KOINOS_DECLARE_EXCEPTION( invalid_transaction_signature );
-KOINOS_DECLARE_EXCEPTION( invalid_signature );
-
 std::optional< thunk_id > get_default_system_call_entry( system_call_id sid );
 void register_thunks( thunk_dispatcher& td );
 

@@ -5,6 +5,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <mira/database_configuration.hpp>
+#include <filesystem>
 #include <iostream>
 
 using namespace mira;
@@ -19,19 +20,19 @@ using mira::multi_index::composite_key_compare;
 using mira::multi_index::const_mem_fun;
 
 struct mira_fixture {
-   boost::filesystem::path tmp_path;
+   std::filesystem::path tmp_path;
    std::any cfg;
 
    mira_fixture()
    {
-      tmp_path = boost::filesystem::current_path() / boost::filesystem::unique_path();
-      boost::filesystem::create_directory( tmp_path );
+      tmp_path = std::filesystem::current_path() / boost::filesystem::unique_path().string();
+      std::filesystem::create_directory( tmp_path );
       cfg = mira::utilities::default_database_configuration();
    }
 
    ~mira_fixture()
    {
-      boost::filesystem::remove_all( tmp_path );
+      std::filesystem::remove_all( tmp_path );
    }
 };
 

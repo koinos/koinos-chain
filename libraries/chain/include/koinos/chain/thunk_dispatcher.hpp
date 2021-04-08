@@ -16,8 +16,6 @@
 
 namespace koinos::chain {
 
-KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_thunk, chain_exception );
-
 namespace detail
 {
    /*
@@ -75,7 +73,7 @@ class thunk_dispatcher
       auto call_thunk( thunk_id id, apply_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk, "Thunk ${id} not found", ("id", static_cast< thunk_id >( id ) ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), thunk_not_found, "Thunk ${id} not found", ("id", static_cast< thunk_id >( id ) ) );
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 

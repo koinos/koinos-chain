@@ -1,12 +1,11 @@
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 
-
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
@@ -27,18 +26,20 @@
 #define KOINOS_PATCH_VERSION "0"
 
 #define HELP_OPTION            "help"
-#define BASEDIR_OPTION         "basedir"
 #define VERSION_OPTION         "version"
-#define MQ_DISABLE_OPTION      "mq-disable"
-#define RESET_OPTION           "reset"
-
+#define BASEDIR_OPTION         "basedir"
 #define AMQP_OPTION            "amqp"
 #define AMQP_DEFAULT           "amqp://guest:guest@localhost:5672/"
+#define LOG_LEVEL_OPTION       "log-level"
+#define LOG_LEVEL_DEFAULT      "info"
+#define INSTANCE_ID_OPTION     "instance-id"
 #define STATEDIR_OPTION        "statedir"
 #define STATEDIR_DEFAULT       "blockchain"
 #define DATABASE_CONFIG_OPTION "database-config"
 #define DATABASE_CONFIG_DEFAULT "database.cfg"
 #define CHAIN_ID_OPTION        "chain-id"
+#define MQ_DISABLE_OPTION      "mq-disable"
+#define RESET_OPTION           "reset"
 
 using namespace boost;
 using namespace koinos;
@@ -47,26 +48,23 @@ constexpr uint32_t MAX_AMQP_CONNECT_SLEEP_MS = 30000;
 
 const std::string& version_string()
 {
-   static std::string v_str = "Koinos Chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
+   static std::string v_str = "Koinos chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
    return v_str;
 }
 
 void splash()
 {
-   const char* BANNER = R"BANNER(
+   const char* banner = R"BANNER(
   _  __     _
  | |/ /___ (_)_ __   ___  ___
  | ' // _ \| | '_ \ / _ \/ __|
  | . \ (_) | | | | | (_) \__ \
  |_|\_\___/|_|_| |_|\___/|___/)BANNER";
 
-   std::cout.write( BANNER, strlen( BANNER ) );
-#ifdef IS_TEST_NET
-   const char* LAUNCH_MESSAGE = "       ...launching test network";
-#else
-   const char* LAUNCH_MESSAGE = "       ...launching main network";
-#endif
-   std::cout.write( LAUNCH_MESSAGE, strlen( LAUNCH_MESSAGE ) );
+   std::cout.write( banner, std::strlen( banner ) );
+   std::cout << std::endl;
+   const char* launch_message = "          ...launching network";
+   std::cout.write( launch_message, std::strlen( launch_message ) );
    std::cout << std::endl << std::flush;
 }
 
@@ -105,11 +103,12 @@ void attach_request_handler(
    const std::string& amqp_url )
 {
    uint32_t amqp_sleep_ms = 1000;
+   mq::error_code ec = mq::error_code::success;
 
    LOG(info) << "Connecting AMQP request handler...";
    while ( true )
    {
-      auto ec = mq_reqhandler.connect( amqp_url );
+      ec = mq_reqhandler.connect( amqp_url );
       if ( ec == mq::error_code::success )
       {
          LOG(info) << "Connected request handler to AMQP server";
@@ -123,8 +122,8 @@ void attach_request_handler(
       }
    }
 
-   auto ec = mq_reqhandler.add_rpc_handler(
-      mq::service::chain,
+   ec = mq_reqhandler.add_rpc_handler(
+      service::chain,
       [&]( const std::string& msg ) -> std::string
       {
          rpc::chain::chain_rpc_response response;
@@ -192,7 +191,7 @@ void attach_request_handler(
       exit( EXIT_FAILURE );
    }
 
-   mq_reqhandler.add_broadcast_handler(
+   ec = mq_reqhandler.add_broadcast_handler(
       "koinos.block.accept",
       [&]( const std::string& msg )
       {
@@ -299,7 +298,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
       LOG(info) << "Retrieving highest block from block store";
       pack::json j;
       pack::to_json( j, block_store_request{ get_highest_block_request{} } );
-      auto future = mq_client->rpc( mq::service::block_store, j.dump() );
+      auto future = mq_client->rpc( service::block_store, j.dump() );
 
       block_store_response resp;
       pack::from_json( pack::json::parse( future.get() ), resp );
@@ -347,7 +346,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
             };
 
             pack::to_json( j, block_store_request{ req } );
-            rpc_queue.push_back( mq_client->rpc( mq::service::block_store, j.dump() ) );
+            rpc_queue.push_back( mq_client->rpc( service::block_store, j.dump() ) );
             last_height += block_height_type{ batch_size };
          }
 
@@ -396,8 +395,16 @@ int main( int argc, char** argv )
          (HELP_OPTION       ",h", "Print this help message and exit")
          (VERSION_OPTION    ",v", "Print version string and exit")
          (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
+         (AMQP_OPTION       ",a", program_options::value< std::string >()->default_value( "amqp://guest:guest@localhost:5672/" ), "AMQP server URL")
+         (LOG_LEVEL_OPTION  ",l", program_options::value< std::string >(), "The log filtering level")
+         (INSTANCE_ID_OPTION",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
+         (STATEDIR_OPTION       , program_options::value< std::string >(),
+            "The location of the blockchain state files (absolute path or relative to basedir/chain)")
+         (DATABASE_CONFIG_OPTION, program_options::value< std::string >(),
+            "The location of the database configuration file (absolute path or relative to basedir/chain)")
+         (CHAIN_ID_OPTION       , program_options::value< std::string >(), "Chain ID to initialize empty node state")
          (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
-         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "reset the database");
+         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -405,7 +412,7 @@ int main( int argc, char** argv )
       if ( args.count( HELP_OPTION ) )
       {
          std::cout << options << std::endl;
-         return EXIT_FAILURE;
+         return EXIT_SUCCESS;
       }
 
       if ( args.count( VERSION_OPTION ) )
@@ -413,7 +420,7 @@ int main( int argc, char** argv )
          const auto& v_str = version_string();
          std::cout.write( v_str.c_str(), v_str.size() );
          std::cout << std::endl;
-         return EXIT_FAILURE;
+         return EXIT_SUCCESS;
       }
 
       splash();
@@ -435,16 +442,18 @@ int main( int argc, char** argv )
       if ( std::filesystem::exists( yaml_config ) )
       {
          config = YAML::LoadFile( yaml_config );
-         global_config = config["global"];
-         chain_config = config[mq::service::chain];
+         global_config = config[ "global" ];
+         chain_config = config[ service::chain ];
       }
 
       std::string amqp_url = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      std::string log_level = get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      std::string instance_id = get_option< std::string >( INSTANCE_ID_OPTION, random_alphanumeric( 5 ), args, chain_config, global_config );
       auto statedir = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
       auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
       auto chain_id_str = get_option< std::string >( CHAIN_ID_OPTION, get_default_chain_id_string(), args, chain_config );
 
-      koinos::initialize_logging( boost::filesystem::path( basedir.string() ), "chain/log/%3N.log" );
+      koinos::initialize_logging( service::chain, instance_id, log_level, basedir / service::chain );
 
       if ( !config )
       {
@@ -452,13 +461,13 @@ int main( int argc, char** argv )
       }
 
       if ( statedir.is_relative() )
-         statedir = basedir / mq::service::chain / statedir;
+         statedir = basedir / service::chain / statedir;
 
       if ( !std::filesystem::exists( statedir ) )
          std::filesystem::create_directories( statedir );
 
       if ( database_config_path.is_relative() )
-         database_config_path = basedir / mq::service::chain / database_config_path;
+         database_config_path = basedir / service::chain / database_config_path;
 
       if ( !std::filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
@@ -492,7 +501,7 @@ int main( int argc, char** argv )
       genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
 
       chain::controller controller;
-      controller.open( boost::filesystem::path( statedir.string() ), database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
+      controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
 
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
@@ -518,36 +527,22 @@ int main( int argc, char** argv )
             }
          }
 
-         LOG(info) << "Attempting to connect to block_store...";
-         while ( true )
+         LOG(info) << "Connected client to AMQP server";
+
          {
-            KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
+            LOG(info) << "Attempting to connect to block_store...";
             pack::json j;
             pack::to_json( j, rpc::block_store::block_store_request{ rpc::block_store::block_store_reserved_request{} } );
-
-            try
-            {
-               mq_client->rpc( mq::service::block_store, j.dump() ).get();
-               LOG(info) << "Connected";
-               break;
-            }
-            catch( const mq::timeout_error& ) {}
+            mq_client->rpc( service::block_store, j.dump() ).get();
+            LOG(info) << "Established connection to block_store";
          }
 
-         LOG(info) << "Attempting to connect to mempool...";
-         while ( true )
          {
-            KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
+            LOG(info) << "Attempting to connect to mempool...";
             pack::json j;
             pack::to_json( j, rpc::mempool::mempool_rpc_request{ rpc::mempool::mempool_reserved_request{} } );
-
-            try
-            {
-               mq_client->rpc( mq::service::mempool, j.dump() ).get();
-               LOG(info) << "Connected";
-               break;
-            }
-            catch( const mq::timeout_error& ) {}
+            mq_client->rpc( service::mempool, j.dump() ).get();
+            LOG(info) << "Established connection to mempool";
          }
 
          index( controller, mq_client );
