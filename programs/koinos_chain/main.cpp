@@ -6,7 +6,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
@@ -357,15 +356,15 @@ int main( int argc, char** argv )
          (VERSION_OPTION    ",v", "Print version string and exit")
          (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
          (AMQP_OPTION       ",a", program_options::value< std::string >()->default_value( "amqp://guest:guest@localhost:5672/" ), "AMQP server URL")
+         (LOG_FILTER_OPTION ",l", program_options::value< std::string >()->default_value( "info" ), "The log filtering level")
+         (INSTANCE_ID_OPTION",i", program_options::value< std::string >()->default_value( random_alphanumeric( 5 ) ), "An ID that uniquely identifies the instance")
          (STATEDIR_OPTION       , program_options::value< std::string >()->default_value("blockchain"),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
          (DATABASE_CONFIG_OPTION, program_options::value< std::string >()->default_value("database.cfg"),
             "The location of the database configuration file (absolute path or relative to basedir/chain)")
          (CHAIN_ID_OPTION       , program_options::value< std::string >()->default_value( get_default_chain_id_string()), "Chain ID to initialize empty node state")
          (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
-         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database")
-         (LOG_FILTER_OPTION ",l", program_options::value< log_level   >()->default_value( log_level::info ), "The log filtering level")
-         (INSTANCE_ID_OPTION",i", program_options::value< std::string >()->default_value( random_alphanumeric( 5 ) ), "An ID that uniquely identifies the instance");
+         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database");
 
 
       program_options::variables_map args;
@@ -392,9 +391,9 @@ int main( int argc, char** argv )
          basedir = std::filesystem::current_path() / basedir;
 
       auto instance_id = args[ INSTANCE_ID_OPTION ].as< std::string >();
-      log_level level  = args[ LOG_FILTER_OPTION ].as< log_level >();
+      log_level level  = args[ LOG_FILTER_OPTION ].as< koinos::log_level >();
 
-      koinos::initialize_logging( service::chain, instance_id, level, basedir / service::chain );
+      koinos::initialize_logging( service::chain, instance_id, log_level::info, basedir / service::chain );
 
       auto statedir = std::filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
       if ( statedir.is_relative() )
