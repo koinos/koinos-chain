@@ -11,8 +11,6 @@
 
 namespace koinos::chain {
 
-KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_return_buffer, chain_exception );
-
 using system_call_id_type = std::underlying_type< system_call_id >::type;
 using thunk_id_type       = std::underlying_type< thunk_id >::type;
 

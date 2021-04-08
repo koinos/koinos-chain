@@ -168,7 +168,7 @@ THUNK_DEFINE( void, apply_block,
 {
    KOINOS_TODO( "Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms" );
 
-   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
    auto setter = block_setter( context, block );
    block.active_data.unbox();
@@ -259,11 +259,6 @@ THUNK_DEFINE( void, apply_block,
             context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
          }
       }
-      else
-      {
-         // In this case, we need to tell the authority system to allow everything (wildcard authority)
-         KOINOS_THROW( unimplemented, "enable_check_transaction_signatures=false is not implemented" );
-      }
 
       apply_transaction( context, tx );
    }
@@ -327,7 +322,7 @@ inline void update_payer_transaction_nonce( apply_context& ctx, account_type pay
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
    using namespace koinos::protocol;
 
@@ -366,13 +361,13 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
 THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
    KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" );
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
@@ -381,7 +376,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
    with_privilege( context, privilege::user_mode, [&]() {
       execute_contract( context, o.contract_id, o.entry_point, o.args );
@@ -390,13 +385,13 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), thunk_privilege_error, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
    // Ensure override exists
    std::visit(
    koinos::overloaded{
       [&]( const thunk_id& tid ) {
-         KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), unknown_thunk, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
+         KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), thunk_not_found, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
       },
       [&]( const contract_call_bundle& scb ) {
          uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
@@ -416,13 +411,13 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
    if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
    statedb::put_object_args put_args;
    put_args.space = space;
    put_args.key = key;
@@ -438,13 +433,13 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
 
    statedb::get_object_args get_args;
    get_args.space = space;
@@ -468,13 +463,13 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
 THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
@@ -498,13 +493,13 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
 THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), database_exception, "privileged code can only accessed system space" );
+      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), database_exception,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, database_exception, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
    statedb::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
