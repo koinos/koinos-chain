@@ -374,7 +374,7 @@ int main( int argc, char** argv )
       if ( args.count( HELP_OPTION ) )
       {
          std::cout << options << std::endl;
-         return EXIT_FAILURE;
+         return EXIT_SUCCESS;
       }
 
       if ( args.count( VERSION_OPTION ) )
@@ -382,7 +382,7 @@ int main( int argc, char** argv )
          const auto& v_str = version_string();
          std::cout.write( v_str.c_str(), v_str.size() );
          std::cout << std::endl;
-         return EXIT_FAILURE;
+         return EXIT_SUCCESS;
       }
 
       splash();
@@ -392,7 +392,7 @@ int main( int argc, char** argv )
          basedir = std::filesystem::current_path() / basedir;
 
       auto instance_id = args[ INSTANCE_ID_OPTION ].as< std::string >();
-      auto level       = args[ LOG_FILTER_OPTION  ].as< log_level >();
+      log_level level  = args[ LOG_FILTER_OPTION ].as< log_level >();
 
       koinos::initialize_logging( service::chain, instance_id, level, basedir / service::chain );
 
