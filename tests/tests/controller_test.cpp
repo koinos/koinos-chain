@@ -13,6 +13,7 @@
 #include <mira/database_configuration.hpp>
 
 #include <chrono>
+#include <filesystem>
 #include <sstream>
 
 using namespace std::string_literals;
@@ -26,9 +27,9 @@ struct controller_fixture
       auto seed = "test seed"s;
       _block_signing_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
 
-      _state_dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+      _state_dir = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       LOG(info) << "Test temp dir: " << _state_dir.string();
-      boost::filesystem::create_directory( _state_dir );
+      std::filesystem::create_directory( _state_dir );
 
       auto database_config = mira::utilities::default_database_configuration();
 
@@ -41,7 +42,7 @@ struct controller_fixture
 
    virtual ~controller_fixture()
    {
-      boost::filesystem::remove_all( _state_dir );
+      std::filesystem::remove_all( _state_dir );
    }
 
    void set_block_merkle_roots( koinos::protocol::block& block, uint64_t code, uint64_t size = 0 )
@@ -78,7 +79,7 @@ struct controller_fixture
    }
 
    koinos::chain::controller   _controller;
-   boost::filesystem::path     _state_dir;
+   std::filesystem::path       _state_dir;
    koinos::crypto::private_key _block_signing_private_key;
 };
 

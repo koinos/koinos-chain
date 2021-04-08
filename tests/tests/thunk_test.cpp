@@ -1,8 +1,10 @@
 #include <algorithm>
+#include <filesystem>
 #include <type_traits>
 #include <vector>
 
 #include <boost/test/unit_test.hpp>
+#include <boost/filesystem.hpp>
 
 #include <koinos/log.hpp>
 
@@ -32,8 +34,8 @@ struct thunk_fixture
    thunk_fixture() :
       host_api( ctx )
    {
-      temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-      boost::filesystem::create_directory( temp );
+      temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
+      std::filesystem::create_directory( temp );
       std::any cfg = mira::utilities::default_database_configuration();
 
       db.open( temp, cfg );
@@ -49,7 +51,7 @@ struct thunk_fixture
    ~thunk_fixture()
    {
       db.close();
-      boost::filesystem::remove_all( temp );
+      std::filesystem::remove_all( temp );
    }
 
    std::vector< uint8_t > get_hello_wasm()
@@ -67,7 +69,7 @@ struct thunk_fixture
       return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
    }
 
-   boost::filesystem::path temp;
+   std::filesystem::path temp;
    koinos::statedb::state_db db;
    koinos::chain::apply_context ctx;
    koinos::chain::host_api host_api;
