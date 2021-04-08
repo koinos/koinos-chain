@@ -36,6 +36,8 @@
 using namespace boost;
 using namespace koinos;
 
+constexpr uint32_t MAX_AMQP_CONNECT_SLEEP_MS = 30000;
+
 const std::string& version_string()
 {
    static std::string v_str = "Koinos Chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
@@ -95,15 +97,26 @@ void attach_request_handler(
    mq::request_handler& mq_reqhandler,
    const std::string& amqp_url )
 {
-   auto ec = mq_reqhandler.connect( amqp_url );
+   uint32_t amqp_sleep_ms = 1000;
 
-   if ( ec != mq::error_code::success )
+   LOG(info) << "Connecting AMQP request handler...";
+   while ( true )
    {
-      LOG(error) << "Unable to connect request handler to AMQP server";
-      exit( EXIT_FAILURE );
+      auto ec = mq_reqhandler.connect( amqp_url );
+      if ( ec == mq::error_code::success )
+      {
+         LOG(info) << "Connected request handler to AMQP server";
+         break;
+      }
+      else
+      {
+         LOG(info) << "Failed, trying again in " << amqp_sleep_ms << " ms" ;
+         std::this_thread::sleep_for( std::chrono::milliseconds( amqp_sleep_ms ) );
+         amqp_sleep_ms = std::min( amqp_sleep_ms * 2, MAX_AMQP_CONNECT_SLEEP_MS );
+      }
    }
 
-   ec = mq_reqhandler.add_rpc_handler(
+   auto ec = mq_reqhandler.add_rpc_handler(
       mq::service::chain,
       [&]( const std::string& msg ) -> std::string
       {
@@ -443,19 +456,27 @@ int main( int argc, char** argv )
 
       if ( !args[ MQ_DISABLE_OPTION ].as< bool >() )
       {
-         auto ec = mq_client->connect( amqp_url );
+         uint32_t amqp_sleep_ms = 1000;
 
-         if ( ec != mq::error_code::success )
+         LOG(info) << "Connecting AMQP client...";
+         while ( true )
          {
-            LOG(error) << "Unable to connect AMQP client";
-            exit( EXIT_FAILURE );
+            auto ec = mq_client->connect( amqp_url );
+            if ( ec == mq::error_code::success )
+            {
+               LOG(info) << "Connected client to AMQP server";
+               break;
+            }
+            else
+            {
+               LOG(info) << "Failed, trying again in " << amqp_sleep_ms << " ms" ;
+               std::this_thread::sleep_for( std::chrono::milliseconds( amqp_sleep_ms ) );
+               amqp_sleep_ms = std::min( amqp_sleep_ms * 2, MAX_AMQP_CONNECT_SLEEP_MS );
+            }
          }
 
-         LOG(info) << "Connected client to AMQP server";
-
          LOG(info) << "Attempting to connect to block_store...";
-         bool connected = false;
-         while ( !connected )
+         while ( true )
          {
             KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
             pack::json j;
@@ -464,15 +485,14 @@ int main( int argc, char** argv )
             try
             {
                mq_client->rpc( mq::service::block_store, j.dump() ).get();
-               connected = true;
                LOG(info) << "Connected";
+               break;
             }
             catch( const mq::timeout_error& ) {}
          }
 
          LOG(info) << "Attempting to connect to mempool...";
-         connected = false;
-         while ( !connected )
+         while ( true )
          {
             KOINOS_TODO("Remove this loop when MQ client retry logic is implemented (koinos-mq-cpp#15)")
             pack::json j;
@@ -481,8 +501,8 @@ int main( int argc, char** argv )
             try
             {
                mq_client->rpc( mq::service::mempool, j.dump() ).get();
-               connected = true;
                LOG(info) << "Connected";
+               break;
             }
             catch( const mq::timeout_error& ) {}
          }
