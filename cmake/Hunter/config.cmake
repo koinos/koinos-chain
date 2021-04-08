@@ -35,6 +35,13 @@ hunter_config(libsecp256k1
    SHA1 "0534fa8948f279b26fd102905215a56f0ad7fa18"
 )
 
+hunter_config(yaml-cpp
+   VERSION "0.6.3"
+   CMAKE_ARGS
+      CMAKE_CXX_FLAGS=-fvisibility=hidden
+      CMAKE_C_FLAGS=-fvisibility=hidden
+)
+
 hunter_config(koinos_log
    GIT_SUBMODULE "libraries/log"
    CMAKE_ARGS
