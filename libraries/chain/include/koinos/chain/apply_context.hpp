@@ -1,5 +1,6 @@
 #pragma once
 
+#include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/privilege.hpp>
 #include <koinos/statedb/statedb.hpp>
 #include <koinos/pack/classes.hpp>
@@ -15,9 +16,6 @@ namespace koinos::chain {
 
 using boost::container::flat_set;
 using koinos::statedb::state_node_ptr;
-
-KOINOS_DECLARE_EXCEPTION( stack_exception );
-KOINOS_DECLARE_EXCEPTION( stack_overflow );
 
 struct stack_frame
 {

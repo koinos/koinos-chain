@@ -80,7 +80,7 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
 
          KOINOS_ASSERT(
             !put_res.object_existed,
-            koinos::chain::database_exception,
+            koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
       }
@@ -374,8 +374,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    head->get_object( result, args );
 
-   KOINOS_ASSERT( result.key == args.key, database_exception, "unable to retrieve chain id" );
-   KOINOS_ASSERT( result.size <= args.buf_size, database_exception, "chain id buffer overflow" );
+   KOINOS_ASSERT( result.key == args.key, retrieval_failure, "unable to retrieve chain id" );
+   KOINOS_ASSERT( result.size <= args.buf_size, insufficent_buffer_size, "chain id buffer overflow" );
 
    multihash chain_id;
    pack::from_binary( chain_id_stream, chain_id, result.size );
@@ -402,13 +402,32 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
       fork_heads = _state_db.get_fork_heads();
    }
 
-   response.last_irreversible_block = system_call::get_head_info( ctx ).head_topology;
+   auto head_info = system_call::get_head_info( ctx );
+   response.last_irreversible_block = head_info.head_topology;
 
    for( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
       auto head_info = system_call::get_head_info( ctx );
       response.fork_heads.emplace_back( std::move( head_info.head_topology ) );
+   }
+
+   // Sort all fork heads by height
+   std::sort( response.fork_heads.begin(), response.fork_heads.end(), []( const block_topology& a, const block_topology& b )
+   {
+      return a.height > b.height;
+   } );
+
+   // If there is a tie for highest block, ensure the head block is first
+   auto fork_itr = response.fork_heads.begin();
+   while ( fork_itr != response.fork_heads.begin() && fork_itr->id != head_info.head_topology.id )
+   {
+      ++fork_itr;
+   }
+
+   if ( fork_itr != response.fork_heads.begin() )
+   {
+      std::iter_swap( fork_itr, response.fork_heads.begin() );
    }
 
    return response;
