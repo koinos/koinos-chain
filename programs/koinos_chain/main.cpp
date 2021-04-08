@@ -391,9 +391,9 @@ int main( int argc, char** argv )
          basedir = std::filesystem::current_path() / basedir;
 
       auto instance_id = args[ INSTANCE_ID_OPTION ].as< std::string >();
-      log_level level  = args[ LOG_FILTER_OPTION ].as< koinos::log_level >();
+      auto level       = args[ LOG_FILTER_OPTION ].as< std::string >();
 
-      koinos::initialize_logging( service::chain, instance_id, log_level::info, basedir / service::chain );
+      koinos::initialize_logging( service::chain, instance_id, level, basedir / service::chain );
 
       auto statedir = std::filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
       if ( statedir.is_relative() )
