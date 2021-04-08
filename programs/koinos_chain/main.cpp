@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -8,6 +9,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
+
+#include <yaml-cpp/yaml.h>
 
 #include <koinos/chain/controller.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -26,12 +29,16 @@
 #define HELP_OPTION            "help"
 #define BASEDIR_OPTION         "basedir"
 #define VERSION_OPTION         "version"
-#define AMQP_OPTION            "amqp"
-#define STATEDIR_OPTION        "statedir"
-#define DATABASE_CONFIG_OPTION "database-config"
 #define MQ_DISABLE_OPTION      "mq-disable"
-#define CHAIN_ID_OPTION        "chain-id"
 #define RESET_OPTION           "reset"
+
+#define AMQP_OPTION            "amqp"
+#define AMQP_DEFAULT           "amqp://guest:guest@localhost:5672/"
+#define STATEDIR_OPTION        "statedir"
+#define STATEDIR_DEFAULT       "blockchain"
+#define DATABASE_CONFIG_OPTION "database-config"
+#define DATABASE_CONFIG_DEFAULT "database.cfg"
+#define CHAIN_ID_OPTION        "chain-id"
 
 using namespace boost;
 using namespace koinos;
@@ -69,10 +76,10 @@ std::string get_default_chain_id_string()
    return "zQmT2TaQZZjwW7HZ6ctY3VCsPvadHV1m6RcwgMNeRUgP1mx";
 }
 
-void write_default_database_config( const filesystem::path& p )
+void write_default_database_config( const std::filesystem::path& p )
 {
    LOG(info) << "Writing database configuration: " << p.string();
-   boost::filesystem::ofstream config_file( p, std::ios::binary );
+   std::ofstream config_file( p, std::ios::binary );
    config_file << mira::utilities::default_database_configuration();
 }
 
@@ -369,15 +376,8 @@ int main( int argc, char** argv )
          (HELP_OPTION       ",h", "Print this help message and exit")
          (VERSION_OPTION    ",v", "Print version string and exit")
          (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
-         (AMQP_OPTION       ",a", program_options::value< std::string >()->default_value( "amqp://guest:guest@localhost:5672/" ), "AMQP server URL")
-         (STATEDIR_OPTION       , program_options::value< std::string >()->default_value("blockchain"),
-            "The location of the blockchain state files (absolute path or relative to basedir/chain)")
-         (DATABASE_CONFIG_OPTION, program_options::value< std::string >()->default_value("database.cfg"),
-            "The location of the database configuration file (absolute path or relative to basedir/chain)")
-         (CHAIN_ID_OPTION       , program_options::value< std::string >()->default_value( get_default_chain_id_string()), "Chain ID to initialize empty node state")
          (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
          (RESET_OPTION          , program_options::bool_switch()->default_value(false), "reset the database");
-
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -398,32 +398,78 @@ int main( int argc, char** argv )
 
       splash();
 
-      auto basedir = filesystem::path( args[ BASEDIR_OPTION ].as< std::string >() );
+      auto basedir = std::filesystem::path( args[ BASEDIR_OPTION ].as< std::string >() );
       if ( basedir.is_relative() )
-         basedir = filesystem::current_path() / basedir;
+         basedir = std::filesystem::current_path() / basedir;
 
-      koinos::initialize_logging( basedir, "chain/log/%3N.log" );
+      koinos::initialize_logging( boost::filesystem::path( basedir.string() ), "chain/log/%3N.log" );
 
-      auto statedir = filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
+      std::string amqp_url = AMQP_DEFAULT;
+      auto statedir = std::filesystem::path( STATEDIR_DEFAULT );
+      auto database_config_path = std::filesystem::path( DATABASE_CONFIG_DEFAULT );
+      auto chain_id_str = get_default_chain_id_string();
+
+      auto yaml_config = basedir / "config.yml";
+      if ( !std::filesystem::exists( yaml_config ) )
+      {
+         yaml_config = basedir / "config.yaml";
+      }
+
+      if ( !std::filesystem::exists( yaml_config ) )
+      {
+         LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
+      }
+      else
+      {
+         YAML::Node config = YAML::LoadFile( yaml_config );
+
+         if ( config[mq::service::chain] )
+         {
+            const auto& chain_node = config[mq::service::chain];
+            if ( chain_node[ AMQP_OPTION ] )
+            {
+               amqp_url = chain_node[ AMQP_OPTION ].as< std::string >();
+            }
+
+            if ( chain_node[ STATEDIR_OPTION ] )
+            {
+               statedir = std::filesystem::path( chain_node[ STATEDIR_OPTION ].as< std::string >() );
+            }
+
+            if ( chain_node[ DATABASE_CONFIG_OPTION ] )
+            {
+               database_config_path = std::filesystem::path( chain_node[ DATABASE_CONFIG_OPTION ].as< std::string >() );
+            }
+
+            if ( chain_node[ CHAIN_ID_OPTION ] )
+            {
+               chain_id_str = chain_node[ CHAIN_ID_OPTION ].as< std::string >();
+            }
+         }
+         else
+         {
+            LOG(warning) << "Could not find config for microservice " << mq::service::chain
+               << ". Using default values";
+         }
+      }
+
       if ( statedir.is_relative() )
          statedir = basedir / "chain" / statedir;
 
-      if ( !filesystem::exists( statedir ) )
-         filesystem::create_directories( statedir );
-
-      auto database_config_path = filesystem::path( args[ DATABASE_CONFIG_OPTION ].as< std::string >() );
+      if ( !std::filesystem::exists( statedir ) )
+         std::filesystem::create_directories( statedir );
 
       if ( database_config_path.is_relative() )
          database_config_path = basedir / "chain" / database_config_path;
 
-      if ( !filesystem::exists( database_config_path ) )
+      if ( !std::filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
 
       pack::json database_config;
 
       try
       {
-         boost::filesystem::ifstream config_file( database_config_path, std::ios::binary );
+         std::ifstream config_file( database_config_path, std::ios::binary );
          config_file >> database_config;
       }
       catch ( const std::exception& e )
@@ -435,7 +481,7 @@ int main( int argc, char** argv )
       multihash chain_id;
       try
       {
-         pack::from_json( pack::json( args[ CHAIN_ID_OPTION ].as< std::string >() ), chain_id );
+         pack::from_json( pack::json( chain_id_str ), chain_id );
       }
       catch ( const std::exception& e )
       {
@@ -448,9 +494,8 @@ int main( int argc, char** argv )
       genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
 
       chain::controller controller;
-      controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
+      controller.open( boost::filesystem::path( statedir.string() ), database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
 
-      auto amqp_url = args[ AMQP_OPTION ].as< std::string >();
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
 

@@ -1,5 +1,5 @@
 hunter_config(Boost
-   VERSION ${HUNTER_Boost_VERSION}
+   VERSION "1.72.0-p1"
    CMAKE_ARGS
       USE_CONFIG_FROM_BOOST=ON
       Boost_USE_STATIC_LIBS=ON
@@ -70,4 +70,3 @@ hunter_config(koinos_mq
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
-
