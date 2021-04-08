@@ -422,9 +422,9 @@ int main( int argc, char** argv )
       if ( basedir.is_relative() )
          basedir = std::filesystem::current_path() / basedir;
 
+      YAML::Node config;
       YAML::Node global_config;
       YAML::Node chain_config;
-      bool config_found = false;
 
       auto yaml_config = basedir / "config.yml";
       if ( !std::filesystem::exists( yaml_config ) )
@@ -434,9 +434,7 @@ int main( int argc, char** argv )
 
       if ( std::filesystem::exists( yaml_config ) )
       {
-         YAML::Node config = YAML::LoadFile( yaml_config );
-         config_found = true;
-
+         config = YAML::LoadFile( yaml_config );
          global_config = config["global"];
          chain_config = config[mq::service::chain];
       }
@@ -448,7 +446,7 @@ int main( int argc, char** argv )
 
       koinos::initialize_logging( boost::filesystem::path( basedir.string() ), "chain/log/%3N.log" );
 
-      if ( !config_found )
+      if ( !config )
       {
          LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
       }
