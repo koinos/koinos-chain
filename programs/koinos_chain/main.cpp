@@ -367,6 +367,26 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
    }
 }
 
+template< typename T >
+T get_option(
+   std::string key,
+   T default_value,
+   const program_options::variables_map& cli_args,
+   const YAML::Node& service_config = YAML::Node(),
+   const YAML::Node& global_config = YAML::Node() )
+{
+   if ( cli_args.count( key ) )
+      return cli_args[ key ].as< T >();
+
+   if ( service_config && service_config[ key ] )
+      return service_config[ key ].as< T >();
+
+   if ( global_config && global_config[ key ] )
+      return global_config[ key ].as< T >();
+
+   return std::move( default_value );
+}
+
 int main( int argc, char** argv )
 {
    try
@@ -402,12 +422,9 @@ int main( int argc, char** argv )
       if ( basedir.is_relative() )
          basedir = std::filesystem::current_path() / basedir;
 
-      koinos::initialize_logging( boost::filesystem::path( basedir.string() ), "chain/log/%3N.log" );
-
-      std::string amqp_url = AMQP_DEFAULT;
-      auto statedir = std::filesystem::path( STATEDIR_DEFAULT );
-      auto database_config_path = std::filesystem::path( DATABASE_CONFIG_DEFAULT );
-      auto chain_id_str = get_default_chain_id_string();
+      YAML::Node global_config;
+      YAML::Node chain_config;
+      bool config_found = false;
 
       auto yaml_config = basedir / "config.yml";
       if ( !std::filesystem::exists( yaml_config ) )
@@ -415,52 +432,35 @@ int main( int argc, char** argv )
          yaml_config = basedir / "config.yaml";
       }
 
-      if ( !std::filesystem::exists( yaml_config ) )
+      if ( std::filesystem::exists( yaml_config ) )
+      {
+         YAML::Node config = YAML::LoadFile( yaml_config );
+         config_found = true;
+
+         global_config = config["global"];
+         chain_config = config[mq::service::chain];
+      }
+
+      std::string amqp_url = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      auto statedir = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
+      auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
+      auto chain_id_str = get_option< std::string >( CHAIN_ID_OPTION, get_default_chain_id_string(), args, chain_config );
+
+      koinos::initialize_logging( boost::filesystem::path( basedir.string() ), "chain/log/%3N.log" );
+
+      if ( !config_found )
       {
          LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
       }
-      else
-      {
-         YAML::Node config = YAML::LoadFile( yaml_config );
-
-         if ( config[mq::service::chain] )
-         {
-            const auto& chain_node = config[mq::service::chain];
-            if ( chain_node[ AMQP_OPTION ] )
-            {
-               amqp_url = chain_node[ AMQP_OPTION ].as< std::string >();
-            }
-
-            if ( chain_node[ STATEDIR_OPTION ] )
-            {
-               statedir = std::filesystem::path( chain_node[ STATEDIR_OPTION ].as< std::string >() );
-            }
-
-            if ( chain_node[ DATABASE_CONFIG_OPTION ] )
-            {
-               database_config_path = std::filesystem::path( chain_node[ DATABASE_CONFIG_OPTION ].as< std::string >() );
-            }
-
-            if ( chain_node[ CHAIN_ID_OPTION ] )
-            {
-               chain_id_str = chain_node[ CHAIN_ID_OPTION ].as< std::string >();
-            }
-         }
-         else
-         {
-            LOG(warning) << "Could not find config for microservice " << mq::service::chain
-               << ". Using default values";
-         }
-      }
 
       if ( statedir.is_relative() )
-         statedir = basedir / "chain" / statedir;
+         statedir = basedir / mq::service::chain / statedir;
 
       if ( !std::filesystem::exists( statedir ) )
          std::filesystem::create_directories( statedir );
 
       if ( database_config_path.is_relative() )
-         database_config_path = basedir / "chain" / database_config_path;
+         database_config_path = basedir / mq::service::chain / database_config_path;
 
       if ( !std::filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
