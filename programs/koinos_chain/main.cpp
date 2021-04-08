@@ -395,7 +395,7 @@ int main( int argc, char** argv )
          (HELP_OPTION       ",h", "Print this help message and exit")
          (VERSION_OPTION    ",v", "Print version string and exit")
          (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
-         (AMQP_OPTION       ",a", program_options::value< std::string >()->default_value( "amqp://guest:guest@localhost:5672/" ), "AMQP server URL")
+         (AMQP_OPTION       ",a", program_options::value< std::string >(), "AMQP server URL")
          (LOG_LEVEL_OPTION  ",l", program_options::value< std::string >(), "The log filtering level")
          (INSTANCE_ID_OPTION",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
          (STATEDIR_OPTION       , program_options::value< std::string >(),
