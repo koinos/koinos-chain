@@ -25,21 +25,20 @@
 #define KOINOS_MINOR_VERSION "1"
 #define KOINOS_PATCH_VERSION "0"
 
-#define HELP_OPTION            "help"
-#define VERSION_OPTION         "version"
-#define BASEDIR_OPTION         "basedir"
-#define AMQP_OPTION            "amqp"
-#define AMQP_DEFAULT           "amqp://guest:guest@localhost:5672/"
-#define LOG_LEVEL_OPTION       "log-level"
-#define LOG_LEVEL_DEFAULT      "info"
-#define INSTANCE_ID_OPTION     "instance-id"
-#define STATEDIR_OPTION        "statedir"
-#define STATEDIR_DEFAULT       "blockchain"
-#define DATABASE_CONFIG_OPTION "database-config"
+#define HELP_OPTION             "help"
+#define VERSION_OPTION          "version"
+#define BASEDIR_OPTION          "basedir"
+#define AMQP_OPTION             "amqp"
+#define AMQP_DEFAULT            "amqp://guest:guest@localhost:5672/"
+#define LOG_LEVEL_OPTION        "log-level"
+#define LOG_LEVEL_DEFAULT       "info"
+#define INSTANCE_ID_OPTION      "instance-id"
+#define STATEDIR_OPTION         "statedir"
+#define STATEDIR_DEFAULT        "blockchain"
+#define DATABASE_CONFIG_OPTION  "database-config"
 #define DATABASE_CONFIG_DEFAULT "database.cfg"
-#define CHAIN_ID_OPTION        "chain-id"
-#define MQ_DISABLE_OPTION      "mq-disable"
-#define RESET_OPTION           "reset"
+#define CHAIN_ID_OPTION         "chain-id"
+#define RESET_OPTION            "reset"
 
 using namespace boost;
 using namespace koinos;
@@ -403,7 +402,6 @@ int main( int argc, char** argv )
          (DATABASE_CONFIG_OPTION, program_options::value< std::string >(),
             "The location of the database configuration file (absolute path or relative to basedir/chain)")
          (CHAIN_ID_OPTION       , program_options::value< std::string >(), "Chain ID to initialize empty node state")
-         (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
          (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database");
 
       program_options::variables_map args;
@@ -455,9 +453,9 @@ int main( int argc, char** argv )
 
       koinos::initialize_logging( service::chain, instance_id, log_level, basedir / service::chain );
 
-      if ( !config )
+      if ( config.IsNull() )
       {
-         LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
+         LOG(warning) << "Could not find configuration file (config.yml or config.yaml) - using default values";
       }
 
       if ( statedir.is_relative() )
@@ -506,55 +504,46 @@ int main( int argc, char** argv )
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
 
-      if ( !args[ MQ_DISABLE_OPTION ].as< bool >() )
+      uint32_t amqp_sleep_ms = 1000;
+
+      LOG(info) << "Connecting AMQP client...";
+      while ( true )
       {
-         uint32_t amqp_sleep_ms = 1000;
-
-         LOG(info) << "Connecting AMQP client...";
-         while ( true )
+         auto ec = mq_client->connect( amqp_url );
+         if ( ec == mq::error_code::success )
          {
-            auto ec = mq_client->connect( amqp_url );
-            if ( ec == mq::error_code::success )
-            {
-               LOG(info) << "Connected client to AMQP server";
-               break;
-            }
-            else
-            {
-               LOG(info) << "Failed, trying again in " << amqp_sleep_ms << " ms" ;
-               std::this_thread::sleep_for( std::chrono::milliseconds( amqp_sleep_ms ) );
-               amqp_sleep_ms = std::min( amqp_sleep_ms * 2, MAX_AMQP_CONNECT_SLEEP_MS );
-            }
+            LOG(info) << "Connected client to AMQP server";
+            break;
          }
-
-         LOG(info) << "Connected client to AMQP server";
-
+         else
          {
-            LOG(info) << "Attempting to connect to block_store...";
-            pack::json j;
-            pack::to_json( j, rpc::block_store::block_store_request{ rpc::block_store::block_store_reserved_request{} } );
-            mq_client->rpc( service::block_store, j.dump() ).get();
-            LOG(info) << "Established connection to block_store";
+            LOG(info) << "Failed, trying again in " << amqp_sleep_ms << " ms" ;
+            std::this_thread::sleep_for( std::chrono::milliseconds( amqp_sleep_ms ) );
+            amqp_sleep_ms = std::min( amqp_sleep_ms * 2, MAX_AMQP_CONNECT_SLEEP_MS );
          }
-
-         {
-            LOG(info) << "Attempting to connect to mempool...";
-            pack::json j;
-            pack::to_json( j, rpc::mempool::mempool_rpc_request{ rpc::mempool::mempool_reserved_request{} } );
-            mq_client->rpc( service::mempool, j.dump() ).get();
-            LOG(info) << "Established connection to mempool";
-         }
-
-         index( controller, mq_client );
-
-         attach_client( controller, mq_client, amqp_url );
-         attach_request_handler( controller, request_handler, amqp_url );
-         LOG(info) << "Listening for requests over AMQP";
       }
-      else
+
       {
-         LOG(warning) << "Application is running without AMQP support";
+         LOG(info) << "Attempting to connect to block_store...";
+         pack::json j;
+         pack::to_json( j, rpc::block_store::block_store_request{ rpc::block_store::block_store_reserved_request{} } );
+         mq_client->rpc( service::block_store, j.dump() ).get();
+         LOG(info) << "Established connection to block_store";
       }
+
+      {
+         LOG(info) << "Attempting to connect to mempool...";
+         pack::json j;
+         pack::to_json( j, rpc::mempool::mempool_rpc_request{ rpc::mempool::mempool_reserved_request{} } );
+         mq_client->rpc( service::mempool, j.dump() ).get();
+         LOG(info) << "Established connection to mempool";
+      }
+
+      index( controller, mq_client );
+
+      attach_client( controller, mq_client, amqp_url );
+      attach_request_handler( controller, request_handler, amqp_url );
+      LOG(info) << "Listening for requests over AMQP";
 
       asio::io_service io_service;
       asio::signal_set signals( io_service, SIGINT, SIGTERM );
