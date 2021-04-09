@@ -455,7 +455,7 @@ int main( int argc, char** argv )
 
       if ( config.IsNull() )
       {
-         LOG(warning) << "Could not find configuration file (config.yml or config.yaml) - using default values";
+         LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
       }
 
       if ( statedir.is_relative() )
