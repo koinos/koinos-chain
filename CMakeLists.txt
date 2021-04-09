@@ -31,8 +31,8 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/cpp-pm/hunter/archive/v0.23.287.tar.gz"
-   SHA1 "69371a638d697bbf09f4f08dd0aad996efcc79d9"
+   URL "https://github.com/cpp-pm/hunter/archive/v0.23.289.tar.gz"
+   SHA1 "7d7323704780200a1575fc089d26f8a8a393a1fa"
    LOCAL
 )
 
@@ -92,6 +92,7 @@ hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
 hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
+hunter_add_package(yaml-cpp)
 
 hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)
@@ -105,6 +106,7 @@ find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(rabbitmq-c CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
 
 find_package(koinos_crypto CONFIG REQUIRED)
 find_package(koinos_exception CONFIG REQUIRED)

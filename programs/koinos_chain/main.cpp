@@ -9,6 +9,8 @@
 #include <boost/program_options.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
+#include <yaml-cpp/yaml.h>
+
 #include <koinos/chain/controller.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/exception.hpp>
@@ -24,16 +26,20 @@
 #define KOINOS_PATCH_VERSION "0"
 
 #define HELP_OPTION            "help"
-#define BASEDIR_OPTION         "basedir"
 #define VERSION_OPTION         "version"
+#define BASEDIR_OPTION         "basedir"
 #define AMQP_OPTION            "amqp"
-#define STATEDIR_OPTION        "statedir"
-#define DATABASE_CONFIG_OPTION "database-config"
-#define MQ_DISABLE_OPTION      "mq-disable"
-#define CHAIN_ID_OPTION        "chain-id"
-#define RESET_OPTION           "reset"
-#define LOG_FILTER_OPTION      "log-filter"
+#define AMQP_DEFAULT           "amqp://guest:guest@localhost:5672/"
+#define LOG_LEVEL_OPTION       "log-level"
+#define LOG_LEVEL_DEFAULT      "info"
 #define INSTANCE_ID_OPTION     "instance-id"
+#define STATEDIR_OPTION        "statedir"
+#define STATEDIR_DEFAULT       "blockchain"
+#define DATABASE_CONFIG_OPTION "database-config"
+#define DATABASE_CONFIG_DEFAULT "database.cfg"
+#define CHAIN_ID_OPTION        "chain-id"
+#define MQ_DISABLE_OPTION      "mq-disable"
+#define RESET_OPTION           "reset"
 
 using namespace boost;
 using namespace koinos;
@@ -360,6 +366,26 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
    }
 }
 
+template< typename T >
+T get_option(
+   std::string key,
+   T default_value,
+   const program_options::variables_map& cli_args,
+   const YAML::Node& service_config = YAML::Node(),
+   const YAML::Node& global_config = YAML::Node() )
+{
+   if ( cli_args.count( key ) )
+      return cli_args[ key ].as< T >();
+
+   if ( service_config && service_config[ key ] )
+      return service_config[ key ].as< T >();
+
+   if ( global_config && global_config[ key ] )
+      return global_config[ key ].as< T >();
+
+   return std::move( default_value );
+}
+
 int main( int argc, char** argv )
 {
    try
@@ -369,17 +395,16 @@ int main( int argc, char** argv )
          (HELP_OPTION       ",h", "Print this help message and exit")
          (VERSION_OPTION    ",v", "Print version string and exit")
          (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
-         (AMQP_OPTION       ",a", program_options::value< std::string >()->default_value( "amqp://guest:guest@localhost:5672/" ), "AMQP server URL")
-         (LOG_FILTER_OPTION ",l", program_options::value< std::string >()->default_value( "info" ), "The log filtering level")
-         (INSTANCE_ID_OPTION",i", program_options::value< std::string >()->default_value( random_alphanumeric( 5 ) ), "An ID that uniquely identifies the instance")
-         (STATEDIR_OPTION       , program_options::value< std::string >()->default_value("blockchain"),
+         (AMQP_OPTION       ",a", program_options::value< std::string >(), "AMQP server URL")
+         (LOG_LEVEL_OPTION  ",l", program_options::value< std::string >(), "The log filtering level")
+         (INSTANCE_ID_OPTION",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
+         (STATEDIR_OPTION       , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
-         (DATABASE_CONFIG_OPTION, program_options::value< std::string >()->default_value("database.cfg"),
+         (DATABASE_CONFIG_OPTION, program_options::value< std::string >(),
             "The location of the database configuration file (absolute path or relative to basedir/chain)")
-         (CHAIN_ID_OPTION       , program_options::value< std::string >()->default_value( get_default_chain_id_string()), "Chain ID to initialize empty node state")
+         (CHAIN_ID_OPTION       , program_options::value< std::string >(), "Chain ID to initialize empty node state")
          (MQ_DISABLE_OPTION     , program_options::bool_switch()->default_value(false), "Disables MQ connection")
          (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database");
-
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -404,19 +429,42 @@ int main( int argc, char** argv )
       if ( basedir.is_relative() )
          basedir = std::filesystem::current_path() / basedir;
 
-      auto instance_id = args[ INSTANCE_ID_OPTION ].as< std::string >();
-      auto level       = args[ LOG_FILTER_OPTION ].as< std::string >();
+      YAML::Node config;
+      YAML::Node global_config;
+      YAML::Node chain_config;
 
-      koinos::initialize_logging( service::chain, instance_id, level, basedir / service::chain );
+      auto yaml_config = basedir / "config.yml";
+      if ( !std::filesystem::exists( yaml_config ) )
+      {
+         yaml_config = basedir / "config.yaml";
+      }
 
-      auto statedir = std::filesystem::path( args[ STATEDIR_OPTION ].as< std::string >() );
+      if ( std::filesystem::exists( yaml_config ) )
+      {
+         config = YAML::LoadFile( yaml_config );
+         global_config = config[ "global" ];
+         chain_config = config[ service::chain ];
+      }
+
+      std::string amqp_url      = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      std::string log_level     = get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      std::string instance_id   = get_option< std::string >( INSTANCE_ID_OPTION, random_alphanumeric( 5 ), args, chain_config, global_config );
+      auto statedir             = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
+      auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
+      auto chain_id_str         = get_option< std::string >( CHAIN_ID_OPTION, get_default_chain_id_string(), args, chain_config );
+
+      koinos::initialize_logging( service::chain, instance_id, log_level, basedir / service::chain );
+
+      if ( !config )
+      {
+         LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
+      }
+
       if ( statedir.is_relative() )
          statedir = basedir / service::chain / statedir;
 
       if ( !std::filesystem::exists( statedir ) )
          std::filesystem::create_directories( statedir );
-
-      auto database_config_path = std::filesystem::path( args[ DATABASE_CONFIG_OPTION ].as< std::string >() );
 
       if ( database_config_path.is_relative() )
          database_config_path = basedir / service::chain / database_config_path;
@@ -440,7 +488,7 @@ int main( int argc, char** argv )
       multihash chain_id;
       try
       {
-         pack::from_json( pack::json( args[ CHAIN_ID_OPTION ].as< std::string >() ), chain_id );
+         pack::from_json( pack::json( chain_id_str ), chain_id );
       }
       catch ( const std::exception& e )
       {
@@ -455,7 +503,6 @@ int main( int argc, char** argv )
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
 
-      auto amqp_url = args[ AMQP_OPTION ].as< std::string >();
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
 
