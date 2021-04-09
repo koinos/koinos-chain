@@ -446,12 +446,12 @@ int main( int argc, char** argv )
          chain_config = config[ service::chain ];
       }
 
-      std::string amqp_url = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
-      std::string log_level = get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-      std::string instance_id = get_option< std::string >( INSTANCE_ID_OPTION, random_alphanumeric( 5 ), args, chain_config, global_config );
-      auto statedir = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
+      std::string amqp_url      = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      std::string log_level     = get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      std::string instance_id   = get_option< std::string >( INSTANCE_ID_OPTION, random_alphanumeric( 5 ), args, chain_config, global_config );
+      auto statedir             = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
       auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
-      auto chain_id_str = get_option< std::string >( CHAIN_ID_OPTION, get_default_chain_id_string(), args, chain_config );
+      auto chain_id_str         = get_option< std::string >( CHAIN_ID_OPTION, get_default_chain_id_string(), args, chain_config );
 
       koinos::initialize_logging( service::chain, instance_id, log_level, basedir / service::chain );
 
