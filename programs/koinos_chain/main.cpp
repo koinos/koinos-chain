@@ -101,25 +101,7 @@ void attach_request_handler(
    mq::request_handler& mq_reqhandler,
    const std::string& amqp_url )
 {
-   uint32_t amqp_sleep_ms = 1000;
    mq::error_code ec = mq::error_code::success;
-
-   LOG(info) << "Connecting AMQP request handler...";
-   while ( true )
-   {
-      ec = mq_reqhandler.connect( amqp_url );
-      if ( ec == mq::error_code::success )
-      {
-         LOG(info) << "Connected request handler to AMQP server";
-         break;
-      }
-      else
-      {
-         LOG(info) << "Failed, trying again in " << amqp_sleep_ms << " ms" ;
-         std::this_thread::sleep_for( std::chrono::milliseconds( amqp_sleep_ms ) );
-         amqp_sleep_ms = std::min( amqp_sleep_ms * 2, MAX_AMQP_CONNECT_SLEEP_MS );
-      }
-   }
 
    ec = mq_reqhandler.add_rpc_handler(
       service::chain,
@@ -221,6 +203,15 @@ void attach_request_handler(
       LOG(error) << "Unable to register block broadcast handler";
       exit( EXIT_FAILURE );
    }
+
+   LOG(info) << "Connecting AMQP request handler...";
+   ec = mq_reqhandler.connect( amqp_url );
+   if ( ec != mq::error_code::success )
+   {
+      LOG(error) << "Failed to connect request handler to AMQP server";
+      exit( EXIT_FAILURE );
+   }
+   LOG(info) << "Established request handler connection to the AMQP server";
 
    mq_reqhandler.start();
 }
@@ -504,24 +495,14 @@ int main( int argc, char** argv )
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
 
-      uint32_t amqp_sleep_ms = 1000;
-
       LOG(info) << "Connecting AMQP client...";
-      while ( true )
+      auto ec = mq_client->connect( amqp_url );
+      if ( ec != mq::error_code::success )
       {
-         auto ec = mq_client->connect( amqp_url );
-         if ( ec == mq::error_code::success )
-         {
-            LOG(info) << "Connected client to AMQP server";
-            break;
-         }
-         else
-         {
-            LOG(info) << "Failed, trying again in " << amqp_sleep_ms << " ms" ;
-            std::this_thread::sleep_for( std::chrono::milliseconds( amqp_sleep_ms ) );
-            amqp_sleep_ms = std::min( amqp_sleep_ms * 2, MAX_AMQP_CONNECT_SLEEP_MS );
-         }
+         LOG(error) << "Failed to connect AMQP client to server" ;
+         exit( EXIT_FAILURE );
       }
+      LOG(info) << "Established AMQP client connection to the server";
 
       {
          LOG(info) << "Attempting to connect to block_store...";
