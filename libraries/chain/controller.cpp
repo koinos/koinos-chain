@@ -154,27 +154,34 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       auto output = ctx.get_pending_console_output();
 
-      if ( output.length() > 0 ) { LOG(info) << output; }
+      if ( output.length() > 0 )
+      {
+         LOG(info) << output;
+      }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
 
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.finalize_node( block_node->id() );
 
+      std::optional< state_node_ptr > node;
       if ( lib > _state_db.get_root()->revision() )
       {
-         auto node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-         _state_db.commit_node( node->id() );
+         node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+         _state_db.commit_node( node.value()->id() );
+      }
 
-         if ( _client && _client->is_connected() )
+      if ( _client && _client->is_connected() )
+      {
+         if ( node.has_value() )
          {
             try
             {
-                broadcast::block_irreversible msg {
+               broadcast::block_irreversible msg {
                   .topology = {
-                     .id       = node->id(),
-                     .height   = block_height_type( node->revision() ),
-                     .previous = node->parent_id()
+                     .id       = node.value()->id(),
+                     .height   = block_height_type( node.value()->revision() ),
+                     .previous = node.value()->parent_id()
                   }
                };
 
@@ -189,34 +196,54 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
                LOG(error) << "Failed to publish block irreversible to message broker: " << e.what();
             }
          }
+
+         try
+         {
+            pack::json j;
+
+            pack::to_json( j, broadcast::block_accepted {
+               .block = request.block
+            } );
+
+            _client->broadcast( "koinos.block.accept", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block application to message broker: " << e.what();
+         }
+
+         try
+         {
+            pack::json j;
+
+            std::vector< block_topology > fork_heads;
+            for ( const auto& n : _state_db.get_fork_heads() )
+            {
+               fork_heads.push_back( block_topology {
+                  .id       = n->id(),
+                  .height   = block_height_type( n->revision() ),
+                  .previous = n->parent_id()
+               } );
+            }
+
+            pack::to_json( j, broadcast::fork_heads {
+               .fork_heads = fork_heads,
+               .last_irreversible_block = lib
+            } );
+
+            _client->broadcast( "koinos.block.forks", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish fork data to message broker: " << e.what();
+         }
       }
    }
    catch( const koinos::exception& )
    {
-      if ( !indexing || request.block.header.height % index_message_interval == 0 )
-      {
-         LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
-      }
+      LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
       _state_db.discard_node( block_node->id() );
       throw;
-   }
-
-   if ( _client && _client->is_connected() )
-   {
-      try
-      {
-         pack::json j;
-
-         pack::to_json( j, broadcast::block_accepted {
-            .block = request.block
-         } );
-
-         _client->broadcast( "koinos.block.accept", j.dump() );
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Failed to publish block application to message broker: " << e.what();
-      }
    }
 
    return {};
@@ -295,6 +322,28 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << request.transaction.id;
 
+      if ( _client && _client->is_connected() )
+      {
+         try
+         {
+            pack::json j;
+
+            pack::to_json( j, broadcast::transaction_accepted {
+               .transaction = request.transaction,
+               .payer = payer,
+               .max_payer_resources = max_payer_resources,
+               .trx_resource_limit = trx_resource_limit,
+               .height = block_height_type{ ctx.get_state_node()->revision() }
+            } );
+
+            _client->broadcast( "koinos.transaction.accept", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block application to message broker: " << e.what();
+         }
+      }
+
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
    }
@@ -304,28 +353,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
       throw;
-   }
-
-   if ( _client && _client->is_connected() )
-   {
-      try
-      {
-         pack::json j;
-
-         pack::to_json( j, broadcast::transaction_accepted {
-            .transaction = request.transaction,
-            .payer = payer,
-            .max_payer_resources = max_payer_resources,
-            .trx_resource_limit = trx_resource_limit,
-            .height = block_height_type{ ctx.get_state_node()->revision() }
-         } );
-
-         _client->broadcast( "koinos.transaction.accept", j.dump() );
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Failed to publish block application to message broker: " << e.what();
-      }
    }
 
    return {};
