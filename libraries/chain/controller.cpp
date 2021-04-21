@@ -27,6 +27,7 @@ namespace koinos::chain {
 using namespace std::string_literals;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+using fork_data    = std::pair< std::vector< block_topology >, block_topology >;
 
 namespace detail {
 
@@ -49,6 +50,8 @@ class controller_impl final
       statedb::state_db             _state_db;
       std::mutex                    _state_db_mutex;
       std::shared_ptr< mq::client > _client;
+
+      fork_data get_fork_data();
 };
 
 controller_impl::controller_impl()
@@ -154,69 +157,81 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       auto output = ctx.get_pending_console_output();
 
-      if ( output.length() > 0 ) { LOG(info) << output; }
+      if ( output.length() > 0 )
+      {
+         LOG(info) << output;
+      }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
 
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.finalize_node( block_node->id() );
-
-      if ( lib > _state_db.get_root()->revision() )
       {
-         auto node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-         _state_db.commit_node( node->id() );
+         std::lock_guard< std::mutex > lock( _state_db_mutex );
+         _state_db.finalize_node( block_node->id() );
 
-         if ( _client && _client->is_connected() )
+         std::optional< state_node_ptr > node;
+         if ( lib > _state_db.get_root()->revision() )
          {
-            try
-            {
-                broadcast::block_irreversible msg {
-                  .topology = {
-                     .id       = node->id(),
-                     .height   = block_height_type( node->revision() ),
-                     .previous = node->parent_id()
-                  }
-               };
+            node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+            _state_db.commit_node( node.value()->id() );
+         }
+      }
 
-               pack::json j;
+      const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
 
-               pack::to_json( j, msg );
+      if ( _client && _client->is_connected() )
+      {
+         try
+         {
+            pack::json j;
 
-               _client->broadcast( "koinos.block.irreversible", j.dump() );
-            }
-            catch ( const std::exception& e )
-            {
-               LOG(error) << "Failed to publish block irreversible to message broker: " << e.what();
-            }
+            pack::to_json( j, broadcast::block_irreversible {
+               .topology = last_irreversible_block
+            } );
+
+            _client->broadcast( "koinos.block.irreversible", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block irreversible to message broker: " << e.what();
+         }
+
+         try
+         {
+            pack::json j;
+
+            pack::to_json( j, broadcast::block_accepted {
+               .block = request.block
+            } );
+
+            _client->broadcast( "koinos.block.accept", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block application to message broker: " << e.what();
+         }
+
+         try
+         {
+            pack::json j;
+
+            pack::to_json( j, broadcast::fork_heads {
+               .fork_heads              = fork_heads,
+               .last_irreversible_block = last_irreversible_block
+            } );
+
+            _client->broadcast( "koinos.block.forks", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish fork data to message broker: " << e.what();
          }
       }
    }
    catch( const koinos::exception& )
    {
-      if ( !indexing || request.block.header.height % index_message_interval == 0 )
-      {
-         LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
-      }
+      LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
       _state_db.discard_node( block_node->id() );
       throw;
-   }
-
-   if ( _client && _client->is_connected() )
-   {
-      try
-      {
-         pack::json j;
-
-         pack::to_json( j, broadcast::block_accepted {
-            .block = request.block
-         } );
-
-         _client->broadcast( "koinos.block.accept", j.dump() );
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Failed to publish block application to message broker: " << e.what();
-      }
    }
 
    return {};
@@ -295,6 +310,28 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << request.transaction.id;
 
+      if ( _client && _client->is_connected() )
+      {
+         try
+         {
+            pack::json j;
+
+            pack::to_json( j, broadcast::transaction_accepted {
+               .transaction = request.transaction,
+               .payer = payer,
+               .max_payer_resources = max_payer_resources,
+               .trx_resource_limit = trx_resource_limit,
+               .height = block_height_type{ ctx.get_state_node()->revision() }
+            } );
+
+            _client->broadcast( "koinos.transaction.accept", j.dump() );
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block application to message broker: " << e.what();
+         }
+      }
+
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
    }
@@ -304,28 +341,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
       throw;
-   }
-
-   if ( _client && _client->is_connected() )
-   {
-      try
-      {
-         pack::json j;
-
-         pack::to_json( j, broadcast::transaction_accepted {
-            .transaction = request.transaction,
-            .payer = payer,
-            .max_payer_resources = max_payer_resources,
-            .trx_resource_limit = trx_resource_limit,
-            .height = block_height_type{ ctx.get_state_node()->revision() }
-         } );
-
-         _client->broadcast( "koinos.transaction.accept", j.dump() );
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Failed to publish block application to message broker: " << e.what();
-      }
    }
 
    return {};
@@ -384,13 +399,13 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
    return { .chain_id = chain_id };
 }
 
-rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::chain::get_fork_heads_request& )
+fork_data controller_impl::get_fork_data()
 {
-   rpc::chain::get_fork_heads_response response;
-
+   fork_data fdata;
    apply_context ctx;
+
    ctx.push_frame( koinos::chain::stack_frame {
-      .call = pack::to_variable_blob( "get_fork_heads"s ),
+      .call = pack::to_variable_blob( "get_fork_data"s ),
       .call_privilege = privilege::kernel_mode
    } );
 
@@ -403,32 +418,44 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
    }
 
    auto head_info = system_call::get_head_info( ctx );
-   response.last_irreversible_block = head_info.head_topology;
+   fdata.second = head_info.head_topology;
 
-   for( auto& fork : fork_heads )
+   for ( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
       auto head_info = system_call::get_head_info( ctx );
-      response.fork_heads.emplace_back( std::move( head_info.head_topology ) );
+      fdata.first.emplace_back( std::move( head_info.head_topology ) );
    }
 
    // Sort all fork heads by height
-   std::sort( response.fork_heads.begin(), response.fork_heads.end(), []( const block_topology& a, const block_topology& b )
+   std::sort( fdata.first.begin(), fdata.first.end(), []( const block_topology& a, const block_topology& b )
    {
       return a.height > b.height;
    } );
 
    // If there is a tie for highest block, ensure the head block is first
-   auto fork_itr = response.fork_heads.begin();
-   while ( fork_itr != response.fork_heads.begin() && fork_itr->id != head_info.head_topology.id )
+   auto fork_itr = fdata.first.begin();
+   while ( fork_itr != fdata.first.begin() && fork_itr->id != head_info.head_topology.id )
    {
       ++fork_itr;
    }
 
-   if ( fork_itr != response.fork_heads.begin() )
+   if ( fork_itr != fdata.first.begin() )
    {
-      std::iter_swap( fork_itr, response.fork_heads.begin() );
+      std::iter_swap( fork_itr, fdata.first.begin() );
    }
+
+   return fdata;
+}
+
+rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::chain::get_fork_heads_request& )
+{
+   rpc::chain::get_fork_heads_response response;
+
+   const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+
+   response.fork_heads              = fork_heads;
+   response.last_irreversible_block = last_irreversible_block;
 
    return response;
 }
