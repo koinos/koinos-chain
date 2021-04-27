@@ -42,9 +42,10 @@ class controller_impl final
 
       rpc::chain::submit_block_response       submit_block(       const rpc::chain::submit_block_request&, bool indexing );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
-      rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request&      );
-      rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request&      );
-      rpc::chain::get_fork_heads_response     get_fork_heads(     const rpc::chain::get_fork_heads_request&     );
+      rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request& );
+      rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request& );
+      rpc::chain::get_fork_heads_response     get_fork_heads(     const rpc::chain::get_fork_heads_request& );
+      rpc::chain::read_contract_response      read_contract(      const rpc::chain::read_contract_request & );
 
    private:
       statedb::state_db             _state_db;
@@ -460,6 +461,32 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
    return response;
 }
 
+rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
+{
+   statedb::state_node_ptr head_node;
+
+   {
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
+      head_node = _state_db.get_head();
+   }
+
+   apply_context ctx;
+   ctx.push_frame( stack_frame {
+      .call = pack::to_variable_blob( "read_contract"s ),
+      .call_privilege = privilege::kernel_mode,
+   } );
+
+   ctx.set_state_node( head_node );
+   ctx.set_read_only( true );
+
+   auto result = system_call::execute_contract( ctx, request.contract_id, request.entry_point, request.args );
+
+   return rpc::chain::read_contract_response {
+      .result = std::move( result ),
+      .logs = ctx.get_pending_console_output()
+   };
+}
+
 } // detail
 
 controller::controller() : _my( std::make_unique< detail::controller_impl >() ) {}
@@ -499,6 +526,11 @@ rpc::chain::get_chain_id_response controller::get_chain_id( const rpc::chain::ge
 rpc::chain::get_fork_heads_response controller::get_fork_heads( const rpc::chain::get_fork_heads_request& request )
 {
    return _my->get_fork_heads( request );
+}
+
+rpc::chain::read_contract_response controller::read_contract( const rpc::chain::read_contract_request& request )
+{
+   return _my->read_contract( request );
 }
 
 } // koinos::chain
