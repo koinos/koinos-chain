@@ -163,7 +163,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
          pack::json j;
          pack::to_json( j, req );
-         auto future = _client->rpc( service::block_store, j.dump() );
+         auto future = _client->rpc( service::block_store, j.dump(), 750 /* ms */, mq::retry_policy::none );
 
          rpc::block_store::block_store_response resp;
          pack::from_json( pack::json::parse( future.get() ), resp );
@@ -260,9 +260,15 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          }
       }
    }
-   catch( const koinos::exception& )
+   catch( const std::exception& e )
    {
-      LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
+      LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", with reason: " << e.what();
+      _state_db.discard_node( block_node->id() );
+      throw;
+   }
+   catch( ... )
+   {
+      LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", for an unknown reason";
       _state_db.discard_node( block_node->id() );
       throw;
    }
