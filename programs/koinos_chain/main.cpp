@@ -250,11 +250,11 @@ void index_loop(
             },
             [&]( rpc::block_store::block_store_error_response& e )
             {
-               throw koinos::exception( e.error_text );
+               KOINOS_THROW( koinos::exception, e.error_text );
             },
             [&]( auto& )
             {
-               throw koinos::exception( "unexpected block store response" );
+               KOINOS_THROW( koinos::exception, "unexpected block store response" );
             }
          }, resp );
 
@@ -305,11 +305,11 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
          },
          [&]( block_store_error_response& e )
          {
-            throw koinos::exception( e.error_text );
+            KOINOS_THROW( koinos::exception, e.error_text ) );
          },
          [&]( auto& )
          {
-            throw koinos::exception( "unexpected block store response" );
+            KOINOS_THROW( koinos::exception, "unexpected block store response" );
          }
       }, resp );
 
