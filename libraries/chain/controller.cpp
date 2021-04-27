@@ -323,7 +323,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          rpc::mempool::mempool_rpc_request mem_req = check_req;
          pack::json j;
          pack::to_json( j, mem_req );
-         auto future = _client->rpc( service::mempool, j.dump() );
+         auto future = _client->rpc( service::mempool, j.dump(), 750 /* ms */, mq::retry_policy::none );
 
          rpc::mempool::mempool_rpc_response resp;
          pack::from_json( pack::json::parse( future.get() ), resp );
@@ -374,9 +374,16 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
    }
-   catch( const koinos::exception& )
+   catch( const std::exception& e )
    {
-      LOG(info) << "Transaction application failed - ID: " << request.transaction.id;
+      LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", with reason: " << e.what();
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
+      _state_db.discard_node( request.transaction.id );
+      throw;
+   }
+   catch( ... )
+   {
+      LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", for an unknown reason";
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
       throw;
