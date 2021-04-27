@@ -151,6 +151,38 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          request.verify_block_signature,
          request.verify_transaction_signatures );
 
+      if ( _client && _client->is_connected() )
+      {
+         rpc::block_store::block_store_request req = rpc::block_store::add_block_request {
+            .block_to_add = block_store::block_item {
+               .block_id     = request.block.id,
+               .block_height = request.block.header.height,
+               .block        = request.block
+            }
+         };
+
+         pack::json j;
+         pack::to_json( j, req );
+         auto future = _client->rpc( service::block_store, j.dump() );
+
+         rpc::block_store::block_store_response resp;
+         pack::from_json( pack::json::parse( future.get() ), resp );
+
+         std::visit( koinos::overloaded {
+            [&]( const rpc::block_store::add_block_response& r )
+            {
+            },
+            [&] ( const rpc::block_store::block_store_error_response& r )
+            {
+               throw koinos::exception( r.error_text );
+            },
+            [&] ( const auto& r )
+            {
+               throw koinos::exception( "Unexpected response from block store" );
+            }
+         }, resp );
+      }
+
       if ( !indexing || request.block.header.height % index_message_interval == 0 )
       {
          LOG(info) << "Block application successful - Height: " << request.block.header.height << ", ID: " << request.block.id;
