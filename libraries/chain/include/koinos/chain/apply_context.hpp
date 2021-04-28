@@ -70,6 +70,9 @@ class apply_context
       void set_in_user_code( bool );
       bool is_in_user_code()const;
 
+      void set_read_only( bool );
+      bool is_read_only()const;
+
    private:
       friend struct privilege_restorer;
 
@@ -78,6 +81,7 @@ class apply_context
       std::optional< crypto::public_key >    _key_auth;
 
       bool                                   _is_in_user_code = false;
+      bool                                   _read_only = false;
       std::vector< stack_frame >             _stack;
 
       const protocol::block*                 _block = nullptr;

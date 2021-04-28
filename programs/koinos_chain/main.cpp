@@ -138,6 +138,10 @@ void attach_request_handler(
                   {
                      response = controller.get_fork_heads( r );
                   },
+                  [&]( const rpc::chain::read_contract_request& r )
+                  {
+                     response = controller.read_contract( r );
+                  },
                   [&]( const auto& r )
                   {
                      response = rpc::chain::chain_error_response{ .error_text = "Unknown RPC type" };

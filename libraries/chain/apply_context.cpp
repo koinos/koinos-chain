@@ -130,4 +130,14 @@ bool apply_context::is_in_user_code()const
    return _is_in_user_code;
 }
 
+void apply_context::set_read_only( bool ro )
+{
+   _read_only = ro;
+}
+
+bool apply_context::is_read_only()const
+{
+   return _read_only;
+}
+
 } // koinos::chain

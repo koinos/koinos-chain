@@ -12,6 +12,10 @@
 
 #include <mira/database_configuration.hpp>
 
+#include <koinos/tests/wasm/contract_return.hpp>
+#include <koinos/tests/wasm/db_write.hpp>
+#include <koinos/tests/wasm/hello.hpp>
+
 #include <chrono>
 #include <filesystem>
 #include <sstream>
@@ -24,6 +28,8 @@ struct controller_fixture
 {
    controller_fixture()
    {
+      koinos::initialize_logging( "koinos_test", {}, "info" );
+
       auto seed = "test seed"s;
       _block_signing_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
 
@@ -78,6 +84,21 @@ struct controller_fixture
       );
    }
 
+   std::vector< uint8_t > get_hello_wasm()
+   {
+      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
+   }
+
+   std::vector< uint8_t > get_contract_return_wasm()
+   {
+      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
+   }
+
+   std::vector< uint8_t > get_db_write_wasm()
+   {
+      return std::vector< uint8_t >( db_write_wasm, db_write_wasm + db_write_wasm_len );
+   }
+
    koinos::chain::controller   _controller;
    std::filesystem::path       _state_dir;
    koinos::crypto::private_key _block_signing_private_key;
@@ -127,7 +148,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
    sign_block( block_req.block, _block_signing_private_key );
 
-   block_req.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::root_height_mismatch );
 
@@ -137,7 +158,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.block.active_data.make_mutable();
    block_req.block.active_data->signer_address = crypto::hash( CRYPTO_SHA2_256_ID, std::string( "random" ) );
    block_req.block.header.height = 1;
-   block_req.block.id = crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::invalid_block_signature );
 
@@ -322,6 +343,97 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    BOOST_CHECK_EQUAL( fork_heads.fork_heads[0].previous, head_info.head_topology.previous );
    BOOST_CHECK_EQUAL( fork_heads.fork_heads[0].id, head_info.head_topology.id );
 
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( read_contract_tests )
+{ try {
+   BOOST_TEST_MESSAGE( "Upload contracts" );
+
+   auto key = koinos::crypto::private_key::generate_from_seed( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
+   koinos::protocol::transaction trx;
+   trx.active_data.make_mutable();
+
+   koinos::protocol::create_system_contract_operation op;
+   auto contract_1_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   std::memcpy( op.contract_id.data(), contract_1_id.digest.data(), op.contract_id.size() );
+   auto bytecode = get_hello_wasm();
+   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   trx.active_data->operations.push_back( op );
+
+   // Upload the return test contract
+   bytecode = get_contract_return_wasm();
+   auto contract_2_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
+   std::memcpy( op.contract_id.data(), contract_2_id.digest.data(), op.contract_id.size() );
+   op.bytecode.clear();
+   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   trx.active_data->operations.push_back( op );
+
+   // Upload the db write contract
+   bytecode = get_db_write_wasm();
+   auto contract_3_id = koinos::crypto::empty_hash( CRYPTO_RIPEMD160_ID );
+   contract_3_id.digest[ contract_3_id.digest.size() - 1 ] = 1;
+   std::memcpy( op.contract_id.data(), contract_3_id.digest.data(), op.contract_id.size() );
+   op.bytecode.clear();
+   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   trx.active_data->operations.push_back( op );
+
+   trx.active_data->resource_limit = 20;
+   trx.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data );
+   auto signature = key.sign_compact( trx.id );
+   trx.signature_data = koinos::variable_blob( signature.begin(), signature.end() );
+
+   koinos::rpc::chain::submit_block_request block_req;
+   block_req.verify_passive_data = false;
+   block_req.verify_block_signature = false;
+   block_req.verify_transaction_signatures = false;
+
+   auto duration = std::chrono::system_clock::now().time_since_epoch();
+   block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+   block_req.block.header.height = 1;
+   block_req.block.header.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   block_req.block.transactions.push_back( trx );
+
+   set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
+   sign_block( block_req.block, _block_signing_private_key );
+
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
+
+   _controller.submit_block( block_req );
+
+
+   BOOST_TEST_MESSAGE( "Test read contract logs" );
+
+   koinos::rpc::chain::read_contract_request request;
+   std::memcpy( request.contract_id.data(), contract_1_id.digest.data(), request.contract_id.size() );
+   request.entry_point = 0;
+   request.args = koinos::variable_blob();
+
+   auto response = _controller.read_contract( request );
+
+   BOOST_REQUIRE( response.result.size() == 0 );
+   BOOST_REQUIRE( response.logs == "Greetings from koinos vm" );
+
+
+   BOOST_TEST_MESSAGE( "Test read contract return" );
+
+   std::string arg_str = "echo";
+   koinos::variable_blob args = koinos::pack::to_variable_blob( arg_str );
+
+   std::memcpy( request.contract_id.data(), contract_2_id.digest.data(), request.contract_id.size() );
+   request.args = args;
+
+   response = _controller.read_contract( request );
+
+   auto return_str = koinos::pack::from_variable_blob< std::string >( response.result );
+   BOOST_REQUIRE( args.size() == response.result.size() );
+   BOOST_REQUIRE( std::equal( args.begin(), args.end(), response.result.begin() ) );
+
+
+   BOOST_TEST_MESSAGE( "Test read contract db write" );
+
+   std::memcpy( request.contract_id.data(), contract_3_id.digest.data(), request.contract_id.size() );
+   BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

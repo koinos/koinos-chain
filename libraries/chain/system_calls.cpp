@@ -317,7 +317,7 @@ inline void update_payer_transaction_nonce( apply_context& ctx, account_type pay
 
    variable_blob obj;
    pack::to_variable_blob( obj, nonce );
-   thunk::db_put_object( ctx, KERNEL_SPACE_ID, key, obj );
+   db_put_object( ctx, KERNEL_SPACE_ID, key, obj );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -410,6 +410,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "Cannot put object during read only call" );
    if ( context.get_privilege() == privilege::kernel_mode )
       KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
@@ -529,6 +530,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    with_privilege( context, privilege::kernel_mode, [&]()
    {
       bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+      KOINOS_ASSERT( bytecode.size(), invalid_contract, "Contract does not exist" );
    });
    wasm_allocator_type wa;
 
