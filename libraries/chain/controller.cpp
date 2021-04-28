@@ -174,11 +174,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
             },
             [&] ( const rpc::block_store::block_store_error_response& r )
             {
-               throw koinos::exception( r.error_text );
+               KOINOS_THROW( koinos::exception, "Received error response from block store: ${error}", ("error", r.error_text) );
             },
             [&] ( const auto& r )
             {
-               throw koinos::exception( "Unexpected response from block store" );
+               KOINOS_THROW( koinos::exception, "Unexpected response from block store" );
             }
          }, resp );
       }
