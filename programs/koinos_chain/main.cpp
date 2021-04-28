@@ -248,9 +248,9 @@ void index_loop(
             {
                batch = std::move( r );
             },
-            [&]( rpc::block_store::block_store_error_response& e )
+            [&]( rpc::block_store::block_store_error_response& r )
             {
-               KOINOS_THROW( koinos::exception, e.error_text );
+               KOINOS_THROW( koinos::exception, r.error_text );
             },
             [&]( auto& )
             {
@@ -303,9 +303,9 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
          {
             target_head = r.topology;
          },
-         [&]( block_store_error_response& e )
+         [&]( block_store_error_response& r )
          {
-            KOINOS_THROW( koinos::exception, e.error_text ) );
+            KOINOS_THROW( koinos::exception, r.error_text );
          },
          [&]( auto& )
          {
