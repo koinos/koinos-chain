@@ -31,8 +31,6 @@ jobs:
         - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
     - os: linux
       dist: focal
-      language: go
-      go: 1.x
       env:
         - BUILD_DOCKER=1
 

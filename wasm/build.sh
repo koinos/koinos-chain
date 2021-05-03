@@ -15,3 +15,5 @@ for file in tests/*.c; do
    xxd -i $target_name.wasm > $koinos_wasm_test_dir/$target_name.hpp
    rm $target_name.wasm
 done
+
+xxd -i koin.wasm > ../../tests/include/koinos/tests/wasm/$target_name.hpp
