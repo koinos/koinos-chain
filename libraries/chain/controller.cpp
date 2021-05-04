@@ -295,16 +295,16 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
             {
                if ( !r.success )
                {
-                  throw koinos::exception( "Insufficient pending account resources" );
+                  KOINOS_THROW( koinos::exception, "Insufficient pending account resources" );
                }
             },
             [&] ( const rpc::mempool::mempool_error_response& r )
             {
-               throw koinos::exception( r.error_text );
+               KOINOS_THROW( koinos::exception, r.error_text );
             },
             [&] ( const auto& r )
             {
-               throw koinos::exception( "Unexpected response from mempool" );
+               KOINOS_THROW( koinos::exception, "Unexpected response from mempool" );
             }
          }, resp );
       }
