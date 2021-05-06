@@ -22,6 +22,7 @@ struct stack_frame
    account_type  call;
    privilege     call_privilege;
    variable_blob call_args;
+   uint32_t      entry_point = 0;
    variable_blob call_return;
 };
 
@@ -48,6 +49,8 @@ class apply_context
 
       void set_contract_call_args( const variable_blob& args );
       const variable_blob& get_contract_call_args() const;
+
+      uint32_t get_contract_entry_point() const;
 
       variable_blob get_contract_return() const;
       void set_contract_return( const variable_blob& ret );

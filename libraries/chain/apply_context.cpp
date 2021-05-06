@@ -72,6 +72,12 @@ variable_blob apply_context::get_contract_return() const
    return _stack[ _stack.size() - 1 ].call_return;
 }
 
+uint32_t apply_context::get_contract_entry_point() const
+{
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   return _stack.rbegin()->entry_point;
+}
+
 void apply_context::set_contract_return( const variable_blob& ret )
 {
    KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );

@@ -64,7 +64,7 @@ THUNK_DECLARE( void, apply_block,
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
 THUNK_DECLARE( void, apply_reserved_operation, const protocol::reserved_operation& o );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
-THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::contract_call_operation& op );
+THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 
 THUNK_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const variable_blob& obj );
@@ -74,6 +74,7 @@ THUNK_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& s
 
 THUNK_DECLARE( variable_blob, execute_contract, const contract_id_type& contract_id, uint32_t entry_point, const variable_blob& args);
 
+THUNK_DECLARE_VOID( uint32_t, get_entrypoint );
 THUNK_DECLARE_VOID( uint32_t, get_contract_args_size );
 THUNK_DECLARE_VOID( variable_blob, get_contract_args );
 

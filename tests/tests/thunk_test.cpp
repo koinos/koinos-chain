@@ -25,6 +25,7 @@
 
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/hello.hpp>
+#include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
 
 using namespace std::string_literals;
@@ -67,6 +68,11 @@ struct thunk_fixture
    std::vector< uint8_t > get_syscall_override_wasm()
    {
       return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
+   }
+
+   std::vector< uint8_t > get_koin_wasm()
+   {
+      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
    }
 
    std::filesystem::path temp;
@@ -174,7 +180,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   koinos::protocol::contract_call_operation op2;
+   koinos::protocol::call_contract_operation op2;
    std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
    system_call::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
@@ -378,7 +384,7 @@ BOOST_AUTO_TEST_CASE( privileged_calls )
    BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, koinos::protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_reserved_operation( ctx, koinos::protocol::reserved_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_upload_contract_operation( ctx, koinos::protocol::create_system_contract_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, koinos::protocol::contract_call_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, koinos::protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, koinos::protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
 }
 
@@ -535,4 +541,45 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_REQUIRE( obj_blob.size() );
    BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 2 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( koin_demo )
+{ try {
+   using namespace koinos;
+
+   koinos::protocol::create_system_contract_operation op;
+   auto id = koinos::crypto::empty_hash( CRYPTO_RIPEMD160_ID );
+   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
+   auto bytecode = get_koin_wasm();
+   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+
+   system_call::apply_upload_contract_operation( ctx, op );
+
+   BOOST_TEST_MESSAGE( "Test executing a contract" );
+
+   ctx.set_privilege( chain::privilege::user_mode );
+
+   contract_id_type contract_id;
+   std::memcpy( contract_id.data(), id.digest.data(), contract_id.size() );
+   auto response = system_call::execute_contract( ctx, contract_id, 0x76ea4297, variable_blob() );
+
+   auto name = pack::from_variable_blob< std::string >( response );
+   LOG(info) << name;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x7e794b24, variable_blob() );
+   auto symbol = pack::from_variable_blob< std::string >( response );
+   LOG(info) << symbol;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x59dc15ce, variable_blob() );
+   auto decimals = pack::from_variable_blob< uint8_t >( response );
+   LOG(info) << (uint32_t)decimals;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
+   auto supply = pack::from_variable_blob< uint256 >( response );
+   LOG(info) << supply;
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()

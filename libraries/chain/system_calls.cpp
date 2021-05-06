@@ -38,6 +38,7 @@ SYSTEM_CALL_DEFAULTS(
 
    (execute_contract)
 
+   (get_entrypoint)
    (get_contract_args_size)
    (get_contract_args)
    (set_contract_return)
@@ -79,6 +80,7 @@ void register_thunks( thunk_dispatcher& td )
 
       (execute_contract)
 
+      (get_entrypoint)
       (get_contract_args_size)
       (get_contract_args)
       (set_contract_return)
@@ -345,7 +347,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          {
             apply_upload_contract_operation( context, op );
          },
-         [&]( const contract_call_operation& op )
+         [&]( const call_contract_operation& op )
          {
             apply_execute_contract_operation( context, op );
          },
@@ -374,7 +376,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
    db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
 }
 
-THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::contract_call_operation&) o) )
+THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
@@ -433,6 +435,7 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
+   LOG(debug) << space << ", " << key << ", " << object_size_hint;
    if ( context.get_privilege() == privilege::kernel_mode )
       KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
@@ -458,6 +461,13 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
       object_buffer.resize( get_res.size );
    else
       object_buffer.clear();
+   if( object_buffer.size() < 1024 )
+   {
+      pack::json j;
+      pack::to_json( j, object_buffer );
+      LOG(debug) << j.dump();
+   }
+
    return object_buffer;
 }
 
@@ -543,7 +553,8 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    context.push_frame( stack_frame {
       .call = pack::to_variable_blob( contract_id ),
       .call_privilege = context.get_privilege(),
-      .call_args = args
+      .call_args = args,
+      .entry_point = entry_point
    } );
 
    try
@@ -553,6 +564,11 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    catch( const exit_success& ) {}
 
    return context.pop_frame().call_return;
+}
+
+THUNK_DEFINE_VOID( uint32_t, get_entrypoint )
+{
+   return context.get_contract_entry_point();
 }
 
 THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
