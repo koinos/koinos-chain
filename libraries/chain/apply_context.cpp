@@ -111,7 +111,7 @@ stack_frame apply_context::pop_frame()
 const account_type& apply_context::get_caller()const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
-   return _stack[ _stack.size() - 2 ].call;
+   return _stack[ _stack.size() - 1 ].call;
 }
 
 void apply_context::set_privilege( privilege p )

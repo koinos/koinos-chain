@@ -38,7 +38,7 @@ SYSTEM_CALL_DEFAULTS(
 
    (execute_contract)
 
-   (get_entrypoint)
+   (get_entry_point)
    (get_contract_args_size)
    (get_contract_args)
    (set_contract_return)
@@ -80,7 +80,7 @@ void register_thunks( thunk_dispatcher& td )
 
       (execute_contract)
 
-      (get_entrypoint)
+      (get_entry_point)
       (get_contract_args_size)
       (get_contract_args)
       (set_contract_return)
@@ -416,7 +416,7 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
    if ( context.get_privilege() == privilege::kernel_mode )
       KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
@@ -427,6 +427,13 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
    put_args.buf = obj.data();
    put_args.object_size = obj.size();
 
+   //if ( obj.size() < 1024 )
+   //{
+   //   pack::json j;
+   //   pack::to_json( j, obj );
+   //   LOG(info) << "put_object: " << space << ", " << key << ", " << j << ", " << obj.size();
+   //}
+
    statedb::put_object_result put_res;
    state->put_object( put_res, put_args );
 
@@ -435,12 +442,15 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   LOG(debug) << space << ", " << key << ", " << object_size_hint;
    if ( context.get_privilege() == privilege::kernel_mode )
+   {
       KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
+   }
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
+   {
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
+   }
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
@@ -461,12 +471,13 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
       object_buffer.resize( get_res.size );
    else
       object_buffer.clear();
-   if( object_buffer.size() < 1024 )
-   {
-      pack::json j;
-      pack::to_json( j, object_buffer );
-      LOG(debug) << j.dump();
-   }
+
+   //if ( object_buffer.size() < 1024 )
+   //{
+   //   pack::json j;
+   //   pack::to_json( j, object_buffer );
+   //   LOG(info) << "get_object: " << space << ", " << key << ", " << j << ", " << object_buffer.size();
+   //}
 
    return object_buffer;
 }
@@ -476,7 +487,7 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
    if ( context.get_privilege() == privilege::kernel_mode )
       KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
@@ -506,7 +517,7 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    if ( context.get_privilege() == privilege::kernel_mode )
       KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
    else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint256 >( context.get_caller() ), out_of_bounds,
+      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
          "contract attempted access of non-contract database space" );
 
    auto state = context.get_state_node();
@@ -566,7 +577,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    return context.pop_frame().call_return;
 }
 
-THUNK_DEFINE_VOID( uint32_t, get_entrypoint )
+THUNK_DEFINE_VOID( uint32_t, get_entry_point )
 {
    return context.get_contract_entry_point();
 }

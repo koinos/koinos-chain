@@ -74,7 +74,7 @@ THUNK_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& s
 
 THUNK_DECLARE( variable_blob, execute_contract, const contract_id_type& contract_id, uint32_t entry_point, const variable_blob& args);
 
-THUNK_DECLARE_VOID( uint32_t, get_entrypoint );
+THUNK_DECLARE_VOID( uint32_t, get_entry_point );
 THUNK_DECLARE_VOID( uint32_t, get_contract_args_size );
 THUNK_DECLARE_VOID( variable_blob, get_contract_args );
 

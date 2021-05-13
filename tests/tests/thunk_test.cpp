@@ -30,6 +30,23 @@
 
 using namespace std::string_literals;
 
+struct transfer_args
+{
+   std::string from;
+   std::string to;
+   uint64_t    value;
+};
+
+KOINOS_REFLECT( transfer_args, (from)(to)(value) );
+
+struct mint_args
+{
+   std::string to;
+   uint64_t    value;
+};
+
+KOINOS_REFLECT( mint_args, (to)(value) );
+
 struct thunk_fixture
 {
    thunk_fixture() :
@@ -547,7 +564,8 @@ BOOST_AUTO_TEST_CASE( koin_demo )
    using namespace koinos;
 
    koinos::protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::empty_hash( CRYPTO_RIPEMD160_ID );
+   auto id = koinos::crypto::zero_hash( CRYPTO_RIPEMD160_ID );
+   LOG(info) << id;
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_koin_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -577,9 +595,92 @@ BOOST_AUTO_TEST_CASE( koin_demo )
 
    response.clear();
    response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
-   auto supply = pack::from_variable_blob< uint256 >( response );
-   LOG(info) << supply;
+   auto supply = pack::from_variable_blob< uint64_t >( response );
+   LOG(info) << "KOIN supply: " << supply;
 
-} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+   auto alice_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "alice"s ) );
+   auto alice_address = alice_private_key.get_public_key().to_address();
+
+   auto bob_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "bob"s ) );
+   auto bob_address = bob_private_key.get_public_key().to_address();
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
+   auto balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'alice' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'bob' balance: " << balance;
+
+   ctx.get_pending_console_output();
+
+   LOG(info) << "Mint to 'alice'";
+   auto m_args = mint_args{ .to = alice_address, .value = 100 };
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
+   auto success = pack::from_variable_blob< bool >( response );
+   BOOST_REQUIRE( success );
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'alice' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'bob' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
+   supply = pack::from_variable_blob< uint64_t >( response );
+   LOG(info) << "KOIN supply: " << supply;
+
+   LOG(info) << "Transfer from 'alice' to 'bob'";
+   auto t_args = transfer_args{ .from = alice_address, .to = bob_address, .value = 25 };
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+   BOOST_REQUIRE( response.size() == 0 );
+
+   koinos::protocol::transaction trx;
+   auto signature = alice_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
+   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   ctx.set_transaction( trx );
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+   success = pack::from_variable_blob< bool >( response );
+   BOOST_REQUIRE( success );
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'alice' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'bob' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
+   supply = pack::from_variable_blob< uint64_t >( response );
+   LOG(info) << "KOIN supply: " << supply;
+
+}
+catch( const eosio::vm::exception& e )
+{
+   LOG(info) << e.what() << ": " << e.detail();
+   BOOST_FAIL("EOSIO VM Exception");
+}
+KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
