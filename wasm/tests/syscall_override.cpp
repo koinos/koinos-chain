@@ -6,8 +6,10 @@
 char prepend[] = "test: ";
 #define PREPEND_LEN sizeof(prepend) - 1
 
-void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
-void invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+extern "C" {
+   void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+   void invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+}
 
 void prints( char* msg )
 {
@@ -33,8 +35,7 @@ void prints( char* msg )
    invoke_thunk( KOINOS_THUNK_ID_prints, 0, 0, args, i + PREPEND_LEN + 1 );
 }
 
-__attribute__( (visibility("default")) )
-void _start()
+int main()
 {
    char message[65];
    invoke_system_call( KOINOS_SYSTEM_CALL_ID_get_contract_args, message, 63, 0, 0 );
