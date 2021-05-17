@@ -439,7 +439,8 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    auto call2_vb = koinos::pack::to_variable_blob( "call2"s );
    ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
    BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
-   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), system_call::get_caller(ctx).begin() ) );
+   // A system call puts a stack on the frame, in this case, call 2 is the caller when `get_caller` is called.
+   BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), system_call::get_caller(ctx).begin() ) );
 
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
@@ -456,15 +457,21 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 BOOST_AUTO_TEST_CASE( require_authority )
 { try {
    auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
+   auto foo_account_string = foo_key.get_public_key().to_address();
+   koinos::variable_blob foo_account( foo_account_string.begin(), foo_account_string.end() );
    auto bar_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
+   auto bar_account_string = bar_key.get_public_key().to_address();
+   koinos::variable_blob bar_account( bar_account_string.begin(), bar_account_string.end() );
 
    koinos::protocol::transaction trx;
+   trx.active_data = koinos::protocol::active_transaction_data{};
+   ctx.set_transaction( trx );
+   BOOST_REQUIRE_THROW( system_call::require_authority( ctx, foo_account ), koinos::chain::invalid_signature );
+
    auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
    trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
    ctx.set_transaction( trx );
 
-   auto foo_account = koinos::pack::to_variable_blob( foo_key.get_public_key().to_address() );
-   auto bar_account = koinos::pack::to_variable_blob( bar_key.get_public_key().to_address() );
    system_call::require_authority( ctx, foo_account );
 
    BOOST_REQUIRE_THROW( system_call::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
@@ -565,7 +572,6 @@ BOOST_AUTO_TEST_CASE( koin_demo )
 
    koinos::protocol::create_system_contract_operation op;
    auto id = koinos::crypto::zero_hash( CRYPTO_RIPEMD160_ID );
-   LOG(info) << id;
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_koin_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -644,12 +650,30 @@ BOOST_AUTO_TEST_CASE( koin_demo )
 
    LOG(info) << "Transfer from 'alice' to 'bob'";
    auto t_args = transfer_args{ .from = alice_address, .to = bob_address, .value = 25 };
-   response.clear();
-   response = system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
-   BOOST_REQUIRE( response.size() == 0 );
-
    koinos::protocol::transaction trx;
-   auto signature = alice_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
+   trx.active_data = koinos::protocol::active_transaction_data{};
+   ctx.set_transaction( trx );
+   response.clear();
+   try
+   {
+      system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+      BOOST_FAIL( "Expected invalid signature exception" );
+   }
+   catch ( const koinos::chain::invalid_signature& ) {}
+
+   auto signature = bob_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
+   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   ctx.set_transaction( trx );
+
+   response.clear();
+   try
+   {
+      system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+      BOOST_FAIL( "Expected invalid signature exception" );
+   }
+   catch ( const koinos::chain::invalid_signature& ) {}
+
+   signature = alice_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
    trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
    ctx.set_transaction( trx );
 

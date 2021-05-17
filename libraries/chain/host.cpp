@@ -53,7 +53,16 @@ void host_api::invoke_system_call( system_call_id_type sid, array_ptr< char > re
    std::visit(
       koinos::overloaded{
          [&]( thunk_id& tid ) {
-            thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
+            context.push_frame( stack_frame {
+               .call_privilege = context.get_privilege(),
+            } );
+            try {
+               thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
+            } catch( ... ) {
+               context.pop_frame();
+               throw;
+            }
+            context.pop_frame();
          },
          [&]( contract_call_bundle& scb ) {
             variable_blob args;
@@ -72,6 +81,11 @@ void host_api::invoke_system_call( system_call_id_type sid, array_ptr< char > re
             KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",
                ("sid", sid)("tag", target.index()) );
          } }, target );
+}
+
+__int128 host_api::__lshlti3( __int128 a, uint32_t b )
+{
+   return a << b;
 }
 
 } // koinos::chain

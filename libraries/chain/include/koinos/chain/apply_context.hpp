@@ -76,6 +76,8 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
+      std::vector< stack_frame >             _stack;
+
    private:
       friend struct privilege_restorer;
 
@@ -85,7 +87,7 @@ class apply_context
 
       bool                                   _is_in_user_code = false;
       bool                                   _read_only = false;
-      std::vector< stack_frame >             _stack;
+
 
       const protocol::block*                 _block = nullptr;
       const protocol::transaction*           _trx = nullptr;

@@ -427,13 +427,6 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
    put_args.buf = obj.data();
    put_args.object_size = obj.size();
 
-   //if ( obj.size() < 1024 )
-   //{
-   //   pack::json j;
-   //   pack::to_json( j, obj );
-   //   LOG(info) << "put_object: " << space << ", " << key << ", " << j << ", " << obj.size();
-   //}
-
    statedb::put_object_result put_res;
    state->put_object( put_res, put_args );
 
@@ -471,13 +464,6 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
       object_buffer.resize( get_res.size );
    else
       object_buffer.clear();
-
-   //if ( object_buffer.size() < 1024 )
-   //{
-   //   pack::json j;
-   //   pack::to_json( j, object_buffer );
-   //   LOG(info) << "get_object: " << space << ", " << key << ", " << j << ", " << object_buffer.size();
-   //}
 
    return object_buffer;
 }
@@ -573,6 +559,10 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       backend( &context, "env", "_start" );
    }
    catch( const exit_success& ) {}
+   catch( ... ) {
+      context.pop_frame();
+      throw;
+   }
 
    return context.pop_frame().call_return;
 }
@@ -632,8 +622,8 @@ THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction
 
    KOINOS_ASSERT( pub_key.valid(), invalid_transaction_signature, "Public key is invalid" );
 
-   account_type account;
-   pack::to_variable_blob( account, pub_key.to_address() );
+   auto address = pub_key.to_address();
+   account_type account( address.begin(), address.end() );
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
    LOG(debug) << "(get_transaction_payer) public_key: " << pub_key.to_base58();
@@ -677,10 +667,20 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 {
    auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
    crypto::recoverable_signature sig;
-   pack::from_variable_blob( get_transaction_signature( context ), sig );
-   account_type sig_account = pack::to_variable_blob( crypto::public_key::recover( sig, digest ).to_address() );
+
+   try
+   {
+      pack::from_variable_blob( get_transaction_signature( context ), sig );
+   }
+   catch ( ... )
+   {
+      KOINOS_THROW( invalid_signature, "Unable to deserialize transaction signature" );
+   }
+
+   auto sig_account = crypto::public_key::recover( sig, digest ).to_address();
    KOINOS_ASSERT( sig_account.size() == account.size() &&
-      std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match" );
+      std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match",
+      ("account", account)("sig_account", sig_account) );
 }
 
 THUNK_DEFINE_END();

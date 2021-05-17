@@ -32,12 +32,15 @@ struct host_api final
       uint32_t ret_len,
       array_ptr< const char > arg_ptr,
       uint32_t arg_len );
+
+   __int128 __lshlti3( __int128 a, uint32_t b );
 };
 
 inline void register_host_functions()
 {
    registrar_type::add< host_api, &host_api::invoke_thunk, wasm_allocator_type >( "env", "invoke_thunk" );
    registrar_type::add< host_api, &host_api::invoke_system_call, wasm_allocator_type >( "env", "invoke_system_call" );
+   //registrar_type::add< host_api, &host_api::__lshlti3, wasm_allocator_type >( "env", "__lshlti3" );
 }
 
 } // koinos::chain

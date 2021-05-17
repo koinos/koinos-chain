@@ -117,13 +117,22 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
       std::visit(                                                                                                    \
          koinos::overloaded{                                                                                         \
             [&]( thunk_id& _tid ) {                                                                                  \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
-               thunk_dispatcher::instance().call_thunk<                                                              \
-                  RETURN_TYPE                                                                                        \
-                  TYPES >(                                                                                           \
-                     _tid,                                                                                           \
-                     context                                                                                         \
-                     FWD );                                                                                          \
+               context.push_frame( stack_frame {                                                                     \
+                  .call_privilege = context.get_privilege(),                                                         \
+               } );                                                                                                  \
+               try {                                                                                                 \
+                  BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                   \
+                  thunk_dispatcher::instance().call_thunk<                                                           \
+                     RETURN_TYPE                                                                                     \
+                     TYPES >(                                                                                        \
+                        _tid,                                                                                        \
+                        context                                                                                      \
+                        FWD );                                                                                       \
+               } catch ( ... ) {                                                                                     \
+                  context.pop_frame();                                                                               \
+                  throw;                                                                                             \
+               }                                                                                                     \
+               context.pop_frame();                                                                                  \
             },                                                                                                       \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
