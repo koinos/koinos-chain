@@ -292,7 +292,7 @@ inline void require_payer_transaction_nonce( apply_context& ctx, account_type pa
 
    statedb::object_key key;
    key = pack::from_variable_blob< statedb::object_key >( vkey );
-   auto obj = thunk::db_get_object( ctx, KERNEL_SPACE_ID, key );
+   auto obj = db_get_object( ctx, KERNEL_SPACE_ID, key );
    if ( obj.size() > 0 )
    {
       uint64 unpacked_nonce = pack::from_variable_blob< uint64 >( obj );
@@ -380,9 +380,16 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_con
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
-   with_privilege( context, privilege::user_mode, [&]() {
-      execute_contract( context, o.contract_id, o.entry_point, o.args );
-   });
+   with_stack_frame(
+      context,
+      stack_frame {
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "apply_execute_contract_operation" ) ).digest,
+         .call_privilege = privilege::user_mode,
+      },
+      [&]() {
+         execute_contract( context, o.contract_id, o.entry_point, o.args );
+      }
+   );
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
@@ -410,14 +417,25 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
+void check_db_permissions( const apply_context& context, const statedb::object_space& space )
+{
+   if ( space != pack::from_variable_blob< uint160 >( context.get_caller() ) )
+   {
+      if ( context.get_privilege() == privilege::kernel_mode )
+      {
+         KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
+      }
+      else
+      {
+         KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
+      }
+   }
+}
+
 THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "Cannot put object during read only call" );
-   if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
-   else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
-         "contract attempted access of non-contract database space" );
+   check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
@@ -435,15 +453,7 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   if ( context.get_privilege() == privilege::kernel_mode )
-   {
-      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
-   }
-   else
-   {
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
-         "contract attempted access of non-contract database space" );
-   }
+   check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
@@ -470,11 +480,7 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
 
 THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
-   else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
-         "contract attempted access of non-contract database space" );
+   check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
@@ -500,11 +506,7 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
 
 THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   if ( context.get_privilege() == privilege::kernel_mode )
-      KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
-   else
-      KOINOS_ASSERT( space == pack::from_variable_blob< uint160 >( context.get_caller() ), out_of_bounds,
-         "contract attempted access of non-contract database space" );
+   check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
@@ -534,13 +536,20 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
 
    // We need to be in kernel mode to read the contract data
    variable_blob bytecode;
-   with_privilege( context, privilege::kernel_mode, [&]()
-   {
-      bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
-      KOINOS_ASSERT( bytecode.size(), invalid_contract, "Contract does not exist" );
-   });
-   wasm_allocator_type wa;
+   with_stack_frame(
+      context,
+      stack_frame {
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "execute_contract" ) ).digest,
+         .call_privilege = privilege::kernel_mode,
+      },
+      [&]()
+      {
+         bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+         KOINOS_ASSERT( bytecode.size(), invalid_contract, "Contract does not exist" );
+      }
+   );
 
+   wasm_allocator_type wa;
    wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
    backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
 
@@ -653,9 +662,14 @@ THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
    return block_height_type( head->revision() > IRREVERSIBLE_THRESHOLD ? head->revision() - IRREVERSIBLE_THRESHOLD : 0 );
 }
 
-THUNK_DEFINE_VOID( account_type, get_caller )
+THUNK_DEFINE_VOID( get_caller_return, get_caller )
 {
-   return context.get_caller();
+   get_caller_return ret;
+   auto frame = context.pop_frame();
+   ret.caller = context.get_caller();
+   ret.caller_privilege = context.get_caller_privilege();
+   context.push_frame( std::move( frame ) );
+   return ret;
 }
 
 THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )

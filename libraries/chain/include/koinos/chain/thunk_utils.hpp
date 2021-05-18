@@ -90,11 +90,21 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
       statedb::object_key _key = _sid;                                                                               \
       koinos::variable_blob _vl_target;                                                                              \
                                                                                                                      \
-      with_privilege( context, privilege::kernel_mode, [&]()                                                         \
-      {                                                                                                              \
-         _vl_target = thunk::db_get_object(                                                                          \
-            context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, _key, SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE );              \
-      } );                                                                                                           \
+      with_stack_frame(                                                                                              \
+         context,                                                                                                    \
+         stack_frame {                                                                                               \
+            .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,                 \
+            .call_privilege = privilege::kernel_mode,                                                                \
+         },                                                                                                          \
+         [&]() {                                                                                                     \
+            _vl_target = thunk::db_get_object(                                                                       \
+               context,                                                                                              \
+               SYS_CALL_DISPATCH_TABLE_SPACE_ID,                                                                     \
+               _key,                                                                                                  \
+               SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE                                                               \
+            );                                                                                                       \
+         }                                                                                                           \
+      );                                                                                                             \
                                                                                                                      \
       system_call_target _target;                                                                                    \
       if( _vl_target.size() == 0 )                                                                                   \
@@ -117,31 +127,38 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
       std::visit(                                                                                                    \
          koinos::overloaded{                                                                                         \
             [&]( thunk_id& _tid ) {                                                                                  \
-               context.push_frame( stack_frame {                                                                     \
-                  .call_privilege = context.get_privilege(),                                                         \
-               } );                                                                                                  \
-               try {                                                                                                 \
-                  BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                   \
-                  thunk_dispatcher::instance().call_thunk<                                                           \
-                     RETURN_TYPE                                                                                     \
-                     TYPES >(                                                                                        \
-                        _tid,                                                                                        \
-                        context                                                                                      \
-                        FWD );                                                                                       \
-               } catch ( ... ) {                                                                                     \
-                  context.pop_frame();                                                                               \
-                  throw;                                                                                             \
-               }                                                                                                     \
-               context.pop_frame();                                                                                  \
+               with_stack_frame(                                                                                     \
+                  context,                                                                                           \
+                  stack_frame {                                                                                      \
+                     .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,        \
+                     .call_privilege = context.get_privilege(),                                                      \
+                  },                                                                                                 \
+                  [&]() {                                                                                            \
+                     BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                \
+                     thunk_dispatcher::instance().call_thunk<                                                        \
+                        RETURN_TYPE                                                                                  \
+                        TYPES >(                                                                                     \
+                           _tid,                                                                                     \
+                           context                                                                                   \
+                           FWD );                                                                                    \
+                  }                                                                                                  \
+               );                                                                                                    \
             },                                                                                                       \
             [&]( contract_call_bundle& _scb ) {                                                                      \
                variable_blob _args;                                                                                  \
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
                variable_blob _contract_ret;                                                                          \
-               with_privilege( context, privilege::kernel_mode, [&]()                                                \
-               {                                                                                                     \
-                  _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );     \
-               } );                                                                                                  \
+               with_stack_frame(                                                                                     \
+                  context,                                                                                           \
+                  stack_frame {                                                                                      \
+                     .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,        \
+                     .call_privilege = privilege::kernel_mode,                                                       \
+                  },                                                                                                 \
+                  [&]()                                                                                              \
+                  {                                                                                                  \
+                     _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );  \
+                  }                                                                                                  \
+               );                                                                                                    \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
             },                                                                                                       \
             [&]( auto& _a ) {                                                                                        \

@@ -114,6 +114,12 @@ const account_type& apply_context::get_caller()const
    return _stack[ _stack.size() - 2 ].call;
 }
 
+privilege apply_context::get_caller_privilege()const
+{
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
+   return _stack[ _stack.size() - 2 ].call_privilege;
+}
+
 void apply_context::set_privilege( privilege p )
 {
    KOINOS_ASSERT( _stack.size() , koinos::exception, "" );

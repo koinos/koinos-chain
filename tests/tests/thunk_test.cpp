@@ -59,7 +59,11 @@ struct thunk_fixture
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
       ctx.push_frame( koinos::chain::stack_frame {
-         .call = koinos::pack::to_variable_blob( std::string( "thunk_tests" ) ),
+         .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "thunk_tests"s ).digest,
+         .call_privilege = koinos::chain::privilege::kernel_mode
+      } );
+      ctx.push_frame( koinos::chain::stack_frame {
+         .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "thunk_tests"s ).digest,
          .call_privilege = koinos::chain::privilege::kernel_mode
       } );
 
@@ -429,25 +433,25 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 { try {
    BOOST_TEST_MESSAGE( "apply context stack tests" );
    ctx.pop_frame();
+   ctx.pop_frame();
 
    BOOST_REQUIRE_THROW( ctx.pop_frame(), koinos::chain::stack_exception );
 
-   auto call1_vb = koinos::pack::to_variable_blob( "call1"s );
+   auto call1_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call1"s ).digest;
    ctx.push_frame( koinos::chain::stack_frame{ .call = call1_vb } );
    BOOST_REQUIRE_THROW( ctx.get_caller(), koinos::chain::stack_exception );
 
-   auto call2_vb = koinos::pack::to_variable_blob( "call2"s );
+   auto call2_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call2"s ).digest;
    ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
    BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
-   // A system call puts a stack on the frame, in this case, call 2 is the caller when `get_caller` is called.
-   BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), system_call::get_caller(ctx).begin() ) );
+   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), system_call::get_caller(ctx).caller.begin() ) );
 
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
 
    for( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
    {
-      ctx.push_frame( koinos::chain::stack_frame{ .call = koinos::pack::to_variable_blob( "call"s + std::to_string(i) ) } );
+      ctx.push_frame( koinos::chain::stack_frame{ .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call"s + std::to_string(i) ).digest } );
    }
 
    BOOST_REQUIRE_THROW( ctx.push_frame( koinos::chain::stack_frame{} ), koinos::chain::stack_overflow );
@@ -625,10 +629,17 @@ BOOST_AUTO_TEST_CASE( koin_demo )
    ctx.get_pending_console_output();
 
    LOG(info) << "Mint to 'alice'";
+   ctx.set_privilege( koinos::chain::privilege::user_mode );
    auto m_args = mint_args{ .to = alice_address, .value = 100 };
    response.clear();
    response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
    auto success = pack::from_variable_blob< bool >( response );
+   BOOST_REQUIRE( !success );
+
+   ctx.set_privilege( koinos::chain::privilege::kernel_mode );
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
+   success = pack::from_variable_blob< bool >( response );
    BOOST_REQUIRE( success );
 
    response.clear();
