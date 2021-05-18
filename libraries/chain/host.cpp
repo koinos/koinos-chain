@@ -97,9 +97,4 @@ void host_api::invoke_system_call( system_call_id_type sid, array_ptr< char > re
          } }, target );
 }
 
-__int128 host_api::__lshlti3( __int128 a, uint32_t b )
-{
-   return a << b;
-}
-
 } // koinos::chain
