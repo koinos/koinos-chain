@@ -83,6 +83,7 @@ class thunk_dispatcher
          std::function<ThunkReturn(apply_context&, ThunkArgs...)> thunk = thunk_ptr;
          _dispatch_map.emplace( id, [thunk]( apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
          {
+            memset(ret_ptr, 0, ret_len);
             ArgStruct args;
             koinos::pack::from_c_str( arg_ptr, arg_len, args );
             detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );

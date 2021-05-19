@@ -1,7 +1,6 @@
 #pragma once
 
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/privilege.hpp>
 #include <koinos/statedb/statedb.hpp>
 #include <koinos/pack/classes.hpp>
 #include <koinos/crypto/elliptic.hpp>
@@ -22,6 +21,7 @@ struct stack_frame
    account_type  call;
    privilege     call_privilege;
    variable_blob call_args;
+   uint32_t      entry_point = 0;
    variable_blob call_return;
 };
 
@@ -49,6 +49,8 @@ class apply_context
       void set_contract_call_args( const variable_blob& args );
       const variable_blob& get_contract_call_args() const;
 
+      uint32_t get_contract_entry_point() const;
+
       variable_blob get_contract_return() const;
       void set_contract_return( const variable_blob& ret );
 
@@ -63,6 +65,7 @@ class apply_context
       stack_frame pop_frame();
 
       const account_type& get_caller()const;
+      privilege get_caller_privilege()const;
 
       void set_privilege( privilege );
       privilege get_privilege()const;
@@ -73,8 +76,10 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
+      std::vector< stack_frame >             _stack;
+
    private:
-      friend struct privilege_restorer;
+      friend struct frame_restorer;
 
       state_node_ptr                         _current_state_node;
       std::string                            _pending_console_output;
@@ -82,41 +87,40 @@ class apply_context
 
       bool                                   _is_in_user_code = false;
       bool                                   _read_only = false;
-      std::vector< stack_frame >             _stack;
+
 
       const protocol::block*                 _block = nullptr;
       const protocol::transaction*           _trx = nullptr;
 };
 
-struct privilege_restorer
+struct frame_restorer
 {
-   privilege_restorer( apply_context& ctx, privilege p ) :
+   frame_restorer( apply_context& ctx, stack_frame&& f ) :
       _ctx( ctx )
    {
-      _p = _ctx.get_privilege();
       _user_code = _ctx.is_in_user_code();
-      if ( p == privilege::user_mode )
+      if ( f.call_privilege == privilege::user_mode )
+      {
          _ctx.set_in_user_code( true );
-
-      _ctx.set_privilege( p );
+      }
+      _ctx.push_frame( std::move( f ) );
    }
 
-   ~privilege_restorer()
+   ~frame_restorer()
    {
-      _ctx.set_privilege( _p );
+      _ctx.pop_frame();
       _ctx.set_in_user_code( _user_code );
    }
 
    private:
       apply_context& _ctx;
       bool           _user_code;
-      privilege      _p;
 };
 
 template< typename Lambda >
-void with_privilege( apply_context& ctx, privilege p, Lambda&& l )
+void with_stack_frame( apply_context& ctx, stack_frame&& f, Lambda&& l )
 {
-   privilege_restorer r( ctx, p );
+   frame_restorer r( ctx, std::move( f ) );
    l();
 }
 

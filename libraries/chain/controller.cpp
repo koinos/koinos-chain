@@ -138,7 +138,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    {
       apply_context ctx;
       ctx.push_frame( stack_frame {
-         .call = pack::to_variable_blob( "submit_block"s ),
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
          .call_privilege = privilege::kernel_mode
       } );
 
@@ -297,7 +297,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
-      .call = pack::to_variable_blob( "submit_transaction"s ),
+      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_transaction"s ).digest,
       .call_privilege = privilege::kernel_mode
    } );
 
@@ -396,7 +396,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 {
    apply_context ctx;
    ctx.push_frame( stack_frame {
-      .call = pack::to_variable_blob( "get_head_info"s ),
+      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_head_info"s ).digest,
       .call_privilege = privilege::kernel_mode
    } );
 
@@ -451,7 +451,7 @@ fork_data controller_impl::get_fork_data()
    apply_context ctx;
 
    ctx.push_frame( koinos::chain::stack_frame {
-      .call = pack::to_variable_blob( "get_fork_data"s ),
+      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_fork_data"s ).digest,
       .call_privilege = privilege::kernel_mode
    } );
 
@@ -517,7 +517,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
-      .call = pack::to_variable_blob( "read_contract"s ),
+      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "read_contract"s ).digest,
       .call_privilege = privilege::kernel_mode,
    } );
 

@@ -25,9 +25,27 @@
 
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/hello.hpp>
+#include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
 
 using namespace std::string_literals;
+
+struct transfer_args
+{
+   std::string from;
+   std::string to;
+   uint64_t    value;
+};
+
+KOINOS_REFLECT( transfer_args, (from)(to)(value) );
+
+struct mint_args
+{
+   std::string to;
+   uint64_t    value;
+};
+
+KOINOS_REFLECT( mint_args, (to)(value) );
 
 struct thunk_fixture
 {
@@ -41,7 +59,11 @@ struct thunk_fixture
       db.open( temp, cfg );
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
       ctx.push_frame( koinos::chain::stack_frame {
-         .call = koinos::pack::to_variable_blob( std::string( "thunk_tests" ) ),
+         .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "thunk_tests"s ).digest,
+         .call_privilege = koinos::chain::privilege::kernel_mode
+      } );
+      ctx.push_frame( koinos::chain::stack_frame {
+         .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "thunk_tests"s ).digest,
          .call_privilege = koinos::chain::privilege::kernel_mode
       } );
 
@@ -67,6 +89,11 @@ struct thunk_fixture
    std::vector< uint8_t > get_syscall_override_wasm()
    {
       return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
+   }
+
+   std::vector< uint8_t > get_koin_wasm()
+   {
+      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
    }
 
    std::filesystem::path temp;
@@ -174,7 +201,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   koinos::protocol::contract_call_operation op2;
+   koinos::protocol::call_contract_operation op2;
    std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
    system_call::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
@@ -378,7 +405,7 @@ BOOST_AUTO_TEST_CASE( privileged_calls )
    BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, koinos::protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_reserved_operation( ctx, koinos::protocol::reserved_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_upload_contract_operation( ctx, koinos::protocol::create_system_contract_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, koinos::protocol::contract_call_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, koinos::protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, koinos::protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
 }
 
@@ -406,24 +433,25 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 { try {
    BOOST_TEST_MESSAGE( "apply context stack tests" );
    ctx.pop_frame();
+   ctx.pop_frame();
 
    BOOST_REQUIRE_THROW( ctx.pop_frame(), koinos::chain::stack_exception );
 
-   auto call1_vb = koinos::pack::to_variable_blob( "call1"s );
+   auto call1_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call1"s ).digest;
    ctx.push_frame( koinos::chain::stack_frame{ .call = call1_vb } );
    BOOST_REQUIRE_THROW( ctx.get_caller(), koinos::chain::stack_exception );
 
-   auto call2_vb = koinos::pack::to_variable_blob( "call2"s );
+   auto call2_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call2"s ).digest;
    ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
    BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
-   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), system_call::get_caller(ctx).begin() ) );
+   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), system_call::get_caller(ctx).caller.begin() ) );
 
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
 
    for( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
    {
-      ctx.push_frame( koinos::chain::stack_frame{ .call = koinos::pack::to_variable_blob( "call"s + std::to_string(i) ) } );
+      ctx.push_frame( koinos::chain::stack_frame{ .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call"s + std::to_string(i) ).digest } );
    }
 
    BOOST_REQUIRE_THROW( ctx.push_frame( koinos::chain::stack_frame{} ), koinos::chain::stack_overflow );
@@ -433,15 +461,21 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 BOOST_AUTO_TEST_CASE( require_authority )
 { try {
    auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
+   auto foo_account_string = foo_key.get_public_key().to_address();
+   koinos::variable_blob foo_account( foo_account_string.begin(), foo_account_string.end() );
    auto bar_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
+   auto bar_account_string = bar_key.get_public_key().to_address();
+   koinos::variable_blob bar_account( bar_account_string.begin(), bar_account_string.end() );
 
    koinos::protocol::transaction trx;
+   trx.active_data = koinos::protocol::active_transaction_data{};
+   ctx.set_transaction( trx );
+   BOOST_REQUIRE_THROW( system_call::require_authority( ctx, foo_account ), koinos::chain::invalid_signature );
+
    auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
    trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
    ctx.set_transaction( trx );
 
-   auto foo_account = koinos::pack::to_variable_blob( foo_key.get_public_key().to_address() );
-   auto bar_account = koinos::pack::to_variable_blob( bar_key.get_public_key().to_address() );
    system_call::require_authority( ctx, foo_account );
 
    BOOST_REQUIRE_THROW( system_call::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
@@ -535,4 +569,153 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_REQUIRE( obj_blob.size() );
    BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 2 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( koin_demo )
+{ try {
+   using namespace koinos;
+
+   koinos::protocol::create_system_contract_operation op;
+   auto id = koinos::crypto::zero_hash( CRYPTO_RIPEMD160_ID );
+   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
+   auto bytecode = get_koin_wasm();
+   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+
+   system_call::apply_upload_contract_operation( ctx, op );
+
+   BOOST_TEST_MESSAGE( "Test executing a contract" );
+
+   ctx.set_privilege( chain::privilege::user_mode );
+
+   contract_id_type contract_id;
+   std::memcpy( contract_id.data(), id.digest.data(), contract_id.size() );
+   auto response = system_call::execute_contract( ctx, contract_id, 0x76ea4297, variable_blob() );
+
+   auto name = pack::from_variable_blob< std::string >( response );
+   LOG(info) << name;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x7e794b24, variable_blob() );
+   auto symbol = pack::from_variable_blob< std::string >( response );
+   LOG(info) << symbol;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x59dc15ce, variable_blob() );
+   auto decimals = pack::from_variable_blob< uint8_t >( response );
+   LOG(info) << (uint32_t)decimals;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
+   auto supply = pack::from_variable_blob< uint64_t >( response );
+   LOG(info) << "KOIN supply: " << supply;
+
+   auto alice_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "alice"s ) );
+   auto alice_address = alice_private_key.get_public_key().to_address();
+
+   auto bob_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "bob"s ) );
+   auto bob_address = bob_private_key.get_public_key().to_address();
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
+   auto balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'alice' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'bob' balance: " << balance;
+
+   ctx.get_pending_console_output();
+
+   LOG(info) << "Mint to 'alice'";
+   ctx.set_privilege( koinos::chain::privilege::user_mode );
+   auto m_args = mint_args{ .to = alice_address, .value = 100 };
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
+   auto success = pack::from_variable_blob< bool >( response );
+   BOOST_REQUIRE( !success );
+
+   ctx.set_privilege( koinos::chain::privilege::kernel_mode );
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
+   success = pack::from_variable_blob< bool >( response );
+   BOOST_REQUIRE( success );
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'alice' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'bob' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
+   supply = pack::from_variable_blob< uint64_t >( response );
+   LOG(info) << "KOIN supply: " << supply;
+
+   LOG(info) << "Transfer from 'alice' to 'bob'";
+   auto t_args = transfer_args{ .from = alice_address, .to = bob_address, .value = 25 };
+   koinos::protocol::transaction trx;
+   trx.active_data = koinos::protocol::active_transaction_data{};
+   ctx.set_transaction( trx );
+   response.clear();
+   try
+   {
+      system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+      BOOST_FAIL( "Expected invalid signature exception" );
+   }
+   catch ( const koinos::chain::invalid_signature& ) {}
+
+   auto signature = bob_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
+   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   ctx.set_transaction( trx );
+
+   response.clear();
+   try
+   {
+      system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+      BOOST_FAIL( "Expected invalid signature exception" );
+   }
+   catch ( const koinos::chain::invalid_signature& ) {}
+
+   signature = alice_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
+   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   ctx.set_transaction( trx );
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+   success = pack::from_variable_blob< bool >( response );
+   BOOST_REQUIRE( success );
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'alice' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
+   balance = pack::from_variable_blob< uint64_t >( response );
+
+   LOG(info) << "'bob' balance: " << balance;
+
+   response.clear();
+   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
+   supply = pack::from_variable_blob< uint64_t >( response );
+   LOG(info) << "KOIN supply: " << supply;
+
+}
+catch( const eosio::vm::exception& e )
+{
+   LOG(info) << e.what() << ": " << e.detail();
+   BOOST_FAIL("EOSIO VM Exception");
+}
+KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()

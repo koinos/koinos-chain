@@ -3,7 +3,9 @@
 #define KOINOS_SYSTEM_CALL_ID_get_contract_args 0x9fbba198
 #define KOINOS_SYSTEM_CALL_ID_set_contract_return 0x9f49cdea
 
-void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+extern "C" {
+   void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+}
 
 void prints( char* msg )
 {
@@ -21,11 +23,11 @@ void prints( char* msg )
    invoke_system_call( KOINOS_SYSTEM_CALL_ID_set_contract_return, 0, 0, args, i + 2 );
 }
 
-__attribute__( (visibility("default")) )
-void _start()
+int main()
 {
    char message[64];
    invoke_system_call( KOINOS_SYSTEM_CALL_ID_get_contract_args, message, 63, 0, 0 );
    message[ message[0] + 1 ] = 0;
    prints( message + 2 );
+   return 0;
 }

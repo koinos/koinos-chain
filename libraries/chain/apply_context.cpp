@@ -62,20 +62,26 @@ void apply_context::clear_transaction()
 
 const variable_blob& apply_context::get_contract_call_args() const
 {
-   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
-   return _stack[ _stack.size() - 1 ].call_args;
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
+   return _stack[ _stack.size() - 2 ].call_args;
 }
 
 variable_blob apply_context::get_contract_return() const
 {
-   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
-   return _stack[ _stack.size() - 1 ].call_return;
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
+   return _stack[ _stack.size() - 2 ].call_return;
+}
+
+uint32_t apply_context::get_contract_entry_point() const
+{
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
+   return _stack[ _stack.size() - 2 ].entry_point;
 }
 
 void apply_context::set_contract_return( const variable_blob& ret )
 {
-   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
-   _stack[ _stack.size() - 1 ].call_return = ret;
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
+   _stack[ _stack.size() - 2 ].call_return = ret;
 }
 
 void apply_context::set_key_authority( const crypto::public_key& key )
@@ -106,6 +112,12 @@ const account_type& apply_context::get_caller()const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
    return _stack[ _stack.size() - 2 ].call;
+}
+
+privilege apply_context::get_caller_privilege()const
+{
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
+   return _stack[ _stack.size() - 2 ].call_privilege;
 }
 
 void apply_context::set_privilege( privilege p )
