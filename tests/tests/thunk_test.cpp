@@ -570,6 +570,21 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 2 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( get_contract_id_test )
+{ try {
+   auto contract_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "get_contract_id_test"s ).digest;
+
+   ctx.push_frame( koinos::chain::stack_frame {
+      .call = contract_id,
+      .call_privilege = koinos::chain::privilege::kernel_mode
+   } );
+
+   auto id = system_call::get_contract_id( ctx );
+
+   BOOST_REQUIRE( contract_id.size() == id.size() );
+   BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id.begin() ) );
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( koin_demo )
 { try {
    using namespace koinos;
