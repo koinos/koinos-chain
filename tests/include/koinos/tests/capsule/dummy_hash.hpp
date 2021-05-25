@@ -29,18 +29,7 @@ typedef std::shared_ptr< dummy_hash > dummy_hash_ptr;
 /**
  * Convert a dummy hash to string.
  */
-std::string dummy_hash_to_string( dummy_hash_ptr h )
-{
-   if( !h )
-      return "nil";
-   return std::visit(
-      []( auto& v ) -> std::string
-      {
-         if( !v )
-            return "nil";
-         return v->to_string();
-      }, *h );
-}
+std::string dummy_hash_to_string( dummy_hash_ptr h );
 
 /**
  * A simple dummy hash directly hashes a value.
@@ -72,23 +61,13 @@ class complex_dummy_hash
 /**
  * Create a simple dummy hash conveniently.
  */
-dummy_hash_ptr create_dummy_hash(int64_t value)
-{
-   return std::make_shared< dummy_hash >( std::make_shared< simple_dummy_hash >( value ) );
-}
+dummy_hash_ptr create_dummy_hash(int64_t value);
 
 /**
  * Create a complex dummy hash conveniently.
  */
-dummy_hash_ptr reduce_dummy_hash(dummy_hash_ptr a, dummy_hash_ptr b)
-{
-   return std::make_shared< dummy_hash >( std::make_shared< complex_dummy_hash >( a, b ) );
-}
+dummy_hash_ptr reduce_dummy_hash(dummy_hash_ptr a, dummy_hash_ptr b);
 
-std::ostream& operator<<( std::ostream& o, dummy_hash_ptr h )
-{
-   o << dummy_hash_to_string(h);
-   return o;
-}
+std::ostream& operator<<( std::ostream& o, dummy_hash_ptr h );
 
 }
