@@ -731,4 +731,23 @@ catch( const eosio::vm::exception& e )
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( get_head_block_time )
+{ try {
+   using namespace koinos;
+   koinos::protocol::block block;
+   block.header.timestamp = 1000;
+   ctx.set_block( block );
+
+   BOOST_REQUIRE( system_call::get_head_block_time( ctx ) == block.header.timestamp );
+
+   ctx.clear_block();
+
+   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
+   vkey.resize( 32, char(0) );
+   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
+   system_call::db_put_object( ctx, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
+
+   BOOST_REQUIRE( system_call::get_head_block_time( ctx ) == block.header.timestamp );
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()

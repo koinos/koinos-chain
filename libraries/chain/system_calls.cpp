@@ -58,6 +58,7 @@ SYSTEM_CALL_DEFAULTS(
    (require_authority)
 
    (get_contract_id)
+   (get_head_block_time)
 )
 
 void register_thunks( thunk_dispatcher& td )
@@ -103,6 +104,7 @@ void register_thunks( thunk_dispatcher& td )
       (require_authority)
 
       (get_contract_id)
+      (get_head_block_time)
    )
 }
 
@@ -199,6 +201,11 @@ THUNK_DEFINE( void, apply_block,
       block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
       KOINOS_ASSERT( verify_block_signature( context, block.signature_data, block_hash ), invalid_block_signature, "Block signature does not match" );
    }
+
+   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
+   vkey.resize( 32, char(0) );
+   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
+   db_put_object( context, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
 
    // Check passive Merkle root
    if( check_passive_data )
@@ -687,6 +694,20 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 THUNK_DEFINE_VOID( contract_id_type, get_contract_id )
 {
    return pack::from_variable_blob< contract_id_type >( context.get_caller() );
+}
+
+THUNK_DEFINE_VOID( timestamp_type, get_head_block_time )
+{
+   auto block_ptr = context.get_block();
+   if ( block_ptr )
+   {
+      return block_ptr->header.timestamp;
+   }
+
+   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
+   vkey.resize( 32, char(0) );
+   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
+   return pack::from_variable_blob< timestamp_type >( db_get_object( context, KERNEL_SPACE_ID, key ) );
 }
 
 THUNK_DEFINE_END();

@@ -35,9 +35,9 @@ void apply_context::set_block( const protocol::block& block )
    _block = &block;
 }
 
-const protocol::block& apply_context::get_block()const
+const protocol::block* apply_context::get_block()const
 {
-   return *_block;
+   return _block;
 }
 
 void apply_context::clear_block()

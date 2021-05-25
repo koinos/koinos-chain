@@ -39,7 +39,7 @@ class apply_context
       void clear_state_node();
 
       void set_block( const protocol::block& );
-      const protocol::block& get_block() const;
+      const protocol::block* get_block() const;
       void clear_block();
 
       void set_transaction( const protocol::transaction& );
