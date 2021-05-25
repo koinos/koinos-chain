@@ -444,7 +444,6 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    auto call2_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call2"s ).digest;
    ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
    BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
-   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), system_call::get_caller(ctx).caller.begin() ) );
 
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
@@ -585,7 +584,7 @@ BOOST_AUTO_TEST_CASE( get_contract_id_test )
    BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id.begin() ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( koin_demo )
+BOOST_AUTO_TEST_CASE( token_tests )
 { try {
    using namespace koinos;
 
@@ -644,14 +643,13 @@ BOOST_AUTO_TEST_CASE( koin_demo )
    ctx.get_pending_console_output();
 
    LOG(info) << "Mint to 'alice'";
-   ctx.set_privilege( koinos::chain::privilege::user_mode );
    auto m_args = mint_args{ .to = alice_address, .value = 100 };
    response.clear();
    response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
    auto success = pack::from_variable_blob< bool >( response );
    BOOST_REQUIRE( !success );
 
-   ctx.set_privilege( koinos::chain::privilege::kernel_mode );
+   ctx.set_privilege( chain::privilege::kernel_mode );
    response.clear();
    response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
    success = pack::from_variable_blob< bool >( response );

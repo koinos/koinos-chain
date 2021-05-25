@@ -661,10 +661,12 @@ THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 THUNK_DEFINE_VOID( get_caller_return, get_caller )
 {
    get_caller_return ret;
-   auto frame = context.pop_frame();
+   auto frame0 = context.pop_frame(); // get_caller frame
+   auto frame1 = context.pop_frame(); // contract frame
    ret.caller = context.get_caller();
    ret.caller_privilege = context.get_caller_privilege();
-   context.push_frame( std::move( frame ) );
+   context.push_frame( std::move( frame1 ) );
+   context.push_frame( std::move( frame0 ) );
    return ret;
 }
 
