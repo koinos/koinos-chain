@@ -13,7 +13,7 @@ namespace koinos::chain {
 
 namespace detail { class controller_impl; }
 
-using genesis_data = std::map< statedb::object_key, statedb::object_value >;
+using genesis_data = std::map< std::pair< statedb::object_space, statedb::object_key >, statedb::object_value >;
 
 #define KOINOS_STATEDB_SPACE        0
 #define KOINOS_STATEDB_CHAIN_ID_KEY 0

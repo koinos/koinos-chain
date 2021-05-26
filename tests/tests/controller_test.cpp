@@ -41,7 +41,7 @@ struct controller_fixture
 
       koinos::chain::genesis_data genesis_data;
       auto chain_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, TEST_CHAIN_ID_SEED );
-      genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = koinos::pack::to_variable_blob( chain_id );
+      genesis_data[ { 0, KOINOS_STATEDB_CHAIN_ID_KEY } ] = koinos::pack::to_variable_blob( chain_id );
 
       _controller.open( _state_dir, database_config ,genesis_data, false );
    }

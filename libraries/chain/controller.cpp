@@ -74,8 +74,8 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
       for ( const auto& entry : data )
       {
          statedb::put_object_args put_args;
-         put_args.space = 0;
-         put_args.key = entry.first;
+         put_args.space = entry.first.first;
+         put_args.key = entry.first.second;
          put_args.buf = entry.second.data();
          put_args.object_size = entry.second.size();
 
@@ -463,6 +463,7 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
+   LOG(info) << request;
    statedb::state_node_ptr head_node;
 
    {
