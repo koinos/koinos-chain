@@ -420,9 +420,6 @@ void check_db_permissions( const apply_context& context, const statedb::object_s
 {
    auto privilege = context.get_privilege();
    auto caller = pack::from_variable_blob< uint160 >( context.get_caller() );
-   LOG(info) << "Privilege: " << privilege;
-   LOG(info) << "Space: " << space;
-   LOG(info) << "Caller: " << caller;
    if ( space != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
@@ -457,7 +454,6 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
 
 THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
-   LOG(info) << "Key: " << key;
    check_db_permissions( context, space );
 
    auto state = context.get_state_node();
@@ -583,7 +579,6 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
 
 THUNK_DEFINE_VOID( uint32_t, get_entry_point )
 {
-   LOG(info) << context.get_contract_entry_point();
    return context.get_contract_entry_point();
 }
 
@@ -599,9 +594,6 @@ THUNK_DEFINE_VOID( variable_blob, get_contract_args )
 
 THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
 {
-   pack::json j;
-   pack::to_json( j, ret );
-   LOG(info) << j.dump();
    context.set_contract_return( ret );
 }
 
@@ -621,10 +613,8 @@ THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 
 THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
-   LOG(info) << "Hashing";
    KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
    auto hash = crypto::hash_str( id, obj.data(), obj.size(), size );
-   LOG(info) << hash;
    return hash;
 }
 
@@ -707,7 +697,6 @@ THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 
 THUNK_DEFINE_VOID( contract_id_type, get_contract_id )
 {
-   LOG(info) << pack::from_variable_blob< uint160_t >( context.get_caller() );
    return pack::from_variable_blob< contract_id_type >( context.get_caller() );
 }
 

@@ -162,7 +162,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( output.length() > 0 )
       {
-         LOG(info) << output;
+         LOG(info) << "Output:\n" << output;
       }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
@@ -237,7 +237,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( output.length() > 0 )
       {
-         LOG(info) << output;
+         LOG(info) << "Output:\n" << output;
       }
 
       _state_db.discard_node( block_node->id() );
@@ -472,7 +472,6 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
-   LOG(info) << request;
    statedb::state_node_ptr head_node;
 
    {
