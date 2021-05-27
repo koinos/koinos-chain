@@ -265,7 +265,7 @@ void index_loop(
          for ( auto& block_item : batch.block_items )
          {
             controller.submit_block( {
-               .block = block_item.block.get_const_native(),
+               .block = *block_item.block,
                .verify_passive_data = false,
                .verify_block_signature = false,
                .verify_transaction_signatures = false
