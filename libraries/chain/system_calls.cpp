@@ -45,6 +45,7 @@ SYSTEM_CALL_DEFAULTS(
 
    (get_head_info)
    (hash)
+   (recover_public_key)
 
    (get_transaction_payer)
    (get_max_account_resources)
@@ -55,6 +56,9 @@ SYSTEM_CALL_DEFAULTS(
    (get_caller)
    (get_transaction_signature)
    (require_authority)
+
+   (get_contract_id)
+   (get_head_block_time)
 )
 
 void register_thunks( thunk_dispatcher& td )
@@ -87,6 +91,7 @@ void register_thunks( thunk_dispatcher& td )
 
       (get_head_info)
       (hash)
+      (recover_public_key)
 
       (get_transaction_payer)
       (get_max_account_resources)
@@ -97,6 +102,9 @@ void register_thunks( thunk_dispatcher& td )
       (get_caller)
       (get_transaction_signature)
       (require_authority)
+
+      (get_contract_id)
+      (get_head_block_time)
    )
 }
 
@@ -194,6 +202,11 @@ THUNK_DEFINE( void, apply_block,
       KOINOS_ASSERT( verify_block_signature( context, block.signature_data, block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
+   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
+   vkey.resize( 32, char(0) );
+   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
+   db_put_object( context, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
+
    // Check passive Merkle root
    if( check_passive_data )
    {
@@ -247,21 +260,6 @@ THUNK_DEFINE( void, apply_block,
 
    for( const auto& tx : block.transactions )
    {
-      if( check_transaction_signatures )
-      {
-         context.clear_authority();
-         //check_transaction_signature( tx_blob );
-         multihash tx_hash = crypto::hash_like( tx_root, tx.active_data );
-
-         if( tx.signature_data.size() )
-         {
-            crypto::recoverable_signature sig;
-            pack::from_variable_blob( tx.signature_data, sig );
-
-            context.set_key_authority( crypto::public_key::recover( sig, tx_hash ) );
-         }
-      }
-
       apply_transaction( context, tx );
    }
 }
@@ -616,26 +614,31 @@ THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint
    return crypto::hash_str( id, obj.data(), obj.size(), size );
 }
 
-THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signature_data, (const multihash&) digest) )
 {
-   KOINOS_ASSERT( transaction.signature_data.size() == 65, invalid_transaction_signature, "Unexpected signature length" );
-
-   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-
+   KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "Unexpected signature length" );
    crypto::recoverable_signature signature;
-   std::copy_n( transaction.signature_data.begin(), transaction.signature_data.size(), signature.begin() );
+   std::copy_n( signature_data.begin(), signature_data.size(), signature.begin() );
 
-   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_transaction_signature, "Signature must be canonical" );
+   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "Signature must be canonical" );
 
    auto pub_key = crypto::public_key::recover( signature, digest );
-
-   KOINOS_ASSERT( pub_key.valid(), invalid_transaction_signature, "Public key is invalid" );
+   KOINOS_ASSERT( pub_key.valid(), invalid_signature, "Public key is invalid" );
 
    auto address = pub_key.to_address();
-   account_type account( address.begin(), address.end() );
+   return variable_blob( address.begin(), address.end() );
+}
+
+THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
+{
+   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+   account_type account = recover_public_key( context, transaction.signature_data, digest );
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
-   LOG(debug) << "(get_transaction_payer) public_key: " << pub_key.to_base58();
+   KOINOS_TODO( "stream override for variable_blob needs to be updated" );
+   pack::json j;
+   pack::to_json( j, account );
+   LOG(debug) << "(get_transaction_payer) public_key: " << j.dump();
 
    return account;
 }
@@ -665,10 +668,12 @@ THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 THUNK_DEFINE_VOID( get_caller_return, get_caller )
 {
    get_caller_return ret;
-   auto frame = context.pop_frame();
+   auto frame0 = context.pop_frame(); // get_caller frame
+   auto frame1 = context.pop_frame(); // contract frame
    ret.caller = context.get_caller();
    ret.caller_privilege = context.get_caller_privilege();
-   context.push_frame( std::move( frame ) );
+   context.push_frame( std::move( frame1 ) );
+   context.push_frame( std::move( frame0 ) );
    return ret;
 }
 
@@ -680,21 +685,29 @@ THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
 THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 {
    auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
-   crypto::recoverable_signature sig;
-
-   try
-   {
-      pack::from_variable_blob( get_transaction_signature( context ), sig );
-   }
-   catch ( ... )
-   {
-      KOINOS_THROW( invalid_signature, "Unable to deserialize transaction signature" );
-   }
-
-   auto sig_account = crypto::public_key::recover( sig, digest ).to_address();
+   account_type sig_account = recover_public_key( context, get_transaction_signature( context ), digest );
    KOINOS_ASSERT( sig_account.size() == account.size() &&
       std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match",
       ("account", account)("sig_account", sig_account) );
+}
+
+THUNK_DEFINE_VOID( contract_id_type, get_contract_id )
+{
+   return pack::from_variable_blob< contract_id_type >( context.get_caller() );
+}
+
+THUNK_DEFINE_VOID( timestamp_type, get_head_block_time )
+{
+   auto block_ptr = context.get_block();
+   if ( block_ptr )
+   {
+      return block_ptr->header.timestamp;
+   }
+
+   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
+   vkey.resize( 32, char(0) );
+   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
+   return pack::from_variable_blob< timestamp_type >( db_get_object( context, KERNEL_SPACE_ID, key ) );
 }
 
 THUNK_DEFINE_END();

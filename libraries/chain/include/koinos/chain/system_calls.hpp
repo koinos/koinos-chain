@@ -14,6 +14,7 @@
 #define KOINOS_EXIT_SUCCESS 0
 #define KOINOS_EXIT_FAILURE 1
 #define KOINOS_TRANSACTION_NONCE_KEY "nonce"
+#define KOINOS_HEAD_BLOCK_TIME_KEY   "head_block_time"
 
 namespace koinos::chain {
 
@@ -83,6 +84,7 @@ THUNK_DECLARE( void, set_contract_return, const variable_blob& ret );
 THUNK_DECLARE_VOID( chain::head_info, get_head_info );
 
 THUNK_DECLARE( multihash, hash, uint64_t code, const variable_blob& obj, uint64_t size = 0 );
+THUNK_DECLARE( variable_blob, recover_public_key, const variable_blob& signature_data, const multihash& digest );
 
 THUNK_DECLARE( account_type, get_transaction_payer, const protocol::transaction& tx );
 THUNK_DECLARE( uint128, get_max_account_resources, const account_type& account );
@@ -93,5 +95,8 @@ THUNK_DECLARE_VOID( block_height_type, get_last_irreversible_block );
 THUNK_DECLARE_VOID( get_caller_return, get_caller );
 THUNK_DECLARE_VOID( variable_blob, get_transaction_signature );
 THUNK_DECLARE( void, require_authority, const account_type& );
+
+THUNK_DECLARE_VOID( contract_id_type, get_contract_id );
+THUNK_DECLARE_VOID( timestamp_type, get_head_block_time );
 
 } // koinos::chain
