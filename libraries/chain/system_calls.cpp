@@ -120,7 +120,6 @@ THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
 {
-   LOG(info) << str;
    context.console_append( str );
 }
 
@@ -622,8 +621,11 @@ THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 
 THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
+   LOG(info) << "Hashing";
    KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
-   return crypto::hash_str( id, obj.data(), obj.size(), size );
+   auto hash = crypto::hash_str( id, obj.data(), obj.size(), size );
+   LOG(info) << hash;
+   return hash;
 }
 
 THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signature_data, (const multihash&) digest) )
