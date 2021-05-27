@@ -134,9 +134,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
    }
 
+   apply_context ctx;
+
    try
    {
-      apply_context ctx;
+
       ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
          .call_privilege = privilege::kernel_mode
@@ -231,6 +233,13 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    catch( const koinos::exception& )
    {
       LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
+      auto output = ctx.get_pending_console_output();
+
+      if ( output.length() > 0 )
+      {
+         LOG(info) << output;
+      }
+
       _state_db.discard_node( block_node->id() );
       throw;
    }
