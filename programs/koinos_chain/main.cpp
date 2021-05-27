@@ -501,7 +501,7 @@ int main( int argc, char** argv )
       genesis_data[ { chain::SYS_CALL_DISPATCH_TABLE_SPACE_ID, chain::system_call_id::verify_block_signature } ] = pack::to_variable_blob(
          chain::system_call_target {
             chain::contract_call_bundle {
-               { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 },
+               pack::from_variable_blob< contract_id_type >( pack::to_variable_blob( uint160_t( 1 ) ) ),
                0
             }
          }
