@@ -195,7 +195,7 @@ THUNK_DEFINE( void, apply_block,
    }
    KOINOS_ASSERT( system_call::verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
 
-   if( check_block_signature )
+   //if( check_block_signature )
    {
       multihash block_hash;
       block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
@@ -571,9 +571,11 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    catch( const exit_success& ) {}
    catch( ... ) {
       context.pop_frame();
+      wa.free();
       throw;
    }
 
+   wa.free();
    return context.pop_frame().call_return;
 }
 

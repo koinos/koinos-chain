@@ -191,7 +191,7 @@ void attach_request_handler(
             controller.submit_block( {
                .block = bam.block,
                .verify_passive_data = false,
-               .verify_block_signature = false,
+               .verify_block_signature = true,
                .verify_transaction_signatures = false
             } );
          }
@@ -267,9 +267,9 @@ void index_loop(
             controller.submit_block( {
                .block = *block_item.block,
                .verify_passive_data = false,
-               .verify_block_signature = false,
+               .verify_block_signature = true,
                .verify_transaction_signatures = false
-            }, true );
+            }, false );
          }
       }
       catch ( const boost::exception& e )

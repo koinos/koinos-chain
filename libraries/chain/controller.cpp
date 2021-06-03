@@ -240,6 +240,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          LOG(info) << "Output:\n" << output;
       }
 
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( block_node->id() );
       throw;
    }
