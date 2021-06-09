@@ -108,7 +108,7 @@ using namespace koinos::chain;
 
 BOOST_AUTO_TEST_CASE( db_crud )
 { try {
-   auto node = ctx.get_state_node();
+   auto node = std::dynamic_pointer_cast< koinos::statedb::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );

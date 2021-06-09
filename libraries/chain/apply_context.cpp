@@ -17,10 +17,10 @@ std::string apply_context::get_pending_console_output()
 
 void apply_context::set_state_node( state_node_ptr node )
 {
-   _current_state_node = node;
+   _current_state_node = std::dynamic_pointer_cast< abstract_state_node >( node );
 }
 
-state_node_ptr apply_context::get_state_node()const
+abstract_state_node_ptr apply_context::get_state_node()const
 {
    return _current_state_node;
 }
