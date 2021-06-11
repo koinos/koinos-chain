@@ -153,6 +153,38 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          request.verify_block_signature,
          request.verify_transaction_signatures );
 
+      if ( _client && _client->is_connected() )
+      {
+         rpc::block_store::block_store_request req = rpc::block_store::add_block_request {
+            .block_to_add = block_store::block_item {
+               .block_id     = request.block.id,
+               .block_height = request.block.header.height,
+               .block        = request.block
+            }
+         };
+
+         pack::json j;
+         pack::to_json( j, req );
+         auto future = _client->rpc( service::block_store, j.dump(), 750 /* ms */, mq::retry_policy::none );
+
+         rpc::block_store::block_store_response resp;
+         pack::from_json( pack::json::parse( future.get() ), resp );
+
+         std::visit( koinos::overloaded {
+            [&]( const rpc::block_store::add_block_response& r )
+            {
+            },
+            [&] ( const rpc::block_store::block_store_error_response& r )
+            {
+               KOINOS_THROW( koinos::exception, "Received error response from block store: ${error}", ("error", r.error_text) );
+            },
+            [&] ( const auto& r )
+            {
+               KOINOS_THROW( koinos::exception, "Unexpected response from block store" );
+            }
+         }, resp );
+      }
+
       if ( !indexing || request.block.header.height % index_message_interval == 0 )
       {
          LOG(info) << "Block application successful - Height: " << request.block.header.height << ", ID: " << request.block.id;
@@ -230,9 +262,15 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          }
       }
    }
-   catch( const koinos::exception& )
+   catch( const std::exception& e )
    {
-      LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id;
+      LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", with reason: " << e.what();
+      _state_db.discard_node( block_node->id() );
+      throw;
+   }
+   catch( ... )
+   {
+      LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id << ", for an unknown reason";
       auto output = ctx.get_pending_console_output();
 
       if ( output.length() > 0 )
@@ -295,7 +333,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          rpc::mempool::mempool_rpc_request mem_req = check_req;
          pack::json j;
          pack::to_json( j, mem_req );
-         auto future = _client->rpc( service::mempool, j.dump() );
+         auto future = _client->rpc( service::mempool, j.dump(), 750 /* ms */, mq::retry_policy::none );
 
          rpc::mempool::mempool_rpc_response resp;
          pack::from_json( pack::json::parse( future.get() ), resp );
@@ -346,9 +384,16 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
    }
-   catch( const koinos::exception& )
+   catch( const std::exception& e )
    {
-      LOG(info) << "Transaction application failed - ID: " << request.transaction.id;
+      LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", with reason: " << e.what();
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
+      _state_db.discard_node( request.transaction.id );
+      throw;
+   }
+   catch( ... )
+   {
+      LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", for an unknown reason";
       std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( request.transaction.id );
       throw;
