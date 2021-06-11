@@ -750,14 +750,4 @@ BOOST_AUTO_TEST_CASE( get_head_block_time )
    BOOST_REQUIRE( system_call::get_head_block_time( ctx ) == block.header.timestamp );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( pow_read_dump )
-{
-   koinos::rpc::chain::chain_rpc_request req = koinos::rpc::chain::read_contract_request{
-      .contract_id = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 },
-      .entry_point = 0x4a758831,
-      .args = koinos::variable_blob()
-   };
-   LOG(info) << req;
-}
-
 BOOST_AUTO_TEST_SUITE_END()
