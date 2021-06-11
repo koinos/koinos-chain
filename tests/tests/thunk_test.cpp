@@ -413,9 +413,8 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 { try {
 
    BOOST_TEST_MESSAGE( "last irreversible block test" );
-   const int last_irreversible_threshold = 6;
 
-   for( int i = 0; i < last_irreversible_threshold; i++ )
+   for( int i = 0; i < uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
    {
       auto lib = system_call::get_last_irreversible_block( ctx );
       BOOST_REQUIRE_EQUAL( lib, 0 );

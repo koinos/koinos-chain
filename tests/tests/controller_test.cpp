@@ -3,6 +3,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/system_calls.hpp>
@@ -194,6 +195,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 BOOST_AUTO_TEST_CASE( block_irreversibility )
 { try {
    using namespace koinos;
+   using namespace koinos::chain;
 
    rpc::chain::submit_block_request block_req;
    block_req.verify_passive_data = true;
@@ -202,7 +204,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
    auto head_info_res = _controller.get_head_info();
 
-   for( int i = 1; i <= 6; i++ )
+   for( uint32_t i = 1; i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
       block_req.block.active_data.make_mutable();
@@ -222,7 +224,9 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       BOOST_REQUIRE( head_info_res.last_irreversible_height == 0 );
    }
 
-   for( int i = 7; i <= 10; i++ )
+   for( uint32_t i = uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ) + 1;
+        i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ) + 3;
+        i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
       block_req.block.active_data.make_mutable();
@@ -239,7 +243,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
       head_info_res = _controller.get_head_info();
 
-      BOOST_REQUIRE( head_info_res.last_irreversible_height == i - 6 );
+      BOOST_REQUIRE( head_info_res.last_irreversible_height == i - DEFAULT_IRREVERSIBLE_THRESHOLD );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -247,6 +251,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 BOOST_AUTO_TEST_CASE( fork_heads )
 { try {
    using namespace koinos;
+   using namespace koinos::chain;
 
    BOOST_TEST_MESSAGE( "Setting up forks and checking heads" );
 
@@ -260,7 +265,7 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    auto root_head_info = _controller.get_head_info();
    auto head_info = root_head_info;
 
-   for( int i = 1; i <= 6; i++ )
+   for( int i = 1; i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
    {
       block_req.block.active_data.make_mutable();
       block_req.block.header.timestamp = test_timestamp + i;
@@ -282,10 +287,10 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    auto fork_head_info = head_info;
    head_info = root_head_info;
 
-   for( int i = 1; i <= 6; i++ )
+   for( int i = 1; i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
    {
       block_req.block.active_data.make_mutable();
-      block_req.block.header.timestamp = test_timestamp + i + 6;
+      block_req.block.header.timestamp = test_timestamp + i + uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD );
       block_req.block.header.height    = head_info.head_topology.height + 1;
       block_req.block.header.previous  = head_info.head_topology.id;
 
@@ -321,7 +326,7 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    }
 
    block_req.block.active_data.make_mutable();
-   block_req.block.header.timestamp = test_timestamp + 13;
+   block_req.block.header.timestamp = test_timestamp + ( 2 * uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ) ) + 1;
    block_req.block.header.height    = head_info.head_topology.height + 1;
    block_req.block.header.previous  = head_info.head_topology.id;
 

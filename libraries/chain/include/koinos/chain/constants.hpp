@@ -18,5 +18,7 @@ const statedb::object_space KERNEL_SPACE_ID = uint256( "0xc72196cc927d29fc4c456f
 // Size for buffer when fetching system call from database -> 1 for variant, 20 for contract_id, 4 for entry_point
 const int64_t SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE = 1 + 20 + 4;
 
-} // koinos::chain
+// Default irreversible block threshold
+const block_height_type DEFAULT_IRREVERSIBLE_THRESHOLD = block_height_type{ 60 };
 
+} // koinos::chain

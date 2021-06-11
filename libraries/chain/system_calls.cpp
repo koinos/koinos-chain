@@ -671,10 +671,8 @@ THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const protocol::transac
 
 THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 {
-   static const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type{ 60 };
-
    auto head = context.get_state_node();
-   return block_height_type( head->revision() > IRREVERSIBLE_THRESHOLD ? head->revision() - IRREVERSIBLE_THRESHOLD : 0 );
+   return block_height_type( head->revision() > DEFAULT_IRREVERSIBLE_THRESHOLD ? head->revision() - DEFAULT_IRREVERSIBLE_THRESHOLD : 0 );
 }
 
 THUNK_DEFINE_VOID( get_caller_return, get_caller )
