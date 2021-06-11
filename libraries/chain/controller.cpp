@@ -265,12 +265,21 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    catch( const std::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", with reason: " << e.what();
+
+      auto output = ctx.get_pending_console_output();
+
+      if ( output.length() > 0 )
+      {
+         LOG(info) << "Output:\n" << output;
+      }
+
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( block_node->id() );
       throw;
    }
    catch( ... )
    {
-      LOG(info) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id << ", for an unknown reason";
+      LOG(warning) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id << ", for an unknown reason";
       auto output = ctx.get_pending_console_output();
 
       if ( output.length() > 0 )
