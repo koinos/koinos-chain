@@ -195,7 +195,13 @@ THUNK_DEFINE( void, apply_block,
    }
    KOINOS_ASSERT( system_call::verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
 
-   //if( check_block_signature )
+   /*
+    * The PoW implementation of verify_block_signature has side effects. While this is the case, we should never
+    * skip it. We either need to remove this flag or redesign our system call arhictecture the prevent
+    * side effects within verify_block_signature. (Issue 408)
+    */
+   KOINOS_TODO( "Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)" )
+   // if( check_block_signature )
    {
       multihash block_hash;
       block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
