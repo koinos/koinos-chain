@@ -22,9 +22,6 @@
 
 #include <mira/database_configuration.hpp>
 
-#include "koin.hpp"
-#include "pow.hpp"
-
 #define KOINOS_MAJOR_VERSION "0"
 #define KOINOS_MINOR_VERSION "1"
 #define KOINOS_PATCH_VERSION "0"
@@ -496,16 +493,6 @@ int main( int argc, char** argv )
 
       chain::genesis_data genesis_data;
       genesis_data[ { 0, KOINOS_STATEDB_CHAIN_ID_KEY } ] = pack::to_variable_blob( chain_id );
-      genesis_data[ { chain::CONTRACT_SPACE_ID, 0 } ] = variable_blob( koin_wasm, koin_wasm + koin_wasm_len ); // KOIN Contract
-      genesis_data[ { chain::CONTRACT_SPACE_ID, 1 } ] = variable_blob( pow_wasm, pow_wasm + pow_wasm_len ); // PoW Contract
-      genesis_data[ { chain::SYS_CALL_DISPATCH_TABLE_SPACE_ID, chain::system_call_id::verify_block_signature } ] = pack::to_variable_blob(
-         chain::system_call_target {
-            chain::contract_call_bundle {
-               pack::from_variable_blob< contract_id_type >( pack::to_variable_blob( uint160_t( 1 ) ) ),
-               0
-            }
-         }
-      ); // PoW Override
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
