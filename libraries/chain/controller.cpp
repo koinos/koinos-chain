@@ -74,8 +74,8 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
       for ( const auto& entry : data )
       {
          statedb::put_object_args put_args;
-         put_args.space = 0;
-         put_args.key = entry.first;
+         put_args.space = entry.first.first;
+         put_args.key = entry.first.second;
          put_args.buf = entry.second.data();
          put_args.object_size = entry.second.size();
 
@@ -134,9 +134,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
    }
 
+   apply_context ctx;
+
    try
    {
-      apply_context ctx;
+
       ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
          .call_privilege = privilege::kernel_mode
@@ -192,7 +194,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       if ( output.length() > 0 )
       {
-         LOG(info) << output;
+         LOG(info) << "Output:\n" << output;
       }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
@@ -263,12 +265,29 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    catch( const std::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", with reason: " << e.what();
+
+      auto output = ctx.get_pending_console_output();
+
+      if ( output.length() > 0 )
+      {
+         LOG(info) << "Output:\n" << output;
+      }
+
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( block_node->id() );
       throw;
    }
    catch( ... )
    {
-      LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", for an unknown reason";
+      LOG(warning) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id << ", for an unknown reason";
+      auto output = ctx.get_pending_console_output();
+
+      if ( output.length() > 0 )
+      {
+         LOG(info) << "Output:\n" << output;
+      }
+
+      std::lock_guard< std::mutex > lock( _state_db_mutex );
       _state_db.discard_node( block_node->id() );
       throw;
    }

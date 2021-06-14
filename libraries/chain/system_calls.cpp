@@ -193,19 +193,25 @@ THUNK_DEFINE( void, apply_block,
    {
       hashes[i] = crypto::hash_like( tx_root, block.transactions[i].active_data );
    }
-   KOINOS_ASSERT( verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
 
-   if( check_block_signature )
+   /*
+    * The PoW implementation of verify_block_signature has side effects. While this is the case, we should never
+    * skip it. We either need to remove this flag or redesign our system call arhictecture the prevent
+    * side effects within verify_block_signature. (Issue 408)
+    */
+   KOINOS_TODO( "Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)" )
+   // if( check_block_signature )
    {
       multihash block_hash;
       block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
-      KOINOS_ASSERT( verify_block_signature( context, block.signature_data, block_hash ), invalid_block_signature, "Block signature does not match" );
+      KOINOS_ASSERT( system_call::verify_block_signature( context, block.signature_data, block_hash ), invalid_block_signature, "Block signature does not match" );
    }
 
    auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
    vkey.resize( 32, char(0) );
    auto key = pack::from_variable_blob< statedb::object_key >( vkey );
-   db_put_object( context, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
+   system_call::db_put_object( context, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
 
    // Check passive Merkle root
    if( check_passive_data )
@@ -236,7 +242,7 @@ THUNK_DEFINE( void, apply_block,
          hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i].signature_data );
       }
 
-      KOINOS_ASSERT( verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
    }
 
    //
@@ -260,7 +266,7 @@ THUNK_DEFINE( void, apply_block,
 
    for( const auto& tx : block.transactions )
    {
-      apply_transaction( context, tx );
+      system_call::apply_transaction( context, tx );
    }
 }
 
@@ -290,7 +296,7 @@ inline void require_payer_transaction_nonce( apply_context& ctx, account_type pa
 
    statedb::object_key key;
    key = pack::from_variable_blob< statedb::object_key >( vkey );
-   auto obj = db_get_object( ctx, KERNEL_SPACE_ID, key );
+   auto obj = system_call::db_get_object( ctx, KERNEL_SPACE_ID, key );
    if ( obj.size() > 0 )
    {
       uint64 unpacked_nonce = pack::from_variable_blob< uint64 >( obj );
@@ -317,7 +323,7 @@ inline void update_payer_transaction_nonce( apply_context& ctx, account_type pay
 
    variable_blob obj;
    pack::to_variable_blob( obj, nonce );
-   db_put_object( ctx, KERNEL_SPACE_ID, key, obj );
+   system_call::db_put_object( ctx, KERNEL_SPACE_ID, key, obj );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -329,8 +335,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    auto setter = transaction_setter( context, trx );
    trx.active_data.unbox();
 
-   auto payer = get_transaction_payer( context, trx );
-   require_authority( context, payer );
+   auto payer = system_call::get_transaction_payer( context, trx );
+   system_call::require_authority( context, payer );
    require_payer_transaction_nonce( context, payer, trx.active_data->nonce );
 
    for( const auto& o : trx.active_data->operations )
@@ -339,19 +345,19 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          [&]( const nop_operation& op ) { /* intentional fallthrough */ },
          [&]( const reserved_operation& op )
          {
-            apply_reserved_operation( context, op );
+            system_call::apply_reserved_operation( context, op );
          },
          [&]( const create_system_contract_operation& op )
          {
-            apply_upload_contract_operation( context, op );
+            system_call::apply_upload_contract_operation( context, op );
          },
          [&]( const call_contract_operation& op )
          {
-            apply_execute_contract_operation( context, op );
+            system_call::apply_execute_contract_operation( context, op );
          },
          [&]( const set_system_call_operation& op )
          {
-            apply_set_system_call_operation( context, op );
+            system_call::apply_set_system_call_operation( context, op );
          },
       }, o );
    }
@@ -371,7 +377,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
-   db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
+   system_call::db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
 }
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -385,7 +391,8 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_con
          .call_privilege = privilege::user_mode,
       },
       [&]() {
-         execute_contract( context, o.contract_id, o.entry_point, o.args );
+         // execute_contract cannot be overridden
+         thunk::execute_contract( context, o.contract_id, o.entry_point, o.args );
       }
    );
 }
@@ -412,12 +419,14 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       } }, o.target );
 
    // Place the override in the database
-   db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( o.target ) );
+   system_call::db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )
 {
-   if ( space != pack::from_variable_blob< uint160 >( context.get_caller() ) )
+   auto privilege = context.get_privilege();
+   auto caller = pack::from_variable_blob< uint160 >( context.get_caller() );
+   if ( space != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
       {
@@ -542,7 +551,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       },
       [&]()
       {
-         bytecode = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+         bytecode = system_call::db_get_object( context, CONTRACT_SPACE_ID, contract_key );
          KOINOS_ASSERT( bytecode.size(), invalid_contract, "Contract does not exist" );
       }
    );
@@ -568,9 +577,11 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    catch( const exit_success& ) {}
    catch( ... ) {
       context.pop_frame();
+      wa.free();
       throw;
    }
 
+   wa.free();
    return context.pop_frame().call_return;
 }
 
@@ -611,7 +622,8 @@ THUNK_DEFINE_VOID( chain::head_info, get_head_info )
 THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
    KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
-   return crypto::hash_str( id, obj.data(), obj.size(), size );
+   auto hash = crypto::hash_str( id, obj.data(), obj.size(), size );
+   return hash;
 }
 
 THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signature_data, (const multihash&) digest) )
@@ -632,7 +644,7 @@ THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signatu
 THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
    multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   account_type account = recover_public_key( context, transaction.signature_data, digest );
+   account_type account = system_call::recover_public_key( context, transaction.signature_data, digest );
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
    KOINOS_TODO( "stream override for variable_blob needs to be updated" );
@@ -659,10 +671,8 @@ THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const protocol::transac
 
 THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 {
-   static const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type{ 6 };
-
    auto head = context.get_state_node();
-   return block_height_type( head->revision() > IRREVERSIBLE_THRESHOLD ? head->revision() - IRREVERSIBLE_THRESHOLD : 0 );
+   return block_height_type( head->revision() > DEFAULT_IRREVERSIBLE_THRESHOLD ? head->revision() - DEFAULT_IRREVERSIBLE_THRESHOLD : 0 );
 }
 
 THUNK_DEFINE_VOID( get_caller_return, get_caller )
@@ -685,7 +695,7 @@ THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
 THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
 {
    auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
-   account_type sig_account = recover_public_key( context, get_transaction_signature( context ), digest );
+   account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
    KOINOS_ASSERT( sig_account.size() == account.size() &&
       std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match",
       ("account", account)("sig_account", sig_account) );

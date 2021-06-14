@@ -11,6 +11,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/exception.hpp>
@@ -187,7 +188,7 @@ void attach_request_handler(
             controller.submit_block( {
                .block = bam.block,
                .verify_passive_data = false,
-               .verify_block_signature = false,
+               .verify_block_signature = true,
                .verify_transaction_signatures = false
             } );
          }
@@ -263,9 +264,9 @@ void index_loop(
             controller.submit_block( {
                .block = *block_item.block,
                .verify_passive_data = false,
-               .verify_block_signature = false,
+               .verify_block_signature = true,
                .verify_transaction_signatures = false
-            }, true );
+            }, false );
          }
       }
       catch ( const boost::exception& e )
@@ -491,7 +492,7 @@ int main( int argc, char** argv )
 
 
       chain::genesis_data genesis_data;
-      genesis_data[ KOINOS_STATEDB_CHAIN_ID_KEY ] = pack::to_variable_blob( chain_id );
+      genesis_data[ { 0, KOINOS_STATEDB_CHAIN_ID_KEY } ] = pack::to_variable_blob( chain_id );
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );

@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#define STATE_DB_MAX_OBJECT_SIZE 208896
+#define STATE_DB_MAX_OBJECT_SIZE 1024*1024 // 1 MB
 
 namespace koinos { namespace statedb {
 
