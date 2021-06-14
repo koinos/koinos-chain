@@ -108,7 +108,7 @@ stack_frame apply_context::pop_frame()
    return frame;
 }
 
-const account_type& apply_context::get_caller()const
+const protocol::account_type& apply_context::get_caller()const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
    return _stack[ _stack.size() - 2 ].call;
