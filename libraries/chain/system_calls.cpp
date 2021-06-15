@@ -136,7 +136,7 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( bool, verify_block_signature, ((const variable_blob&) signature_data, (const multihash&) digest) )
+THUNK_DEFINE( bool, verify_block_signature, ((const multihash&) digest, (const opaque< protocol::active_block_data >&) active_data, (const variable_blob&) signature_data) )
 {
    crypto::recoverable_signature sig;
    pack::from_variable_blob( signature_data, sig );
@@ -205,7 +205,7 @@ THUNK_DEFINE( void, apply_block,
    {
       multihash block_hash;
       block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
-      KOINOS_ASSERT( system_call::verify_block_signature( context, block.signature_data, block_hash ), invalid_block_signature, "Block signature does not match" );
+      KOINOS_ASSERT( system_call::verify_block_signature( context, block_hash, block.active_data, block.signature_data ), invalid_block_signature, "Block signature does not match" );
    }
 
    auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
@@ -288,7 +288,7 @@ struct transaction_setter
    apply_context& ctx;
 };
 
-inline void require_payer_transaction_nonce( apply_context& ctx, account_type payer, uint64 nonce )
+inline void require_payer_transaction_nonce( apply_context& ctx, protocol::account_type payer, uint64 nonce )
 {
    variable_blob vkey;
    pack::to_variable_blob( vkey, payer );
@@ -312,7 +312,7 @@ inline void require_payer_transaction_nonce( apply_context& ctx, account_type pa
    }
 }
 
-inline void update_payer_transaction_nonce( apply_context& ctx, account_type payer, uint64 nonce )
+inline void update_payer_transaction_nonce( apply_context& ctx, protocol::account_type payer, uint64 nonce )
 {
    variable_blob vkey;
    pack::to_variable_blob( vkey, payer );
@@ -641,10 +641,10 @@ THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signatu
    return variable_blob( address.begin(), address.end() );
 }
 
-THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( protocol::account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
    multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   account_type account = system_call::recover_public_key( context, transaction.signature_data, digest );
+   protocol::account_type account = system_call::recover_public_key( context, transaction.signature_data, digest );
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
    KOINOS_TODO( "stream override for variable_blob needs to be updated" );
@@ -655,7 +655,7 @@ THUNK_DEFINE( account_type, get_transaction_payer, ((const protocol::transaction
    return account;
 }
 
-THUNK_DEFINE( uint128, get_max_account_resources, ((const account_type&) account) )
+THUNK_DEFINE( uint128, get_max_account_resources, ((const protocol::account_type&) account) )
 {
    uint128 max_resources = 1000000000000;
    return max_resources;
@@ -692,10 +692,10 @@ THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
    return context.get_transaction().signature_data;
 }
 
-THUNK_DEFINE( void, require_authority, ((const account_type&) account) )
+THUNK_DEFINE( void, require_authority, ((const protocol::account_type&) account) )
 {
    auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
-   account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
+   protocol::account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
    KOINOS_ASSERT( sig_account.size() == account.size() &&
       std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match",
       ("account", account)("sig_account", sig_account) );

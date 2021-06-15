@@ -280,6 +280,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    catch( ... )
    {
       LOG(warning) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id << ", for an unknown reason";
+
       auto output = ctx.get_pending_console_output();
 
       if ( output.length() > 0 )
@@ -297,7 +298,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   koinos::chain::account_type payer;
+   koinos::protocol::account_type payer;
    uint128 max_payer_resources;
    uint128 trx_resource_limit;
 

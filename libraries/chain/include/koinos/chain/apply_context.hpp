@@ -18,11 +18,11 @@ using koinos::statedb::state_node_ptr;
 
 struct stack_frame
 {
-   account_type  call;
-   privilege     call_privilege;
-   variable_blob call_args;
-   uint32_t      entry_point = 0;
-   variable_blob call_return;
+   protocol::account_type  call;
+   privilege               call_privilege;
+   variable_blob           call_args;
+   uint32_t                entry_point = 0;
+   variable_blob           call_return;
 };
 
 class apply_context
@@ -64,7 +64,7 @@ class apply_context
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
 
-      const account_type& get_caller()const;
+      const protocol::account_type& get_caller()const;
       privilege get_caller_privilege()const;
 
       void set_privilege( privilege );

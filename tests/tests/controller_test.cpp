@@ -156,8 +156,11 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
 
+   auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
+   auto foo_address = foo_key.get_public_key().to_address();
+
    block_req.block.active_data.make_mutable();
-   block_req.block.active_data->signer_address = crypto::hash( CRYPTO_SHA2_256_ID, std::string( "random" ) );
+   block_req.block.active_data->signer = protocol::account_type( foo_address.begin(), foo_address.end() );
    block_req.block.header.height = 1;
    block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
