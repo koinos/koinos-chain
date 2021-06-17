@@ -177,8 +177,18 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block );
 
+   BOOST_TEST_MESSAGE( "Error when block timestamp is too far in the future" );
 
-   BOOST_TEST_MESSAGE( "Test succesful block" );
+   duration = ( std::chrono::system_clock::now() + std::chrono::minutes( 1 ) ).time_since_epoch();
+   block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+   block_req.block.header.previous  = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::time_delta_exceeded );
+
+   duration = std::chrono::system_clock::now().time_since_epoch();
+   block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+
+   BOOST_TEST_MESSAGE( "Test successful block" );
 
    block_req.block.header.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_req.block.active_data.make_mutable();

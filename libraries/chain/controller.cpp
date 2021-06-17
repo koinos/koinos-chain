@@ -117,23 +117,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 {
    static constexpr uint64_t index_message_interval = 10000;
 
-   if( crypto::multihash_is_zero( request.block.header.previous ) )
-   {
-      // Genesis case
-      KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
-   }
-
-   if ( !indexing )
-   {
-      auto time_delta = timestamp_type {
-         std::chrono::duration_cast< std::chrono::milliseconds >(
-            ( now + std::chrono::seconds( 30 ) ).time_since_epoch()
-         ).count()
-      };
-
-      KOINOS_ASSERT( request.block.header.timestamp <= time_delta, time_delta_exceeded, "Block timestamp is too far in the future" );
-   }
-
    // Check if the block has already been applied
    statedb::state_node_ptr block_node;
 
@@ -149,13 +132,27 @@ rpc::chain::submit_block_response controller_impl::submit_block(
             << ", ID: " << request.block.id;
       }
       block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
-      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
    }
 
    apply_context ctx;
 
    try
    {
+      if ( crypto::multihash_is_zero( request.block.header.previous ) )
+      {
+         // Genesis case
+         KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
+      }
+
+      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
+
+      auto time_delta = timestamp_type {
+         std::chrono::duration_cast< std::chrono::milliseconds >(
+            ( now + std::chrono::seconds( 30 ) ).time_since_epoch()
+         ).count()
+      };
+
+      KOINOS_ASSERT( request.block.header.timestamp <= time_delta, time_delta_exceeded, "Block timestamp is too far in the future" );
 
       ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
@@ -291,8 +288,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( block_node->id() );
+      if ( block_node )
+      {
+         std::lock_guard< std::mutex > lock( _state_db_mutex );
+         _state_db.discard_node( block_node->id() );
+      }
+
       throw;
    }
    catch( ... )
@@ -306,8 +307,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( block_node->id() );
+      if ( block_node )
+      {
+         std::lock_guard< std::mutex > lock( _state_db_mutex );
+         _state_db.discard_node( block_node->id() );
+      }
+
       throw;
    }
 
