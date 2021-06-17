@@ -48,6 +48,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( root_height_mismatch, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( duplicate_trx_state, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( trx_state_error, controller_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( time_delta_exceeded, controller_exception );
 
 // Stack exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( stack_exception, chain_exception );

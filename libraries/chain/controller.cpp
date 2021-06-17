@@ -40,7 +40,11 @@ class controller_impl final
       void open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
-      rpc::chain::submit_block_response       submit_block(       const rpc::chain::submit_block_request&, bool indexing );
+      rpc::chain::submit_block_response submit_block(
+         const rpc::chain::submit_block_request&,
+         bool indexing,
+         std::chrono::system_clock::time_point now
+      );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
       rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request& );
       rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request& );
@@ -106,7 +110,10 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
    _client = c;
 }
 
-rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
+rpc::chain::submit_block_response controller_impl::submit_block(
+   const rpc::chain::submit_block_request& request,
+   bool indexing,
+   std::chrono::system_clock::time_point now )
 {
    static constexpr uint64_t index_message_interval = 10000;
 
@@ -114,6 +121,17 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
    {
       // Genesis case
       KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
+   }
+
+   if ( !indexing )
+   {
+      auto time_delta = timestamp_type {
+         std::chrono::duration_cast< std::chrono::milliseconds >(
+            ( now + std::chrono::seconds( 30 ) ).time_since_epoch()
+         ).count()
+      };
+
+      KOINOS_ASSERT( request.block.header.timestamp <= time_delta, time_delta_exceeded, "Block timestamp is too far in the future" );
    }
 
    // Check if the block has already been applied
@@ -568,9 +586,12 @@ void controller::set_client( std::shared_ptr< mq::client > c )
    _my->set_client( c );
 }
 
-rpc::chain::submit_block_response controller::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
+rpc::chain::submit_block_response controller::submit_block(
+   const rpc::chain::submit_block_request& request,
+   bool indexing,
+   std::chrono::system_clock::time_point now )
 {
-   return _my->submit_block( request, indexing );
+   return _my->submit_block( request, indexing, now );
 }
 
 rpc::chain::submit_transaction_response controller::submit_transaction( const rpc::chain::submit_transaction_request& request )
