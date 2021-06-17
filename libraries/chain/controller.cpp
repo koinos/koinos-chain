@@ -146,13 +146,11 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
-      auto time_delta = timestamp_type {
-         std::chrono::duration_cast< std::chrono::milliseconds >(
-            ( now + std::chrono::seconds( 30 ) ).time_since_epoch()
-         ).count()
-      };
+      auto time_delta = std::chrono::duration_cast< std::chrono::milliseconds >(
+         ( now + std::chrono::seconds( 30 ) ).time_since_epoch()
+      ).count();
 
-      KOINOS_ASSERT( request.block.header.timestamp <= time_delta, time_delta_exceeded, "Block timestamp is too far in the future" );
+      KOINOS_ASSERT( request.block.header.timestamp.t <= time_delta, time_delta_exceeded, "Block timestamp is too far in the future" );
 
       ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
