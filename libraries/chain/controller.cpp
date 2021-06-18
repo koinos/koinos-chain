@@ -159,9 +159,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    try
    {
       // Genesis case, when the first block is submitted the previous must be the zero hash
-      if ( crypto::multihash_is_zero( request.block.header.previous ) )
+      if ( request.block.header.height == 1 )
       {
-         KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
+         KOINOS_ASSERT( crypto::multihash_is_zero( request.block.header.previous ), unknown_previous_block, "First block must have a zero previous hash" );
       }
 
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
