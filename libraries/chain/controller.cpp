@@ -116,8 +116,11 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    std::chrono::system_clock::time_point now )
 {
    static constexpr uint64_t index_message_interval = 10000;
+   static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
 
-   // Check if the block has already been applied
+   auto time_lower_bound = uint64_t( 0 );
+   auto time_upper_bound = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
+
    statedb::state_node_ptr block_node;
 
    {
@@ -131,26 +134,40 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Pushing block - Height: " << request.block.header.height
             << ", ID: " << request.block.id;
       }
+
       block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
+
+      // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
+      // than the parent block timestamp.
+      if ( block_node && !crypto::multihash_is_zero( request.block.header.previous ) )
+      {
+         apply_context parent_ctx;
+
+         parent_ctx.push_frame( stack_frame {
+            .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
+            .call_privilege = privilege::kernel_mode
+         } );
+
+         auto parent_node = _state_db.get_node( request.block.header.previous );
+         parent_ctx.set_state_node( parent_node );
+         time_lower_bound = system_call::get_head_block_time( parent_ctx ).t;
+      }
    }
 
    apply_context ctx;
 
    try
    {
+      // Genesis case, when the first block is submitted the previous must be the zero hash
       if ( crypto::multihash_is_zero( request.block.header.previous ) )
       {
-         // Genesis case
          KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
       }
 
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
-      auto time_delta = std::chrono::duration_cast< std::chrono::milliseconds >(
-         ( now + std::chrono::seconds( 30 ) ).time_since_epoch()
-      ).count();
-
-      KOINOS_ASSERT( request.block.header.timestamp.t <= time_delta, time_delta_exceeded, "Block timestamp is too far in the future" );
+      KOINOS_ASSERT( request.block.header.timestamp.t <= time_upper_bound, timestamp_out_of_bounds, "Block timestamp is too far in the future" );
+      KOINOS_ASSERT( request.block.header.timestamp.t >= time_lower_bound, timestamp_out_of_bounds, "Block timestamp is too old" );
 
       ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
