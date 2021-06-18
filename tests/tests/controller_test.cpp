@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::root_height_mismatch );
 
 
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
