@@ -108,7 +108,7 @@ using namespace koinos::chain;
 
 BOOST_AUTO_TEST_CASE( db_crud )
 { try {
-   auto node = ctx.get_state_node();
+   auto node = std::dynamic_pointer_cast< koinos::statedb::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE( chain_thunks_test )
    auto info = koinos::chain::system_call::get_head_info( ctx );
    BOOST_CHECK_EQUAL( info.head_topology.height, 1 );
    // Test exception when null state pointer is passed
-   ctx.set_state_node( nullptr );
+   ctx.set_state_node( std::shared_ptr< abstract_state_node >() );
    BOOST_REQUIRE_THROW( system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

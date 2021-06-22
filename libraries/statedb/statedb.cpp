@@ -55,8 +55,8 @@ using state_delta_ptr = std::shared_ptr< state_delta_type >;
 class state_node_impl final
 {
    public:
-      state_node_impl();
-      ~state_node_impl();
+      state_node_impl() {}
+      ~state_node_impl() {}
 
       void get_object( get_object_result& result, const get_object_args& args )const;
       void get_next_object( get_object_result& result, const get_object_args& args )const;
@@ -67,9 +67,6 @@ class state_node_impl final
       state_delta_ptr   _state;
       bool              _is_writable = true;
 };
-
-state_node_impl::state_node_impl() {}
-state_node_impl::~state_node_impl() {}
 
 /**
  * Private implementation of state_db interface.
@@ -461,33 +458,36 @@ bool state_node_impl::is_empty()const
 
 } // detail
 
-state_node::state_node() : impl( new detail::state_node_impl() ) {}
-state_node::~state_node() {}
+abstract_state_node::abstract_state_node() : impl( new detail::state_node_impl() ) {}
+abstract_state_node::~abstract_state_node() {}
 
-void state_node::get_object( get_object_result& result, const get_object_args& args )const
+void abstract_state_node::get_object( get_object_result& result, const get_object_args& args )const
 {
    impl->get_object( result, args );
 }
 
-void state_node::get_next_object( get_object_result& result, const get_object_args& args )const
+void abstract_state_node::get_next_object( get_object_result& result, const get_object_args& args )const
 {
    impl->get_next_object( result, args );
 }
 
-void state_node::get_prev_object( get_object_result& result, const get_object_args& args )const
+void abstract_state_node::get_prev_object( get_object_result& result, const get_object_args& args )const
 {
    impl->get_prev_object( result, args );
 }
 
-void state_node::put_object( put_object_result& result, const put_object_args& args )
+void abstract_state_node::put_object( put_object_result& result, const put_object_args& args )
 {
    impl->put_object( result, args );
 }
 
-bool state_node::is_writable()const
+bool abstract_state_node::is_writable()const
 {
    return impl->_is_writable;
 }
+
+state_node::state_node() : abstract_state_node() {}
+state_node::~state_node() {}
 
 const state_node_id& state_node::id()const
 {
@@ -503,6 +503,38 @@ uint64_t state_node::revision()const
 {
    return impl->_state->revision();
 }
+
+anonymous_state_node_ptr state_node::create_anonymous_node()
+{
+   auto anonymous_node = std::make_shared< anonymous_state_node >();
+   anonymous_node->impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
+   return anonymous_node;
+}
+
+anonymous_state_node::anonymous_state_node() : abstract_state_node() {}
+anonymous_state_node::anonymous_state_node::~anonymous_state_node() {}
+
+const state_node_id& anonymous_state_node::id()const
+{
+   return impl->_state->parent()->id();
+}
+
+const state_node_id& anonymous_state_node::parent_id()const
+{
+   return impl->_state->parent()->parent_id();
+}
+
+uint64_t anonymous_state_node::revision()const
+{
+   return impl->_state->parent()->revision();
+}
+
+void anonymous_state_node::commit()
+{
+   impl->_state->squash();
+   impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
+}
+
 
 state_db::state_db() : impl( new detail::state_db_impl() ) {}
 state_db::~state_db() {}

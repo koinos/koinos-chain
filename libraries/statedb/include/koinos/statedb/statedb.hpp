@@ -16,6 +16,7 @@ namespace koinos { namespace statedb {
 namespace detail {
 class state_db_impl;
 class state_node_impl;
+class anonymous_state_node_impl;
 }
 
 struct get_object_args
@@ -48,11 +49,11 @@ struct put_object_result
 /**
  * Allows querying the database at a particular checkpoint.
  */
-class state_node final
+class abstract_state_node
 {
    public:
-      state_node();
-      ~state_node();
+      abstract_state_node();
+      virtual ~abstract_state_node();
 
       /**
        * Fetch an object if one exists.
@@ -62,7 +63,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      void get_object( get_object_result& result, const get_object_args& args )const;
+      virtual void get_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the next object.
@@ -72,7 +73,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_next_object( get_object_result& result, const get_object_args& args )const;
+      virtual void get_next_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the previous object.
@@ -82,7 +83,7 @@ class state_node final
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_prev_object( get_object_result& result, const get_object_args& args )const;
+      virtual void get_prev_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Write an object into the state_node.
@@ -91,21 +92,57 @@ class state_node final
        * - If object exists, object is overwritten.
        * - If buf == nullptr, object is deleted.
        */
-      void put_object( put_object_result& result, const put_object_args& args );
+      virtual void put_object( put_object_result& result, const put_object_args& args );
 
       /**
        * Return true if the node is writable.
        */
-      bool is_writable()const;
+      virtual bool is_writable()const;
 
-      const state_node_id& id()const;
-      const state_node_id& parent_id()const;
-      uint64_t             revision()const;
+      virtual const state_node_id& id()const = 0;
+      virtual const state_node_id& parent_id()const = 0;
+      virtual uint64_t             revision()const = 0;
 
       friend class detail::state_db_impl;
 
-   private:
+   protected:
       std::unique_ptr< detail::state_node_impl > impl;
+};
+
+class state_node;
+
+class anonymous_state_node final : public abstract_state_node
+{
+   public:
+      anonymous_state_node();
+      ~anonymous_state_node();
+
+      const state_node_id& id()const override;
+      const state_node_id& parent_id()const override;
+      uint64_t             revision()const override;
+
+      void commit();
+      void reset();
+
+      friend class state_node;
+};
+
+using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
+
+/**
+ * Allows querying the database at a particular checkpoint.
+ */
+class state_node final : public abstract_state_node
+{
+   public:
+      state_node();
+      ~state_node();
+
+      const state_node_id& id()const override;
+      const state_node_id& parent_id()const override;
+      uint64_t             revision()const override;
+
+      anonymous_state_node_ptr create_anonymous_node();
 };
 
 using state_node_ptr = std::shared_ptr< state_node >;

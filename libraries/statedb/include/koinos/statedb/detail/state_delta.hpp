@@ -34,7 +34,7 @@ namespace koinos::statedb::detail {
          uint64_t                                  _revision = 0;
 
       public:
-         state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id ) :
+         state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id = state_node_id() ) :
             _parent( parent ), _id( id )
          {
             if( _parent != nullptr )
