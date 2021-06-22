@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE( chain_thunks_test )
    auto info = koinos::chain::system_call::get_head_info( ctx );
    BOOST_CHECK_EQUAL( info.head_topology.height, 1 );
    // Test exception when null state pointer is passed
-   ctx.set_state_node( nullptr );
+   ctx.set_state_node( std::shared_ptr< abstract_state_node >() );
    BOOST_REQUIRE_THROW( system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

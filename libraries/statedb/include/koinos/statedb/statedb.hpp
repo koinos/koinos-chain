@@ -52,8 +52,8 @@ struct put_object_result
 class abstract_state_node
 {
    public:
-      abstract_state_node() {};
-      virtual ~abstract_state_node() {};
+      abstract_state_node();
+      virtual ~abstract_state_node();
 
       /**
        * Fetch an object if one exists.
@@ -63,7 +63,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      virtual void get_object( get_object_result& result, const get_object_args& args )const = 0;
+      virtual void get_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the next object.
@@ -73,7 +73,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      virtual void get_next_object( get_object_result& result, const get_object_args& args )const = 0;
+      virtual void get_next_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the previous object.
@@ -83,7 +83,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      virtual void get_prev_object( get_object_result& result, const get_object_args& args )const = 0;
+      virtual void get_prev_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Write an object into the state_node.
@@ -92,17 +92,42 @@ class abstract_state_node
        * - If object exists, object is overwritten.
        * - If buf == nullptr, object is deleted.
        */
-      virtual void put_object( put_object_result& result, const put_object_args& args ) = 0;
+      virtual void put_object( put_object_result& result, const put_object_args& args );
 
       /**
        * Return true if the node is writable.
        */
-      virtual bool is_writable()const = 0;
+      virtual bool is_writable()const;
 
       virtual const state_node_id& id()const = 0;
       virtual const state_node_id& parent_id()const = 0;
       virtual uint64_t             revision()const = 0;
+
+      friend class detail::state_db_impl;
+
+   protected:
+      std::unique_ptr< detail::state_node_impl > impl;
 };
+
+class state_node;
+
+class anonymous_state_node final : virtual public abstract_state_node
+{
+   public:
+      anonymous_state_node();
+      ~anonymous_state_node();
+
+      const state_node_id& id()const;
+      const state_node_id& parent_id()const;
+      uint64_t             revision()const;
+
+      void commit();
+      void reset();
+
+      friend class state_node;
+};
+
+using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
 
 /**
  * Allows querying the database at a particular checkpoint.
@@ -113,24 +138,11 @@ class state_node final : virtual public abstract_state_node
       state_node();
       ~state_node();
 
-      void get_object( get_object_result& result, const get_object_args& args )const;
-
-      void get_next_object( get_object_result& result, const get_object_args& args )const;
-
-      void get_prev_object( get_object_result& result, const get_object_args& args )const;
-
-      void put_object( put_object_result& result, const put_object_args& args );
-
-      bool is_writable()const;
-
       const state_node_id& id()const;
       const state_node_id& parent_id()const;
       uint64_t             revision()const;
 
-      friend class detail::state_db_impl;
-
-   private:
-      std::unique_ptr< detail::state_node_impl > impl;
+      anonymous_state_node_ptr create_anonymous_node();
 };
 
 using state_node_ptr = std::shared_ptr< state_node >;

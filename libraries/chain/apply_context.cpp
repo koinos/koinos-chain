@@ -15,7 +15,17 @@ std::string apply_context::get_pending_console_output()
    return buf;
 }
 
+void apply_context::set_state_node( abstract_state_node_ptr node )
+{
+   _current_state_node = node;
+}
+
 void apply_context::set_state_node( state_node_ptr node )
+{
+   _current_state_node = std::dynamic_pointer_cast< abstract_state_node >( node );
+}
+
+void apply_context::set_state_node( anonymous_state_node_ptr node )
 {
    _current_state_node = std::dynamic_pointer_cast< abstract_state_node >( node );
 }
