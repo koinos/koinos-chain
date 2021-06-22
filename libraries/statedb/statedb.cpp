@@ -507,7 +507,7 @@ uint64_t state_node::revision()const
 anonymous_state_node_ptr state_node::create_anonymous_node()
 {
    auto anonymous_node = std::make_shared< anonymous_state_node >();
-   anonymous_node->impl->_state = std::make_shared< detail::state_delta_type >( impl->_state->parent() );
+   anonymous_node->impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
    return anonymous_node;
 }
 
@@ -532,7 +532,7 @@ uint64_t anonymous_state_node::revision()const
 void anonymous_state_node::commit()
 {
    impl->_state->squash();
-   impl->_state = std::make_shared< detail::state_delta_type >( impl->_state->parent() );
+   impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
 }
 
 

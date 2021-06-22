@@ -1476,4 +1476,161 @@ BOOST_AUTO_TEST_CASE( reset_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( anonymous_node_test )
+{ try {
+   BOOST_TEST_MESSAGE( "Creating book" );
+   object_space space = 0;
+   book book_a;
+   book_a.id = 1;
+   book_a.a = 3;
+   book_a.b = 4;
+   book get_book;
+
+   multihash state_id = crypto::hash( CRYPTO_SHA2_256_ID, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+
+   put_object_args put_args;
+   put_object_result put_res;
+   vectorstream vs;
+   pack::to_binary( vs, book_a );
+   put_args.space = space;
+   put_args.key = book_a.id;
+   put_args.buf = const_cast< char* >( vs.vector().data() );
+   put_args.object_size = vs.vector().size();
+
+   state_1->put_object( put_res, put_args );
+   BOOST_REQUIRE( !put_res.object_existed );
+
+   std::vector< char > other_buf;
+   // More than enough space...
+   other_buf.resize( 1024 );
+   vs.swap_vector( other_buf );
+   get_object_args get_args;
+   get_object_result get_res;
+   get_args.space = space;
+   get_args.key = book_a.id;
+   get_args.buf = const_cast< char* >( vs.vector().data() );
+   get_args.buf_size = vs.vector().size();
+
+   state_1->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+   pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+   {
+      BOOST_TEST_MESSAGE( "Creating anonymous state node" );
+      auto anon_state = state_1->create_anonymous_node();
+
+      BOOST_TEST_MESSAGE( "Modifying book" );
+
+      book_a.a = 5;
+      book_a.b = 6;
+      vs.swap_vector( other_buf );
+      pack::to_binary( vs, book_a );
+      put_args.buf = const_cast< char* >( vs.vector().data() );
+      put_args.object_size = vs.vector().size();
+
+      anon_state->put_object( put_res, put_args );
+      BOOST_REQUIRE( put_res.object_existed );
+
+      vs.swap_vector( other_buf );
+      get_args.buf = const_cast< char* >( vs.vector().data() );
+
+      state_1->get_object( get_res, get_args );
+      BOOST_REQUIRE( get_res.key == get_args.key );
+      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+      pack::from_binary( vs, get_book );
+
+      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+      BOOST_REQUIRE_EQUAL( get_book.a, 3 );
+      BOOST_REQUIRE_EQUAL( get_book.b, 4 );
+
+      vs.swap_vector( other_buf );
+      get_args.buf = const_cast< char* >( vs.vector().data() );
+
+      anon_state->get_object( get_res, get_args );
+      BOOST_REQUIRE( get_res.key == get_args.key );
+      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+      pack::from_binary( vs, get_book );
+
+      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+      BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+      BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+      BOOST_TEST_MESSAGE( "Deleting anonymous node" );
+   }
+
+   {
+      BOOST_TEST_MESSAGE( "Creating anonymous state node" );
+      auto anon_state = state_1->create_anonymous_node();
+
+      BOOST_TEST_MESSAGE( "Modifying book" );
+
+      book_a.a = 5;
+      book_a.b = 6;
+      pack::to_binary( vs, book_a );
+      put_args.buf = const_cast< char* >( vs.vector().data() );
+      put_args.object_size = vs.vector().size();
+
+      anon_state->put_object( put_res, put_args );
+      BOOST_REQUIRE( put_res.object_existed );
+
+      vs.swap_vector( other_buf );
+      get_args.buf = const_cast< char* >( vs.vector().data() );
+
+      state_1->get_object( get_res, get_args );
+      BOOST_REQUIRE( get_res.key == get_args.key );
+      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+      pack::from_binary( vs, get_book );
+
+      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+      BOOST_REQUIRE_EQUAL( get_book.a, 3 );
+      BOOST_REQUIRE_EQUAL( get_book.b, 4 );
+
+      vs.swap_vector( other_buf );
+      get_args.buf = const_cast< char* >( vs.vector().data() );
+
+      anon_state->get_object( get_res, get_args );
+      BOOST_REQUIRE( get_res.key == get_args.key );
+      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+      pack::from_binary( vs, get_book );
+
+      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+      BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+      BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+      BOOST_TEST_MESSAGE( "Committing anonymous node" );
+      anon_state->commit();
+
+      vs.swap_vector( other_buf );
+      get_args.buf = const_cast< char* >( vs.vector().data() );
+
+      state_1->get_object( get_res, get_args );
+      BOOST_REQUIRE( get_res.key == get_args.key );
+      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+      pack::from_binary( vs, get_book );
+
+      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+      BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+      BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+   }
+
+   vs.swap_vector( other_buf );
+   get_args.buf = const_cast< char* >( vs.vector().data() );
+
+   state_1->get_object( get_res, get_args );
+   BOOST_REQUIRE( get_res.key == get_args.key );
+   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
+   pack::from_binary( vs, get_book );
+
+   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
+   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
+   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
