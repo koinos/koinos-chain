@@ -1525,6 +1525,10 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
       BOOST_TEST_MESSAGE( "Creating anonymous state node" );
       auto anon_state = state_1->create_anonymous_node();
 
+      BOOST_REQUIRE( anon_state->id() == state_1->id() );
+      BOOST_REQUIRE( anon_state->revision() == state_1->revision() );
+      BOOST_REQUIRE( anon_state->parent_id() == state_1->parent_id() );
+
       BOOST_TEST_MESSAGE( "Modifying book" );
 
       book_a.a = 5;

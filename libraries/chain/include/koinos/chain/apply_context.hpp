@@ -39,8 +39,6 @@ class apply_context
       std::string get_pending_console_output();
 
       void set_state_node( abstract_state_node_ptr );
-      void set_state_node( state_node_ptr );
-      void set_state_node( anonymous_state_node_ptr );
       abstract_state_node_ptr get_state_node() const;
       void clear_state_node();
 

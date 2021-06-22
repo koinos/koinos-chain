@@ -111,15 +111,15 @@ class abstract_state_node
 
 class state_node;
 
-class anonymous_state_node final : virtual public abstract_state_node
+class anonymous_state_node final : public abstract_state_node
 {
    public:
       anonymous_state_node();
       ~anonymous_state_node();
 
-      const state_node_id& id()const;
-      const state_node_id& parent_id()const;
-      uint64_t             revision()const;
+      const state_node_id& id()const override;
+      const state_node_id& parent_id()const override;
+      uint64_t             revision()const override;
 
       void commit();
       void reset();
@@ -132,15 +132,15 @@ using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
 /**
  * Allows querying the database at a particular checkpoint.
  */
-class state_node final : virtual public abstract_state_node
+class state_node final : public abstract_state_node
 {
    public:
       state_node();
       ~state_node();
 
-      const state_node_id& id()const;
-      const state_node_id& parent_id()const;
-      uint64_t             revision()const;
+      const state_node_id& id()const override;
+      const state_node_id& parent_id()const override;
+      uint64_t             revision()const override;
 
       anonymous_state_node_ptr create_anonymous_node();
 };
