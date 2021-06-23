@@ -469,14 +469,6 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
    trx.active_data->operations.push_back( op );
 
-   // Upload the return test contract
-   //bytecode = get_contract_return_wasm();
-   //auto contract_2_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
-   //std::memcpy( op.contract_id.data(), contract_2_id.digest.data(), op.contract_id.size() );
-   //op.bytecode.clear();
-   //op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   //trx.active_data->operations.push_back( op );
-
    auto m_args = mint_args{ .to = alice_address, .value = 100 };
    koinos::protocol::call_contract_operation call;
    std::memcpy( call.contract_id.data(), id.digest.data(), call.contract_id.size() );
