@@ -23,29 +23,13 @@
 
 #include <mira/database_configuration.hpp>
 
+#include <koinos/tests/koin.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/hello.hpp>
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
 
 using namespace std::string_literals;
-
-struct transfer_args
-{
-   std::string from;
-   std::string to;
-   uint64_t    value;
-};
-
-KOINOS_REFLECT( transfer_args, (from)(to)(value) );
-
-struct mint_args
-{
-   std::string to;
-   uint64_t    value;
-};
-
-KOINOS_REFLECT( mint_args, (to)(value) );
 
 struct thunk_fixture
 {

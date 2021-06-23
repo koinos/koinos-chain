@@ -264,9 +264,19 @@ THUNK_DEFINE( void, apply_block,
    //                +----------------------+      +----------------------+
    //
 
+   auto block_node = std::dynamic_pointer_cast< statedb::state_node >( context.get_state_node() );
+
    for( const auto& tx : block.transactions )
    {
-      system_call::apply_transaction( context, tx );
+      auto trx_node = block_node->create_anonymous_node();
+      context.set_state_node( trx_node );
+
+      try
+      {
+         system_call::apply_transaction( context, tx );
+         trx_node->commit();
+      }
+      catch ( ... ) { /* Do nothing will result in trx reversion */ }
    }
 }
 
@@ -391,8 +401,7 @@ THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_con
          .call_privilege = privilege::user_mode,
       },
       [&]() {
-         // execute_contract cannot be overridden
-         thunk::execute_contract( context, o.contract_id, o.entry_point, o.args );
+         system_call::execute_contract( context, o.contract_id, o.entry_point, o.args );
       }
    );
 }
