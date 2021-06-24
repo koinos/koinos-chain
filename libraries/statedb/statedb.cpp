@@ -486,6 +486,14 @@ bool abstract_state_node::is_writable()const
    return impl->_is_writable;
 }
 
+anonymous_state_node_ptr abstract_state_node::create_anonymous_node()
+{
+   auto anonymous_node = std::make_shared< anonymous_state_node >();
+   anonymous_node->parent = shared_from_derived();
+   anonymous_node->impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
+   return anonymous_node;
+}
+
 state_node::state_node() : abstract_state_node() {}
 state_node::~state_node() {}
 
@@ -504,11 +512,9 @@ uint64_t state_node::revision()const
    return impl->_state->revision();
 }
 
-anonymous_state_node_ptr state_node::create_anonymous_node()
+abstract_state_node_ptr state_node::shared_from_derived()
 {
-   auto anonymous_node = std::make_shared< anonymous_state_node >();
-   anonymous_node->impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
-   return anonymous_node;
+   return shared_from_this();
 }
 
 anonymous_state_node::anonymous_state_node() : abstract_state_node() {}
@@ -516,23 +522,34 @@ anonymous_state_node::anonymous_state_node::~anonymous_state_node() {}
 
 const state_node_id& anonymous_state_node::id()const
 {
-   return impl->_state->parent()->id();
+   return parent->id();
 }
 
 const state_node_id& anonymous_state_node::parent_id()const
 {
-   return impl->_state->parent()->parent_id();
+   return parent->parent_id();
 }
 
 uint64_t anonymous_state_node::revision()const
 {
-   return impl->_state->parent()->revision();
+   return parent->revision();
 }
 
 void anonymous_state_node::commit()
 {
+   KOINOS_ASSERT( parent->is_writable(), node_finalized, "Cannot commit to a finalized node" );
    impl->_state->squash();
+   reset();
+}
+
+void anonymous_state_node::reset()
+{
    impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
+}
+
+abstract_state_node_ptr anonymous_state_node::shared_from_derived()
+{
+   return shared_from_this();
 }
 
 

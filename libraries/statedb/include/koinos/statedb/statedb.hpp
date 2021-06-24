@@ -46,6 +46,10 @@ struct put_object_result
    bool            object_existed = false;
 };
 
+class anonymous_state_node;
+
+using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
+
 /**
  * Allows querying the database at a particular checkpoint.
  */
@@ -63,7 +67,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      virtual void get_object( get_object_result& result, const get_object_args& args )const;
+      void get_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the next object.
@@ -73,7 +77,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      virtual void get_next_object( get_object_result& result, const get_object_args& args )const;
+      void get_next_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Get the previous object.
@@ -83,7 +87,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      virtual void get_prev_object( get_object_result& result, const get_object_args& args )const;
+      void get_prev_object( get_object_result& result, const get_object_args& args )const;
 
       /**
        * Write an object into the state_node.
@@ -92,12 +96,17 @@ class abstract_state_node
        * - If object exists, object is overwritten.
        * - If buf == nullptr, object is deleted.
        */
-      virtual void put_object( put_object_result& result, const put_object_args& args );
+      void put_object( put_object_result& result, const put_object_args& args );
 
       /**
        * Return true if the node is writable.
        */
-      virtual bool is_writable()const;
+      bool is_writable()const;
+
+      /**
+       * Returns an anonymous state node with this node as its parent.
+       */
+      anonymous_state_node_ptr create_anonymous_node();
 
       virtual const state_node_id& id()const = 0;
       virtual const state_node_id& parent_id()const = 0;
@@ -106,12 +115,14 @@ class abstract_state_node
       friend class detail::state_db_impl;
 
    protected:
+      virtual std::shared_ptr< abstract_state_node > shared_from_derived() = 0;
+
       std::unique_ptr< detail::state_node_impl > impl;
 };
 
-class state_node;
+using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 
-class anonymous_state_node final : public abstract_state_node
+class anonymous_state_node final : public abstract_state_node, public std::enable_shared_from_this< anonymous_state_node >
 {
    public:
       anonymous_state_node();
@@ -124,15 +135,19 @@ class anonymous_state_node final : public abstract_state_node
       void commit();
       void reset();
 
-      friend class state_node;
-};
+      friend class abstract_state_node;
 
-using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
+   protected:
+      std::shared_ptr< abstract_state_node > shared_from_derived()override;
+
+   private:
+      abstract_state_node_ptr parent;
+};
 
 /**
  * Allows querying the database at a particular checkpoint.
  */
-class state_node final : public abstract_state_node
+class state_node final : public abstract_state_node, public std::enable_shared_from_this< state_node >
 {
    public:
       state_node();
@@ -142,7 +157,8 @@ class state_node final : public abstract_state_node
       const state_node_id& parent_id()const override;
       uint64_t             revision()const override;
 
-      anonymous_state_node_ptr create_anonymous_node();
+   protected:
+      std::shared_ptr< abstract_state_node > shared_from_derived()override;
 };
 
 using state_node_ptr = std::shared_ptr< state_node >;

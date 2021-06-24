@@ -302,16 +302,13 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    uint128 max_payer_resources;
    uint128 trx_resource_limit;
 
-   statedb::state_node_ptr pending_trx_node;
+   statedb::anonymous_state_node_ptr pending_trx_node;
 
    {
       std::lock_guard< std::mutex > lock( _state_db_mutex );
-      pending_trx_node = _state_db.get_node( request.transaction.id );
-
-      KOINOS_ASSERT( !pending_trx_node, duplicate_trx_state, "Pending transaction is already being applied" );
-
       LOG(info) << "Pushing transaction - ID: " << request.transaction.id;
-      pending_trx_node = _state_db.create_writable_node( _state_db.get_head()->id(), request.transaction.id );
+
+      pending_trx_node = _state_db.get_head()->create_anonymous_node();
       KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
    }
 
@@ -390,22 +387,15 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
             LOG(error) << "Failed to publish block application to message broker: " << e.what();
          }
       }
-
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( request.transaction.id );
    }
    catch( const std::exception& e )
    {
       LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", with reason: " << e.what();
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( request.transaction.id );
       throw;
    }
    catch( ... )
    {
       LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", for an unknown reason";
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( request.transaction.id );
       throw;
    }
 

@@ -264,7 +264,7 @@ THUNK_DEFINE( void, apply_block,
    //                +----------------------+      +----------------------+
    //
 
-   auto block_node = std::dynamic_pointer_cast< statedb::state_node >( context.get_state_node() );
+   auto block_node = context.get_state_node();
 
    for( const auto& tx : block.transactions )
    {
