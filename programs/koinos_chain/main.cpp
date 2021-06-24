@@ -143,6 +143,10 @@ void attach_request_handler(
                   {
                      response = controller.read_contract( r );
                   },
+                  [&]( const rpc::chain::get_account_nonce_request& r )
+                  {
+                     response = controller.get_account_nonce( r );
+                  },
                   [&]( const auto& r )
                   {
                      response = rpc::chain::chain_error_response{ .error_text = "Unknown RPC type" };

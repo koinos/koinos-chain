@@ -38,6 +38,7 @@ class controller final
       rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request&   = {} );
       rpc::chain::get_fork_heads_response     get_fork_heads(     const rpc::chain::get_fork_heads_request& = {} );
       rpc::chain::read_contract_response      read_contract(      const rpc::chain::read_contract_request& );
+      rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
 
    private:
       std::unique_ptr< detail::controller_impl > _my;

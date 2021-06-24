@@ -502,17 +502,9 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    transaction.signature_data = variable_blob( signature.begin(), signature.end() );
 
    system_call::apply_transaction( ctx, transaction );
-
-   variable_blob vkey;
-   pack::to_variable_blob( vkey, system_call::get_transaction_payer( ctx, transaction ) );
-   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
-
-   statedb::object_key nonce_key;
-   nonce_key = pack::from_variable_blob< statedb::object_key >( vkey );
-
-   obj_blob = system_call::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
-   BOOST_REQUIRE( obj_blob.size() );
-   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 0 );
+   auto payer = system_call::get_transaction_payer( ctx, transaction );
+   auto next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
    transaction.active_data.make_mutable();
@@ -524,9 +516,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   obj_blob = system_call::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
-   BOOST_REQUIRE( obj_blob.size() );
-   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 0 );
+   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
    transaction.active_data.make_mutable();
@@ -537,9 +528,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    system_call::apply_transaction( ctx, transaction );
 
-   obj_blob = system_call::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
-   BOOST_REQUIRE( obj_blob.size() );
-   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 1 );
+   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
    transaction.active_data.make_mutable();
@@ -550,9 +540,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   obj_blob = system_call::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
-   BOOST_REQUIRE( obj_blob.size() );
-   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 1 );
+   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
    transaction.active_data.make_mutable();
@@ -563,9 +552,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    system_call::apply_transaction( ctx, transaction );
 
-   obj_blob = system_call::db_get_object( ctx, KERNEL_SPACE_ID, nonce_key );
-   BOOST_REQUIRE( obj_blob.size() );
-   BOOST_REQUIRE( pack::from_variable_blob< uint64 >( obj_blob ) == 2 );
+   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   BOOST_REQUIRE_EQUAL( next_nonce, 3 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( get_contract_id_test )
