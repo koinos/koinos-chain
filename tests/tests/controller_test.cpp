@@ -184,8 +184,18 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block );
 
+   BOOST_TEST_MESSAGE( "Error when block timestamp is too far in the future" );
 
-   BOOST_TEST_MESSAGE( "Test succesful block" );
+   duration = ( std::chrono::system_clock::now() + std::chrono::minutes( 1 ) ).time_since_epoch();
+   block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+   block_req.block.header.previous  = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
+
+   duration = std::chrono::system_clock::now().time_since_epoch();
+   block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+
+   BOOST_TEST_MESSAGE( "Test successful block" );
 
    block_req.block.header.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
    block_req.block.active_data.make_mutable();
@@ -195,6 +205,18 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    _controller.submit_block( block_req );
 
+   BOOST_TEST_MESSAGE( "Error when block is too old" );
+
+   block_req.block.header.previous = block_req.block.id;
+   block_req.block.header.height   = 2;
+   block_req.block.header.timestamp--;
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
+   block_req.block.active_data.make_mutable();
+
+   set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
+   sign_block( block_req.block, _block_signing_private_key );
+
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
 
    BOOST_TEST_MESSAGE( "Test chain ID retrieval" );
 

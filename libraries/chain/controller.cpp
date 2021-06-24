@@ -18,8 +18,8 @@
 #include <chrono>
 #include <list>
 #include <memory>
-#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <thread>
 
 namespace koinos::chain {
@@ -40,7 +40,11 @@ class controller_impl final
       void open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
-      rpc::chain::submit_block_response       submit_block(       const rpc::chain::submit_block_request&, bool indexing );
+      rpc::chain::submit_block_response submit_block(
+         const rpc::chain::submit_block_request&,
+         bool indexing,
+         std::chrono::system_clock::time_point now
+      );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
       rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request& );
       rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request& );
@@ -49,10 +53,11 @@ class controller_impl final
 
    private:
       statedb::state_db             _state_db;
-      std::mutex                    _state_db_mutex;
+      std::shared_mutex             _state_db_mutex;
       std::shared_ptr< mq::client > _client;
 
       fork_data get_fork_data();
+      fork_data get_fork_data_lockless();
 };
 
 controller_impl::controller_impl()
@@ -62,13 +67,14 @@ controller_impl::controller_impl()
 
 controller_impl::~controller_impl()
 {
-   std::lock_guard< std::mutex > lock( _state_db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
    _state_db.close();
 }
 
 void controller_impl::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
-   std::lock_guard< std::mutex > lock( _state_db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
+
    _state_db.open( p, o, [&]( statedb::state_node_ptr root )
    {
       for ( const auto& entry : data )
@@ -106,38 +112,63 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
    _client = c;
 }
 
-rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
+rpc::chain::submit_block_response controller_impl::submit_block(
+   const rpc::chain::submit_block_request& request,
+   bool indexing,
+   std::chrono::system_clock::time_point now )
 {
+   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
+
    static constexpr uint64_t index_message_interval = 10000;
+   static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
 
-   if( crypto::multihash_is_zero( request.block.header.previous ) )
-   {
-      // Genesis case
-      KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
-   }
+   auto time_lower_bound = uint64_t( 0 );
+   auto time_upper_bound = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
 
-   // Check if the block has already been applied
    statedb::state_node_ptr block_node;
 
+   block_node = _state_db.get_node( request.block.id );
+
+   if ( block_node ) return {}; // Block has been applied
+
+   if ( !indexing || request.block.header.height % index_message_interval == 0 )
    {
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      block_node = _state_db.get_node( request.block.id );
+      LOG(info) << "Pushing block - Height: " << request.block.header.height
+         << ", ID: " << request.block.id;
+   }
 
-      if ( block_node ) return {}; // Block has been applied
+   block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
 
-      if ( !indexing || request.block.header.height % index_message_interval == 0 )
-      {
-         LOG(info) << "Pushing block - Height: " << request.block.header.height
-            << ", ID: " << request.block.id;
-      }
-      block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
-      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
+   // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
+   // than the parent block timestamp.
+   if ( block_node && !crypto::multihash_is_zero( request.block.header.previous ) )
+   {
+      apply_context parent_ctx;
+
+      parent_ctx.push_frame( stack_frame {
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
+         .call_privilege = privilege::kernel_mode
+      } );
+
+      auto parent_node = _state_db.get_node( request.block.header.previous );
+      parent_ctx.set_state_node( parent_node );
+      time_lower_bound = system_call::get_head_block_time( parent_ctx ).t;
    }
 
    apply_context ctx;
 
    try
    {
+      // Genesis case, when the first block is submitted the previous must be the zero hash
+      if ( crypto::multihash_is_zero( request.block.header.previous ) )
+      {
+         KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
+      }
+
+      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
+
+      KOINOS_ASSERT( request.block.header.timestamp.t <= time_upper_bound, timestamp_out_of_bounds, "Block timestamp is too far in the future" );
+      KOINOS_ASSERT( request.block.header.timestamp.t >= time_lower_bound, timestamp_out_of_bounds, "Block timestamp is too old" );
 
       ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
@@ -199,19 +230,15 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
       auto lib = system_call::get_last_irreversible_block( ctx );
 
-      {
-         std::lock_guard< std::mutex > lock( _state_db_mutex );
-         _state_db.finalize_node( block_node->id() );
+      _state_db.finalize_node( block_node->id() );
 
-         std::optional< state_node_ptr > node;
-         if ( lib > _state_db.get_root()->revision() )
-         {
-            node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-            _state_db.commit_node( node.value()->id() );
-         }
+      if ( std::optional< state_node_ptr > node; lib > _state_db.get_root()->revision() )
+      {
+         node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+         _state_db.commit_node( node.value()->id() );
       }
 
-      const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+      const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
       if ( _client && _client->is_connected() )
       {
@@ -273,8 +300,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          LOG(info) << "Output:\n" << output;
       }
 
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( block_node->id() );
+      if ( block_node )
+      {
+         _state_db.discard_node( block_node->id() );
+      }
+
       throw;
    }
    catch( ... )
@@ -288,8 +318,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
          LOG(info) << "Output:\n" << output;
       }
 
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      _state_db.discard_node( block_node->id() );
+      if ( block_node )
+      {
+         _state_db.discard_node( block_node->id() );
+      }
+
       throw;
    }
 
@@ -298,19 +331,16 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
+   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+
    koinos::protocol::account_type payer;
    uint128 max_payer_resources;
    uint128 trx_resource_limit;
 
-   statedb::anonymous_state_node_ptr pending_trx_node;
+   LOG(info) << "Pushing transaction - ID: " << request.transaction.id;
 
-   {
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      LOG(info) << "Pushing transaction - ID: " << request.transaction.id;
-
-      pending_trx_node = _state_db.get_head()->create_anonymous_node();
-      KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
-   }
+   auto pending_trx_node = _state_db.get_head()->create_anonymous_node();
+   KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
@@ -404,16 +434,15 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
 rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::chain::get_head_info_request& )
 {
+   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+
    apply_context ctx;
    ctx.push_frame( stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_head_info"s ).digest,
       .call_privilege = privilege::kernel_mode
    } );
 
-   {
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      ctx.set_state_node( _state_db.get_head() );
-   }
+   ctx.set_state_node( _state_db.get_head() );
 
    auto head_info = system_call::get_head_info( ctx );
    return {
@@ -424,6 +453,8 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
 rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chain::get_chain_id_request& )
 {
+   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+
    boost::interprocess::basic_vectorstream< statedb::object_value > chain_id_stream;
    statedb::object_value chain_id_vector;
    chain_id_vector.resize( 128 );
@@ -438,10 +469,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    statedb::state_node_ptr head;
 
-   {
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      head = _state_db.get_head();
-   }
+   head = _state_db.get_head();
 
    head->get_object( result, args );
 
@@ -457,6 +485,12 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
 fork_data controller_impl::get_fork_data()
 {
+   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   return get_fork_data_lockless();
+}
+
+fork_data controller_impl::get_fork_data_lockless()
+{
    fork_data fdata;
    apply_context ctx;
 
@@ -467,11 +501,8 @@ fork_data controller_impl::get_fork_data()
 
    std::vector< statedb::state_node_ptr > fork_heads;
 
-   {
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      ctx.set_state_node( _state_db.get_root() );
-      fork_heads = _state_db.get_fork_heads();
-   }
+   ctx.set_state_node( _state_db.get_root() );
+   fork_heads = _state_db.get_fork_heads();
 
    auto head_info = system_call::get_head_info( ctx );
    fdata.second = head_info.head_topology;
@@ -518,12 +549,11 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
+   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+
    statedb::state_node_ptr head_node;
 
-   {
-      std::lock_guard< std::mutex > lock( _state_db_mutex );
-      head_node = _state_db.get_head();
-   }
+   head_node = _state_db.get_head();
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
@@ -558,9 +588,12 @@ void controller::set_client( std::shared_ptr< mq::client > c )
    _my->set_client( c );
 }
 
-rpc::chain::submit_block_response controller::submit_block( const rpc::chain::submit_block_request& request, bool indexing )
+rpc::chain::submit_block_response controller::submit_block(
+   const rpc::chain::submit_block_request& request,
+   bool indexing,
+   std::chrono::system_clock::time_point now )
 {
-   return _my->submit_block( request, indexing );
+   return _my->submit_block( request, indexing, now );
 }
 
 rpc::chain::submit_transaction_response controller::submit_transaction( const rpc::chain::submit_transaction_request& request )
