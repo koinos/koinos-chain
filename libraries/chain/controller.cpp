@@ -174,13 +174,13 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          "Block contains an invalid block ID"
       );
 
+      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
+
       KOINOS_ASSERT(
          request.block.header.height == parent_height + 1,
          unexpected_height,
          "Expected block height of ${a}, was ${b}", ("a", parent_height + 1)("b", request.block.header.height)
       );
-
-      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
 
       KOINOS_ASSERT( request.block.header.timestamp.t <= time_upper_bound, timestamp_out_of_bounds, "Block timestamp is too far in the future" );
       KOINOS_ASSERT( request.block.header.timestamp.t >= time_lower_bound, timestamp_out_of_bounds, "Block timestamp is too old" );
