@@ -587,7 +587,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
    apply_context ctx;
 
    ctx.push_frame( koinos::chain::stack_frame {
-      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_fork_data"s ).digest,
+      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_account_nonce"s ).digest,
       .call_privilege = privilege::kernel_mode
    } );
 
