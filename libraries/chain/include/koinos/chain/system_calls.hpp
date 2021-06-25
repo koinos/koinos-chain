@@ -99,4 +99,6 @@ THUNK_DECLARE( void, require_authority, const protocol::account_type& );
 THUNK_DECLARE_VOID( contract_id_type, get_contract_id );
 THUNK_DECLARE_VOID( timestamp_type, get_head_block_time );
 
+THUNK_DECLARE( get_account_nonce_return, get_account_nonce, const protocol::account_type& account );
+
 } // koinos::chain

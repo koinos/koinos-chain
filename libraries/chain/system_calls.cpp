@@ -59,6 +59,8 @@ SYSTEM_CALL_DEFAULTS(
 
    (get_contract_id)
    (get_head_block_time)
+
+   (get_account_nonce)
 )
 
 void register_thunks( thunk_dispatcher& td )
@@ -105,6 +107,8 @@ void register_thunks( thunk_dispatcher& td )
 
       (get_contract_id)
       (get_head_block_time)
+
+      (get_account_nonce)
    )
 }
 
@@ -300,26 +304,12 @@ struct transaction_setter
 
 inline void require_payer_transaction_nonce( apply_context& ctx, protocol::account_type payer, uint64 nonce )
 {
-   variable_blob vkey;
-   pack::to_variable_blob( vkey, payer );
-   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
-
-   statedb::object_key key;
-   key = pack::from_variable_blob< statedb::object_key >( vkey );
-   auto obj = system_call::db_get_object( ctx, KERNEL_SPACE_ID, key );
-   if ( obj.size() > 0 )
-   {
-      uint64 unpacked_nonce = pack::from_variable_blob< uint64 >( obj );
-      KOINOS_ASSERT(
-         unpacked_nonce == (nonce - 1),
-         chain::chain_exception,
-         "Mismatching transaction nonce - last nonce: ${d}, expected: ${e}", ("d", unpacked_nonce)("e", unpacked_nonce + 1)
-      );
-   }
-   else
-   {
-      KOINOS_ASSERT( nonce == 0, chain::chain_exception, "Initial transaction nonce should be 0" );
-   }
+   auto account_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   KOINOS_ASSERT(
+      account_nonce == nonce,
+      chain::chain_exception,
+      "Mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", nonce)("e", account_nonce)
+   );
 }
 
 inline void update_payer_transaction_nonce( apply_context& ctx, protocol::account_type payer, uint64 nonce )
@@ -372,7 +362,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       }, o );
    }
 
-   update_payer_transaction_nonce( context, payer, trx.active_data->nonce );
+   // Next nonce should be the current nonce + 1
+   update_payer_transaction_nonce( context, payer, trx.active_data->nonce + 1 );
 }
 
 THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
@@ -727,6 +718,23 @@ THUNK_DEFINE_VOID( timestamp_type, get_head_block_time )
    vkey.resize( 32, char(0) );
    auto key = pack::from_variable_blob< statedb::object_key >( vkey );
    return pack::from_variable_blob< timestamp_type >( db_get_object( context, KERNEL_SPACE_ID, key ) );
+}
+
+THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const protocol::account_type&) account ) )
+{
+   variable_blob vkey;
+   pack::to_variable_blob( vkey, account );
+   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
+
+   statedb::object_key key;
+   key = pack::from_variable_blob< statedb::object_key >( vkey );
+   auto obj = system_call::db_get_object( context, KERNEL_SPACE_ID, key );
+   if ( obj.size() > 0 )
+   {
+      return { pack::from_variable_blob< uint64 >( obj ) };
+   }
+
+   return { 0 };
 }
 
 THUNK_DEFINE_END();
