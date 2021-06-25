@@ -88,7 +88,7 @@ int main( int argc, char** argv )
       // Read options into variables
       std::string key_filename = vm[ PRIVATE_KEY_OPTION ].as< std::string >();
       bool wrap                = vm.count( WRAP_OPTION );
-      
+
       // Read the keyfile
       auto private_key = read_keyfile( key_filename );
 
