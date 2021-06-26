@@ -125,6 +125,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    auto time_lower_bound = uint64_t( 0 );
    auto time_upper_bound = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
+   block_height_type parent_height{ 0 };
 
    statedb::state_node_ptr block_node;
 
@@ -154,6 +155,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       auto parent_node = _state_db.get_node( request.block.header.previous );
       parent_ctx.set_state_node( parent_node );
       time_lower_bound = system_call::get_head_block_time( parent_ctx ).t;
+      parent_height = system_call::get_head_info( parent_ctx ).head_topology.height;
    }
 
    apply_context ctx;
@@ -163,10 +165,22 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       // Genesis case, when the first block is submitted the previous must be the zero hash
       if ( crypto::multihash_is_zero( request.block.header.previous ) )
       {
-         KOINOS_ASSERT( request.block.header.height == 1, root_height_mismatch, "First block must have height of 1" );
+         KOINOS_ASSERT( request.block.header.height == 1, unexpected_height, "First block must have height of 1" );
       }
 
+      KOINOS_ASSERT(
+         crypto::hash_n( CRYPTO_SHA2_256_ID, request.block.header, request.block.active_data ) == request.block.id,
+         block_id_mismatch,
+         "Block contains an invalid block ID"
+      );
+
       KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
+
+      KOINOS_ASSERT(
+         request.block.header.height == parent_height + 1,
+         unexpected_height,
+         "Expected block height of ${a}, was ${b}", ("a", parent_height + 1)("b", request.block.header.height)
+      );
 
       KOINOS_ASSERT( request.block.header.timestamp.t <= time_upper_bound, timestamp_out_of_bounds, "Block timestamp is too far in the future" );
       KOINOS_ASSERT( request.block.header.timestamp.t >= time_lower_bound, timestamp_out_of_bounds, "Block timestamp is too old" );

@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::root_height_mismatch );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unexpected_height );
 
 
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
@@ -177,6 +177,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
    block_req.block.header.previous = crypto::empty_hash( CRYPTO_SHA2_256_ID );
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
    block_req.block.active_data.make_mutable();
 
    set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
@@ -189,6 +190,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    duration = ( std::chrono::system_clock::now() + std::chrono::minutes( 1 ) ).time_since_epoch();
    block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
    block_req.block.header.previous  = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
 
@@ -198,6 +200,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Test successful block" );
 
    block_req.block.header.previous = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+   block_req.block.id = koinos::crypto::hash_n( CRYPTO_SHA2_256_ID, block_req.block.header, block_req.block.active_data );
    block_req.block.active_data.make_mutable();
 
    set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
