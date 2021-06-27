@@ -178,16 +178,12 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 3 );
    BOOST_REQUIRE( obj_blob.size() == 34 );
-   LOG(info) << obj_blob.size();
    obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 4 );
    BOOST_REQUIRE( obj_blob.size() == 34 );
-   LOG(info) << obj_blob.size();
    obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 1 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   LOG(info) << obj_blob.size();
    obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 0 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   LOG(info) << obj_blob.size();
 
    koinos::pack::to_variable_blob( object_data, "space1.object1"s );
    system_call::db_put_object( ctx, database::contract_space, 1, object_data );
