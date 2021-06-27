@@ -339,6 +339,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    system_call::require_authority( context, payer );
    require_payer_transaction_nonce( context, payer, trx.active_data->nonce );
 
+   KOINOS_ASSERT( trx.active_data->resource_limit <= uint128_t( KOINOS_MAX_METER_TICKS ), tick_max_too_high_exception, "Tick max is too high" );
+   context.set_meter_ticks( int64_t( trx.active_data->resource_limit ) );
+
    for( const auto& o : trx.active_data->operations )
    {
       std::visit( koinos::overloaded {
@@ -364,6 +367,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    // Next nonce should be the current nonce + 1
    update_payer_transaction_nonce( context, payer, trx.active_data->nonce + 1 );
+
+   LOG(debug) << "(apply_transaction) transaction " << trx.id << " used ticks: " << context.get_used_meter_ticks();
 }
 
 THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )

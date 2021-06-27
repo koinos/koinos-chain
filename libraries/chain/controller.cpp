@@ -56,6 +56,7 @@ class controller_impl final
       statedb::state_db             _state_db;
       std::shared_mutex             _state_db_mutex;
       std::shared_ptr< mq::client > _client;
+      int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
 
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
@@ -578,6 +579,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.set_state_node( head_node );
    ctx.set_read_only( true );
+   ctx.set_meter_ticks( _max_read_cycles );
 
    auto result = system_call::execute_contract( ctx, request.contract_id, request.entry_point, request.args );
 

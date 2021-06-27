@@ -25,6 +25,7 @@
 
 #include <koinos/tests/koin.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
+#include <koinos/tests/wasm/forever.hpp>
 #include <koinos/tests/wasm/hello.hpp>
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
@@ -78,6 +79,11 @@ struct thunk_fixture
    std::vector< uint8_t > get_koin_wasm()
    {
       return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
+   }
+
+   std::vector< uint8_t > get_forever_wasm()
+   {
+      return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
    }
 
    std::filesystem::path temp;
@@ -719,6 +725,33 @@ BOOST_AUTO_TEST_CASE( get_head_block_time )
    system_call::db_put_object( ctx, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
 
    BOOST_REQUIRE( system_call::get_head_block_time( ctx ) == block.header.timestamp );
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( tick_limit )
+{ try {
+   using namespace koinos;
+   BOOST_TEST_MESSAGE( "Upload forever contract" );
+
+   koinos::protocol::create_system_contract_operation op;
+   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
+   auto bytecode = get_forever_wasm();
+   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+
+   system_call::apply_upload_contract_operation( ctx, op );
+
+   koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
+   auto stored_bytecode = system_call::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
+
+   BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
+   BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
+
+   BOOST_TEST_MESSAGE( "Execute forever contract" );
+
+   koinos::protocol::call_contract_operation op2;
+   std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
+   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), tick_meter_exception );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()

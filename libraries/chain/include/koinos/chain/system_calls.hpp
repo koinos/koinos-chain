@@ -16,6 +16,8 @@
 #define KOINOS_TRANSACTION_NONCE_KEY "nonce"
 #define KOINOS_HEAD_BLOCK_TIME_KEY   "head_block_time"
 
+#define KOINOS_MAX_METER_TICKS (10 * int64_t(1000) * int64_t(1000))
+
 namespace koinos::chain {
 
 class apply_context;
