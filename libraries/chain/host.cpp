@@ -33,9 +33,9 @@ void host_api::invoke_system_call( system_call_id_type sid, array_ptr< char > re
       [&]() {
          blob_target = thunk::db_get_object(
             context,
-            SYS_CALL_DISPATCH_TABLE_SPACE_ID,
+            database::system_call_dispatch_space,
             key,
-            SYS_CALL_DISPATCH_TABLE_OBJECT_MAX_SIZE
+            database::system_call_dispatch_object_max_size
          );
       }
    );

@@ -26,20 +26,21 @@
 #define KOINOS_MINOR_VERSION "1"
 #define KOINOS_PATCH_VERSION "0"
 
-#define HELP_OPTION             "help"
-#define VERSION_OPTION          "version"
-#define BASEDIR_OPTION          "basedir"
-#define AMQP_OPTION             "amqp"
-#define AMQP_DEFAULT            "amqp://guest:guest@localhost:5672/"
-#define LOG_LEVEL_OPTION        "log-level"
-#define LOG_LEVEL_DEFAULT       "info"
-#define INSTANCE_ID_OPTION      "instance-id"
-#define STATEDIR_OPTION         "statedir"
-#define STATEDIR_DEFAULT        "blockchain"
-#define DATABASE_CONFIG_OPTION  "database-config"
-#define DATABASE_CONFIG_DEFAULT "database.cfg"
-#define CHAIN_ID_OPTION         "chain-id"
-#define RESET_OPTION            "reset"
+#define HELP_OPTION              "help"
+#define VERSION_OPTION           "version"
+#define BASEDIR_OPTION           "basedir"
+#define AMQP_OPTION              "amqp"
+#define AMQP_DEFAULT             "amqp://guest:guest@localhost:5672/"
+#define LOG_LEVEL_OPTION         "log-level"
+#define LOG_LEVEL_DEFAULT        "info"
+#define INSTANCE_ID_OPTION       "instance-id"
+#define STATEDIR_OPTION          "statedir"
+#define STATEDIR_DEFAULT         "blockchain"
+#define DATABASE_CONFIG_OPTION   "database-config"
+#define DATABASE_CONFIG_DEFAULT  "database.cfg"
+#define RESET_OPTION             "reset"
+#define GENESIS_KEY_FILE_OPTION  "genesis-key"
+#define GENESIS_KEY_FILE_DEFAULT "genesis.pub"
 
 using namespace boost;
 using namespace koinos;
@@ -66,12 +67,6 @@ void splash()
    const char* launch_message = "          ...launching network";
    std::cout.write( launch_message, std::strlen( launch_message ) );
    std::cout << std::endl << std::flush;
-}
-
-std::string get_default_chain_id_string()
-{
-   // Following is equivalent to {"digest":"z5gosJRaEAWdexTCiVqmjDECb7odR7SrvsNLWxG5NBKhx","hash":18}
-   return "zQmT2TaQZZjwW7HZ6ctY3VCsPvadHV1m6RcwgMNeRUgP1mx";
 }
 
 void write_default_database_config( const std::filesystem::path& p )
@@ -391,18 +386,19 @@ int main( int argc, char** argv )
    {
       program_options::options_description options;
       options.add_options()
-         (HELP_OPTION       ",h", "Print this help message and exit")
-         (VERSION_OPTION    ",v", "Print version string and exit")
-         (BASEDIR_OPTION    ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ), "Koinos base directory")
-         (AMQP_OPTION       ",a", program_options::value< std::string >(), "AMQP server URL")
-         (LOG_LEVEL_OPTION  ",l", program_options::value< std::string >(), "The log filtering level")
-         (INSTANCE_ID_OPTION",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
-         (STATEDIR_OPTION       , program_options::value< std::string >(),
+         (HELP_OPTION            ",h", "Print this help message and exit")
+         (VERSION_OPTION         ",v", "Print version string and exit")
+         (BASEDIR_OPTION         ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ),
+            "Koinos base directory")
+         (AMQP_OPTION            ",a", program_options::value< std::string >(), "AMQP server URL")
+         (LOG_LEVEL_OPTION       ",l", program_options::value< std::string >(), "The log filtering level")
+         (INSTANCE_ID_OPTION     ",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
+         (GENESIS_KEY_FILE_OPTION",g", program_options::value< std::string >(), "The genesis key file")
+         (STATEDIR_OPTION            , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
-         (DATABASE_CONFIG_OPTION, program_options::value< std::string >(),
+         (DATABASE_CONFIG_OPTION     , program_options::value< std::string >(),
             "The location of the database configuration file (absolute path or relative to basedir/chain)")
-         (CHAIN_ID_OPTION       , program_options::value< std::string >(), "Chain ID to initialize empty node state")
-         (RESET_OPTION          , program_options::bool_switch()->default_value(false), "Reset the database");
+         (RESET_OPTION               , program_options::bool_switch()->default_value(false), "Reset the database");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -449,7 +445,7 @@ int main( int argc, char** argv )
       std::string instance_id   = get_option< std::string >( INSTANCE_ID_OPTION, random_alphanumeric( 5 ), args, chain_config, global_config );
       auto statedir             = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
       auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
-      auto chain_id_str         = get_option< std::string >( CHAIN_ID_OPTION, get_default_chain_id_string(), args, chain_config );
+      auto genesis_key_file     = std::filesystem::path( get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config ) );
 
       koinos::initialize_logging( service::chain, instance_id, log_level, basedir / service::chain );
 
@@ -483,20 +479,26 @@ int main( int argc, char** argv )
          exit( EXIT_FAILURE );
       }
 
-      multihash chain_id;
-      try
-      {
-         pack::from_json( pack::json( chain_id_str ), chain_id );
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Error parsing chain id: " << e.what();
-         exit( EXIT_FAILURE );
-      }
+      if ( genesis_key_file.is_relative() )
+         genesis_key_file = basedir / service::chain / genesis_key_file;
 
+      KOINOS_ASSERT(
+         std::filesystem::exists( genesis_key_file ),
+         koinos::exception,
+         "Unable to locate genesis public key file at: ${loc}", ("loc", genesis_key_file.string())
+      );
 
+      std::ifstream ifs( genesis_key_file );
+      std::string genesis_address( ( std::istreambuf_iterator< char >( ifs ) ), ( std::istreambuf_iterator< char >() ) );
+
+      multihash chain_id = crypto::hash( CRYPTO_SHA2_256_ID, genesis_address );
+
+      LOG(info) << "Chain ID: " << chain_id;
+      LOG(info) << "Genesis authority: " << genesis_address;
+
+      auto key = koinos::chain::database::key_from_string( koinos::chain::database::key::chain_id );
       chain::genesis_data genesis_data;
-      genesis_data[ { 0, KOINOS_STATEDB_CHAIN_ID_KEY } ] = pack::to_variable_blob( chain_id );
+      genesis_data[ { koinos::chain::database::kernel_space, key } ] = pack::to_variable_blob( chain_id );
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
