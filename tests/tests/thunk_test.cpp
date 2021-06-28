@@ -269,8 +269,11 @@ BOOST_AUTO_TEST_CASE( override_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test set system call operation" );
 
+   auto seed = "non-genesis key"s;
+   auto random_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+
    koinos::protocol::transaction tx;
-   sign_transaction( tx, _signing_private_key );
+   sign_transaction( tx, random_private_key );
    ctx.set_transaction( tx );
 
    // Upload a test contract to use as override
@@ -289,6 +292,17 @@ BOOST_AUTO_TEST_CASE( override_tests )
    bundle.entry_point = 0;
    call_op.call_id = 11675754;
    call_op.target = bundle;
+
+   BOOST_TEST_MESSAGE( "Test failure to override system call without genesis key" );
+
+   BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, call_op ), insufficient_privileges );
+
+   BOOST_TEST_MESSAGE( "Test success overriding a system call with the genesis key" );
+
+   // After signing the transaction with the genesis key, we may override system calls
+   sign_transaction( tx, _signing_private_key );
+   ctx.set_transaction( tx );
+
    system_call::apply_set_system_call_operation( ctx, call_op );
 
    // Fetch the created call bundle from the database and check it
