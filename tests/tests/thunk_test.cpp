@@ -135,12 +135,24 @@ using namespace koinos::chain;
 
 BOOST_AUTO_TEST_CASE( db_crud )
 { try {
+   koinos::variable_blob object_data;
+
+   // This test expects chain ID not to be present in the database, so
+   // we begin by removing it
+   BOOST_REQUIRE(
+      system_call::db_put_object(
+         ctx,
+         database::kernel_space,
+         database::key_from_string( database::key::chain_id ),
+         object_data
+      ) == true
+   );
+
    auto node = std::dynamic_pointer_cast< koinos::statedb::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
-   koinos::variable_blob object_data;
    BOOST_REQUIRE_THROW( system_call::db_put_object( ctx, database::kernel_space, 0, object_data ), koinos::chain::state_node_not_found );
    BOOST_REQUIRE_THROW( system_call::db_get_object( ctx, database::kernel_space, 0 ), koinos::chain::state_node_not_found );
    BOOST_REQUIRE_THROW( system_call::db_get_next_object( ctx, database::kernel_space, 0 ), koinos::chain::state_node_not_found );
@@ -177,9 +189,9 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_TEST_MESSAGE( "Test iterator overrun" );
 
    obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 3 );
-   BOOST_REQUIRE( obj_blob.size() == 34 );
+   BOOST_REQUIRE( obj_blob.size() == 0 );
    obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 4 );
-   BOOST_REQUIRE( obj_blob.size() == 34 );
+   BOOST_REQUIRE( obj_blob.size() == 0 );
    obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 1 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
    obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 0 );
@@ -188,7 +200,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
    koinos::pack::to_variable_blob( object_data, "space1.object1"s );
    system_call::db_put_object( ctx, database::contract_space, 1, object_data );
    obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 3 );
-   BOOST_REQUIRE( obj_blob.size() == 34 );
+   BOOST_REQUIRE( obj_blob.size() == 0 );
    obj_blob = system_call::db_get_next_object( ctx, database::contract_space, 1 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
    obj_blob = system_call::db_get_prev_object( ctx, database::contract_space, 1 );
