@@ -230,9 +230,16 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
-   koinos::protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
-   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
+   auto contract_address = contract_private_key.get_public_key().to_address();
+   koinos::protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   auto contract_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
+
+   koinos::protocol::upload_contract_operation op;
+   memcpy( op.contract_id.data(), contract_id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
 
@@ -248,7 +255,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
    koinos::protocol::call_contract_operation op2;
-   std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
+   std::memcpy( op2.contract_id.data(), contract_id.digest.data(), op2.contract_id.size() );
    system_call::apply_execute_contract_operation( ctx, op2 );
    BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
 
@@ -259,10 +266,10 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    BOOST_TEST_MESSAGE( "Test contract return" );
 
    // Upload the return test contract
-   koinos::pack::protocol::create_system_contract_operation contract_op;
+   koinos::pack::protocol::upload_contract_operation contract_op;
    auto return_bytecode = get_contract_return_wasm();
-   auto return_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, return_bytecode );
-   std::memcpy( contract_op.contract_id.data(), return_id.digest.data(), contract_op.contract_id.size() );
+   //auto return_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, return_bytecode );
+   std::memcpy( contract_op.contract_id.data(), contract_id.digest.data(), contract_op.contract_id.size() );
    contract_op.bytecode.insert( contract_op.bytecode.end(), return_bytecode.begin(), return_bytecode.end() );
    system_call::apply_upload_contract_operation( ctx, contract_op );
 
@@ -288,9 +295,10 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.set_transaction( tx );
 
    // Upload a test contract to use as override
-   koinos::protocol::create_system_contract_operation contract_op;
+   koinos::protocol::upload_contract_operation contract_op;
    auto bytecode = get_hello_wasm();
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
+   auto contract_address = random_private_key.get_public_key().to_address();
+   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
    std::memcpy( contract_op.contract_id.data(), id.digest.data(), contract_op.contract_id.size() );
 
    contract_op.bytecode.insert( contract_op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -348,13 +356,21 @@ BOOST_AUTO_TEST_CASE( override_tests )
       vl_args2.size() );
    auto original_message = host_api.context.get_pending_console_output();
 
+   auto random_private_key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "key2"s ) );
+   sign_transaction( tx, random_private_key2 );
+   ctx.set_transaction( tx );
+
    // Override prints with a contract that prepends a message before printing
-   koinos::protocol::create_system_contract_operation contract_op2;
+   koinos::protocol::upload_contract_operation contract_op2;
    auto bytecode2 = get_syscall_override_wasm();
-   auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode2 );
+   auto contract_address2 = random_private_key2.get_public_key().to_address();
+   auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address2 );
    std::memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
    contract_op2.bytecode.insert( contract_op2.bytecode.end(), bytecode2.begin(), bytecode2.end() );
    system_call::apply_upload_contract_operation( ctx, contract_op2 );
+
+   sign_transaction( tx, _signing_private_key );
+   ctx.set_transaction( tx );
 
    koinos::protocol::set_system_call_operation call_op2;
    koinos::chain::contract_call_bundle bundle2;
@@ -477,7 +493,7 @@ BOOST_AUTO_TEST_CASE( privileged_calls )
    BOOST_REQUIRE_THROW( system_call::apply_block( ctx, koinos::protocol::block{}, false, false, false ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, koinos::protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_reserved_operation( ctx, koinos::protocol::reserved_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_upload_contract_operation( ctx, koinos::protocol::create_system_contract_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( system_call::apply_upload_contract_operation( ctx, koinos::protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, koinos::protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, koinos::protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
 }
@@ -648,8 +664,14 @@ BOOST_AUTO_TEST_CASE( token_tests )
 { try {
    using namespace koinos;
 
-   koinos::protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::zero_hash( CRYPTO_RIPEMD160_ID );
+   auto contract_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "token_contract"s ) );
+   auto contract_address = contract_private_key.get_public_key().to_address();
+   protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   koinos::protocol::upload_contract_operation op;
+   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_koin_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -756,7 +778,6 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    LOG(info) << "Transfer from 'alice' to 'bob'";
    auto t_args = transfer_args{ .from = alice_address, .to = bob_address, .value = 25 };
-   koinos::protocol::transaction trx;
    trx.active_data = koinos::protocol::active_transaction_data{};
    ctx.set_transaction( trx );
    response.clear();
@@ -840,8 +861,13 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    using namespace koinos;
    BOOST_TEST_MESSAGE( "Upload forever contract" );
 
-   koinos::protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
+   protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   protocol::upload_contract_operation op;
+   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, contract_private_key.get_public_key().to_address() );
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_forever_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -849,7 +875,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    system_call::apply_upload_contract_operation( ctx, op );
 
    koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
-   auto stored_bytecode = system_call::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
+   auto stored_bytecode = system_call::db_get_object( ctx, koinos::chain::database::contract_space, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
    BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );

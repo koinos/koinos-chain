@@ -379,7 +379,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          {
             system_call::apply_reserved_operation( context, op );
          },
-         [&]( const create_system_contract_operation& op )
+         [&]( const upload_contract_operation& op )
          {
             system_call::apply_upload_contract_operation( context, op );
          },
@@ -406,9 +406,17 @@ THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operati
    KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" );
 }
 
-THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
+THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
+
+   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
+   protocol::account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
+   auto signer_hash = crypto::hash( CRYPTO_RIPEMD160_ID, sig_account );
+
+   KOINOS_ASSERT( signer_hash.digest.size() == o.contract_id.size() &&
+      std::equal( signer_hash.digest.begin(), signer_hash.digest.end(), o.contract_id.begin() ), invalid_signature, "signature does not match",
+      ("contract_id", o.contract_id)("signer_hash", signer_hash.digest) );
 
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
