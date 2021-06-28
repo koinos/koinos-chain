@@ -7,6 +7,8 @@
 
 #include <algorithm>
 
+#define KOINOS_MAX_TICKS_PER_BLOCK (100 * int64_t(1000) * int64_t(1000))
+
 namespace koinos::chain {
 
 /*
@@ -269,11 +271,22 @@ THUNK_DEFINE( void, apply_block,
    //
 
    auto block_node = context.get_state_node();
+   int64_t ticks_used = 0;
 
    for( const auto& tx : block.transactions )
    {
       auto trx_node = block_node->create_anonymous_node();
       context.set_state_node( trx_node );
+
+      // At this point, ticks_used could potentially be very close to KOINOS_MAX_TICKS_PER_BLOCK.
+      //
+      // This means we might use up to one transaction's worth of ticks
+      // in excess of KOINOS_MAX_TICKS_PER_BLOCK determining that the block uses too many ticks.
+      //
+      // We could potentially have the per-transaction set_meter_ticks() set a value that
+      // causes a transaction to terminate as soon as the block limit is exceeded, but this
+      // seems like this would add architectural complexity for the purpose of needlessly
+      // optimizing an unusual case.
 
       try
       {
@@ -281,6 +294,10 @@ THUNK_DEFINE( void, apply_block,
          trx_node->commit();
       }
       catch ( ... ) { /* Do nothing will result in trx reversion */ }
+
+      ticks_used += context.get_used_meter_ticks();
+
+      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, tick_meter_exception, "Per-block tick limit exceeded" );
    }
 }
 
