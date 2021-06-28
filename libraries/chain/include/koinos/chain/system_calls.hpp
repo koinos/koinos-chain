@@ -14,6 +14,8 @@
 #define KOINOS_EXIT_SUCCESS 0
 #define KOINOS_EXIT_FAILURE 1
 
+#define KOINOS_MAX_METER_TICKS (10 * int64_t(1000) * int64_t(1000))
+
 namespace koinos::chain {
 
 class apply_context;
@@ -62,7 +64,7 @@ THUNK_DECLARE( void, apply_block,
    boolean check_transaction_signatures );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
 THUNK_DECLARE( void, apply_reserved_operation, const protocol::reserved_operation& o );
-THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::create_system_contract_operation& o );
+THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_contract_operation& o );
 THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 

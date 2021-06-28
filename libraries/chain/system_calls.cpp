@@ -7,6 +7,8 @@
 
 #include <algorithm>
 
+#define KOINOS_MAX_TICKS_PER_BLOCK (100 * int64_t(1000) * int64_t(1000))
+
 namespace koinos::chain {
 
 /*
@@ -281,11 +283,22 @@ THUNK_DEFINE( void, apply_block,
    //
 
    auto block_node = context.get_state_node();
+   int64_t ticks_used = 0;
 
    for( const auto& tx : block.transactions )
    {
       auto trx_node = block_node->create_anonymous_node();
       context.set_state_node( trx_node );
+
+      // At this point, ticks_used could potentially be very close to KOINOS_MAX_TICKS_PER_BLOCK.
+      //
+      // This means we might use up to one transaction's worth of ticks
+      // in excess of KOINOS_MAX_TICKS_PER_BLOCK determining that the block uses too many ticks.
+      //
+      // We could potentially have the per-transaction set_meter_ticks() set a value that
+      // causes a transaction to terminate as soon as the block limit is exceeded, but this
+      // seems like this would add architectural complexity for the purpose of needlessly
+      // optimizing an unusual case.
 
       try
       {
@@ -293,6 +306,10 @@ THUNK_DEFINE( void, apply_block,
          trx_node->commit();
       }
       catch ( ... ) { /* Do nothing will result in trx reversion */ }
+
+      ticks_used += context.get_used_meter_ticks();
+
+      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, tick_meter_exception, "Per-block tick limit exceeded" );
    }
 }
 
@@ -351,6 +368,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    system_call::require_authority( context, payer );
    require_payer_transaction_nonce( context, payer, trx.active_data->nonce );
 
+   KOINOS_ASSERT( trx.active_data->resource_limit <= uint128_t( KOINOS_MAX_METER_TICKS ), tick_max_too_high_exception, "Tick max is too high" );
+   context.set_meter_ticks( int64_t( trx.active_data->resource_limit ) );
+
    for( const auto& o : trx.active_data->operations )
    {
       std::visit( koinos::overloaded {
@@ -359,7 +379,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          {
             system_call::apply_reserved_operation( context, op );
          },
-         [&]( const create_system_contract_operation& op )
+         [&]( const upload_contract_operation& op )
          {
             system_call::apply_upload_contract_operation( context, op );
          },
@@ -376,6 +396,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    // Next nonce should be the current nonce + 1
    update_payer_transaction_nonce( context, payer, trx.active_data->nonce + 1 );
+
+   LOG(debug) << "(apply_transaction) transaction " << trx.id << " used ticks: " << context.get_used_meter_ticks();
 }
 
 THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
@@ -384,9 +406,17 @@ THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operati
    KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" );
 }
 
-THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_system_contract_operation&) o) )
+THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
+
+   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
+   protocol::account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
+   auto signer_hash = crypto::hash( CRYPTO_RIPEMD160_ID, sig_account );
+
+   KOINOS_ASSERT( signer_hash.digest.size() == o.contract_id.size() &&
+      std::equal( signer_hash.digest.begin(), signer_hash.digest.end(), o.contract_id.begin() ), invalid_signature, "signature does not match",
+      ("contract_id", o.contract_id)("signer_hash", signer_hash.digest) );
 
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
