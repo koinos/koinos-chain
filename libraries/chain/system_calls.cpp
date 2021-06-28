@@ -115,9 +115,9 @@ void register_thunks( thunk_dispatcher& td )
 // TODO: Should this be a thunk?
 bool is_system_space( const statedb::object_space& space_id )
 {
-   return space_id == CONTRACT_SPACE_ID ||
-          space_id == SYS_CALL_DISPATCH_TABLE_SPACE_ID ||
-          space_id == KERNEL_SPACE_ID;
+   return space_id == database::contract_space ||
+          space_id == database::system_call_dispatch_space ||
+          space_id == database::kernel_space;
 }
 
 THUNK_DEFINE_BEGIN();
@@ -142,9 +142,23 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
 
 THUNK_DEFINE( bool, verify_block_signature, ((const multihash&) digest, (const opaque< protocol::active_block_data >&) active_data, (const variable_blob&) signature_data) )
 {
+   multihash chain_id;
    crypto::recoverable_signature sig;
    pack::from_variable_blob( signature_data, sig );
-   return crypto::public_key::from_base58( "5evxVPukp6bUdGNX8XUMD9e2J59j9PjqAVw2xYNw5xrdQPRRT8" ) == crypto::public_key::recover( sig, digest );
+
+   with_stack_frame(
+      context,
+      stack_frame {
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "retrieve_chain_id" ) ).digest,
+         .call_privilege = privilege::kernel_mode,
+      },
+      [&]() {
+         auto obj = system_call::db_get_object( context, database::kernel_space, database::key_from_string( database::key::chain_id ) );
+         chain_id = pack::from_variable_blob< multihash >( obj );
+      }
+   );
+
+   return chain_id == crypto::hash( CRYPTO_SHA2_256_ID, crypto::public_key::recover( sig, digest ).to_address() );
 }
 
 THUNK_DEFINE( bool, verify_merkle_root, ((const multihash&) root, (const std::vector< multihash >&) hashes) )
@@ -212,10 +226,8 @@ THUNK_DEFINE( void, apply_block,
       KOINOS_ASSERT( system_call::verify_block_signature( context, block_hash, block.active_data, block.signature_data ), invalid_block_signature, "Block signature does not match" );
    }
 
-   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
-   vkey.resize( 32, char(0) );
-   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
-   system_call::db_put_object( context, KERNEL_SPACE_ID, key, pack::to_variable_blob( block.header.timestamp ) );
+   auto key = database::key_from_string( database::key::head_block_time );
+   system_call::db_put_object( context, database::kernel_space, key, pack::to_variable_blob( block.header.timestamp ) );
 
    // Check passive Merkle root
    if( check_passive_data )
@@ -316,14 +328,14 @@ inline void update_payer_transaction_nonce( apply_context& ctx, protocol::accoun
 {
    variable_blob vkey;
    pack::to_variable_blob( vkey, payer );
-   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
+   pack::to_variable_blob( vkey, std::string{ database::key::transaction_nonce }, true );
 
    statedb::object_key key;
    key = pack::from_variable_blob< statedb::object_key >( vkey );
 
    variable_blob obj;
    pack::to_variable_blob( obj, nonce );
-   system_call::db_put_object( ctx, KERNEL_SPACE_ID, key, obj );
+   system_call::db_put_object( ctx, database::kernel_space, key, obj );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -378,7 +390,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::create_sy
 
    // Contract id is a ripemd160. It needs to be copied in to a uint256_t
    uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
-   system_call::db_put_object( context, CONTRACT_SPACE_ID, contract_id, o.bytecode );
+   system_call::db_put_object( context, database::contract_space, contract_id, o.bytecode );
 }
 
 THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -401,6 +413,30 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
+   multihash chain_id;
+
+   with_stack_frame(
+      context,
+      stack_frame {
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "retrieve_chain_id" ) ).digest,
+         .call_privilege = privilege::kernel_mode,
+      },
+      [&]() {
+         auto obj = system_call::db_get_object( context, database::kernel_space, database::key_from_string( database::key::chain_id ) );
+         chain_id = pack::from_variable_blob< multihash >( obj );
+      }
+   );
+
+   const auto& tx = context.get_transaction();
+   crypto::recoverable_signature sig;
+   pack::from_variable_blob( tx.signature_data, sig );
+
+   KOINOS_ASSERT(
+      chain_id == crypto::hash( CRYPTO_SHA2_256_ID, crypto::public_key::recover( sig, tx.id ).to_address() ),
+      insufficient_privileges,
+      "Transaction does not have the required authority to override system calls"
+   );
+
    // Ensure override exists
    std::visit(
    koinos::overloaded{
@@ -409,7 +445,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       },
       [&]( const contract_call_bundle& scb ) {
          uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
-         auto contract = db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+         auto contract = db_get_object( context, database::contract_space, contract_key );
          KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
          KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), forbidden_override, "Cannot override execute_contract." );
       },
@@ -419,7 +455,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       } }, o.target );
 
    // Place the override in the database
-   system_call::db_put_object( context, SYS_CALL_DISPATCH_TABLE_SPACE_ID, o.call_id, pack::to_variable_blob( o.target ) );
+   system_call::db_put_object( context, database::system_call_dispatch_space, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )
@@ -551,7 +587,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       },
       [&]()
       {
-         bytecode = system_call::db_get_object( context, CONTRACT_SPACE_ID, contract_key );
+         bytecode = system_call::db_get_object( context, database::contract_space, contract_key );
          KOINOS_ASSERT( bytecode.size(), invalid_contract, "Contract does not exist" );
       }
    );
@@ -672,7 +708,7 @@ THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const protocol::transac
 THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
 {
    auto head = context.get_state_node();
-   return block_height_type( head->revision() > DEFAULT_IRREVERSIBLE_THRESHOLD ? head->revision() - DEFAULT_IRREVERSIBLE_THRESHOLD : 0 );
+   return block_height_type( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
 }
 
 THUNK_DEFINE_VOID( get_caller_return, get_caller )
@@ -714,21 +750,19 @@ THUNK_DEFINE_VOID( timestamp_type, get_head_block_time )
       return block_ptr->header.timestamp;
    }
 
-   auto vkey = pack::to_variable_blob( std::string{ KOINOS_HEAD_BLOCK_TIME_KEY } );
-   vkey.resize( 32, char(0) );
-   auto key = pack::from_variable_blob< statedb::object_key >( vkey );
-   return pack::from_variable_blob< timestamp_type >( db_get_object( context, KERNEL_SPACE_ID, key ) );
+   auto key = database::key_from_string( database::key::head_block_time );
+   return pack::from_variable_blob< timestamp_type >( db_get_object( context, database::kernel_space, key ) );
 }
 
 THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const protocol::account_type&) account ) )
 {
    variable_blob vkey;
    pack::to_variable_blob( vkey, account );
-   pack::to_variable_blob( vkey, std::string{ KOINOS_TRANSACTION_NONCE_KEY }, true );
+   pack::to_variable_blob( vkey, std::string{ database::key::transaction_nonce }, true );
 
    statedb::object_key key;
    key = pack::from_variable_blob< statedb::object_key >( vkey );
-   auto obj = system_call::db_get_object( context, KERNEL_SPACE_ID, key );
+   auto obj = system_call::db_get_object( context, database::kernel_space, key );
    if ( obj.size() > 0 )
    {
       return { pack::from_variable_blob< uint64 >( obj ) };

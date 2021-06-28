@@ -1,3 +1,4 @@
+#include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 
 #include <koinos/chain/exceptions.hpp>
@@ -477,8 +478,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    statedb::get_object_result result;
    statedb::get_object_args   args;
-   args.space    = KOINOS_STATEDB_SPACE;
-   args.key      = KOINOS_STATEDB_CHAIN_ID_KEY;
+   args.space    = database::kernel_space;
+   args.key      = database::key_from_string( database::key::chain_id );
    args.buf      = const_cast< char* >( chain_id_stream.vector().data() );
    args.buf_size = chain_id_stream.vector().size();
 

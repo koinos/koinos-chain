@@ -25,12 +25,12 @@
 
 using namespace std::string_literals;
 
-#define TEST_CHAIN_ID_SEED "koinos"s
-
 struct controller_fixture
 {
    controller_fixture()
    {
+      using namespace koinos::chain;
+
       koinos::initialize_logging( "koinos_test", {}, "info" );
 
       auto seed = "test seed"s;
@@ -43,10 +43,10 @@ struct controller_fixture
       auto database_config = mira::utilities::default_database_configuration();
 
       koinos::chain::genesis_data genesis_data;
-      auto chain_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, TEST_CHAIN_ID_SEED );
-      genesis_data[ { 0, KOINOS_STATEDB_CHAIN_ID_KEY } ] = koinos::pack::to_variable_blob( chain_id );
+      auto chain_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, _block_signing_private_key.get_public_key().to_address() );
+      genesis_data[ { database::kernel_space, database::key_from_string( database::key::chain_id ) } ] = koinos::pack::to_variable_blob( chain_id );
 
-      _controller.open( _state_dir, database_config ,genesis_data, false );
+      _controller.open( _state_dir, database_config, genesis_data, false );
    }
 
    virtual ~controller_fixture()
@@ -223,7 +223,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test chain ID retrieval" );
 
-   BOOST_CHECK_EQUAL( _controller.get_chain_id().chain_id, koinos::crypto::hash( CRYPTO_SHA2_256_ID, TEST_CHAIN_ID_SEED ) );
+   BOOST_CHECK_EQUAL(
+      _controller.get_chain_id().chain_id,
+      koinos::crypto::hash( CRYPTO_SHA2_256_ID, _block_signing_private_key.get_public_key().to_address() )
+   );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -239,7 +242,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
    auto head_info_res = _controller.get_head_info();
 
-   for( uint32_t i = 1; i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
+   for( uint32_t i = 1; i <= uint32_t( default_irreversible_threshold ); i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
       block_req.block.active_data.make_mutable();
@@ -259,8 +262,8 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       BOOST_REQUIRE( head_info_res.last_irreversible_height == 0 );
    }
 
-   for( uint32_t i = uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ) + 1;
-        i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ) + 3;
+   for( uint32_t i = uint32_t( default_irreversible_threshold ) + 1;
+        i <= uint32_t( default_irreversible_threshold ) + 3;
         i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
@@ -278,7 +281,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
       head_info_res = _controller.get_head_info();
 
-      BOOST_REQUIRE( head_info_res.last_irreversible_height == i - DEFAULT_IRREVERSIBLE_THRESHOLD );
+      BOOST_REQUIRE( head_info_res.last_irreversible_height == i - default_irreversible_threshold );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -300,7 +303,7 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    auto root_head_info = _controller.get_head_info();
    auto head_info = root_head_info;
 
-   for( int i = 1; i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
+   for( int i = 1; i <= uint32_t( default_irreversible_threshold ); i++ )
    {
       block_req.block.active_data.make_mutable();
       block_req.block.header.timestamp = test_timestamp + i;
@@ -322,10 +325,10 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    auto fork_head_info = head_info;
    head_info = root_head_info;
 
-   for( int i = 1; i <= uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ); i++ )
+   for( int i = 1; i <= uint32_t( default_irreversible_threshold ); i++ )
    {
       block_req.block.active_data.make_mutable();
-      block_req.block.header.timestamp = test_timestamp + i + uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD );
+      block_req.block.header.timestamp = test_timestamp + i + uint32_t( default_irreversible_threshold );
       block_req.block.header.height    = head_info.head_topology.height + 1;
       block_req.block.header.previous  = head_info.head_topology.id;
 
@@ -361,7 +364,7 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    }
 
    block_req.block.active_data.make_mutable();
-   block_req.block.header.timestamp = test_timestamp + ( 2 * uint32_t( DEFAULT_IRREVERSIBLE_THRESHOLD ) ) + 1;
+   block_req.block.header.timestamp = test_timestamp + ( 2 * uint32_t( default_irreversible_threshold ) ) + 1;
    block_req.block.header.height    = head_info.head_topology.height + 1;
    block_req.block.header.previous  = head_info.head_topology.id;
 

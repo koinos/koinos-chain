@@ -1,5 +1,6 @@
 #pragma once
 
+#include <koinos/chain/constants.hpp>
 #include <koinos/mq/client.hpp>
 #include <koinos/statedb/statedb_types.hpp>
 #include <koinos/pack/classes.hpp>
@@ -15,9 +16,6 @@ namespace koinos::chain {
 namespace detail { class controller_impl; }
 
 using genesis_data = std::map< std::pair< statedb::object_space, statedb::object_key >, statedb::object_value >;
-
-#define KOINOS_STATEDB_SPACE        0
-#define KOINOS_STATEDB_CHAIN_ID_KEY 1
 
 class controller final
 {
