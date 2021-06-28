@@ -861,8 +861,13 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    using namespace koinos;
    BOOST_TEST_MESSAGE( "Upload forever contract" );
 
-   koinos::protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
+   protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   protocol::upload_contract_operation op;
+   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, contract_private_key.get_public_key().to_address() );
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_forever_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -870,7 +875,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    system_call::apply_upload_contract_operation( ctx, op );
 
    koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
-   auto stored_bytecode = system_call::db_get_object( ctx, CONTRACT_SPACE_ID, contract_key, bytecode.size() );
+   auto stored_bytecode = system_call::db_get_object( ctx, koinos::chain::database::contract_space, contract_key, bytecode.size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
    BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
