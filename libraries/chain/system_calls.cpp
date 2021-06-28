@@ -657,7 +657,7 @@ THUNK_DEFINE( protocol::account_type, get_transaction_payer, ((const protocol::t
 
 THUNK_DEFINE( uint128, get_max_account_resources, ((const protocol::account_type&) account) )
 {
-   uint128 max_resources = 1000000000000;
+   uint128 max_resources = 10'000'000;
    return max_resources;
 }
 
