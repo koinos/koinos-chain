@@ -14,6 +14,8 @@
 #define KOINOS_EXIT_SUCCESS 0
 #define KOINOS_EXIT_FAILURE 1
 
+#define KOINOS_MAX_METER_TICKS (10 * int64_t(1000) * int64_t(1000))
+
 namespace koinos::chain {
 
 class apply_context;

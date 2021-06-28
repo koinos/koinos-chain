@@ -504,7 +504,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    call.args = koinos::pack::to_variable_blob( m_args );
    trx.active_data->operations.push_back( call );
 
-   trx.active_data->resource_limit = 20;
+   trx.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
    trx.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data );
    auto signature = alice_private_key.sign_compact( trx.id );
    trx.signature_data = koinos::variable_blob( signature.begin(), signature.end() );
