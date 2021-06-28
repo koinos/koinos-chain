@@ -57,6 +57,7 @@ class controller_impl final
       statedb::state_db             _state_db;
       std::shared_mutex             _state_db_mutex;
       std::shared_ptr< mq::client > _client;
+      int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
 
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
@@ -148,6 +149,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    {
       apply_context parent_ctx;
 
+      // The following call to set_meter_ticks() does not set an upper bound on the cycles that
+      // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
+      // system calls are overridden.  See issue #439.
+
+      parent_ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
+
       parent_ctx.push_frame( stack_frame {
          .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
          .call_privilege = privilege::kernel_mode
@@ -160,6 +167,11 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    }
 
    apply_context ctx;
+
+   // The following call to set_meter_ticks() does not set an upper bound on the cycles that
+   // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
+   // system calls are overridden.  See issue #439.
+   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
 
    try
    {
@@ -367,6 +379,12 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    try
    {
       ctx.set_state_node( pending_trx_node );
+
+      // The following call to set_meter_ticks() does not set an upper bound on the cycles that
+      // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
+      // system calls are overridden.  See issue #439.
+
+      ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
 
       payer = system_call::get_transaction_payer( ctx, request.transaction );
       max_payer_resources = system_call::get_max_account_resources( ctx, payer );
@@ -579,6 +597,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.set_state_node( head_node );
    ctx.set_read_only( true );
+   ctx.set_meter_ticks( _max_read_cycles );
 
    auto result = system_call::execute_contract( ctx, request.contract_id, request.entry_point, request.args );
 

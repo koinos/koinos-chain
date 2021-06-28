@@ -414,7 +414,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
    trx1.active_data->operations.push_back( op );
-   trx1.active_data->resource_limit = 20;
+   trx1.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
    sign_transaction( trx1, key1 );
 
    // Upload the return test contract
@@ -427,7 +427,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op.bytecode.clear();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
    trx2.active_data->operations.push_back( op );
-   trx2.active_data->resource_limit = 20;
+   trx2.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
    sign_transaction( trx2, key2 );
 
    // Upload the db write contract
@@ -440,7 +440,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op.bytecode.clear();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
    trx3.active_data->operations.push_back( op );
-   trx3.active_data->resource_limit = 20;
+   trx3.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
    sign_transaction( trx3, key3 );
 
    koinos::rpc::chain::submit_block_request block_req;
@@ -516,7 +516,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    auto bytecode = get_koin_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
    trx1.active_data->operations.push_back( op );
-   trx1.active_data->resource_limit = 20;
+   trx1.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
    sign_transaction( trx1, contract_private_key );
 
    koinos::protocol::transaction trx2;
@@ -527,7 +527,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    std::memcpy( call.contract_id.data(), id.digest.data(), call.contract_id.size() );
    call.entry_point = 0xc2f82bdc;
    call.args = koinos::pack::to_variable_blob( m_args );
-   trx2.active_data->resource_limit = 20;
+   trx2.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
    trx2.active_data->operations.push_back( call );
    sign_transaction( trx2, alice_private_key );
 
