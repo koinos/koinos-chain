@@ -87,6 +87,14 @@ struct controller_fixture
       );
    }
 
+   void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypto::private_key& transaction_signing_key )
+   {
+      // Signature is on the hash of the active data
+      transaction.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
+      auto signature = transaction_signing_key.sign_compact( transaction.id );
+      koinos::pack::to_variable_blob( transaction.signature_data, signature );
+   }
+
    std::vector< uint8_t > get_hello_wasm()
    {
       return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
@@ -120,7 +128,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test submit transaction" );
 
-   auto key = crypto::private_key::generate_from_seed( crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
+   auto key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
    rpc::chain::submit_transaction_request trx_req;
    trx_req.transaction.active_data.make_mutable();
    trx_req.transaction.active_data->operations.push_back( protocol::nop_operation() );
@@ -393,38 +401,47 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Upload contracts" );
 
-   auto key = koinos::crypto::private_key::generate_from_seed( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foobar"s ) );
-   koinos::protocol::transaction trx;
-   trx.active_data.make_mutable();
+   auto key1 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foobar1"s ) );
+   auto key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foobar2"s ) );
+   auto key3 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foobar3"s ) );
 
-   koinos::protocol::create_system_contract_operation op;
-   auto contract_1_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1 );
+   koinos::protocol::transaction trx1;
+   trx1.active_data.make_mutable();
+
+   koinos::protocol::upload_contract_operation op;
+   auto contract_1_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, key1.get_public_key().to_address() );
    std::memcpy( op.contract_id.data(), contract_1_id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   trx.active_data->operations.push_back( op );
+   trx1.active_data->operations.push_back( op );
+   trx1.active_data->resource_limit = 20;
+   sign_transaction( trx1, key1 );
 
    // Upload the return test contract
+   koinos::protocol::transaction trx2;
+   trx2.active_data.make_mutable();
+
    bytecode = get_contract_return_wasm();
-   auto contract_2_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, bytecode );
+   auto contract_2_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, key2.get_public_key().to_address() );
    std::memcpy( op.contract_id.data(), contract_2_id.digest.data(), op.contract_id.size() );
    op.bytecode.clear();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   trx.active_data->operations.push_back( op );
+   trx2.active_data->operations.push_back( op );
+   trx2.active_data->resource_limit = 20;
+   sign_transaction( trx2, key2 );
 
    // Upload the db write contract
+   koinos::protocol::transaction trx3;
+   trx3.active_data.make_mutable();
+
    bytecode = get_db_write_wasm();
-   auto contract_3_id = koinos::crypto::empty_hash( CRYPTO_RIPEMD160_ID );
-   contract_3_id.digest[ contract_3_id.digest.size() - 1 ] = 1;
+   auto contract_3_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, key3.get_public_key().to_address() );
    std::memcpy( op.contract_id.data(), contract_3_id.digest.data(), op.contract_id.size() );
    op.bytecode.clear();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   trx.active_data->operations.push_back( op );
-
-   trx.active_data->resource_limit = 20;
-   trx.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data );
-   auto signature = key.sign_compact( trx.id );
-   trx.signature_data = koinos::variable_blob( signature.begin(), signature.end() );
+   trx3.active_data->operations.push_back( op );
+   trx3.active_data->resource_limit = 20;
+   sign_transaction( trx3, key3 );
 
    koinos::rpc::chain::submit_block_request block_req;
    block_req.verify_passive_data = false;
@@ -435,7 +452,9 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
    block_req.block.header.height = 1;
    block_req.block.header.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
-   block_req.block.transactions.push_back( trx );
+   block_req.block.transactions.push_back( trx1 );
+   block_req.block.transactions.push_back( trx2 );
+   block_req.block.transactions.push_back( trx3 );
 
    set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
    sign_block( block_req.block, _block_signing_private_key );
@@ -484,30 +503,33 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 { try {
    BOOST_TEST_MESSAGE( "Upload KOIN contract and attempt to mint to Alice" );
 
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address();
-   koinos::protocol::transaction trx;
-   trx.active_data.make_mutable();
+   koinos::protocol::transaction trx1;
+   trx1.active_data.make_mutable();
 
    // Upload the KOIN contract
-   koinos::protocol::create_system_contract_operation op;
-   auto id = koinos::crypto::zero_hash( CRYPTO_RIPEMD160_ID );
+   koinos::protocol::upload_contract_operation op;
+   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_private_key.get_public_key().to_address() );
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_koin_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   trx.active_data->operations.push_back( op );
+   trx1.active_data->operations.push_back( op );
+   trx1.active_data->resource_limit = 20;
+   sign_transaction( trx1, contract_private_key );
+
+   koinos::protocol::transaction trx2;
+   trx2.active_data.make_mutable();
 
    auto m_args = mint_args{ .to = alice_address, .value = 100 };
    koinos::protocol::call_contract_operation call;
    std::memcpy( call.contract_id.data(), id.digest.data(), call.contract_id.size() );
    call.entry_point = 0xc2f82bdc;
    call.args = koinos::pack::to_variable_blob( m_args );
-   trx.active_data->operations.push_back( call );
-
-   trx.active_data->resource_limit = 20;
-   trx.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data );
-   auto signature = alice_private_key.sign_compact( trx.id );
-   trx.signature_data = koinos::variable_blob( signature.begin(), signature.end() );
+   trx2.active_data->resource_limit = 20;
+   trx2.active_data->operations.push_back( call );
+   sign_transaction( trx2, alice_private_key );
 
    koinos::rpc::chain::submit_block_request block_req;
    block_req.verify_passive_data = false;
@@ -518,7 +540,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
    block_req.block.header.height = 1;
    block_req.block.header.previous = koinos::crypto::zero_hash( CRYPTO_SHA2_256_ID );
-   block_req.block.transactions.push_back( trx );
+   block_req.block.transactions.push_back( trx1 );
+   block_req.block.transactions.push_back( trx2 );
 
    set_block_merkle_roots( block_req.block, CRYPTO_SHA2_256_ID );
    sign_block( block_req.block, _block_signing_private_key );
@@ -533,6 +556,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    std::memcpy( request.contract_id.data(), id.digest.data(), request.contract_id.size() );
    request.entry_point = 0x15619248;
    request.args = koinos::pack::to_variable_blob( alice_address );
+
+   LOG(info) << request;
 
    auto response = _controller.read_contract( request );
    auto alice_balance = koinos::pack::from_variable_blob< uint64_t >( response.result );
