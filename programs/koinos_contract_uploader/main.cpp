@@ -54,7 +54,7 @@ int main( int argc, char** argv )
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
 
-      koinos::initialize_logging("koinos_contract_uploader", {}, "info" );
+      koinos::initialize_logging( "koinos_contract_uploader", {}, "info" );
 
       if ( args.count( HELP_OPTION ) )
       {
