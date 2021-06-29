@@ -42,17 +42,19 @@ int main( int argc, char** argv )
 
          // --upload arguments
          (UPLOAD_OPTION                , "Run in upload mode")
-         (CONTRACT_OPTION          ",c", "The wasm contract")
+         (CONTRACT_OPTION          ",c", program_options::value< std::string >(), "The wasm contract")
 
          // --override arguments
          (OVERRIDE_OPTION              , "Run in override mode")
          (CALL_ID_OPTION           ",o", program_options::value< uint32_t >()   , "The system call ID to override")
          (ENTRY_POINT_OPTION       ",e", program_options::value< uint32_t >()   , "The contract entry point for override mode")
-         (CONTRACT_ID_OPTION       ",c", program_options::value< std::string >(), "The contract ID for override mode")
+         (CONTRACT_ID_OPTION       ",i", program_options::value< std::string >(), "The contract ID for override mode")
       ;
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
+
+      koinos::initialize_logging("koinos_contract_uploader", {}, "info" );
 
       if ( args.count( HELP_OPTION ) )
       {
@@ -107,12 +109,9 @@ int main( int argc, char** argv )
          transaction.active_data->resource_limit = 10'000'000;
          transaction.active_data->nonce = get_next_nonce( client, public_address );
 
-         std::string msg = "Attempting to upload contract with ID: " + std::string( contract_id.digest.begin(), contract_id.digest.end() );
-         std::cout.write( msg.c_str(), msg.size() );
-
          pack::json j;
-         pack::to_json( j, op );
-         std::cout << j;
+         pack::to_json( j, op.contract_id );
+         LOG(info) << "Attempting to upload contract with ID: " << j.dump();
       }
       else if ( args.count( OVERRIDE_OPTION ) )
       {
@@ -134,10 +133,10 @@ int main( int argc, char** argv )
             "The contract ID is required"
          );
 
-         std::string contract_id = args[ CONTRACT_ID_OPTION ].as< std::string >();
-
+         auto j = koinos::pack::json::parse( '"' + args[ CONTRACT_ID_OPTION ].as< std::string >() + '"' );
          chain::contract_call_bundle bundle;
-         std::memcpy( bundle.contract_id.data(), contract_id.data(), contract_id.size() );
+         koinos::pack::from_json( j, bundle.contract_id );
+
          bundle.entry_point = args[ ENTRY_POINT_OPTION ].as< uint32_t >();
 
          protocol::set_system_call_operation op;
@@ -148,12 +147,7 @@ int main( int argc, char** argv )
          transaction.active_data->resource_limit = 10'000'000;
          transaction.active_data->nonce = get_next_nonce( client, public_address );
 
-         std::string msg = "Attempting to apply the system call override";
-         std::cout.write( msg.c_str(), msg.size() );
-
-         pack::json j;
-         pack::to_json( j, op );
-         std::cout << j;
+         LOG(info) << "Attempting to apply the system call override";
       }
       else
       {
@@ -166,8 +160,7 @@ int main( int argc, char** argv )
 
       submit_transaction( client, transaction );
 
-      std::string msg = "Transaction successfully submitted";
-      std::cout.write( msg.c_str(), msg.size() );
+      LOG(info) << "Transaction successfully submitted";
 
       return EXIT_SUCCESS;
    }
