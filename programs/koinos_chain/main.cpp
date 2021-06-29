@@ -489,7 +489,9 @@ int main( int argc, char** argv )
       );
 
       std::ifstream ifs( genesis_key_file );
-      std::string genesis_address( ( std::istreambuf_iterator< char >( ifs ) ), ( std::istreambuf_iterator< char >() ) );
+      std::string genesis_address;
+      std::getline( ifs, genesis_address );
+      ifs.close();
 
       multihash chain_id = crypto::hash( CRYPTO_SHA2_256_ID, genesis_address );
 
