@@ -98,7 +98,7 @@ int main( int argc, char** argv )
 
          std::vector< char > bytecode( (std::istreambuf_iterator< char >( contract )), std::istreambuf_iterator< char >() );
 
-         protocol::create_system_contract_operation op;
+         protocol::upload_contract_operation op;
          auto contract_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, signing_key.get_public_key().to_address() );
          std::memcpy( op.contract_id.data(), contract_id.digest.data(), op.contract_id.size() );
          op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
