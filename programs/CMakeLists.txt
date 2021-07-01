@@ -1,5 +1,2 @@
 add_subdirectory(koinos_chain)
-add_subdirectory(koinos_contract_uploader)
 add_subdirectory(koinos_vm_driver)
-add_subdirectory(koinos_transaction_signer)
-add_subdirectory(koinos_get_dev_key)

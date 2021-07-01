@@ -35,6 +35,4 @@ RUN apk update && \
         musl \
         libstdc++
 COPY --from=builder /koinos-chain/programs/koinos_chain/koinos_chain /usr/local/bin
-COPY --from=builder /koinos-chain/programs/koinos_transaction_signer/koinos_transaction_signer /usr/local/bin
-COPY --from=builder /koinos-chain/programs/koinos_get_dev_key/koinos_get_dev_key /usr/local/bin
 ENTRYPOINT [ "/usr/local/bin/koinos_chain" ]
