@@ -223,9 +223,10 @@ void attach_request_handler(
 
 void index_loop(
    chain::controller& controller,
-   concurrent::sync_bounded_queue< std::shared_future< std::string > >& rpc_queue )
+   concurrent::sync_bounded_queue< std::shared_future< std::string > >& rpc_queue,
+   block_height_type last_height )
 {
-   while( true )
+   while ( true )
    {
       std::shared_future< std::string > future;
       try
@@ -265,7 +266,7 @@ void index_loop(
                .verify_passive_data = false,
                .verify_block_signature = true,
                .verify_transaction_signatures = false
-            }, false );
+            }, last_height );
          }
       }
       catch ( const boost::exception& e )
@@ -323,7 +324,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
 
          auto index_thread = std::make_unique< std::thread >( [&]()
          {
-            index_loop( controller, rpc_queue );
+            index_loop( controller, rpc_queue, target_head.height );
          } );
 
          multihash last_id = crypto::zero_hash( CRYPTO_SHA2_256_ID );

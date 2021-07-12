@@ -28,7 +28,7 @@ class controller final
 
       rpc::chain::submit_block_response submit_block(
          const rpc::chain::submit_block_request&,
-         bool indexing = false,
+         block_height_type index_to = block_height_type{ 0 },
          std::chrono::system_clock::time_point now = std::chrono::system_clock::now()
       );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request&  );

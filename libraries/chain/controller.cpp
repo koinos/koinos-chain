@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <list>
 #include <memory>
 #include <optional>
@@ -43,7 +44,7 @@ class controller_impl final
 
       rpc::chain::submit_block_response submit_block(
          const rpc::chain::submit_block_request&,
-         bool indexing,
+         block_height_type index_to,
          std::chrono::system_clock::time_point now
       );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
@@ -117,12 +118,12 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
 
 rpc::chain::submit_block_response controller_impl::submit_block(
    const rpc::chain::submit_block_request& request,
-   bool indexing,
+   block_height_type index_to,
    std::chrono::system_clock::time_point now )
 {
    std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
 
-   static constexpr uint64_t index_message_interval = 10000;
+   static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
 
    auto time_lower_bound = uint64_t( 0 );
@@ -135,7 +136,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    if ( block_node ) return {}; // Block has been applied
 
-   if ( !indexing || request.block.header.height % index_message_interval == 0 )
+   if ( !index_to )
    {
       LOG(info) << "Pushing block - Height: " << request.block.header.height
          << ", ID: " << request.block.id;
@@ -244,9 +245,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }, resp );
       }
 
-      if ( !indexing || request.block.header.height % index_message_interval == 0 )
+      if ( !index_to )
       {
          LOG(info) << "Block application successful - Height: " << request.block.header.height << ", ID: " << request.block.id;
+      }
+      else if ( request.block.header.height % index_message_interval == 0 )
+      {
+         auto progress = request.block.header.height.t / static_cast< double >( index_to.t ) * 100;
+         LOG(info) << "Indexing chain (" << progress << "%) - Height: " << request.block.header.height << ", ID: " << request.block.id;
       }
 
       auto output = ctx.get_pending_console_output();
@@ -640,10 +646,10 @@ void controller::set_client( std::shared_ptr< mq::client > c )
 
 rpc::chain::submit_block_response controller::submit_block(
    const rpc::chain::submit_block_request& request,
-   bool indexing,
+   block_height_type index_to,
    std::chrono::system_clock::time_point now )
 {
-   return _my->submit_block( request, indexing, now );
+   return _my->submit_block( request, index_to, now );
 }
 
 rpc::chain::submit_transaction_response controller::submit_transaction( const rpc::chain::submit_transaction_request& request )
