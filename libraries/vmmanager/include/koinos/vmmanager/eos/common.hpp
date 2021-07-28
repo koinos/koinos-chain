@@ -1,12 +1,15 @@
 #pragma once
 
+#include <cstddef>
+#include <type_traits>
+
 // forward declaraton of alligned_array_wrapper
 namespace eosio::vm {
    template< typename T, size_t Align >
    struct aligned_array_wrapper;
 }
 
-namespace koinos::chain {
+namespace koinos::vmmanager::eos {
 
    class apply_context;
    class transaction_context;
@@ -99,4 +102,4 @@ namespace koinos::chain {
       char *value = nullptr;
    };
 
-} // koinos::chain
+} // koinos::vmmanager::eos

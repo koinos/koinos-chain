@@ -17,11 +17,6 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_buffer_size, database_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( operation_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( reserved_operation_exception, operation_exception );
 
-// WASM exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_type_conversion_exception, wasm_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_return_buffer, wasm_exception );
-
 // System call exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( system_call_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_system_call, system_call_exception );
