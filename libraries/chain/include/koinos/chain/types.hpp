@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <deque>
+#include <map>
 #include <memory>
 #include <vector>
-#include <deque>
-#include <cstdint>
 
 namespace koinos::chain {
 

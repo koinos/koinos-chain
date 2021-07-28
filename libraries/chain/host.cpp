@@ -12,13 +12,13 @@ namespace koinos::chain {
 
 koinos_host_api::koinos_host_api( apply_context& _ctx ) : context( _ctx ) {}
 
-void koinos_host_api::invoke_thunk( uint32_t tid, uint8_t* ret_ptr, uint32_t ret_len, uint8_t* arg_ptr, uint32_t arg_len )
+void koinos_host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
    thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-void koinos_host_api::invoke_system_call( uint32_t sid, uint8_t* ret_ptr, uint32_t ret_len, uint8_t* arg_ptr, uint32_t arg_len )
+void koinos_host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;
@@ -75,7 +75,7 @@ void koinos_host_api::invoke_system_call( uint32_t sid, uint8_t* ret_ptr, uint32
             variable_blob args;
             KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" )
             args.resize( arg_len );
-            std::memcpy( args.data(), arg_ptr.value, arg_len );
+            std::memcpy( args.data(), arg_ptr, arg_len );
             variable_blob ret;
             with_stack_frame(
                context,
@@ -89,7 +89,7 @@ void koinos_host_api::invoke_system_call( uint32_t sid, uint8_t* ret_ptr, uint32
                }
             );
             KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "Return buffer too small" );
-            std::memcpy( ret.data(), ret_ptr.value, ret.size() );
+            std::memcpy( ret.data(), ret_ptr, ret.size() );
          },
          [&]( auto& ) {
             KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",

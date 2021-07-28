@@ -1,6 +1,7 @@
+
+#include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
-
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -60,7 +61,7 @@ class controller_impl final
       std::shared_mutex             _state_db_mutex;
       std::shared_ptr< mq::client > _client;
       int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
-      std::shared_ptr< vm_backend > _vm_backend;
+      std::shared_ptr< vmmanager::vm_backend > _vm_backend;
 
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
@@ -70,7 +71,7 @@ controller_impl::controller_impl()
 {
    std::vector< std::shared_ptr< vmmanager::vm_backend > > vm_backends = vmmanager::get_vm_backends();
 
-   KOINOS_ASSERT( vm_backends.size() > 0, koinos_exception, "No available VM backends" );
+   KOINOS_ASSERT( vm_backends.size() > 0, chain_exception, "No available VM backends" );
    _vm_backend = vm_backends[0];
 
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " VM backend";
