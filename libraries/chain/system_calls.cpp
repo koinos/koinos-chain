@@ -1,5 +1,6 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
+#include <koinos/chain/koinos_host_api.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -309,7 +310,7 @@ THUNK_DEFINE( void, apply_block,
 
       ticks_used += context.get_used_meter_ticks();
 
-      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, tick_meter_exception, "Per-block tick limit exceeded" );
+      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, per_block_tick_limit_exception, "Per-block tick limit exceeded" );
    }
 }
 
@@ -629,9 +630,12 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       .entry_point = entry_point
    } );
 
+   koinos_host_api hapi( context );
+   vmmanager::context vm_ctx( hapi, context.get_meter_ticks() );
+
    try
    {
-      context._vm_backend->run( &context, bytecode.data(), bytecode.size() );
+      context._vm_backend->run( vm_ctx, bytecode.data(), bytecode.size() );
    }
    catch( const exit_success& ) {}
    catch( ... )

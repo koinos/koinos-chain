@@ -1,6 +1,9 @@
 #pragma once
 
+#include <koinos/vmmanager/context.hpp>
 #include <koinos/vmmanager/vm_backend.hpp>
+
+#include <string>
 
 namespace koinos::vmmanager::eos {
 
@@ -13,7 +16,7 @@ class eos_vm_backend : public vm_backend
       virtual std::string backend_name();
       virtual void initialize();
 
-      virtual void run( void* context, char* bytecode_data, size_t bytecode_size );
+      virtual void run( context& ctx, char* bytecode_data, size_t bytecode_size );
 };
 
 }

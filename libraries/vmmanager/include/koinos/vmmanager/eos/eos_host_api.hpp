@@ -9,7 +9,7 @@ namespace koinos::vmmanager::eos {
 struct eos_host_api final
 {
    eos_host_api( eos_apply_context& ctx );
-   eos_apply_context& context;
+   eos_apply_context& eos_context;
 
    void invoke_thunk(
       uint32_t tid,

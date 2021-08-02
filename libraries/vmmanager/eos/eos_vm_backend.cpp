@@ -19,7 +19,7 @@ void eos_vm_backend::initialize()
    register_host_functions();
 }
 
-void eos_vm_backend::run( void* context, char* bytecode_data, size_t bytecode_size )
+void eos_vm_backend::run( context& ctx, char* bytecode_data, size_t bytecode_size )
 {
    // bytecode_data cannot be const due to limitation in eos guarded_ptr
    wasm_allocator_type wa;
@@ -27,7 +27,7 @@ void eos_vm_backend::run( void* context, char* bytecode_data, size_t bytecode_si
    backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
    eos_apply_context eos_ctx;
 
-   eos_ctx.user_context = context;
+   eos_ctx._context = &ctx;
 
    backend.set_wasm_allocator( &wa );
    backend.initialize();

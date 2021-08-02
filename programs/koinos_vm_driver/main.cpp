@@ -4,11 +4,14 @@
 
 #include <boost/program_options.hpp>
 
+#include <koinos/chain/koinos_host_api.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
 #include <koinos/pack/classes.hpp>
+#include <koinos/vmmanager/chain_host_api.hpp>
+#include <koinos/vmmanager/context.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -16,6 +19,7 @@
 #define CONTRACT_OPTION "contract"
 #define VM_OPTION       "vm"
 #define LIST_VM_OPTION  "listvm"
+#define TICKS_OPTION    "ticks"
 
 std::vector< char > read_file( const std::string& path )
 {
@@ -42,6 +46,7 @@ int main( int argc, char** argv, char** envp )
         ( HELP_OPTION ",h", "print usage message" )
         ( CONTRACT_OPTION ",c", boost::program_options::value< std::string >(), "the contract to run" )
         ( VM_OPTION ",v", boost::program_options::value< std::string >()->default_value( "eos" ), "the VM backend to use" )
+        ( TICKS_OPTION ",t", boost::program_options::value< int64_t >()->default_value( 10 * 1000 * 1000 ), "set maximum allowed ticks" )
         ( LIST_VM_OPTION ",l", "list available VM backends" )
         ;
 
@@ -79,8 +84,11 @@ int main( int argc, char** argv, char** envp )
 
       std::vector< char > wasm_bin = read_file( vmap[ CONTRACT_OPTION ].as< std::string >() );
 
+      int64_t ticks = vmap[ TICKS_OPTION ].as< int64_t >();
       koinos::chain::apply_context ctx( vm_backend );
-      vm_backend->run( &ctx, wasm_bin.data(), wasm_bin.size() );
+      koinos::chain::koinos_host_api hapi( ctx );
+      koinos::vmmanager::context vm_ctx( hapi, ticks );
+      vm_backend->run( vm_ctx, wasm_bin.data(), wasm_bin.size() );
 
       LOG(info) << ctx.get_pending_console_output();
    }

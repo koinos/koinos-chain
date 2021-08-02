@@ -888,7 +888,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
    koinos::protocol::call_contract_operation op2;
    std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), tick_meter_exception );
+   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), koinos::vmmanager::tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

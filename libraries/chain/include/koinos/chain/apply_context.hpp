@@ -87,17 +87,6 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
-      template< typename Op >
-      inline void meter( const Op& op )
-      {
-         int64_t cost = 1;          // TODO:  Load cost from a table instead of having it always be 1
-         _meter_ticks -= cost;
-         if( _meter_ticks < 0 )
-         {
-            throw tick_meter_exception{ "tick meter ran out of cycles" };
-         }
-      }
-
       inline void set_meter_ticks(int64_t meter_ticks)
       {
          _start_meter_ticks = meter_ticks;
@@ -166,13 +155,3 @@ void with_stack_frame( apply_context& ctx, stack_frame&& f, Lambda&& l )
 }
 
 } // koinos::chain
-
-namespace eosio::vm {
-
-template< typename Host, typename Op >
-void meter_wasm_opcode( koinos::chain::apply_context* host, const Op& op )
-{
-   host->meter(op);
-}
-
-} // eosio::vm
