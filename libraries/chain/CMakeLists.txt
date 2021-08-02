@@ -1,4 +1,4 @@
-file(GLOB HEADERS "include/koinos/chain/*.hpp" "include/koinos/chain/wasm/*.hpp")
+file(GLOB HEADERS "include/koinos/chain/*.hpp")
 add_library(koinos_chain_lib
             apply_context.cpp
             controller.cpp
