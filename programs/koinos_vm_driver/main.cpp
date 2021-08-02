@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <fstream>
 #include <iostream>
 
 #include <boost/program_options.hpp>
@@ -13,6 +14,24 @@
 
 #define HELP_OPTION     "help"
 #define CONTRACT_OPTION "contract"
+#define VM_OPTION       "vm"
+#define LIST_VM_OPTION  "listvm"
+
+std::vector< char > read_file( const std::string& path )
+{
+   std::ifstream in;
+   in.exceptions( std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit );
+
+   in.open( path, std::ifstream::binary );
+   in.seekg( 0, std::ifstream::end );
+   size_t size = in.tellg();
+   in.seekg( 0, std::ifstream::beg );
+   std::vector<char> result(size);
+   in.read( result.data(), size );
+   return result;
+}
+
+using namespace koinos::vmmanager;
 
 int main( int argc, char** argv, char** envp )
 {
@@ -22,6 +41,8 @@ int main( int argc, char** argv, char** envp )
       desc.add_options()
         ( HELP_OPTION ",h", "print usage message" )
         ( CONTRACT_OPTION ",c", boost::program_options::value< std::string >(), "the contract to run" )
+        ( VM_OPTION ",v", boost::program_options::value< std::string >()->default_value( "eos" ), "the VM backend to use" )
+        ( LIST_VM_OPTION ",l", "list available VM backends" )
         ;
 
       boost::program_options::variables_map vmap;
@@ -33,29 +54,35 @@ int main( int argc, char** argv, char** envp )
          return EXIT_SUCCESS;
       }
 
+      if ( vmap.count( LIST_VM_OPTION ) )
+      {
+         std::vector< std::shared_ptr< vm_backend > > backends = get_vm_backends();
+         for( std::shared_ptr< vm_backend > b : backends )
+         {
+            std::cout << b->backend_name() << std::endl;
+         }
+         return EXIT_SUCCESS;
+      }
+
       if ( !vmap.count( CONTRACT_OPTION ) )
       {
          std::cout << desc << std::endl;
          return EXIT_FAILURE;
       }
 
-      koinos::chain::wasm_allocator_type wa;
-      std::vector< uint8_t > wasm_bin = koinos::chain::backend_type::read_wasm( vmap[ CONTRACT_OPTION ].as< std::string >() );
-      koinos::chain::backend_type backend( wasm_bin, koinos::chain::registrar_type{} );
+      std::string vm_backend_name = vmap[ VM_OPTION ].as< std::string >();
 
-      backend.set_wasm_allocator( &wa );
-      backend.initialize();
+      std::shared_ptr< vm_backend > vm_backend = get_vm_backend( vm_backend_name );
+      LOG(info) << "Initialized " << vm_backend->backend_name() << " VM backend";
 
-      koinos::chain::apply_context ctx;
+      vm_backend->initialize();
 
-      backend( &ctx, "env", "_start" );
+      std::vector< char > wasm_bin = read_file( vmap[ CONTRACT_OPTION ].as< std::string >() );
+
+      koinos::chain::apply_context ctx( vm_backend );
+      vm_backend->run( &ctx, wasm_bin.data(), wasm_bin.size() );
 
       LOG(info) << ctx.get_pending_console_output();
-   }
-   catch( const eosio::vm::exception& e )
-   {
-      LOG(fatal) << e.what() << ": " << e.detail();
-      return EXIT_FAILURE;
    }
    catch( const koinos::exception& e )
    {

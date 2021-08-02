@@ -12,6 +12,8 @@ namespace koinos::chain {
 
 koinos_host_api::koinos_host_api( apply_context& _ctx ) : context( _ctx ) {}
 
+koinos_host_api::~koinos_host_api() {}
+
 void koinos_host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );

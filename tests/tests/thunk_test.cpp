@@ -12,7 +12,7 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/host.hpp>
+#include <koinos/chain/koinos_host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -22,7 +22,7 @@
 #include <koinos/pack/rt/json.hpp>
 #include <koinos/pack/classes.hpp>
 
-#include <koinos/pack/rt/binary.hpp>
+#include <koinos/vmmanager/exceptions.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -38,6 +38,8 @@ using namespace std::string_literals;
 struct thunk_fixture
 {
    thunk_fixture() :
+      _vm_backend( koinos::vmmanager::get_vm_backend("eos") ),
+      ctx( _vm_backend ),
       host_api( ctx )
    {
       using namespace koinos::chain;
@@ -86,7 +88,7 @@ struct thunk_fixture
          .call_privilege = koinos::chain::privilege::kernel_mode
       } );
 
-      koinos::chain::register_host_functions();
+      _vm_backend->initialize();
    }
 
    ~thunk_fixture()
@@ -130,8 +132,9 @@ struct thunk_fixture
 
    std::filesystem::path temp;
    koinos::statedb::state_db db;
+   std::shared_ptr< koinos::vmmanager::vm_backend > _vm_backend;
    koinos::chain::apply_context ctx;
-   koinos::chain::host_api host_api;
+   koinos::chain::koinos_host_api host_api;
    koinos::crypto::private_key _signing_private_key;
 };
 
@@ -832,10 +835,10 @@ BOOST_AUTO_TEST_CASE( token_tests )
    LOG(info) << "KOIN supply: " << supply;
 
 }
-catch( const eosio::vm::exception& e )
+catch( const koinos::vmmanager::vm_exception& e )
 {
-   LOG(info) << e.what() << ": " << e.detail();
-   BOOST_FAIL("EOSIO VM Exception");
+   LOG(info) << e.what();
+   BOOST_FAIL("VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

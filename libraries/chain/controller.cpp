@@ -158,7 +158,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    // than the parent block timestamp.
    if ( block_node && !crypto::multihash_is_zero( request.block.header.previous ) )
    {
-      apply_context parent_ctx;
+      apply_context parent_ctx(_vm_backend);
 
       // The following call to set_meter_ticks() does not set an upper bound on the cycles that
       // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
@@ -177,7 +177,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       parent_height = system_call::get_head_info( parent_ctx ).head_topology.height;
    }
 
-   apply_context ctx;
+   apply_context ctx(_vm_backend);
 
    // The following call to set_meter_ticks() does not set an upper bound on the cycles that
    // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
@@ -386,7 +386,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    auto pending_trx_node = _state_db.get_head()->create_anonymous_node();
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
 
-   apply_context ctx;
+   apply_context ctx(_vm_backend);
+   ctx._vm_backend = _vm_backend;
    ctx.push_frame( stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_transaction"s ).digest,
       .call_privilege = privilege::kernel_mode
@@ -486,7 +487,8 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 {
    std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
 
-   apply_context ctx;
+   apply_context ctx(_vm_backend);
+   ctx._vm_backend = _vm_backend;
    ctx.push_frame( stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_head_info"s ).digest,
       .call_privilege = privilege::kernel_mode
@@ -542,7 +544,7 @@ fork_data controller_impl::get_fork_data()
 fork_data controller_impl::get_fork_data_lockless()
 {
    fork_data fdata;
-   apply_context ctx;
+   apply_context ctx(_vm_backend);
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_fork_data"s ).digest,
@@ -605,7 +607,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    head_node = _state_db.get_head();
 
-   apply_context ctx;
+   apply_context ctx(_vm_backend);
    ctx.push_frame( stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "read_contract"s ).digest,
       .call_privilege = privilege::kernel_mode,
@@ -625,7 +627,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
-   apply_context ctx;
+   apply_context ctx(_vm_backend);
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_account_nonce"s ).digest,

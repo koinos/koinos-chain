@@ -1,9 +1,14 @@
 #pragma once
 
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/statedb/statedb.hpp>
-#include <koinos/pack/classes.hpp>
+
 #include <koinos/crypto/elliptic.hpp>
+
+#include <koinos/pack/classes.hpp>
+
+#include <koinos/statedb/statedb.hpp>
+
+#include <koinos/vmmanager/vm_backend.hpp>
 
 #include <deque>
 #include <optional>
@@ -32,7 +37,9 @@ struct stack_frame
 class apply_context
 {
    public:
-      apply_context() = default;
+      //apply_context() = default;
+      apply_context( std::shared_ptr< koinos::vmmanager::vm_backend > be )
+          : _vm_backend(be) {}
 
       /// Console methods:
       void console_append( const std::string& val );
@@ -108,6 +115,7 @@ class apply_context
       }
 
       std::vector< stack_frame >             _stack;
+      std::shared_ptr< koinos::vmmanager::vm_backend >   _vm_backend;
 
    private:
       friend struct frame_restorer;

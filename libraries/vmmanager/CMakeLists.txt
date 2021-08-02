@@ -3,7 +3,8 @@ add_library(koinos_vmmanager_lib
             chain_host_api.cpp
             vm_backend.cpp
 
-            eos/eos_host.cpp
+            eos/eos_register_host.cpp
+            eos/eos_host_api.cpp
             eos/eos_vm_backend.cpp
 
             ${HEADERS})

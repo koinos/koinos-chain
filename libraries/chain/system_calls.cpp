@@ -622,13 +622,6 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       }
    );
 
-   wasm_allocator_type wa;
-   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
-   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
-
-   backend.set_wasm_allocator( &wa );
-   backend.initialize();
-
    context.push_frame( stack_frame {
       .call = pack::to_variable_blob( contract_id ),
       .call_privilege = context.get_privilege(),
@@ -638,16 +631,15 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
 
    try
    {
-      backend( &context, "env", "_start" );
+      context._vm_backend->run( &context, bytecode.data(), bytecode.size() );
    }
    catch( const exit_success& ) {}
-   catch( ... ) {
+   catch( ... )
+   {
       context.pop_frame();
-      wa.free();
       throw;
    }
 
-   wa.free();
    return context.pop_frame().call_return;
 }
 

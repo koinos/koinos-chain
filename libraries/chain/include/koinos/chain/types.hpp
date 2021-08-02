@@ -14,4 +14,7 @@ namespace koinos::chain {
    using std::pair;
    using std::make_pair;
 
+   typedef uint32_t system_call_id_type;
+   typedef uint32_t thunk_id_type;
+
 } // koinos::chain

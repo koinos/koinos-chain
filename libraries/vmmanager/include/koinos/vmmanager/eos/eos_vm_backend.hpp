@@ -12,6 +12,8 @@ class eos_vm_backend : public vm_backend
 
       virtual std::string backend_name();
       virtual void initialize();
+
+      virtual void run( void* context, char* bytecode_data, size_t bytecode_size );
 };
 
 }

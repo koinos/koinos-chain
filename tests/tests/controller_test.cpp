@@ -474,6 +474,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto response = _controller.read_contract( request );
 
    BOOST_REQUIRE( response.result.size() == 0 );
+   LOG(info) << "contract logs: " << response.logs;
    BOOST_REQUIRE( response.logs == "Greetings from koinos vm" );
 
 

@@ -19,6 +19,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( reserved_operation_exception, operation_except
 
 // System call exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( system_call_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_return_buffer, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_system_call, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_contract, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( forbidden_override, system_call_exception );
