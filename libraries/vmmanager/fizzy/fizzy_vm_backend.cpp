@@ -10,6 +10,8 @@
 #include <optional>
 #include <string>
 
+#define FIZZY_MAX_CALL_DEPTH   251
+
 namespace koinos::vmmanager::fizzy {
 
 /**
@@ -88,6 +90,7 @@ class fizzy_runner
       context& _ctx;
       const FizzyModule* _module = nullptr;
       FizzyInstance* _instance = nullptr;
+      FizzyExecutionContext* _fizzy_context = nullptr;
       std::exception_ptr _exception;
 };
 
@@ -107,6 +110,8 @@ fizzy_runner::~fizzy_runner()
          fizzy_free_module( _module );
       }
    }
+   if( _fizzy_context != nullptr )
+      fizzy_free_execution_context(_fizzy_context);
 }
 
 void fizzy_runner::parse_bytecode( char* bytecode_data, size_t bytecode_size )
@@ -217,18 +222,31 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
 void fizzy_runner::call_start()
 {
+   _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _ctx._meter_ticks );
+   KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "Could not create execution context" );
+
    uint32_t start_func_idx = 0;
    bool success = fizzy_find_exported_function_index( _module, "_start", &start_func_idx );
    KOINOS_ASSERT( success, module_start_exception, "Module does not have _start function" );
 
-   FizzyExecutionResult result = fizzy_execute( _instance, start_func_idx, nullptr );
+   FizzyExecutionResult result = fizzy_execute( _instance, start_func_idx, nullptr, _fizzy_context );
    if( _exception )
    {
       std::exception_ptr exc = _exception;
       _exception = std::exception_ptr();
       std::rethrow_exception( exc );
    }
-   KOINOS_ASSERT( !result.trapped, wasm_trap_exception, "Module exited due to trap" );
+
+   _ctx._meter_ticks = *fizzy_get_execution_context_ticks(_fizzy_context);
+
+   if( result.trapped )
+   {
+      if( _ctx._meter_ticks < 0 )
+      {
+         KOINOS_THROW( tick_meter_exception, "Ran out of ticks" );
+      }
+      KOINOS_THROW( wasm_trap_exception, "Module exited due to trap" );
+   }
 }
 
 void fizzy_vm_backend::run( context& ctx, char* bytecode_data, size_t bytecode_size )
