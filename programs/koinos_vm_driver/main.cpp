@@ -45,7 +45,7 @@ int main( int argc, char** argv, char** envp )
       desc.add_options()
         ( HELP_OPTION ",h", "print usage message" )
         ( CONTRACT_OPTION ",c", boost::program_options::value< std::string >(), "the contract to run" )
-        ( VM_OPTION ",v", boost::program_options::value< std::string >()->default_value( "eos" ), "the VM backend to use" )
+        ( VM_OPTION ",v", boost::program_options::value< std::string >()->default_value( "" ), "the VM backend to use" )
         ( TICKS_OPTION ",t", boost::program_options::value< int64_t >()->default_value( 10 * 1000 * 1000 ), "set maximum allowed ticks" )
         ( LIST_VM_OPTION ",l", "list available VM backends" )
         ;

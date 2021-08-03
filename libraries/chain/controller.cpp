@@ -69,10 +69,7 @@ class controller_impl final
 
 controller_impl::controller_impl()
 {
-   std::vector< std::shared_ptr< vmmanager::vm_backend > > vm_backends = vmmanager::get_vm_backends();
-
-   KOINOS_ASSERT( vm_backends.size() > 0, chain_exception, "No available VM backends" );
-   _vm_backend = vm_backends[0];
+   _vm_backend = vmmanager::get_vm_backend("");
 
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " VM backend";
 
