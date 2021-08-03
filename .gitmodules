@@ -19,3 +19,6 @@
 [submodule "libraries/crypto"]
 	path = libraries/crypto
 	url = https://github.com/koinos/koinos-crypto-cpp.git
+[submodule "libraries/vendor/fizzy"]
+	path = libraries/vendor/fizzy
+	url = https://github.com/wasmx/fizzy
