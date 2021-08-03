@@ -384,7 +384,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
 
    apply_context ctx(_vm_backend);
-   ctx._vm_backend = _vm_backend;
    ctx.push_frame( stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_transaction"s ).digest,
       .call_privilege = privilege::kernel_mode
@@ -485,7 +484,6 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
 
    apply_context ctx(_vm_backend);
-   ctx._vm_backend = _vm_backend;
    ctx.push_frame( stack_frame {
       .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_head_info"s ).digest,
       .call_privilege = privilege::kernel_mode
