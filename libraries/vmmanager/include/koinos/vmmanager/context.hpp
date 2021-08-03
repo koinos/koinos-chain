@@ -1,6 +1,6 @@
 #pragma once
 
-#include <koinos/vmmanager/chain_host_api.hpp>
+#include <koinos/vmmanager/api_handler.hpp>
 
 #include <cstdint>
 
@@ -9,10 +9,10 @@ namespace koinos::vmmanager {
 class context
 {
    public:
-      context( chain_host_api& hapi, int64_t ticks )
-         : _chain_host_api(&hapi), _meter_ticks(ticks) {}
+      context( api_handler& handler, int64_t ticks )
+         : _api_handler(&handler), _meter_ticks(ticks) {}
 
-      chain_host_api*     _chain_host_api = nullptr;
+      api_handler*        _api_handler = nullptr;
       int64_t             _meter_ticks = 0;
 };
 

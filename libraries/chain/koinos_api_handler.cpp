@@ -1,7 +1,7 @@
 #include <koinos/pack/rt/pack_fwd.hpp>
 
 #include <koinos/chain/constants.hpp>
-#include <koinos/chain/koinos_host_api.hpp>
+#include <koinos/chain/koinos_api_handler.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -10,17 +10,17 @@
 
 namespace koinos::chain {
 
-koinos_host_api::koinos_host_api( apply_context& _ctx ) : context( _ctx ) {}
+koinos_api_handler::koinos_api_handler( apply_context& _ctx ) : context( _ctx ) {}
 
-koinos_host_api::~koinos_host_api() {}
+koinos_api_handler::~koinos_api_handler() {}
 
-void koinos_host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+void koinos_api_handler::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
    thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-void koinos_host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+void koinos_api_handler::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    // TODO Do we need to invoke serialization here?
    statedb::object_key key = sid;

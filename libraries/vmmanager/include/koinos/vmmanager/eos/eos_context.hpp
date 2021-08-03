@@ -5,7 +5,7 @@
 
 namespace koinos::vmmanager::eos {
 
-class eos_apply_context
+class eos_context
 {
    public:
       context*     _context = nullptr;
@@ -27,7 +27,7 @@ class eos_apply_context
 namespace eosio::vm {
 
 template< typename Host, typename Op >
-void meter_wasm_opcode( koinos::vmmanager::eos::eos_apply_context* ctx, const Op& op )
+void meter_wasm_opcode( koinos::vmmanager::eos::eos_context* ctx, const Op& op )
 {
    ctx->meter(op);
 }

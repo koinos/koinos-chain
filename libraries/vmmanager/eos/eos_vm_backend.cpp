@@ -1,5 +1,5 @@
 
-#include <koinos/vmmanager/eos/apply_context.hpp>
+#include <koinos/vmmanager/eos/eos_context.hpp>
 #include <koinos/vmmanager/eos/eos_host.hpp>
 #include <koinos/vmmanager/eos/eos_vm_backend.hpp>
 #include <koinos/vmmanager/eos/types.hpp>
@@ -25,7 +25,7 @@ void eos_vm_backend::run( context& ctx, char* bytecode_data, size_t bytecode_siz
    wasm_allocator_type wa;
    wasm_code_ptr bytecode_ptr( (unsigned char*) bytecode_data, bytecode_size );
    backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
-   eos_apply_context eos_ctx;
+   eos_context eos_ctx;
 
    eos_ctx._context = &ctx;
 

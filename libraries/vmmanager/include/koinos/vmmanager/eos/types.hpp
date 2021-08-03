@@ -15,14 +15,14 @@
 #include <eosio/vm/host_function.hpp>
 #include <eosio/vm/exceptions.hpp>
 
-#include <koinos/vmmanager/eos/apply_context.hpp>
+#include <koinos/vmmanager/eos/eos_context.hpp>
 #include <koinos/vmmanager/eos/type_conversion.hpp>
 
 namespace koinos::vmmanager::eos {
 
    using wasm_allocator_type = eosio::vm::wasm_allocator;
-   using backend_type        = eosio::vm::backend< eos_apply_context, eosio::vm::interpreter >;
-   using registrar_type      = eosio::vm::registered_host_functions< eos_apply_context >;
+   using backend_type        = eosio::vm::backend< eos_context, eosio::vm::interpreter >;
+   using registrar_type      = eosio::vm::registered_host_functions< eos_context >;
    using wasm_code_ptr       = eosio::vm::wasm_code_ptr;
 
 } // koinos::chain

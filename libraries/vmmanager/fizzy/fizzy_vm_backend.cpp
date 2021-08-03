@@ -179,7 +179,7 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_thunk()" );
 
-      _ctx._chain_host_api->invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
+      _ctx._api_handler->invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    catch(...)
    {
@@ -209,7 +209,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_thunk()" );
 
-      _ctx._chain_host_api->invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
+      _ctx._api_handler->invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    catch(...)
    {

@@ -1,10 +1,10 @@
 
-#include <koinos/vmmanager/chain_host_api.hpp>
+#include <koinos/vmmanager/api_handler.hpp>
 
 namespace koinos { namespace vmmanager {
 
-chain_host_api::chain_host_api() {}
+api_handler::api_handler() {}
 
-chain_host_api::~chain_host_api() {}
+api_handler::~api_handler() {}
 
 } }

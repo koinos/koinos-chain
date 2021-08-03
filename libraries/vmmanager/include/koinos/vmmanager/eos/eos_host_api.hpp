@@ -1,6 +1,6 @@
 
-#include <koinos/vmmanager/eos/apply_context.hpp>
 #include <koinos/vmmanager/eos/common.hpp>
+#include <koinos/vmmanager/eos/eos_context.hpp>
 
 #include <cstdint>
 
@@ -8,8 +8,8 @@ namespace koinos::vmmanager::eos {
 
 struct eos_host_api final
 {
-   eos_host_api( eos_apply_context& ctx );
-   eos_apply_context& eos_context;
+   eos_host_api( eos_context& ctx );
+   eos_context& _eos_context;
 
    void invoke_thunk(
       uint32_t tid,

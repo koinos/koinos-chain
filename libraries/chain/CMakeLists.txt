@@ -2,7 +2,7 @@ file(GLOB HEADERS "include/koinos/chain/*.hpp")
 add_library(koinos_chain_lib
             apply_context.cpp
             controller.cpp
-            host.cpp
+            koinos_api_handler.cpp
             system_calls.cpp
             thunk_dispatcher.cpp
             ${HEADERS})

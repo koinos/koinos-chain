@@ -1,6 +1,6 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
-#include <koinos/chain/koinos_host_api.hpp>
+#include <koinos/chain/koinos_api_handler.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -630,8 +630,8 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       .entry_point = entry_point
    } );
 
-   koinos_host_api hapi( context );
-   vmmanager::context vm_ctx( hapi, context.get_meter_ticks() );
+   koinos_api_handler handler( context );
+   vmmanager::context vm_ctx( handler, context.get_meter_ticks() );
 
    try
    {

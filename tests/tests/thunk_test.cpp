@@ -12,7 +12,7 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/koinos_host_api.hpp>
+#include <koinos/chain/koinos_api_handler.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -40,7 +40,7 @@ struct thunk_fixture
    thunk_fixture() :
       _vm_backend( koinos::vmmanager::get_vm_backend("") ),
       ctx( _vm_backend ),
-      host_api( ctx )
+      _api( ctx )
    {
       using namespace koinos::chain;
 
@@ -134,7 +134,7 @@ struct thunk_fixture
    koinos::statedb::state_db db;
    std::shared_ptr< koinos::vmmanager::vm_backend > _vm_backend;
    koinos::chain::apply_context ctx;
-   koinos::chain::koinos_host_api host_api;
+   koinos::chain::koinos_api_handler _api;
    koinos::crypto::private_key _signing_private_key;
 };
 
@@ -342,8 +342,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    // Test invoking the overridden system call
    koinos::variable_blob vl_args, vl_ret;
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
-   BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
+   _api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   BOOST_REQUIRE( "Greetings from koinos vm" == _api.context.get_pending_console_output() );
 
    // Call stock prints and save the message
    koinos::chain::prints_args args;
@@ -351,13 +351,13 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::variable_blob vl_args2, vl_ret2;
    koinos::pack::to_variable_blob( vl_args2, args );
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call(
+   _api.invoke_system_call(
       system_call_id_type( koinos::chain::system_call_id::prints ),
       vl_ret2.data(),
       vl_ret2.size(),
       vl_args2.data(),
       vl_args2.size() );
-   auto original_message = host_api.context.get_pending_console_output();
+   auto original_message = _api.context.get_pending_console_output();
 
    auto random_private_key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "key2"s ) );
    sign_transaction( tx, random_private_key2 );
@@ -385,18 +385,18 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Now test that the message has been modified
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call(
+   _api.invoke_system_call(
       system_call_id_type( koinos::chain::system_call_id::prints ),
       vl_ret2.data(),
       vl_ret2.size(),
       vl_args2.data(),
       vl_args2.size() );
-   auto new_message = host_api.context.get_pending_console_output();
+   auto new_message = _api.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
 
-   system_call::prints( host_api.context, original_message );
-   new_message = host_api.context.get_pending_console_output();
+   system_call::prints( _api.context, original_message );
+   new_message = _api.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
 
@@ -416,7 +416,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    koinos::variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_thunk(
+   _api.invoke_thunk(
       thunk_id_type( koinos::chain::thunk_id::prints ),
       vl_ret.data(),
       vl_ret.size(),
@@ -439,7 +439,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 
    koinos::variable_blob vl_args, vl_ret;
    koinos::pack::to_variable_blob( vl_args, args );
-   host_api.invoke_system_call(
+   _api.invoke_system_call(
       system_call_id_type( koinos::chain::system_call_id::prints ),
       vl_ret.data(),
       vl_ret.size(),

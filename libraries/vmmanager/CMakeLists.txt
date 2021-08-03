@@ -1,6 +1,7 @@
 file(GLOB HEADERS "include/koinos/vmmanager/*.hpp" "include/koinos/vmmanager/wasm/*.hpp")
 add_library(koinos_vmmanager_lib
-            chain_host_api.cpp
+
+            api_handler.cpp
             vm_backend.cpp
 
             eos/eos_register_host.cpp
