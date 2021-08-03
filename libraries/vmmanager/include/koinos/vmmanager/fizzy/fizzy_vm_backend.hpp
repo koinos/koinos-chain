@@ -7,6 +7,9 @@
 
 namespace koinos::vmmanager::fizzy {
 
+/**
+ * Implementation of vm_backend for Fizzy.
+ */
 class fizzy_vm_backend : public vm_backend
 {
    public:

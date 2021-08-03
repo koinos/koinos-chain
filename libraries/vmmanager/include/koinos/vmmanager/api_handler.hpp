@@ -4,6 +4,11 @@
 
 namespace koinos::vmmanager {
 
+/**
+ * An abstract class representing an implementation of an API.
+ *
+ * The user of the vmmanager library is responsible for creating an application-specific subclass.
+ */
 class api_handler
 {
    public:

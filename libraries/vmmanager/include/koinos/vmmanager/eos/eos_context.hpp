@@ -5,6 +5,9 @@
 
 namespace koinos::vmmanager::eos {
 
+/**
+ * A context object needed by the EOS VM.
+ */
 class eos_context
 {
    public:

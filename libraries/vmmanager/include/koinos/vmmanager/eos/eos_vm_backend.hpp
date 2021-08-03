@@ -7,6 +7,9 @@
 
 namespace koinos::vmmanager::eos {
 
+/**
+ * Implementation of vm_backend for the EOS VM.
+ */
 class eos_vm_backend : public vm_backend
 {
    public:

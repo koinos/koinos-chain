@@ -6,6 +6,9 @@
 
 namespace koinos::vmmanager {
 
+/**
+ * A class containing information which may change execution of a VM.
+ */
 class context
 {
    public:

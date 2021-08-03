@@ -6,6 +6,13 @@
 
 namespace koinos::vmmanager::eos {
 
+/**
+ * Host functions provided by EOS must be class members.
+ * The EOS VM requires that any pointer argument must be array_ptr<T>, and
+ * must immediately be followed by a length.
+ *
+ * The purpose of eos_host_api is to provide such an adapter class.
+ */
 struct eos_host_api final
 {
    eos_host_api( eos_context& ctx );
