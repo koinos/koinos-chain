@@ -17,4 +17,4 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( module_start_exception, fizzy_vm_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_trap_exception, fizzy_vm_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_memory_exception, fizzy_vm_exception );
 
-}
+} // koinos::vmmanager::fizzy

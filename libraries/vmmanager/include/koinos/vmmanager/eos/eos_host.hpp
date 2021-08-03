@@ -4,4 +4,4 @@ namespace koinos::vmmanager::eos {
 
 void register_host_functions();
 
-}
+} // koinos::vmmanager::eos

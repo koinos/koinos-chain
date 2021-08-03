@@ -19,4 +19,4 @@ class fizzy_vm_backend : public vm_backend
       virtual void run( context& ctx, char* bytecode_data, size_t bytecode_size );
 };
 
-}
+} // koinos::vmmanager::fizzy

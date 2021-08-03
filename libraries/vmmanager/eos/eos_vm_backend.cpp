@@ -45,4 +45,4 @@ void eos_vm_backend::run( context& ctx, char* bytecode_data, size_t bytecode_siz
    wa.free();
 }
 
-}
+} // koinos::vmmanager::eos

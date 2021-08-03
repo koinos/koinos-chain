@@ -35,4 +35,4 @@ std::shared_ptr< vm_backend > get_vm_backend( const std::string& name )
    KOINOS_THROW( unknown_backend_exception, "Could not find backend ${name}", ("name", target_name) );
 }
 
-}
+} // koinos::vmmanager

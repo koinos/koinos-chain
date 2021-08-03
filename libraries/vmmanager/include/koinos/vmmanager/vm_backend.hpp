@@ -23,4 +23,4 @@ class vm_backend
 std::vector< std::shared_ptr< vm_backend > > get_vm_backends();
 std::shared_ptr< vm_backend > get_vm_backend( const std::string& name );
 
-}
+} // koinos::vmmanager

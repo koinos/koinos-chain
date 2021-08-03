@@ -257,4 +257,4 @@ void fizzy_vm_backend::run( context& ctx, char* bytecode_data, size_t bytecode_s
    runner.call_start();
 }
 
-}
+} // koinos::vmmanager::fizzy

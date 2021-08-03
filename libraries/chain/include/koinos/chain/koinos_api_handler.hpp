@@ -18,4 +18,4 @@ class koinos_api_handler : public vmmanager::api_handler
       apply_context& context;
 };
 
-}
+} // koinos::chain

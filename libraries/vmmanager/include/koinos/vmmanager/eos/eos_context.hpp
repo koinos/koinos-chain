@@ -22,7 +22,7 @@ class eos_context
       }
 };
 
-}
+} // koinos::vmmanager::eos
 
 namespace eosio::vm {
 

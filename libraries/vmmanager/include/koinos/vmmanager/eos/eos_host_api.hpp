@@ -26,4 +26,4 @@ struct eos_host_api final
       uint32_t arg_len );
 };
 
-}
+} // koinos::vmmanager::eos

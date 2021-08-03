@@ -16,4 +16,4 @@ class context
       int64_t             _meter_ticks = 0;
 };
 
-}
+} // koinos::vmmanager::context

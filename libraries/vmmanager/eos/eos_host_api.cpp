@@ -25,4 +25,4 @@ void eos_host_api::invoke_system_call(
    _eos_context._context->_api_handler->invoke_system_call( sid, ret_ptr.value, ret_len, arg_ptr.value, arg_len );
 }
 
-}
+} // koinos::vmmanager::eos

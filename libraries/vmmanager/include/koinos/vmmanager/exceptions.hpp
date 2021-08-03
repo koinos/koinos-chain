@@ -15,4 +15,4 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( vmbackend_exception, vm_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, vmmanager_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( tick_meter_exception, vmmanager_exception );
 
-}
+} // koinos::vmmanager
