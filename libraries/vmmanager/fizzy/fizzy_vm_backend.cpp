@@ -19,8 +19,10 @@ namespace koinos::vmmanager::fizzy {
  */
 char* resolve_ptr( FizzyInstance* fizzy_instance, uint32_t ptr, uint32_t size )
 {
+   KOINOS_ASSERT( fizzy_instance != nullptr, null_argument_exception, "fizzy_instance was unexpectedly null pointer" );
    size_t mem_size = fizzy_get_instance_memory_size( fizzy_instance );
    char* mem_data = (char *) fizzy_get_instance_memory_data( fizzy_instance );
+   KOINOS_ASSERT( mem_data != nullptr, fizzy_returned_null_exception, "fizzy_get_instance_memory_data() unexpectedly returned null pointer" );
 
    if( ptr == mem_size )
    {
@@ -116,7 +118,8 @@ fizzy_runner::~fizzy_runner()
 
 void fizzy_runner::parse_bytecode( char* bytecode_data, size_t bytecode_size )
 {
-   // TODO:  Add a caching system to recycle parsed modules
+   KOINOS_ASSERT( bytecode_data != nullptr, fizzy_returned_null_exception, "fizzy_instance was unexpectedly null pointer" );
+   KOINOS_ASSERT( _module == nullptr, runner_state_exception, "_module was unexpectedly non-null" );
    _module = fizzy_parse((uint8_t *) bytecode_data, bytecode_size, nullptr);
    KOINOS_ASSERT( _module != nullptr, module_parse_exception, "Could not parse Fizzy module" );
 }
@@ -151,6 +154,7 @@ void fizzy_runner::instantiate_module()
    // TODO:  Make memory_pages_limit configurable
    size_t memory_pages_limit = 512;     // Number of 64k pages allowed to allocate
 
+   KOINOS_ASSERT( _instance == nullptr, runner_state_exception, "_instance was unexpectedly non-null" );
    _instance = fizzy_resolve_instantiate(_module, host_funcs, num_host_funcs, nullptr, nullptr, nullptr, 0, memory_pages_limit, &fizzy_err);
    if( _instance == nullptr )
    {
@@ -179,6 +183,7 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_thunk()" );
 
+      KOINOS_ASSERT( _ctx._api_handler != nullptr, null_argument_exception, "_api_handler was unexpectedly null pointer" );
       _ctx._api_handler->invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    catch(...)
@@ -209,6 +214,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_thunk()" );
 
+      KOINOS_ASSERT( _ctx._api_handler != nullptr, null_argument_exception, "_api_handler was unexpectedly null pointer" );
       _ctx._api_handler->invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    catch(...)
@@ -222,6 +228,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
 void fizzy_runner::call_start()
 {
+   KOINOS_ASSERT( _fizzy_context == nullptr, runner_state_exception, "_fizzy_context was unexpectedly non-null" );
    _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _ctx._meter_ticks );
    KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "Could not create execution context" );
 
@@ -237,7 +244,9 @@ void fizzy_runner::call_start()
       std::rethrow_exception( exc );
    }
 
-   _ctx._meter_ticks = *fizzy_get_execution_context_ticks(_fizzy_context);
+   int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
+   KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
+   _ctx._meter_ticks = *ticks;
 
    if( result.trapped )
    {

@@ -17,4 +17,9 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( module_start_exception, fizzy_vm_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_trap_exception, fizzy_vm_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_memory_exception, fizzy_vm_exception );
 
+// These exceptions should never happen, if they do it's a programming bug
+KOINOS_DECLARE_DERIVED_EXCEPTION( fizzy_returned_null_exception, fizzy_vm_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( null_argument_exception, fizzy_vm_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( runner_state_exception, fizzy_vm_exception );
+
 } // koinos::vmmanager::fizzy
