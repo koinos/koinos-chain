@@ -38,9 +38,11 @@ class vm_backend
  */
 std::vector< std::shared_ptr< vm_backend > > get_vm_backends();
 
+std::string get_default_vm_backend_name();
+
 /**
  * Get a shared_ptr to the named VM backend.
  */
-std::shared_ptr< vm_backend > get_vm_backend( const std::string& name );
+std::shared_ptr< vm_backend > get_vm_backend( const std::string& name = get_default_vm_backend_name() );
 
 } // koinos::vmmanager

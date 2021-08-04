@@ -151,7 +151,6 @@ void fizzy_runner::instantiate_module()
 
    FizzyError fizzy_err;
 
-   // TODO:  Make memory_pages_limit configurable
    size_t memory_pages_limit = 512;     // Number of 64k pages allowed to allocate
 
    KOINOS_ASSERT( _instance == nullptr, runner_state_exception, "_instance was unexpectedly non-null" );
@@ -211,8 +210,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       uint32_t arg_len = args[4].i32;
       const char* arg_ptr = resolve_ptr(_instance, args[3].i32, arg_len);
 
-      KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_thunk()" );
-      KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_thunk()" );
+      KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_system_call()" );
+      KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_system_call()" );
 
       KOINOS_ASSERT( _ctx._api_handler != nullptr, null_argument_exception, "_api_handler was unexpectedly null pointer" );
       _ctx._api_handler->invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );

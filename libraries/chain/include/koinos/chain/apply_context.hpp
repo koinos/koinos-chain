@@ -37,7 +37,8 @@ struct stack_frame
 class apply_context
 {
    public:
-      //apply_context() = default;
+      apply_context() = delete;
+
       apply_context( std::shared_ptr< koinos::vmmanager::vm_backend > be )
           : _vm_backend(be) {}
 

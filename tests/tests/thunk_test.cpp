@@ -38,7 +38,7 @@ using namespace std::string_literals;
 struct thunk_fixture
 {
    thunk_fixture() :
-      _vm_backend( koinos::vmmanager::get_vm_backend("") ),
+      _vm_backend( koinos::vmmanager::get_vm_backend() ),
       ctx( _vm_backend ),
       _api( ctx )
    {
