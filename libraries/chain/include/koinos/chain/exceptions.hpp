@@ -56,4 +56,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( resource_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( tick_max_too_high_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( per_block_tick_limit_exception, chain_exception );
 
+// VM exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
+
 } // koinos::chain

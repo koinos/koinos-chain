@@ -6,9 +6,9 @@
 
 #include <koinos/pack/classes.hpp>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/state_db.hpp>
 
-#include <koinos/vmmanager/vm_backend.hpp>
+#include <koinos/vm_manager/vm_backend.hpp>
 
 #include <deque>
 #include <optional>
@@ -19,9 +19,9 @@
 namespace koinos::chain {
 
 using boost::container::flat_set;
-using koinos::statedb::state_node_ptr;
-using koinos::statedb::anonymous_state_node_ptr;
-using koinos::statedb::abstract_state_node;
+using koinos::state_db::state_node_ptr;
+using koinos::state_db::anonymous_state_node_ptr;
+using koinos::state_db::abstract_state_node;
 
 using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 
@@ -39,7 +39,7 @@ class apply_context
    public:
       apply_context() = delete;
 
-      apply_context( std::shared_ptr< koinos::vmmanager::vm_backend > be )
+      apply_context( std::shared_ptr< koinos::vm_manager::vm_backend > be )
           : _vm_backend(be) {}
 
       /// Console methods:
@@ -105,7 +105,7 @@ class apply_context
       }
 
       std::vector< stack_frame >             _stack;
-      std::shared_ptr< koinos::vmmanager::vm_backend >   _vm_backend;
+      std::shared_ptr< koinos::vm_manager::vm_backend >   _vm_backend;
 
    private:
       friend struct frame_restorer;

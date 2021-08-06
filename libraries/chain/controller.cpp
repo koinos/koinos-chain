@@ -9,11 +9,11 @@
 #include <koinos/pack/rt/binary.hpp>
 #include <koinos/pack/rt/json.hpp>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/state_db.hpp>
 
 #include <koinos/util.hpp>
 
-#include <koinos/vmmanager/vm_backend.hpp>
+#include <koinos/vm_manager/vm_backend.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -57,11 +57,11 @@ class controller_impl final
       rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
 
    private:
-      statedb::state_db             _state_db;
+      state_db::state_db             _state_db;
       std::shared_mutex             _state_db_mutex;
       std::shared_ptr< mq::client > _client;
       int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
-      std::shared_ptr< vmmanager::vm_backend > _vm_backend;
+      std::shared_ptr< vm_manager::vm_backend > _vm_backend;
 
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
@@ -69,7 +69,8 @@ class controller_impl final
 
 controller_impl::controller_impl()
 {
-   _vm_backend = vmmanager::get_vm_backend();
+   _vm_backend = vm_manager::get_vm_backend();
+   KOINOS_ASSERT( _vm_backend.get() != nullptr, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
 
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " VM backend";
 
@@ -86,17 +87,17 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
 {
    std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
 
-   _state_db.open( p, o, [&]( statedb::state_node_ptr root )
+   _state_db.open( p, o, [&]( state_db::state_node_ptr root )
    {
       for ( const auto& entry : data )
       {
-         statedb::put_object_args put_args;
+         state_db::put_object_args put_args;
          put_args.space = entry.first.first;
          put_args.key = entry.first.second;
          put_args.buf = entry.second.data();
          put_args.object_size = entry.second.size();
 
-         statedb::put_object_result put_res;
+         state_db::put_object_result put_res;
          root->put_object( put_res, put_args );
 
          KOINOS_ASSERT(
@@ -137,7 +138,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto time_upper_bound = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
    block_height_type parent_height{ 0 };
 
-   statedb::state_node_ptr block_node;
+   state_db::state_node_ptr block_node;
 
    block_node = _state_db.get_node( request.block.id );
 
@@ -502,19 +503,19 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 {
    std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
 
-   boost::interprocess::basic_vectorstream< statedb::object_value > chain_id_stream;
-   statedb::object_value chain_id_vector;
+   boost::interprocess::basic_vectorstream< state_db::object_value > chain_id_stream;
+   state_db::object_value chain_id_vector;
    chain_id_vector.resize( 128 );
    chain_id_stream.swap_vector( chain_id_vector );
 
-   statedb::get_object_result result;
-   statedb::get_object_args   args;
+   state_db::get_object_result result;
+   state_db::get_object_args   args;
    args.space    = database::kernel_space;
    args.key      = database::key_from_string( database::key::chain_id );
    args.buf      = const_cast< char* >( chain_id_stream.vector().data() );
    args.buf_size = chain_id_stream.vector().size();
 
-   statedb::state_node_ptr head;
+   state_db::state_node_ptr head;
 
    head = _state_db.get_head();
 
@@ -546,7 +547,7 @@ fork_data controller_impl::get_fork_data_lockless()
       .call_privilege = privilege::kernel_mode
    } );
 
-   std::vector< statedb::state_node_ptr > fork_heads;
+   std::vector< state_db::state_node_ptr > fork_heads;
 
    ctx.set_state_node( _state_db.get_root() );
    fork_heads = _state_db.get_fork_heads();
@@ -598,7 +599,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 {
    std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
 
-   statedb::state_node_ptr head_node;
+   state_db::state_node_ptr head_node;
 
    head_node = _state_db.get_head();
 

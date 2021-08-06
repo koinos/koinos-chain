@@ -1,4 +1,4 @@
 find_package(Boost CONFIG REQUIRED COMPONENTS program_options)
 
 add_executable(koinos_vm_driver main.cpp)
-target_link_libraries(koinos_vm_driver PUBLIC Koinos::chain Koinos::vmmanager Boost::program_options)
+target_link_libraries(koinos_vm_driver PUBLIC Koinos::chain Koinos::vm_manager Boost::program_options)

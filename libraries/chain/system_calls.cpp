@@ -1,6 +1,6 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
-#include <koinos/chain/koinos_api_handler.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -116,7 +116,7 @@ void register_thunks( thunk_dispatcher& td )
 }
 
 // TODO: Should this be a thunk?
-bool is_system_space( const statedb::object_space& space_id )
+bool is_system_space( const state_db::object_space& space_id )
 {
    return space_id == database::contract_space ||
           space_id == database::system_call_dispatch_space ||
@@ -348,8 +348,8 @@ inline void update_payer_transaction_nonce( apply_context& ctx, protocol::accoun
    pack::to_variable_blob( vkey, payer );
    pack::to_variable_blob( vkey, std::string{ database::key::transaction_nonce }, true );
 
-   statedb::object_key key;
-   key = pack::from_variable_blob< statedb::object_key >( vkey );
+   state_db::object_key key;
+   key = pack::from_variable_blob< state_db::object_key >( vkey );
 
    variable_blob obj;
    pack::to_variable_blob( obj, nonce );
@@ -489,7 +489,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    system_call::db_put_object( context, database::system_call_dispatch_space, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
-void check_db_permissions( const apply_context& context, const statedb::object_space& space )
+void check_db_permissions( const apply_context& context, const state_db::object_space& space )
 {
    auto privilege = context.get_privilege();
    auto caller = pack::from_variable_blob< uint160 >( context.get_caller() );
@@ -506,33 +506,33 @@ void check_db_permissions( const apply_context& context, const statedb::object_s
    }
 }
 
-THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
+THUNK_DEFINE( bool, db_put_object, ((const state_db::object_space&) space, (const state_db::object_key&) key, (const variable_blob&) obj) )
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "Cannot put object during read only call" );
    check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
-   statedb::put_object_args put_args;
+   state_db::put_object_args put_args;
    put_args.space = space;
    put_args.key = key;
    put_args.buf = obj.data();
    put_args.object_size = obj.size();
 
-   statedb::put_object_result put_res;
+   state_db::put_object_result put_res;
    state->put_object( put_res, put_args );
 
    return put_res.object_existed;
 }
 
-THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( variable_blob, db_get_object, ((const state_db::object_space&) space, (const state_db::object_key&) key, (int32_t) object_size_hint) )
 {
    check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
 
-   statedb::get_object_args get_args;
+   state_db::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
@@ -541,7 +541,7 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
-   statedb::get_object_result get_res;
+   state_db::get_object_result get_res;
    state->get_object( get_res, get_args );
 
    if( get_res.key == get_args.key && get_res.size > 0 )
@@ -552,13 +552,13 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
    return object_buffer;
 }
 
-THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( variable_blob, db_get_next_object, ((const state_db::object_space&) space, (const state_db::object_key&) key, (int32_t) object_size_hint) )
 {
    check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
-   statedb::get_object_args get_args;
+   state_db::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
@@ -567,7 +567,7 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
-   statedb::get_object_result get_res;
+   state_db::get_object_result get_res;
    state->get_next_object( get_res, get_args );
 
    if( get_res.size > 0 )
@@ -578,13 +578,13 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
-THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( variable_blob, db_get_prev_object, ((const state_db::object_space&) space, (const state_db::object_key&) key, (int32_t) object_size_hint) )
 {
    check_db_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
-   statedb::get_object_args get_args;
+   state_db::get_object_args get_args;
    get_args.space = space;
    get_args.key = key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
@@ -593,7 +593,7 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
-   statedb::get_object_result get_res;
+   state_db::get_object_result get_res;
    state->get_prev_object( get_res, get_args );
 
    if( get_res.size > 0 )
@@ -630,8 +630,8 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
       .entry_point = entry_point
    } );
 
-   koinos_api_handler handler( context );
-   vmmanager::context vm_ctx( handler, context.get_meter_ticks() );
+   chain::host_api hapi( context );
+   vm_manager::context vm_ctx( hapi, context.get_meter_ticks() );
 
    try
    {
@@ -786,8 +786,8 @@ THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const protocol::acc
    pack::to_variable_blob( vkey, account );
    pack::to_variable_blob( vkey, std::string{ database::key::transaction_nonce }, true );
 
-   statedb::object_key key;
-   key = pack::from_variable_blob< statedb::object_key >( vkey );
+   state_db::object_key key;
+   key = pack::from_variable_blob< state_db::object_key >( vkey );
    auto obj = system_call::db_get_object( context, database::kernel_space, key );
    if ( obj.size() > 0 )
    {

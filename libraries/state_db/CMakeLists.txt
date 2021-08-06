@@ -1,0 +1,6 @@
+file(GLOB HEADERS "include/koinos/state_db/*.hpp" "include/koinos/state_db/detail/*.hpp")
+add_library(koinos_state_db ${HEADERS} state_db.cpp)
+target_link_libraries(koinos_state_db Koinos::exception Koinos::types Koinos::crypto mira)
+target_include_directories(koinos_state_db PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_library(Koinos::state_db ALIAS koinos_state_db)
+

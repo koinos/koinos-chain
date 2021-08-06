@@ -2,7 +2,7 @@
 
 #include <koinos/chain/constants.hpp>
 #include <koinos/mq/client.hpp>
-#include <koinos/statedb/statedb_types.hpp>
+#include <koinos/state_db/state_db_types.hpp>
 #include <koinos/pack/classes.hpp>
 
 #include <any>
@@ -15,7 +15,7 @@ namespace koinos::chain {
 
 namespace detail { class controller_impl; }
 
-using genesis_data = std::map< std::pair< statedb::object_space, statedb::object_key >, statedb::object_value >;
+using genesis_data = std::map< std::pair< state_db::object_space, state_db::object_key >, state_db::object_value >;
 
 class controller final
 {

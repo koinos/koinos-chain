@@ -87,7 +87,7 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
       uint32_t _sid = static_cast< uint32_t >( system_call_id::SYSCALL );                                            \
                                                                                                                      \
       /* TODO Do we need to invoke serialization here? */                                                            \
-      statedb::object_key _key = _sid;                                                                               \
+      state_db::object_key _key = _sid;                                                                               \
       koinos::variable_blob _vl_target;                                                                              \
                                                                                                                      \
       with_stack_frame(                                                                                              \

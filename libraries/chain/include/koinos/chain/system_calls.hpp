@@ -8,7 +8,7 @@
 
 #include <koinos/pack/classes.hpp>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/state_db.hpp>
 
 #define KOINOS_EXIT_SUCCESS 0
 #define KOINOS_EXIT_FAILURE 1
@@ -67,10 +67,10 @@ THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_con
 THUNK_DECLARE( void, apply_execute_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 
-THUNK_DECLARE( bool, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const variable_blob& obj );
-THUNK_DECLARE( variable_blob, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( variable_blob, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( variable_blob, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( bool, db_put_object, const state_db::object_space& space, const state_db::object_key& key, const variable_blob& obj );
+THUNK_DECLARE( variable_blob, db_get_object, const state_db::object_space& space, const state_db::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( variable_blob, db_get_next_object, const state_db::object_space& space, const state_db::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( variable_blob, db_get_prev_object, const state_db::object_space& space, const state_db::object_key& key, int32_t object_size_hint = -1 );
 
 THUNK_DECLARE( variable_blob, execute_contract, const contract_id_type& contract_id, uint32_t entry_point, const variable_blob& args );
 

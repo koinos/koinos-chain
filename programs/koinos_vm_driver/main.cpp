@@ -4,14 +4,14 @@
 
 #include <boost/program_options.hpp>
 
-#include <koinos/chain/koinos_api_handler.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
 #include <koinos/pack/classes.hpp>
-#include <koinos/vmmanager/api_handler.hpp>
-#include <koinos/vmmanager/context.hpp>
+#include <koinos/vm_manager/context.hpp>
+#include <koinos/vm_manager/host_api.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -35,7 +35,7 @@ std::vector< char > read_file( const std::string& path )
    return result;
 }
 
-using namespace koinos::vmmanager;
+using namespace koinos::vm_manager;
 
 int main( int argc, char** argv, char** envp )
 {
@@ -78,6 +78,7 @@ int main( int argc, char** argv, char** envp )
       std::string vm_backend_name = vmap[ VM_OPTION ].as< std::string >();
 
       std::shared_ptr< vm_backend > vm_backend = get_vm_backend( vm_backend_name );
+      KOINOS_ASSERT( vm_backend.get() != nullptr, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
       LOG(info) << "Initialized " << vm_backend->backend_name() << " VM backend";
 
       vm_backend->initialize();
@@ -86,8 +87,8 @@ int main( int argc, char** argv, char** envp )
 
       int64_t ticks = vmap[ TICKS_OPTION ].as< int64_t >();
       koinos::chain::apply_context ctx( vm_backend );
-      koinos::chain::koinos_api_handler handler( ctx );
-      koinos::vmmanager::context vm_ctx( handler, ticks );
+      koinos::chain::host_api hapi( ctx );
+      koinos::vm_manager::context vm_ctx( hapi, ticks );
       vm_backend->run( vm_ctx, wasm_bin.data(), wasm_bin.size() );
 
       LOG(info) << ctx.get_pending_console_output();

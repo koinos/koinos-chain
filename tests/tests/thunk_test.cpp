@@ -12,7 +12,7 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/koinos_api_handler.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -22,7 +22,7 @@
 #include <koinos/pack/rt/json.hpp>
 #include <koinos/pack/classes.hpp>
 
-#include <koinos/vmmanager/exceptions.hpp>
+#include <koinos/vm_manager/exceptions.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -38,11 +38,13 @@ using namespace std::string_literals;
 struct thunk_fixture
 {
    thunk_fixture() :
-      _vm_backend( koinos::vmmanager::get_vm_backend() ),
+      _vm_backend( koinos::vm_manager::get_vm_backend() ),
       ctx( _vm_backend ),
       _api( ctx )
    {
       using namespace koinos::chain;
+
+      KOINOS_ASSERT( _vm_backend.get() != nullptr, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
 
       koinos::initialize_logging( "koinos_test", {}, "info" );
 
@@ -57,17 +59,17 @@ struct thunk_fixture
       auto chain_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, _signing_private_key.get_public_key().to_address() );
       genesis_data[ { database::kernel_space, database::key_from_string( database::key::chain_id ) } ] = koinos::pack::to_variable_blob( chain_id );
 
-      db.open( temp, cfg, [&]( koinos::statedb::state_node_ptr root )
+      db.open( temp, cfg, [&]( koinos::state_db::state_node_ptr root )
       {
          for ( const auto& entry : genesis_data )
          {
-            koinos::statedb::put_object_args put_args;
+            koinos::state_db::put_object_args put_args;
             put_args.space = entry.first.first;
             put_args.key = entry.first.second;
             put_args.buf = entry.second.data();
             put_args.object_size = entry.second.size();
 
-            koinos::statedb::put_object_result put_res;
+            koinos::state_db::put_object_result put_res;
             root->put_object( put_res, put_args );
 
             KOINOS_ASSERT(
@@ -131,10 +133,10 @@ struct thunk_fixture
    }
 
    std::filesystem::path temp;
-   koinos::statedb::state_db db;
-   std::shared_ptr< koinos::vmmanager::vm_backend > _vm_backend;
+   koinos::state_db::state_db db;
+   std::shared_ptr< koinos::vm_manager::vm_backend > _vm_backend;
    koinos::chain::apply_context ctx;
-   koinos::chain::koinos_api_handler _api;
+   koinos::chain::host_api _api;
    koinos::crypto::private_key _signing_private_key;
 };
 
@@ -157,7 +159,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
       ) == true
    );
 
-   auto node = std::dynamic_pointer_cast< koinos::statedb::state_node >( ctx.get_state_node() );
+   auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
@@ -835,7 +837,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    LOG(info) << "KOIN supply: " << supply;
 
 }
-catch( const koinos::vmmanager::vm_exception& e )
+catch( const koinos::vm_manager::vm_exception& e )
 {
    LOG(info) << e.what();
    BOOST_FAIL("VM Exception");
@@ -888,7 +890,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
    koinos::protocol::call_contract_operation op2;
    std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), koinos::vmmanager::tick_meter_exception );
+   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), koinos::vm_manager::tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
