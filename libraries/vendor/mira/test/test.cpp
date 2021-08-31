@@ -570,7 +570,8 @@ BOOST_AUTO_TEST_CASE( variable_length_key_test )
    {
       account_object a;
       a.id = account_object::id_type( 0 );
-      a.name = "alice";
+      std::string s = "alice";
+      std::memcpy( a.name.data(), s.c_str(), s.size() + 1 );
 
       index.emplace( std::move( a ) );
    }
@@ -578,7 +579,8 @@ BOOST_AUTO_TEST_CASE( variable_length_key_test )
    {
       account_object a;
       a.id = account_object::id_type( 1 );
-      a.name = "bob";
+      std::string s = "bob";
+      std::memcpy( a.name.data(), s.c_str(), s.size() + 1 );
 
       index.emplace( std::move( a ) );
    }
@@ -586,30 +588,34 @@ BOOST_AUTO_TEST_CASE( variable_length_key_test )
    {
       account_object a;
       a.id = account_object::id_type( 2 );
-      a.name = "charlie";
+      std::string s = "charlie";
+      std::memcpy( a.name.data(), s.c_str(), s.size() + 1 );
 
       index.emplace( std::move( a ) );
    }
 
    itr = acc_by_name_idx.begin();
 
-   BOOST_REQUIRE( itr->name == "alice" );
+   BOOST_REQUIRE( std::string( itr->name.data() ) == "alice" );
 
    ++itr;
 
-   BOOST_REQUIRE( itr->name == "bob" );
+   BOOST_REQUIRE( std::string( itr->name.data() ) == "bob" );
 
    ++itr;
 
-   BOOST_REQUIRE( itr->name == "charlie" );
+   BOOST_REQUIRE( std::string( itr->name.data() ) == "charlie" );
 
    ++itr;
 
    BOOST_REQUIRE( itr == acc_by_name_idx.end() );
 
-   itr = acc_by_name_idx.lower_bound( "archibald" );
+   std::string archie = "archibald";
+   std::array< char, 256 > archie_array;
+   std::memcpy( archie_array.data(), archie.c_str(), archie.size() + 1 );
+   itr = acc_by_name_idx.lower_bound( archie_array );
 
-   BOOST_REQUIRE( itr->name == "bob" );
+   BOOST_REQUIRE( std::string( itr->name.data() ) == "bob" );
 }
 
 BOOST_AUTO_TEST_CASE( sanity_modify_test )
@@ -772,7 +778,9 @@ BOOST_AUTO_TEST_CASE( basic_tests )
    auto index3 = test_object3_index();
    index3.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
+   auto c1 = []( test_object& obj ) {
+      obj.val2 = 0;
+   };
    auto c1b = []( test_object2& obj ) {};
    auto c1c = []( test_object3& obj ) { obj.val2 = 5; obj.val3 = 5; };
 
@@ -792,7 +800,9 @@ BOOST_AUTO_TEST_CASE( insert_remove_tests )
    auto index3 = test_object3_index();
    index3.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
+   auto c1 = []( test_object& obj ) {
+      obj.val2 = 0;
+   };
    auto c1b = []( test_object2& obj ) {};
    auto c1c = []( test_object3& obj ) { obj.val2 = 7; obj.val3 = obj.val2 + 1; };
 
@@ -812,10 +822,26 @@ BOOST_AUTO_TEST_CASE( insert_remove_collision_tests )
    auto index3 = test_object3_index();
    index3.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.id = 0; obj.name = "_name7"; obj.val = 7; };
-   auto c2 = []( test_object& obj ) { obj.id = 0; obj.name = "_name8"; obj.val = 8; };
-   auto c3 = []( test_object& obj ) { obj.id = 0; obj.name = "the_same_name"; obj.val = 7; };
-   auto c4 = []( test_object& obj ) { obj.id = 1; obj.name = "the_same_name"; obj.val = 7; };
+   auto c1 = []( test_object& obj ) {
+      obj.id = 0;
+      obj.val = 7;
+      obj.val2 = 7;
+   };
+   auto c2 = []( test_object& obj ) {
+      obj.id = 0;
+      obj.val = 8;
+      obj.val2 = 8;
+   };
+   auto c3 = []( test_object& obj ) {
+      obj.id = 0;
+      obj.val = 7;
+      obj.val2 = 100;
+   };
+   auto c4 = []( test_object& obj ) {
+      obj.id = 0;
+      obj.val = 7;
+      obj.val2 = 100;
+   };
 
    auto c1b = []( test_object2& obj ) { obj.id = 0; obj.val = 7; };
    auto c2b = []( test_object2& obj ) { obj.id = 0; obj.val = 8; };
@@ -840,9 +866,13 @@ BOOST_AUTO_TEST_CASE( modify_tests )
    auto index2 = test_object2_index();
    index2.open( tmp_path, cfg, index_type::mira );
 
-   auto c1 = []( test_object& obj ) { obj.name = "_name"; };
-   auto c2 = []( test_object& obj ){ obj.name = "new_name"; };
-   auto c3 = []( const test_object& obj ){ BOOST_REQUIRE( obj.name == "new_name" ); };
+   auto c1 = []( test_object& obj ) {
+      obj.val2 = 0;
+   };
+   auto c2 = []( test_object& obj ) {
+      obj.val2 = 1;
+   };
+   auto c3 = []( const test_object& obj ){ BOOST_REQUIRE( obj.val2 == 1 ); };
    auto c4 = []( const test_object& obj ){ BOOST_REQUIRE( obj.val == obj.id + 100 ); };
    auto c5 = []( bool result ){ BOOST_REQUIRE( result == false ); };
 
