@@ -1,11 +1,16 @@
 #pragma once
+
+#include <cstddef>
+
 #include <koinos/exception.hpp>
-
-#include <koinos/pack/rt/basetypes.hpp>
-
-#include <boost/multiprecision/cpp_int.hpp>
+#include <koinos/crypto/multihash.hpp>
 
 namespace koinos::statedb {
+
+using state_node_id = crypto::multihash;
+using object_space  = std::array< std::byte, 256 >;
+using object_key    = std::array< std::byte, 256 >;
+using object_value  = std::vector< std::byte >;
 
 KOINOS_DECLARE_EXCEPTION( statedb_exception );
 
@@ -41,15 +46,5 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( cannot_discard, statedb_exception );
  * This is most likely caused by a programming error in state_db.
  */
 KOINOS_DECLARE_DERIVED_EXCEPTION( internal_error, statedb_exception );
-
-// object_space / object_key don't actually use any of the cryptography features of fc::sha256
-// They just use sha256 as an FC serializable 256-bit integer type
-
-using boost::multiprecision::uint256_t;
-
-using state_node_id = multihash;
-using object_space  = uint256_t;
-using object_key    = uint256_t;
-using object_value  = variable_blob;
 
 } // koinos::statedb
