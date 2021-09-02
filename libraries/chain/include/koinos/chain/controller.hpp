@@ -2,8 +2,8 @@
 
 #include <koinos/chain/constants.hpp>
 #include <koinos/mq/client.hpp>
+#include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/statedb/statedb_types.hpp>
-#include <koinos/pack/classes.hpp>
 
 #include <any>
 #include <chrono>
@@ -28,7 +28,7 @@ class controller final
 
       rpc::chain::submit_block_response submit_block(
          const rpc::chain::submit_block_request&,
-         block_height_type index_to = block_height_type{ 0 },
+         uint64_t index_to = 0,
          std::chrono::system_clock::time_point now = std::chrono::system_clock::now()
       );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request&  );

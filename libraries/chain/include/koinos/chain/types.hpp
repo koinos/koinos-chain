@@ -15,7 +15,6 @@
 #include <eosio/vm/host_function.hpp>
 #include <eosio/vm/exceptions.hpp>
 
-#include <koinos/pack/rt/pack_fwd.hpp>
 #include <koinos/chain/wasm/type_conversion.hpp>
 
 #include <memory>

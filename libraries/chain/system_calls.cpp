@@ -11,60 +11,6 @@
 
 namespace koinos::chain {
 
-/*
- * This is a list of system calls registered at genesis.
- *
- * For initial Koinos development, this declaration should match THUNK_REGISTER.
- * However, as soon as a new thunk is added as an in band upgrade, it should be
- * added only to THUNK_REGISTER, not here. The registration of that thunk as a
- * syscall happens as an in band upgrade.
- */
-SYSTEM_CALL_DEFAULTS(
-   (prints)
-   (exit_contract)
-
-   (verify_block_signature)
-   (verify_merkle_root)
-
-   (apply_block)
-   (apply_transaction)
-   (apply_reserved_operation)
-   (apply_upload_contract_operation)
-   (apply_execute_contract_operation)
-   (apply_set_system_call_operation)
-
-   (db_put_object)
-   (db_get_object)
-   (db_get_next_object)
-   (db_get_prev_object)
-
-   (execute_contract)
-
-   (get_entry_point)
-   (get_contract_args_size)
-   (get_contract_args)
-   (set_contract_return)
-
-   (get_head_info)
-   (hash)
-   (recover_public_key)
-
-   (get_transaction_payer)
-   (get_max_account_resources)
-   (get_transaction_resource_limit)
-
-   (get_last_irreversible_block)
-
-   (get_caller)
-   (get_transaction_signature)
-   (require_authority)
-
-   (get_contract_id)
-   (get_head_block_time)
-
-   (get_account_nonce)
-)
-
 void register_thunks( thunk_dispatcher& td )
 {
    THUNK_REGISTER( td,
@@ -76,9 +22,8 @@ void register_thunks( thunk_dispatcher& td )
 
       (apply_block)
       (apply_transaction)
-      (apply_reserved_operation)
       (apply_upload_contract_operation)
-      (apply_execute_contract_operation)
+      (apply_call_contract_operation)
       (apply_set_system_call_operation)
 
       (db_put_object)
@@ -86,7 +31,7 @@ void register_thunks( thunk_dispatcher& td )
       (db_get_next_object)
       (db_get_prev_object)
 
-      (execute_contract)
+      (call_contract)
 
       (get_entry_point)
       (get_contract_args_size)
@@ -108,7 +53,6 @@ void register_thunks( thunk_dispatcher& td )
       (require_authority)
 
       (get_contract_id)
-      (get_head_block_time)
 
       (get_account_nonce)
    )
@@ -117,9 +61,9 @@ void register_thunks( thunk_dispatcher& td )
 // TODO: Should this be a thunk?
 bool is_system_space( const statedb::object_space& space_id )
 {
-   return space_id == database::contract_space ||
-          space_id == database::system_call_dispatch_space ||
-          space_id == database::kernel_space;
+   return space_id == database::space::contract ||
+          space_id == database::space::system_call_dispatch ||
+          space_id == database::space::kernel;
 }
 
 THUNK_DEFINE_BEGIN();
@@ -138,34 +82,35 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
       case KOINOS_EXIT_FAILURE:
           KOINOS_THROW( exit_failure, "" );
       default:
-          KOINOS_THROW( unknown_exit_code, "Contract specified unknown exit code" );
+          KOINOS_THROW( unknown_exit_code, "contract specified unknown exit code" );
    }
 }
 
-THUNK_DEFINE( bool, verify_block_signature, ((const multihash&) digest, (const opaque< protocol::active_block_data >&) active_data, (const variable_blob&) signature_data) )
+THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id_str, (const protocol::block_active_data&) active_data, (const std::string&) signature_data) )
 {
-   multihash chain_id;
+   crypto::multihash chain_id;
    crypto::recoverable_signature sig;
-   pack::from_variable_blob( signature_data, sig );
+   std::memcpy( sig.data(), signature_data.c_str(), signature_data.size() );
+   crypto::multihash block_id = converter::from< crypto::multihash >( id_str );
 
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "retrieve_chain_id" ) ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::db_get_object( context, database::kernel_space, database::key_from_string( database::key::chain_id ) );
-         chain_id = pack::from_variable_blob< multihash >( obj );
+         auto obj = system_call::db_get_object( context, database::space::kernel, database::key::chain_id );
+         chain_id = converter::from< crypto::multihash >( obj );
       }
    );
 
-   return chain_id == crypto::hash( CRYPTO_SHA2_256_ID, crypto::public_key::recover( sig, digest ).to_address() );
+   return chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address() );
 }
 
-THUNK_DEFINE( bool, verify_merkle_root, ((const multihash&) root, (const std::vector< multihash >&) hashes) )
+THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
-   std::vector< multihash > tmp = hashes;
+   std::vector< std::string > tmp = hashes;
    crypto::merkle_hash_leaves_like( tmp, root );
    return (tmp[0] == root);
 }
@@ -385,7 +330,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          },
          [&]( const call_contract_operation& op )
          {
-            system_call::apply_execute_contract_operation( context, op );
+            system_call::apply_call_contract_operation( context, op );
          },
          [&]( const set_system_call_operation& op )
          {
@@ -423,18 +368,18 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    system_call::db_put_object( context, database::contract_space, contract_id, o.bytecode );
 }
 
-THUNK_DEFINE( void, apply_execute_contract_operation, ((const protocol::call_contract_operation&) o) )
+THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
 
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "apply_execute_contract_operation" ) ).digest,
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "apply_call_contract_operation" ) ).digest,
          .call_privilege = privilege::user_mode,
       },
       [&]() {
-         system_call::execute_contract( context, o.contract_id, o.entry_point, o.args );
+         system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
       }
    );
 }
@@ -477,7 +422,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
          uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
          auto contract = db_get_object( context, database::contract_space, contract_key );
          KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
-         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::execute_contract ) ), forbidden_override, "Cannot override execute_contract." );
+         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::call_contract ) ), forbidden_override, "Cannot override call_contract." );
       },
       [&]( const auto& ) {
          KOINOS_THROW( unknown_system_call, "set_system_call invoked with unimplemented type ${tag}",
@@ -505,7 +450,7 @@ void check_db_permissions( const apply_context& context, const statedb::object_s
    }
 }
 
-THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
+THUNK_DEFINE( db_put_object_return, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "Cannot put object during read only call" );
    check_db_permissions( context, space );
@@ -524,7 +469,7 @@ THUNK_DEFINE( bool, db_put_object, ((const statedb::object_space&) space, (const
    return put_res.object_existed;
 }
 
-THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( db_get_object_return, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    check_db_permissions( context, space );
 
@@ -551,7 +496,7 @@ THUNK_DEFINE( variable_blob, db_get_object, ((const statedb::object_space&) spac
    return object_buffer;
 }
 
-THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    check_db_permissions( context, space );
 
@@ -577,7 +522,7 @@ THUNK_DEFINE( variable_blob, db_get_next_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
-THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
 {
    check_db_permissions( context, space );
 
@@ -603,7 +548,7 @@ THUNK_DEFINE( variable_blob, db_get_prev_object, ((const statedb::object_space&)
    return object_buffer;
 }
 
-THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
+THUNK_DEFINE( call_contract_return, call_contract, ((const contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
 {
    uint256_t contract_key = pack::from_fixed_blob< uint160_t >( contract_id );
 
@@ -612,7 +557,7 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "execute_contract" ) ).digest,
+         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "call_contract" ) ).digest,
          .call_privilege = privilege::kernel_mode,
       },
       [&]()
@@ -651,17 +596,17 @@ THUNK_DEFINE( variable_blob, execute_contract, ((const contract_id_type&) contra
    return context.pop_frame().call_return;
 }
 
-THUNK_DEFINE_VOID( uint32_t, get_entry_point )
+THUNK_DEFINE_VOID( get_entry_point_return, get_entry_point )
 {
    return context.get_contract_entry_point();
 }
 
-THUNK_DEFINE_VOID( uint32_t, get_contract_args_size )
+THUNK_DEFINE_VOID( get_contract_args_size, get_contract_args_size )
 {
    return (uint32_t)context.get_contract_call_args().size();
 }
 
-THUNK_DEFINE_VOID( variable_blob, get_contract_args )
+THUNK_DEFINE_VOID( get_contract_args_return, get_contract_args )
 {
    return context.get_contract_call_args();
 }
@@ -671,7 +616,7 @@ THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
    context.set_contract_return( ret );
 }
 
-THUNK_DEFINE_VOID( chain::head_info, get_head_info )
+THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
 {
    auto head = context.get_state_node();
    const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type{ 6 };
@@ -682,17 +627,26 @@ THUNK_DEFINE_VOID( chain::head_info, get_head_info )
    hi.head_topology.height   = head->revision();
    hi.last_irreversible_height = get_last_irreversible_block( context );
 
+   auto block_ptr = context.get_block();
+   if ( block_ptr )
+   {
+      return block_ptr->header.timestamp;
+   }
+
+   auto key = database::key_from_string( database::key::head_block_time );
+   return pack::from_variable_blob< timestamp_type >( db_get_object( context, database::kernel_space, key ) );
+
    return hi;
 }
 
-THUNK_DEFINE( multihash, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
+THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
 {
    KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
    auto hash = crypto::hash_str( id, obj.data(), obj.size(), size );
    return hash;
 }
 
-THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signature_data, (const multihash&) digest) )
+THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const variable_blob&) signature_data, (const multihash&) digest) )
 {
    KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "Unexpected signature length" );
    crypto::recoverable_signature signature;
@@ -707,7 +661,7 @@ THUNK_DEFINE( variable_blob, recover_public_key, ((const variable_blob&) signatu
    return variable_blob( address.begin(), address.end() );
 }
 
-THUNK_DEFINE( protocol::account_type, get_transaction_payer, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( get_transaction_payer_return, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
    multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
    protocol::account_type account = system_call::recover_public_key( context, transaction.signature_data, digest );
@@ -721,13 +675,13 @@ THUNK_DEFINE( protocol::account_type, get_transaction_payer, ((const protocol::t
    return account;
 }
 
-THUNK_DEFINE( uint128, get_max_account_resources, ((const protocol::account_type&) account) )
+THUNK_DEFINE( get_max_account_resources_return, get_max_account_resources, ((const protocol::account_type&) account) )
 {
    uint128 max_resources = 10'000'000;
    return max_resources;
 }
 
-THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( get_transaction_resource_limit_return, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
 {
    transaction.active_data.unbox();
    const auto& active_data = transaction.active_data.get_const_native();
@@ -735,7 +689,7 @@ THUNK_DEFINE( uint128, get_transaction_resource_limit, ((const protocol::transac
    return active_data.resource_limit;
 }
 
-THUNK_DEFINE_VOID( block_height_type, get_last_irreversible_block )
+THUNK_DEFINE_VOID( get_last_irreversible_block_return, get_last_irreversible_block )
 {
    auto head = context.get_state_node();
    return block_height_type( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
@@ -753,7 +707,7 @@ THUNK_DEFINE_VOID( get_caller_return, get_caller )
    return ret;
 }
 
-THUNK_DEFINE_VOID( variable_blob, get_transaction_signature )
+THUNK_DEFINE_VOID( get_transaction_signature_return, get_transaction_signature )
 {
    return context.get_transaction().signature_data;
 }
@@ -767,21 +721,9 @@ THUNK_DEFINE( void, require_authority, ((const protocol::account_type&) account)
       ("account", account)("sig_account", sig_account) );
 }
 
-THUNK_DEFINE_VOID( contract_id_type, get_contract_id )
+THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
 {
    return pack::from_variable_blob< contract_id_type >( context.get_caller() );
-}
-
-THUNK_DEFINE_VOID( timestamp_type, get_head_block_time )
-{
-   auto block_ptr = context.get_block();
-   if ( block_ptr )
-   {
-      return block_ptr->header.timestamp;
-   }
-
-   auto key = database::key_from_string( database::key::head_block_time );
-   return pack::from_variable_blob< timestamp_type >( db_get_object( context, database::kernel_space, key ) );
 }
 
 THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const protocol::account_type&) account ) )

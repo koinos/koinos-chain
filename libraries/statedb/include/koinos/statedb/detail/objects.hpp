@@ -78,7 +78,7 @@ struct state_object_serializer {
    {
       std::vector< char > bytes;
       bytes.resize( sizeof( T ) );
-      std::copy( reinterpret_cast< const char* >( &v ),  reinterpret_cast< const char* >( &v ) + sizeof( T ), bytes.begin() );
+      std::copy( reinterpret_cast< const char* >( &v ),  reinterpret_cast< const char* >( &v ) + sizeof( T ), std::begin( bytes ) );
       return bytes;
    }
 
@@ -181,7 +181,7 @@ std::size_t binary_size( const mira::multi_index::composite_key_result< T >& var
 std::vector< char > to_binary_vector( const std::vector< std::byte >& var )
 {
    std::vector< char > bytes;
-   std::transform( var.begin(), var.end(), bytes.begin(), []( std::byte b ) { return static_cast< char >( b ); } );
+   std::transform( std::begin( var ), std::end( var ), std::begin( bytes ), []( std::byte b ) { return static_cast< char >( b ); } );
    return bytes;
 }
 
