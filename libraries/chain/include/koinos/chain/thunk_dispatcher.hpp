@@ -49,6 +49,12 @@ namespace detail
          case google::protobuf::FieldDescriptor::CppType::CPPTYPE_ENUM:
             field = ref->GetEnumValue( msg, fd );
             break;
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_FLOAT:
+            field = ref->GetFloat( msg, fd );
+            break;
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_DOUBLE:
+            field = ref->GetDouble( msg, fd );
+            break;
          default:
             assert( "Type not handled for thunk args." );
       }
