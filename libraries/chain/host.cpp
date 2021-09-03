@@ -35,7 +35,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
             database::space::system_call_dispatch,
             key,
             database::system_call_dispatch_object_max_size
-         );
+         ).value();
       }
    );
 
@@ -80,7 +80,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          },
          [&]()
          {
-            ret = thunk::call_contract( context, scb.contract_id(), scb.entry_point(), args );
+            ret = thunk::call_contract( context, scb.contract_id(), scb.entry_point(), args ).value();
          }
       );
       KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );

@@ -1,12 +1,14 @@
+#include <algorithm>
+#include <string>
+
+#include <google/protobuf/message.h>
+
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
-
-#include <algorithm>
-#include <string>
 
 #define KOINOS_MAX_TICKS_PER_BLOCK (100 * int64_t(1000) * int64_t(1000))
 
@@ -89,7 +91,7 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id, (const protocol::block_active_data&) active_data, (const std::string&) signature_data) )
+THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
 {
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
@@ -109,15 +111,23 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
    );
 
    verify_block_signature_return ret;
-   ret.set_result( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address() ) );
+   ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address() ) );
    return ret;
 }
 
 THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
-   std::vector< std::string > tmp = hashes;
-   crypto::merkle_hash_leaves_like( tmp, root );
-   return (tmp[0] == root);
+   std::vector< crypto::multihash > leaves;
+
+   leaves.resize( hashes.size() );
+   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return converter::from< crypto::multihash >( s ); } );
+
+   auto root_hash = converter::from< crypto::multihash >( root );
+   auto mtree = crypto::merkle_tree( root_hash.code(), hashes );
+
+   verify_merkle_root_return ret;
+   ret.set_value( mtree.root()->hash() == root_hash );
+   return ret;
 }
 
 // RAII class to ensure apply context block state is consistent if there is an error applying
@@ -148,22 +158,39 @@ THUNK_DEFINE( void, apply_block,
 {
    KOINOS_TODO( "Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms" );
 
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
    auto setter = block_setter( context, block );
-   block.active_data.unbox();
+   KOINOS_TODO( "Should this be a more specific exception?" );
+   KOINOS_ASSERT( block.id().size(), koinos::exception, "missing expected field in block: ${f}", ("f", "id") );
+   KOINOS_ASSERT( block.has_header(), koinos::exception, "missing expected field in block: ${f}", ("f", "header") );
+   KOINOS_ASSERT( block.header().previous().size(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "previous") );
+   KOINOS_ASSERT( block.header().height(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "height") );
+   KOINOS_ASSERT( block.header().timestamp(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "timestamp") );
+   KOINOS_ASSERT( block.active().size(), koinos::exception, "missing expected field: ${f}", ("f", "active") );
+   KOINOS_ASSERT( block.passive().size(), koinos::exception, "missing expected field: ${f}", ("f", "passive") );
+   KOINOS_ASSERT( block.signature_data().size(), koinos::exception, "missing expected field: ${f}", ("f", "signature_data") );
 
-   const multihash& tx_root = block.active_data->transaction_merkle_root;
-   size_t tx_count = block.transactions.size();
+   protocol::active_block_data active_data;
+   active_data.ParseFromString( block.active() );
+
+   const crypto::multihash tx_root = converter::from< crypto::multihash >( active_data.transaction_merkle_root() );
+   size_t tx_count = block.transactions_size();
 
    // Check transaction Merkle root
-   std::vector< multihash > hashes( tx_count );
+   std::vector< std::string > hashes( tx_count );
 
-   for( std::size_t i = 0; i < tx_count; i++ )
+   for ( const auto& trx : block.transactions() )
    {
-      hashes[i] = crypto::hash_like( tx_root, block.transactions[i].active_data );
+      hashes.emplace_back( converter::as< std::string >( crypto::hash( tx_root.code(), trx ) ) );
    }
-   KOINOS_ASSERT( system_call::verify_merkle_root( context, tx_root, hashes ), transaction_root_mismatch, "Transaction Merkle root does not match" );
+
+//   for ( std::size_t i = 0; i < tx_count; i++ )
+//   {
+//      hashes[i] = converter::as< std::string >( crypto::hash( tx_root.code(), block.transactions( i ).active() ) );
+//   }
+
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ).value(), transaction_root_mismatch, "transaction merkle root does not match" );
 
    /*
     * The PoW implementation of verify_block_signature has side effects. While this is the case, we should never
@@ -173,13 +200,11 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_TODO( "Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)" )
    // if( check_block_signature )
    {
-      multihash block_hash;
-      block_hash = crypto::hash_n( tx_root.id, block.header, block.active_data );
-      KOINOS_ASSERT( system_call::verify_block_signature( context, block_hash, block.active_data, block.signature_data ), invalid_block_signature, "Block signature does not match" );
+      crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
+      KOINOS_ASSERT( system_call::verify_block_signature( context, converter::as< std::string >( block_hash ), block.active(), block.signature_data() ).value(), invalid_block_signature, "block signature does not match" );
    }
 
-   auto key = database::key_from_string( database::key::head_block_time );
-   system_call::db_put_object( context, database::kernel_space, key, pack::to_variable_blob( block.header.timestamp ) );
+   system_call::db_put_object( context, database::space::kernel, database::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
 
    // Check passive Merkle root
    if( check_passive_data )
@@ -196,21 +221,20 @@ THUNK_DEFINE( void, apply_block,
       // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
       // during the block building process.
 
-      const multihash& passive_root = block.active_data->passive_data_merkle_root;
-      std::size_t passive_count = 2 * ( block.transactions.size() + 1 );
-      hashes.resize( passive_count );
+      KOINOS_TODO( "Can we optimize away the string copies?" );
+      auto passive_root = converter::from< crypto::multihash >( active_data.passive_data_merkle_root() );
+      std::vector< std::string > passives( 2 * ( block.transactions().size() + 1 ) );
 
-      hashes[0] = crypto::hash_like( passive_root, block.passive_data );
-      hashes[1] = crypto::empty_hash_like( passive_root );
+      passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
+      passives.emplace_back( converter::as< std::string >( crypto::multihash::empty( passive_root.code() ) ) );
 
-      // We hash in this order so that the two hashes for each transaction have a common Merkle parent
-      for ( std::size_t i = 0; i < tx_count; i++ )
+      for ( const auto& trx : block.transactions() )
       {
-         hashes[2*(i+1)]   = crypto::hash_like( passive_root, block.transactions[i].passive_data );
-         hashes[2*(i+1)+1] = crypto::hash_blob_like( passive_root, block.transactions[i].signature_data );
+         passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), trx.passive() ) ) );
+         passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
       }
 
-      KOINOS_ASSERT( system_call::verify_merkle_root( context, passive_root, hashes ), passive_root_mismatch, "Passive Merkle root does not match" );
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), hashes ).value(), passive_root_mismatch, "passive merkle root does not match" );
    }
 
    //
@@ -235,7 +259,7 @@ THUNK_DEFINE( void, apply_block,
    auto block_node = context.get_state_node();
    int64_t ticks_used = 0;
 
-   for( const auto& tx : block.transactions )
+   for( const auto& tx : block.transactions() )
    {
       auto trx_node = block_node->create_anonymous_node();
       context.set_state_node( trx_node );
@@ -259,7 +283,7 @@ THUNK_DEFINE( void, apply_block,
 
       ticks_used += context.get_used_meter_ticks();
 
-      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, tick_meter_exception, "Per-block tick limit exceeded" );
+      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, tick_meter_exception, "per-block tick limit exceeded" );
    }
 }
 
@@ -281,106 +305,84 @@ struct transaction_setter
    apply_context& ctx;
 };
 
-inline void require_payer_transaction_nonce( apply_context& ctx, protocol::account_type payer, uint64 nonce )
+inline void require_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   auto account_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   auto account_nonce = system_call::get_account_nonce( ctx, payer ).value();
    KOINOS_ASSERT(
       account_nonce == nonce,
       chain::chain_exception,
-      "Mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", nonce)("e", account_nonce)
+      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", nonce)("e", account_nonce)
    );
 }
 
-inline void update_payer_transaction_nonce( apply_context& ctx, protocol::account_type payer, uint64 nonce )
+inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   variable_blob vkey;
-   pack::to_variable_blob( vkey, payer );
-   pack::to_variable_blob( vkey, std::string{ database::key::transaction_nonce }, true );
-
-   statedb::object_key key;
-   key = pack::from_variable_blob< statedb::object_key >( vkey );
-
-   variable_blob obj;
-   pack::to_variable_blob( obj, nonce );
-   system_call::db_put_object( ctx, database::kernel_space, key, obj );
+   system_call::db_put_object( ctx, database::space::kernel, converter::as< statedb::object_key >( payer, "nonce" ), converter::as< statedb::object_value >( obj ) );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
-
-   using namespace koinos::protocol;
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
    auto setter = transaction_setter( context, trx );
-   trx.active_data.unbox();
 
-   auto payer = system_call::get_transaction_payer( context, trx );
+   protocol::active_transaction_data active_data;
+   active_data.ParseFromString( trx.active() );
+
+   auto payer = system_call::get_transaction_payer( context, trx ).value();
    system_call::require_authority( context, payer );
-   require_payer_transaction_nonce( context, payer, trx.active_data->nonce );
+   require_payer_transaction_nonce( context, payer, active_data.nonce() );
 
-   KOINOS_ASSERT( trx.active_data->resource_limit <= uint128_t( KOINOS_MAX_METER_TICKS ), tick_max_too_high_exception, "Tick max is too high" );
-   context.set_meter_ticks( int64_t( trx.active_data->resource_limit ) );
+   KOINOS_ASSERT( active_data.resource_limit() <= KOINOS_MAX_METER_TICKS, tick_max_too_high_exception, "tick max is too high" );
+   context.set_meter_ticks( active_data.resource_limit() );
 
-   for( const auto& o : trx.active_data->operations )
+   for ( const auto& o : active_data.operations() )
    {
-      std::visit( koinos::overloaded {
-         [&]( const nop_operation& op ) { /* intentional fallthrough */ },
-         [&]( const reserved_operation& op )
-         {
-            system_call::apply_reserved_operation( context, op );
-         },
-         [&]( const upload_contract_operation& op )
-         {
-            system_call::apply_upload_contract_operation( context, op );
-         },
-         [&]( const call_contract_operation& op )
-         {
-            system_call::apply_call_contract_operation( context, op );
-         },
-         [&]( const set_system_call_operation& op )
-         {
-            system_call::apply_set_system_call_operation( context, op );
-         },
-      }, o );
+      if ( o.has_upload_contract_operation )
+         system_call::apply_upload_contract_operation( context, op );
+      else if ( o.has_call_contract_operation() )
+         system_call::apply_call_contract_operation( context, op );
+      else if ( o.has_set_system_call_operation() )
+         system_call::apply_set_system_call_operation( context, op );
+      else
+         KOINOS_THROW( koinos::exception, "unknown operation" );
    }
 
    // Next nonce should be the current nonce + 1
-   update_payer_transaction_nonce( context, payer, trx.active_data->nonce + 1 );
+   update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
 
-   LOG(debug) << "(apply_transaction) transaction " << trx.id << " used ticks: " << context.get_used_meter_ticks();
-}
-
-THUNK_DEFINE( void, apply_reserved_operation, ((const protocol::reserved_operation&) o) )
-{
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
-   KOINOS_THROW( reserved_operation_exception, "Unable to apply reserved operation" );
+   LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
-   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
-   protocol::account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
-   auto signer_hash = crypto::hash( CRYPTO_RIPEMD160_ID, sig_account );
+   protocol::active_transaction_data active_data;
+   active_data.ParseFromString( context.get_transaction().active() );
 
-   KOINOS_ASSERT( signer_hash.digest.size() == o.contract_id.size() &&
-      std::equal( signer_hash.digest.begin(), signer_hash.digest.end(), o.contract_id.begin() ), invalid_signature, "signature does not match",
-      ("contract_id", o.contract_id)("signer_hash", signer_hash.digest) );
+   auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
+   auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), converter::as< std::string >( tx_id ) ).value();
+   auto signer_hash = crypto::hash( crypto::multicodec:ripemd_160, sig_account );
+   auto contract_id = converter::from< crypto::multihash >( o.contract_id() );
 
-   // Contract id is a ripemd160. It needs to be copied in to a uint256_t
-   uint256_t contract_id = pack::from_fixed_blob< uint160_t >( o.contract_id );
-   system_call::db_put_object( context, database::contract_space, contract_id, o.bytecode );
+   KOINOS_ASSERT(
+      signer_hash.digest().size() == contract_id.digest().size() && std::equal( signer_hash.digest().begin(), signer_hash.digest.end(), contract_id.digest().begin() ),
+      invalid_signature,
+      "signature does not match", ("contract_id", contract_id)("signer_hash", signer_hash)
+   );
+
+   system_call::db_put_object( context, database::contract_space, converter::as< statedb::object_key >( contract_id ), o.bytecode );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "apply_call_contract_operation" ) ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "apply_call_contract_operation"s ).digest(),
          .call_privilege = privilege::user_mode,
       },
       [&]() {
@@ -391,51 +393,50 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "Calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
-   multihash chain_id;
+   crypto::multihash chain_id;
 
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "retrieve_chain_id" ) ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::db_get_object( context, database::kernel_space, database::key_from_string( database::key::chain_id ) );
-         chain_id = pack::from_variable_blob< multihash >( obj );
+         auto obj = system_call::db_get_object( context, database::kernel_space, database::key::chain_id ).value();
+         chain_id = converter::from< crypto::multihash >( obj );
       }
    );
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   pack::from_variable_blob( tx.signature_data, sig );
+   std::memcpy( sig.data(), tx.signature_data().c_str(), tx.signature_data().size() );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( CRYPTO_SHA2_256_ID, crypto::public_key::recover( sig, tx.id ).to_address() ),
+      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::from< crypto::multihash >( tx.id() ) ).to_address() ),
       insufficient_privileges,
-      "Transaction does not have the required authority to override system calls"
+      "transaction does not have the required authority to override system calls"
    );
 
-   // Ensure override exists
-   std::visit(
-   koinos::overloaded{
-      [&]( const thunk_id& tid ) {
-         KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( static_cast< thunk_id >( tid ) ), thunk_not_found, "Thunk ${tid} does not exist", ("tid", (uint32_t)tid) );
-      },
-      [&]( const contract_call_bundle& scb ) {
-         uint256_t contract_key = pack::from_fixed_blob< uint160_t >( scb.contract_id );
-         auto contract = db_get_object( context, database::contract_space, contract_key );
-         KOINOS_ASSERT( contract.size(), invalid_contract, "Contract does not exist" );
-         KOINOS_ASSERT( ( o.call_id != static_cast< uint32_t >( system_call_id::call_contract ) ), forbidden_override, "Cannot override call_contract." );
-      },
-      [&]( const auto& ) {
-         KOINOS_THROW( unknown_system_call, "set_system_call invoked with unimplemented type ${tag}",
-                      ("tag", (uint64_t)o.target.index()) );
-      } }, o.target );
+   if ( o.target().has_contract_call_bundle() )
+   {
+      auto contract_id = converter::from< crypto::multihash >( scb.contract_id() );
+      auto contract = db_get_object( context, database::contract_space, converter::from< statedb::object_key >( contract_id ) ).value();
+      KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
+      KOINOS_ASSERT( ( o.call_id() != ssystem_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
+   }
+   else if ( o.target().thunk_id() )
+   {
+      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( tid ), thunk_not_found, "thunk ${tid} does not exist", ("tid", tid) );
+   }
+   else
+   {
+      KOINOS_THROW( unknown_system_call, "set_system_call invoked with unknown override" );
+   }
 
    // Place the override in the database
-   system_call::db_put_object( context, database::system_call_dispatch_space, o.call_id, pack::to_variable_blob( o.target ) );
+   system_call::db_put_object( context, database::space::system_call_dispatch, o.call_id, pack::to_variable_blob( o.target ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )

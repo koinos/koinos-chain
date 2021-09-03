@@ -95,11 +95,9 @@ namespace detail
       auto ref = msg.GetReflection();
       std::any field;
 
-      switch( fd->type() )
+      switch( fd->cpp_type() )
       {
-         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
-            [[fallthrough]];
-         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_INT64:
          {
             std::vector< int64_t > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -109,7 +107,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_UINT64:
          {
             std::vector< uint64_t > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -119,9 +117,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
-            [[fallthrough]];
-         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_INT32:
          {
             std::vector< int32_t > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -131,7 +127,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_UINT32:
          {
             std::vector< uint32_t > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -141,7 +137,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_BOOL:
          {
             std::vector< bool > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -151,9 +147,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            [[fallthrough]];
-         case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_STRING:
          {
             std::vector< std::string > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -163,7 +157,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_MESSAGE:
          {
             std::vector< T > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )
@@ -175,7 +169,7 @@ namespace detail
             field = std::move( v );
             break;
          }
-         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_ENUM:
          {
             std::vector< int > v;
             iterate_repeated_field( msg, fd, v, [&]( int i )

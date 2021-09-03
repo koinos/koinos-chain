@@ -173,8 +173,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto parent_node = _state_db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
-      // time_lower_bound = system_call::get_head_block_time( parent_ctx ).t;
-      parent_height = system_call::get_head_info( parent_ctx ).head_topology().height();
+      auto head_info = system_call::get_head_info( parent_ctx ).value();
+      parent_height = head_info.head_topology().height();
+      time_lower_bound = head_info.head_block_time();
    }
 
    apply_context ctx;
@@ -254,13 +255,13 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      auto lib = system_call::get_last_irreversible_block( ctx );
+      auto lib = system_call::get_last_irreversible_block( ctx ).value().height();
 
       _state_db.finalize_node( block_node->id() );
 
       if ( std::optional< state_node_ptr > node; lib > _state_db.get_root()->revision() )
       {
-         node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
+         node = _state_db.get_node_at_revision( lib, block_node->id() );
          _state_db.commit_node( node.value()->id() );
       }
 
@@ -388,9 +389,9 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
 
-      payer = system_call::get_transaction_payer( ctx, transaction );
-      max_payer_resources = system_call::get_max_account_resources( ctx, payer );
-      trx_resource_limit = system_call::get_transaction_resource_limit( ctx, transaction );
+      payer = system_call::get_transaction_payer( ctx, transaction ).value();
+      max_payer_resources = system_call::get_max_account_resources( ctx, payer ).value();
+      trx_resource_limit = system_call::get_transaction_resource_limit( ctx, transaction ).value();
 
       system_call::apply_transaction( ctx, transaction );
 
@@ -458,7 +459,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
    ctx.set_state_node( _state_db.get_head() );
 
-   auto head_info = system_call::get_head_info( ctx );
+   auto head_info = system_call::get_head_info( ctx ).value();
    block_topology topo = head_info.head_topology();
 
    rpc::chain::get_head_info_response resp;
@@ -525,13 +526,13 @@ fork_data controller_impl::get_fork_data_lockless()
    ctx.set_state_node( _state_db.get_root() );
    fork_heads = _state_db.get_fork_heads();
 
-   auto head_info = system_call::get_head_info( ctx );
+   auto head_info = system_call::get_head_info( ctx ).value();
    fdata.second = head_info.head_topology();
 
    for ( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
-      auto head_info = system_call::get_head_info( ctx );
+      auto head_info = system_call::get_head_info( ctx ).value();
       fdata.first.emplace_back( std::move( head_info.head_topology() ) );
    }
 
@@ -591,7 +592,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    ctx.set_read_only( true );
    ctx.set_meter_ticks( _max_read_cycles );
 
-   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() );
+   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() ).value();
 
    rpc::chain::read_contract_response resp;
    resp.set_result( result );
@@ -613,7 +614,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
    ctx.set_state_node( _state_db.get_head() );
 
-   auto nonce = system_call::get_account_nonce( ctx, request.account() ).nonce();
+   auto nonce = system_call::get_account_nonce( ctx, request.account() ).value();
 
    rpc::chain::get_account_nonce_response resp;
    resp.set_nonce( nonce );

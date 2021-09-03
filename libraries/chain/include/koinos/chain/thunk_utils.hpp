@@ -3,6 +3,8 @@
 #include <boost/preprocessor/punctuation/comma.hpp>
 #include <boost/vmd/is_empty.hpp>
 
+#include <koinos/crypto/merkle_tree.hpp>
+
 #include <koinos/protocol/system_call_ids.pb.h>
 
 #include <koinos/conversion.hpp>
@@ -210,7 +212,7 @@ namespace koinos::chain::detail {
       assert( fd->is_repeated() );
       for( const auto& v : values )
       {
-         auto m = ref->MutableMessage( &msg, fd );
+         auto m = ref->AddMessage( &msg, fd );
          m->CopyFrom( v );
       }
    }
@@ -242,7 +244,7 @@ namespace koinos::chain::detail {
                database::space::system_call_dispatch,                                                                \
                _key,                                                                                                 \
                database::system_call_dispatch_object_max_size                                                        \
-            );                                                                                                       \
+            ).value();                                                                                               \
          }                                                                                                           \
       );                                                                                                             \
                                                                                                                      \
@@ -295,7 +297,7 @@ namespace koinos::chain::detail {
             {                                                                                                        \
                std::string _arg_str;                                                                                 \
                _args.SerializeToString( &_arg_str );                                                                 \
-               _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str );         \
+               _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
             }                                                                                                        \
          );                                                                                                          \
          BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
