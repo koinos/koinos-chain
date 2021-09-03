@@ -6,8 +6,11 @@
 #include <koinos/log.hpp>
 
 #include <algorithm>
+#include <string>
 
 #define KOINOS_MAX_TICKS_PER_BLOCK (100 * int64_t(1000) * int64_t(1000))
+
+using namespace std::string_literals;
 
 namespace koinos::chain {
 
@@ -86,12 +89,12 @@ THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id_str, (const protocol::block_active_data&) active_data, (const std::string&) signature_data) )
+THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id, (const protocol::block_active_data&) active_data, (const std::string&) signature_data) )
 {
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.c_str(), signature_data.size() );
-   crypto::multihash block_id = converter::from< crypto::multihash >( id_str );
+   crypto::multihash block_id = converter::from< crypto::multihash >( id );
 
    with_stack_frame(
       context,
@@ -105,7 +108,9 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
       }
    );
 
-   return chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address() );
+   verify_block_signature_return ret;
+   ret.set_result( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address() ) );
+   return ret;
 }
 
 THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )

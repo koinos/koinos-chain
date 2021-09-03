@@ -211,7 +211,7 @@ namespace koinos::chain::detail {
                _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str );         \
             }                                                                                                        \
          );                                                                                                          \
-         BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( &_ret_str );)                                \
+         BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \

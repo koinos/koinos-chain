@@ -18,41 +18,35 @@ namespace koinos::chain {
 
 namespace detail
 {
-   std::any get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
+   std::any get_value_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
    {
       auto ref = msg.GetReflection();
       std::any field;
 
-      switch( fd->type() )
+      switch( fd->cpp_type() )
       {
-         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
-            [[fallthrough]];
-         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_INT64:
             field = ref->GetInt64( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_UINT64:
             field = ref->GetUInt64( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
-            [[fallthrough]];
-         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_INT32:
             field = ref->GetInt32( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_UINT32:
             field = ref->GetUInt32( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_BOOL:
             field = ref->GetBool( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
-            [[fallthrough]];
-         case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_STRING:
             field = ref->GetString( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_MESSAGE:
             field = &ref->GetMessage( msg, fd );
             break;
-         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
+         case google::protobuf::FieldDescriptor::CppType::CPPTYPE_ENUM:
             field = ref->GetEnumValue( msg, fd );
             break;
          default:
@@ -70,7 +64,7 @@ namespace detail
       constexpr std::size_t fields_remaining = sizeof...( Ts );
       auto desc = msg.GetDescriptor();
       auto fd = desc->FindFieldByNumber( desc->field_count() - fields_remaining );
-      auto msg_ptr = std::any_cast< const google::protobuf::Message* >( get_type_from_field( msg, fd ) );
+      auto msg_ptr = std::any_cast< const google::protobuf::Message* >( get_value_from_field( msg, fd ) );
       T t;
       t.CopyFrom( *msg_ptr );
 
@@ -88,7 +82,7 @@ namespace detail
       constexpr std::size_t fields_remaining = sizeof...( Ts );
       auto desc = msg.GetDescriptor();
       auto fd = desc->FindFieldByNumber( desc->field_count() - fields_remaining );
-      T t = std::any_cast< T >( get_type_from_field( msg, fd ) );
+      T t = std::any_cast< T >( get_value_from_field( msg, fd ) );
 
       if ( fields_remaining )
          return std::tuple_cat( std::tuple< T >( t ), message_to_tuple< Ts... >( msg ) );
