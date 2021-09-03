@@ -141,9 +141,9 @@ struct block_setter
 THUNK_DEFINE( void, apply_block,
    (
       (const protocol::block&) block,
-      (boolean) check_passive_data,
-      (boolean) check_block_signature,
-      (boolean) check_transaction_signatures)
+      (bool) check_passive_data,
+      (bool) check_block_signature,
+      (bool) check_transaction_signatures)
    )
 {
    KOINOS_TODO( "Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms" );

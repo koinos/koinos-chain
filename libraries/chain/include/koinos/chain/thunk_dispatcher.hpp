@@ -18,7 +18,33 @@ namespace koinos::chain {
 
 namespace detail
 {
-   std::any get_value_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
+   template< typename T, typename Lambda >
+   std::enable_if_t< std::is_same_v< decltype( Lambda( std::declval< int >() ) ), T >, void >
+   iterate_repeated_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, std::vector< T >& v, Lambda&& l )
+   {
+      auto ref = msg.GetReflection();
+      for( int i = 0; i < ref->FieldSize( msg, fd ); i++ )
+      {
+         v.emplace_back( l( i ) );
+      }
+   }
+
+   template< typename T, typename Lambda >
+   std::enable_if_t< !std::is_same_v< decltype( Lambda( std::declval< int >() ) ), T >, void >
+   iterate_repeated_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, std::vector< T >& v, Lambda&& l ) {}
+
+   template< typename T >
+   std::enable_if_t< std::is_base_of_v< google::protobuf::Message, T >, void >
+   copy_from( const google::protobuf::Message& m, T& t )
+   {
+      t.CopyFrom( m );
+   }
+
+   template< typename T >
+   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T >, void >
+   copy_from( const google::protobuf::Message& m, T& t ) {}
+
+   std::any get_type_from_field_impl( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
    {
       auto ref = msg.GetReflection();
       std::any field;
@@ -62,38 +88,153 @@ namespace detail
       return field;
    }
 
+   // Parses through a repeated field and puts values in a vector.
+   template< typename T >
+   std::any get_type_from_repeated_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
+   {
+      auto ref = msg.GetReflection();
+      std::any field;
+
+      switch( fd->type() )
+      {
+         case google::protobuf::FieldDescriptor::Type::TYPE_INT64:
+            [[fallthrough]];
+         case google::protobuf::FieldDescriptor::Type::TYPE_SINT64:
+         {
+            std::vector< int64_t > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedInt64( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_UINT64:
+         {
+            std::vector< uint64_t > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedUInt64( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_INT32:
+            [[fallthrough]];
+         case google::protobuf::FieldDescriptor::Type::TYPE_SINT32:
+         {
+            std::vector< int32_t > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedInt32( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_UINT32:
+         {
+            std::vector< uint32_t > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedUInt32( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_BOOL:
+         {
+            std::vector< bool > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedBool( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_STRING:
+            [[fallthrough]];
+         case google::protobuf::FieldDescriptor::Type::TYPE_BYTES:
+         {
+            std::vector< std::string > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedString( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE:
+         {
+            std::vector< T > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               T t;
+               copy_from( ref->GetRepeatedMessage( msg, fd, i ), t );
+               return t;
+            } );
+            field = std::move( v );
+            break;
+         }
+         case google::protobuf::FieldDescriptor::Type::TYPE_ENUM:
+         {
+            std::vector< int > v;
+            iterate_repeated_field( msg, fd, v, [&]( int i )
+            {
+               return ref->GetRepeatedEnum( msg, fd, i );
+            } );
+            field = std::move( v );
+            break;
+         }
+         default:
+            assert( "Type not handled for thunk args." );
+      }
+
+      return field;
+   }
+
+   // Overload to capture when field is repeated (vector)
+   template< typename T >
+   void get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, std::vector< T >& v )
+   {
+      v = std::any_cast< std::vector< T > >( get_type_from_repeated_field< T >( msg, fd ) );
+   }
+
+   // Overload to capture when field is a Message
+   template< typename T >
+   std::enable_if_t< std::is_base_of_v< google::protobuf::Message, T >, void >
+   get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, T& t )
+   {
+      auto ptr = std::any_cast< const google::protobuf::Message* >( get_type_from_field_impl( msg, fd ) );
+      t.CopyFrom( *ptr );
+   }
+
+   // Overload to capture when field is neither
+   template< typename T >
+   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T >, void >
+   get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, T& t )
+   {
+      t = std::any_cast< T >( get_type_from_field_impl( msg, fd ) );
+   }
+
+   // Variadic recusrive template to convert fields of a message in to a tuple
+   // Arg type information is assumed to match the fields of the corresponding Message
+   // Each call strips off the next argument (T), parses it with get_type_from_field,
+   // adds it to the tuple and recusively calls with the remaining arguments (Ts).
+   // The base case is when there are no more fields remaining (Ts is empty).
    template< typename T, typename... Ts >
-   std::enable_if_t< std::is_base_of_v< google::protobuf::Message, T >, std::tuple< T, Ts... > >
-   message_to_tuple( const google::protobuf::Message& msg )
+   std::tuple< T, Ts... > message_to_tuple( const google::protobuf::Message& msg )
    {
       // Get our type
       constexpr std::size_t fields_remaining = sizeof...( Ts );
       auto desc = msg.GetDescriptor();
       auto fd = desc->FindFieldByNumber( desc->field_count() - fields_remaining );
-      auto msg_ptr = std::any_cast< const google::protobuf::Message* >( get_value_from_field( msg, fd ) );
       T t;
-      t.CopyFrom( *msg_ptr );
+      get_type_from_field( msg, fd, t );
 
       if ( fields_remaining )
          return std::tuple_cat( std::tuple< T >( std::move( t ) ), message_to_tuple< Ts... >( msg ) );
 
       return std::tuple< T >( std::move( t ) );
-   }
-
-   template< typename T, typename... Ts >
-   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T >, std::tuple< T, Ts... > >
-   message_to_tuple( const google::protobuf::Message& msg )
-   {
-      // Get our type
-      constexpr std::size_t fields_remaining = sizeof...( Ts );
-      auto desc = msg.GetDescriptor();
-      auto fd = desc->FindFieldByNumber( desc->field_count() - fields_remaining );
-      T t = std::any_cast< T >( get_value_from_field( msg, fd ) );
-
-      if ( fields_remaining )
-         return std::tuple_cat( std::tuple< T >( t ), message_to_tuple< Ts... >( msg ) );
-
-      return std::tuple< T >( t );
    }
 
    /*
