@@ -127,6 +127,93 @@ namespace koinos::chain::detail {
       auto m = ref->MutableMessage( &msg, fd );
       m->CopyFrom( value );
    }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< uint64_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddUInt64( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< int64_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddInt64( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< uint32_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddUInt32( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< int32_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+      {
+         if ( fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM )
+            ref->AddEnumValue( &msg, fd, (int)v );
+         else
+            ref->AddInt32( &msg, fd, v );
+      }
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< bool >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddBool( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< std::string >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddString( &msg, fd, v );
+   }
+
+   template< typename T >
+   std::enable_if_t< std::is_base_of_v< google::protobuf::Message, T >, void >
+   inline set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< T >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+      {
+         auto m = ref->MutableMessage( &msg, fd );
+         m->CopyFrom( v );
+      }
+   }
 }
 
 #define _THUNK_DETAIL_ARG_PACK(r, msg, i, elem) koinos::chain::detail::set_message_field( msg, i, elem );
