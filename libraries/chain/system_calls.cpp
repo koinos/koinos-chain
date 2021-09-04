@@ -342,12 +342,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    for ( const auto& o : active_data.operations() )
    {
-      if ( o.has_upload_contract_operation )
-         system_call::apply_upload_contract_operation( context, op );
-      else if ( o.has_call_contract_operation() )
-         system_call::apply_call_contract_operation( context, op );
-      else if ( o.has_set_system_call_operation() )
-         system_call::apply_set_system_call_operation( context, op );
+      if ( o.has_upload_contract() )
+         system_call::apply_upload_contract_operation( context, o.upload_contract() );
+      else if ( o.has_call_contract() )
+         system_call::apply_call_contract_operation( context, o.call_contract() );
+      else if ( o.has_set_system_call() )
+         system_call::apply_set_system_call_operation( context, o.set_system_call() );
       else
          KOINOS_THROW( koinos::exception, "unknown operation" );
    }
@@ -366,17 +366,21 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    active_data.ParseFromString( context.get_transaction().active() );
 
    auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
-   auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), converter::as< std::string >( tx_id ) ).value();
-   auto signer_hash = crypto::hash( crypto::multicodec:ripemd_160, sig_account );
+   auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( tx_id ) ).value();
+   auto signer_hash = crypto::hash( crypto::multicodec::ripemd_160, sig_account );
    auto contract_id = converter::to< crypto::multihash >( o.contract_id() );
 
+   std::stringstream contract_stream, signer_stream;
+   contract_stream << contract_id;
+   signer_stream << signer_hash;
+
    KOINOS_ASSERT(
-      signer_hash.digest().size() == contract_id.digest().size() && std::equal( signer_hash.digest().begin(), signer_hash.digest.end(), contract_id.digest().begin() ),
+      signer_hash.digest().size() == contract_id.digest().size() && std::equal( signer_hash.digest().begin(), signer_hash.digest().end(), contract_id.digest().begin() ),
       invalid_signature,
-      "signature does not match", ("contract_id", contract_id)("signer_hash", signer_hash)
+      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_stream.str().c_str())("signer_hash", signer_stream.str().c_str())
    );
 
-   system_call::db_put_object( context, database::contract_space, converter::as< statedb::object_key >( contract_id ), o.bytecode );
+   system_call::db_put_object( context, database::space::contract, converter::as< statedb::object_key >( contract_id ), o.bytecode() );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -408,7 +412,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::db_get_object( context, database::kernel_space, database::key::chain_id ).value();
+         auto obj = system_call::db_get_object( context, database::space::kernel, database::key::chain_id ).value();
          chain_id = converter::to< crypto::multihash >( obj );
       }
    );
@@ -423,16 +427,16 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       "transaction does not have the required authority to override system calls"
    );
 
-   if ( o.target().has_contract_call_bundle() )
+   if ( o.target().has_system_call_bundle() )
    {
-      auto contract_id = converter::to< crypto::multihash >( scb.contract_id() );
-      auto contract = db_get_object( context, database::contract_space, converter::to< statedb::object_key >( contract_id ) ).value();
+      auto contract_id = converter::to< crypto::multihash >( o.target().system_call_bundle().contract_id() );
+      auto contract = db_get_object( context, database::space::contract, converter::to< statedb::object_key >( contract_id ) ).value();
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
-      KOINOS_ASSERT( ( o.call_id() != ssystem_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
+      KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
    }
    else if ( o.target().thunk_id() )
    {
-      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( tid ), thunk_not_found, "thunk ${tid} does not exist", ("tid", tid) );
+      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), thunk_not_found, "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
    }
    else
    {
@@ -440,13 +444,14 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   system_call::db_put_object( context, database::space::system_call_dispatch, o.call_id, pack::to_variable_blob( o.target ) );
+   const auto& call_id = o.call_id();
+   system_call::db_put_object( context, database::space::system_call_dispatch, converter::to< statedb::object_key >( call_id ), converter::to< std::string >( o.target() ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )
 {
    auto privilege = context.get_privilege();
-   auto caller = pack::from_variable_blob< uint160 >( context.get_caller() );
+   auto caller = converter::to< statedb::object_space >( context.get_caller() );
    if ( space != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
