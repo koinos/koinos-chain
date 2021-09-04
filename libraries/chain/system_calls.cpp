@@ -759,7 +759,23 @@ THUNK_DEFINE( get_transaction_resource_limit_return, get_transaction_resource_li
 THUNK_DEFINE_VOID( get_last_irreversible_block_return, get_last_irreversible_block )
 {
    auto head = context.get_state_node();
-   return block_height_type( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
+
+   block_topology topo;
+   if ( head->revision() > default_irreversible_threshold )
+   {
+      KOINOS_TODO( "We need to get the last irreversible block topology" );
+   }
+   else
+   {
+      topo.set_height( 0 );
+      topo.set_id( converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+      topo.set_previous( converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+   }
+
+   get_last_irreversible_block_return ret;
+   auto* v = ret.mutable_value();
+   *v = topo;
+   return ret;
 }
 
 THUNK_DEFINE_VOID( get_caller_return, get_caller )
@@ -767,8 +783,8 @@ THUNK_DEFINE_VOID( get_caller_return, get_caller )
    get_caller_return ret;
    auto frame0 = context.pop_frame(); // get_caller frame
    auto frame1 = context.pop_frame(); // contract frame
-   ret.caller = context.get_caller();
-   ret.caller_privilege = context.get_caller_privilege();
+   ret.set_caller( converter::as< std::string >( context.get_caller() ) );
+   ret.set_caller_privilege( context.get_caller_privilege() );
    context.push_frame( std::move( frame1 ) );
    context.push_frame( std::move( frame0 ) );
    return ret;
@@ -776,38 +792,41 @@ THUNK_DEFINE_VOID( get_caller_return, get_caller )
 
 THUNK_DEFINE_VOID( get_transaction_signature_return, get_transaction_signature )
 {
-   return context.get_transaction().signature_data;
+   get_transaction_signature_return ret;
+   ret.set_value( context.get_transaction().signature_data() );
+   return ret;
 }
 
 THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
-   auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
-   protocol::account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
-   KOINOS_ASSERT( sig_account.size() == account.size() &&
-      std::equal(sig_account.begin(), sig_account.end(), account.begin()), invalid_signature, "signature does not match",
-      ("account", account)("sig_account", sig_account) );
+   auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
+   std:;string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) ).value();
+   KOINOS_ASSERT(
+      sig_account.size() == account.size() && std::equal(sig_account.begin(), sig_account.end(), account.begin()),
+      invalid_signature,
+      "signature does not match"//, ("account", account)("sig_account", sig_account)
+   );
 }
 
 THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
 {
-   return pack::from_variable_blob< contract_id_type >( context.get_caller() );
+   get_contract_id_return ret;
+   ret.set_value( converter::as< std::string >( context.get_caller() ) );
+   return ret;
 }
 
 THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&) account ) )
 {
-   variable_blob vkey;
-   pack::to_variable_blob( vkey, account );
-   pack::to_variable_blob( vkey, std::string{ database::key::transaction_nonce }, true );
+   auto obj = system_call::db_get_object( context, database::space::kernel, converter::as< statedb::object_key >( account, "nonce" ) ).value();
 
-   statedb::object_key key;
-   key = pack::from_variable_blob< statedb::object_key >( vkey );
-   auto obj = system_call::db_get_object( context, database::kernel_space, key );
+   get_account_nonce_return ret;
+
    if ( obj.size() > 0 )
-   {
-      return { pack::from_variable_blob< uint64 >( obj ) };
-   }
+      ret.set_value( converter::to< uint64_t >( obj ) );
+   else
+      ret.set_value( 0 );
 
-   return { 0 };
+   return ret;
 }
 
 THUNK_DEFINE_END();

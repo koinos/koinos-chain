@@ -305,7 +305,7 @@ class thunk_dispatcher
             memset(ret_ptr, 0, ret_len);
             ArgStruct args;
             std::string s( arg_ptr, arg_len );
-            args.ParseFromString( &s );
+            args.ParseFromString( s );
             detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );
          });
          _pass_through_map.emplace( id, thunk );
