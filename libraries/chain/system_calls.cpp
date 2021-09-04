@@ -718,39 +718,42 @@ THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string
 
    KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "signature must be canonical" );
 
-   auto pub_key = crypto::public_key::recover( signature, digest );
+   auto pub_key = crypto::public_key::recover( signature, converter::to< crypto::multihash >( digest ) );
    KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
    auto address = pub_key.to_address();
-   return variable_blob( address.begin(), address.end() );
+   recover_public_key_return ret;
+   ret.set_value( address );
+   return ret;
 }
 
 THUNK_DEFINE( get_transaction_payer_return, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
-   multihash digest = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   protocol::account_type account = system_call::recover_public_key( context, transaction.signature_data, digest );
+   std::string account = system_call::recover_public_key( context, transaction.signature_data(), transaction.active() ).value();
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
-   KOINOS_TODO( "stream override for variable_blob needs to be updated" );
-   pack::json j;
-   pack::to_json( j, account );
-   LOG(debug) << "(get_transaction_payer) public_key: " << j.dump();
 
-   return account;
+   get_transaction_payer_return ret;
+   ret.set_value( account );
+   return ret;
 }
 
-THUNK_DEFINE( get_max_account_resources_return, get_max_account_resources, ((const protocol::account_type&) account) )
+THUNK_DEFINE( get_max_account_resources_return, get_max_account_resources, ((const std::string&) account) )
 {
-   uint128 max_resources = 10'000'000;
-   return max_resources;
+   uint64_t max_resources = 10'000'000;
+   get_max_account_resources_return ret;
+   ret.set_value( max_resources );
+   return ret;
 }
 
 THUNK_DEFINE( get_transaction_resource_limit_return, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
 {
-   transaction.active_data.unbox();
-   const auto& active_data = transaction.active_data.get_const_native();
+   protocol::active_transaction_data active_data;
+   active_data.ParseFromString( transaction.active() );
 
-   return active_data.resource_limit;
+   get_transaction_resource_limit_return ret;
+   ret.set_value( active_data.resource_limit() );
+   return ret;
 }
 
 THUNK_DEFINE_VOID( get_last_irreversible_block_return, get_last_irreversible_block )
@@ -776,7 +779,7 @@ THUNK_DEFINE_VOID( get_transaction_signature_return, get_transaction_signature )
    return context.get_transaction().signature_data;
 }
 
-THUNK_DEFINE( void, require_authority, ((const protocol::account_type&) account) )
+THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
    auto digest = crypto::hash( CRYPTO_SHA2_256_ID, context.get_transaction().active_data );
    protocol::account_type sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), digest );
@@ -790,7 +793,7 @@ THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
    return pack::from_variable_blob< contract_id_type >( context.get_caller() );
 }
 
-THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const protocol::account_type&) account ) )
+THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&) account ) )
 {
    variable_blob vkey;
    pack::to_variable_blob( vkey, account );
