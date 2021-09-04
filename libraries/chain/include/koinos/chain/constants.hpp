@@ -28,10 +28,16 @@ const statedb::object_key chain_id          = converter::as< statedb::object_key
 
 } // key
 
-} // database
+namespace system_call_dispatch {
 
 // Size for buffer when fetching system call from database -> 1 for variant, 20 for contract_id, 4 for entry_point
-const int64_t system_call_dispatch_object_max_size = 1 + 20 + 4;
+const int64_t max_object_size = 1 + 20 + 4;
+
+} // system_call_dispatch
+
+constexpr std::size_t max_object_size = 1024 * 1024; // 1 MB
+
+} // database
 
 // Default irreversible block threshold
 const uint64_t default_irreversible_threshold = 60;

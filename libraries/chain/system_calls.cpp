@@ -444,8 +444,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   const auto& call_id = o.call_id();
-   system_call::db_put_object( context, database::space::system_call_dispatch, converter::to< statedb::object_key >( call_id ), converter::to< std::string >( o.target() ) );
+   system_call::db_put_object( context, database::space::system_call_dispatch, converter::to< statedb::object_key >( o.call_id() ), converter::to< std::string >( o.target() ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )
@@ -465,38 +464,48 @@ void check_db_permissions( const apply_context& context, const statedb::object_s
    }
 }
 
-THUNK_DEFINE( db_put_object_return, db_put_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (const variable_blob&) obj) )
+THUNK_DEFINE( db_put_object_return, db_put_object, ((const std::string&) space, (const std::string&) key, (const std::string&) obj) )
 {
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "Cannot put object during read only call" );
-   check_db_permissions( context, space );
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
+
+   const auto _space = converter::to< statedb::object_space >( space );
+   const auto _key   = converter::to< statedb::object_key >( key );
+   const auto _obj   = converter::to< statedb::object_value >( obj );
+
+   check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    statedb::put_object_args put_args;
-   put_args.space = space;
-   put_args.key = key;
-   put_args.buf = obj.data();
-   put_args.object_size = obj.size();
+   put_args.space = _space;
+   put_args.key = _key;
+   put_args.buf = _obj.data();
+   put_args.object_size = _obj.size();
 
    statedb::put_object_result put_res;
    state->put_object( put_res, put_args );
 
-   return put_res.object_existed;
+   db_put_object_return ret;
+   ret.set_value( put_res.object_existed );
+   return ret;
 }
 
-THUNK_DEFINE( db_get_object_return, db_get_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( db_get_object_return, db_get_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   check_db_permissions( context, space );
+   const auto _space = converter::to< statedb::object_space >( space );
+   const auto _key   = converter::to< statedb::object_key >( key );
+
+   check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    statedb::get_object_args get_args;
-   get_args.space = space;
-   get_args.key = key;
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
+   get_args.space = _space;
+   get_args.key = _key;
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
 
-   variable_blob object_buffer;
+   statedb::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
@@ -508,21 +517,26 @@ THUNK_DEFINE( db_get_object_return, db_get_object, ((const statedb::object_space
    else
       object_buffer.clear();
 
-   return object_buffer;
+   db_get_object_return ret;
+   ret.set_value( converter::to< std::string >( object_buffer ) );
+   return ret;
 }
 
-THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   check_db_permissions( context, space );
+   const auto _space = converter::to< statedb::object_space >( space );
+   const auto _key   = converter::to< statedb::object_key >( key );
+
+   check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    statedb::get_object_args get_args;
-   get_args.space = space;
-   get_args.key = key;
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
+   get_args.space = _space;
+   get_args.key = _key;
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
 
-   variable_blob object_buffer;
+   statedb::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
@@ -534,21 +548,26 @@ THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const statedb::ob
    else
       object_buffer.clear();
 
-   return object_buffer;
+   db_get_next_object_return ret;
+   ret.set_value( converter::to< std::string >( object_buffer ) );
+   return ret;
 }
 
-THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const statedb::object_space&) space, (const statedb::object_key&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   check_db_permissions( context, space );
+   const auto _space = converter::to< statedb::object_space >( space );
+   const auto _key   = converter::to< statedb::object_key >( key );
+
+   check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT( state, state_node_not_found, "Current state node does not exist" );
+   KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    statedb::get_object_args get_args;
-   get_args.space = space;
-   get_args.key = key;
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : STATE_DB_MAX_OBJECT_SIZE;
+   get_args.space = _space;
+   get_args.key = _key;
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
 
-   variable_blob object_buffer;
+   statedb::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
@@ -560,25 +579,28 @@ THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const statedb::ob
    else
       object_buffer.clear();
 
-   return object_buffer;
+   db_get_prev_object_return ret;
+   ret.set_value( converter::to< std::string >( object_buffer ) );
+   return ret;
 }
 
-THUNK_DEFINE( call_contract_return, call_contract, ((const contract_id_type&) contract_id, (uint32_t) entry_point, (const variable_blob&) args) )
+THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
-   uint256_t contract_key = pack::from_fixed_blob< uint160_t >( contract_id );
+   auto contract_id_hash = converter::to< crypto::multihash >( contract_id );
+   auto contract_key     = converter::to< statedb::object_key >( contract_id_hash );
 
    // We need to be in kernel mode to read the contract data
-   variable_blob bytecode;
+   std::string bytecode;
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "call_contract" ) ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "call_contract"s ).digest(),
          .call_privilege = privilege::kernel_mode,
       },
       [&]()
       {
-         bytecode = system_call::db_get_object( context, database::contract_space, contract_key );
-         KOINOS_ASSERT( bytecode.size(), invalid_contract, "Contract does not exist" );
+         bytecode = system_call::db_get_object( context, database::space::contract, contract_key ).value();
+         KOINOS_ASSERT( bytecode.size(), invalid_contract, "contract does not exist" );
       }
    );
 
@@ -590,9 +612,9 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const contract_id_type&) co
    backend.initialize();
 
    context.push_frame( stack_frame {
-      .call = pack::to_variable_blob( contract_id ),
+      .call = converter::to< std::vector< std::byte > >( contract_id ),
       .call_privilege = context.get_privilege(),
-      .call_args = args,
+      .call_args = converter::to< std::vector< std::byte > >( args ),
       .entry_point = entry_point
    } );
 
@@ -608,69 +630,96 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const contract_id_type&) co
    }
 
    wa.free();
-   return context.pop_frame().call_return;
+
+   call_contract_return ret;
+   ret.set_value( converter::to< std::string >( context.pop_frame().call_return ) );
+   return ret;
 }
 
 THUNK_DEFINE_VOID( get_entry_point_return, get_entry_point )
 {
-   return context.get_contract_entry_point();
+   get_entry_point_return ret;
+   ret.set_value( context.get_contract_entry_point() );
+   return ret;
 }
 
-THUNK_DEFINE_VOID( get_contract_args_size, get_contract_args_size )
+THUNK_DEFINE_VOID( get_contract_args_size_return, get_contract_args_size )
 {
-   return (uint32_t)context.get_contract_call_args().size();
+   get_contract_args_size_return ret;
+   ret.set_value( (uint32_t)context.get_contract_call_args().size() );
+   return ret;
 }
 
 THUNK_DEFINE_VOID( get_contract_args_return, get_contract_args )
 {
-   return context.get_contract_call_args();
+   get_contract_args_return ret;
+   ret.set_value( converter::to< std::string >( context.get_contract_call_args() ) );
+   return ret;
 }
 
-THUNK_DEFINE( void, set_contract_return, ((const variable_blob&) ret) )
+THUNK_DEFINE( void, set_contract_return, ((const std::string&) ret) )
 {
-   context.set_contract_return( ret );
+   context.set_contract_return( converter::to< std::vector< std::byte > >( ret ) );
 }
 
 THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
 {
    auto head = context.get_state_node();
-   const block_height_type IRREVERSIBLE_THRESHOLD = block_height_type{ 6 };
 
    chain::head_info hi;
-   hi.head_topology.id       = head->id();
-   hi.head_topology.previous = head->parent_id();
-   hi.head_topology.height   = head->revision();
-   hi.last_irreversible_height = get_last_irreversible_block( context );
+   hi.mutable_head_topology()->set_id( converter::to< std::string >( head->id() ) );
+   hi.mutable_head_topology()->set_previous( converter::to< std::string >( head->parent_id() ) );
+   hi.mutable_head_topology()->set_height( head->revision() );
+   hi.set_last_irreversible_block( get_last_irreversible_block( context ).value().height() );
 
-   auto block_ptr = context.get_block();
-   if ( block_ptr )
+   if ( const auto* block = context.get_block(); block != nullptr )
    {
-      return block_ptr->header.timestamp;
+      hi.set_head_block_time( block->header().timestamp() );
+   }
+   else
+   {
+      hi.set_head_block_time( converter::to< uint64_t >( system_call::db_get_object( context, database::space::kernel, database::key::head_block_time ).value() ) );
    }
 
-   auto key = database::key_from_string( database::key::head_block_time );
-   return pack::from_variable_blob< timestamp_type >( db_get_object( context, database::kernel_space, key ) );
-
-   return hi;
+   get_head_info_return ret;
+   auto* v = ret.mutable_value();
+   *v = hi;
+   return ret;
 }
 
-THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const variable_blob&) obj, (uint64_t) size) )
+THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
-   KOINOS_ASSERT( crypto::multihash_id_is_known( id ), unknown_hash_code, "Unknown hash code" );
-   auto hash = crypto::hash_str( id, obj.data(), obj.size(), size );
-   return hash;
+   auto multicodec = static_cast< crypto::multicodec>( id );
+   switch ( multicodec )
+   {
+      case crypto::multicodec::sha1:
+         [[fallthrough]];
+      case crypto::multicodec::sha2_256:
+         [[fallthrough]];
+      case crypto::multicodec::sha2_512:
+         [[fallthrough]];
+      case crypto::multicodec::ripemd_160:
+         break;
+      default:
+         KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
+   }
+   auto hash = crypto::hash( multicodec, obj, size );
+
+   hash_return ret;
+   ret.set_value( converter::as< std::string >( hash ) );
+   return ret;
 }
 
-THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const variable_blob&) signature_data, (const multihash&) digest) )
+THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
 {
-   KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "Unexpected signature length" );
+   KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
    crypto::recoverable_signature signature;
    std::copy_n( signature_data.begin(), signature_data.size(), signature.begin() );
 
-   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "Signature must be canonical" );
+   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "signature must be canonical" );
 
    auto pub_key = crypto::public_key::recover( signature, digest );
-   KOINOS_ASSERT( pub_key.valid(), invalid_signature, "Public key is invalid" );
+   KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
    auto address = pub_key.to_address();
    return variable_blob( address.begin(), address.end() );

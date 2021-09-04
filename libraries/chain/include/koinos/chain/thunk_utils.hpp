@@ -243,7 +243,7 @@ namespace koinos::chain::detail {
                context,                                                                                              \
                database::space::system_call_dispatch,                                                                \
                _key,                                                                                                 \
-               system_call_dispatch_object_max_size                                                                  \
+               database::system_call_dispatch::max_object_size                                                       \
             ).value();                                                                                               \
          }                                                                                                           \
       );                                                                                                             \
