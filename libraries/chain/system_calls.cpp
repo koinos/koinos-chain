@@ -3,6 +3,7 @@
 
 #include <google/protobuf/message.h>
 
+#include <koinos/bigint.hpp>
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/system_calls.hpp>
@@ -96,7 +97,7 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.c_str(), signature_data.size() );
-   crypto::multihash block_id = converter::from< crypto::multihash >( id );
+   crypto::multihash block_id = converter::to< crypto::multihash >( id );
 
    with_stack_frame(
       context,
@@ -106,7 +107,7 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
       },
       [&]() {
          auto obj = system_call::db_get_object( context, database::space::kernel, database::key::chain_id );
-         chain_id = converter::from< crypto::multihash >( obj );
+         chain_id = converter::to< crypto::multihash >( obj );
       }
    );
 
@@ -120,9 +121,9 @@ THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
-   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return converter::from< crypto::multihash >( s ); } );
+   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return converter::to< crypto::multihash >( s ); } );
 
-   auto root_hash = converter::from< crypto::multihash >( root );
+   auto root_hash = converter::to< crypto::multihash >( root );
    auto mtree = crypto::merkle_tree( root_hash.code(), hashes );
 
    verify_merkle_root_return ret;
@@ -174,7 +175,7 @@ THUNK_DEFINE( void, apply_block,
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
 
-   const crypto::multihash tx_root = converter::from< crypto::multihash >( active_data.transaction_merkle_root() );
+   const crypto::multihash tx_root = converter::to< crypto::multihash >( active_data.transaction_merkle_root() );
    size_t tx_count = block.transactions_size();
 
    // Check transaction Merkle root
@@ -222,7 +223,7 @@ THUNK_DEFINE( void, apply_block,
       // during the block building process.
 
       KOINOS_TODO( "Can we optimize away the string copies?" );
-      auto passive_root = converter::from< crypto::multihash >( active_data.passive_data_merkle_root() );
+      auto passive_root = converter::to< crypto::multihash >( active_data.passive_data_merkle_root() );
       std::vector< std::string > passives( 2 * ( block.transactions().size() + 1 ) );
 
       passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
@@ -317,7 +318,10 @@ inline void require_payer_transaction_nonce( apply_context& ctx, const std::stri
 
 inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   system_call::db_put_object( ctx, database::space::kernel, converter::as< statedb::object_key >( payer, "nonce" ), converter::as< statedb::object_value >( obj ) );
+   auto payer_key = converter::to< uint160_t >( payer );
+   auto trx_nonce_key = converter::as< uint64_t >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::nonce" ) ).digest() );
+
+   system_call::db_put_object( ctx, database::space::kernel, converter::as< statedb::object_key >( payer_key, trx_nonce_key ), converter::as< std::string >( nonce ) );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -364,7 +368,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
    auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ), converter::as< std::string >( tx_id ) ).value();
    auto signer_hash = crypto::hash( crypto::multicodec:ripemd_160, sig_account );
-   auto contract_id = converter::from< crypto::multihash >( o.contract_id() );
+   auto contract_id = converter::to< crypto::multihash >( o.contract_id() );
 
    KOINOS_ASSERT(
       signer_hash.digest().size() == contract_id.digest().size() && std::equal( signer_hash.digest().begin(), signer_hash.digest.end(), contract_id.digest().begin() ),
@@ -405,7 +409,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       },
       [&]() {
          auto obj = system_call::db_get_object( context, database::kernel_space, database::key::chain_id ).value();
-         chain_id = converter::from< crypto::multihash >( obj );
+         chain_id = converter::to< crypto::multihash >( obj );
       }
    );
 
@@ -414,15 +418,15 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    std::memcpy( sig.data(), tx.signature_data().c_str(), tx.signature_data().size() );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::from< crypto::multihash >( tx.id() ) ).to_address() ),
+      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::to< crypto::multihash >( tx.id() ) ).to_address() ),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
 
    if ( o.target().has_contract_call_bundle() )
    {
-      auto contract_id = converter::from< crypto::multihash >( scb.contract_id() );
-      auto contract = db_get_object( context, database::contract_space, converter::from< statedb::object_key >( contract_id ) ).value();
+      auto contract_id = converter::to< crypto::multihash >( scb.contract_id() );
+      auto contract = db_get_object( context, database::contract_space, converter::to< statedb::object_key >( contract_id ) ).value();
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != ssystem_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
    }

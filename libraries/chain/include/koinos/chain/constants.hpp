@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <koinos/common.pb.h>
+#include <koinos/conversion.hpp>
 #include <koinos/statedb/statedb_types.hpp>
 #include <koinos/util.hpp>
 

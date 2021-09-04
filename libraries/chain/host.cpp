@@ -34,7 +34,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
             context,
             database::space::system_call_dispatch,
             key,
-            database::system_call_dispatch_object_max_size
+            system_call_dispatch_object_max_size
          ).value();
       }
    );
