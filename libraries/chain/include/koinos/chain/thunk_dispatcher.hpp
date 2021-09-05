@@ -222,7 +222,7 @@ namespace detail
       constexpr std::size_t fields_remaining = sizeof...( Ts );
       auto desc = msg.GetDescriptor();
       auto fd = desc->FindFieldByNumber( desc->field_count() - fields_remaining );
-      T t;
+      typename std::remove_reference< T >::type t;
       get_type_from_field( msg, fd, t );
 
       if ( fields_remaining )
