@@ -225,10 +225,10 @@ namespace detail
       typename std::remove_reference< T >::type t;
       get_type_from_field( msg, fd, t );
 
-      if ( fields_remaining )
+      if constexpr ( fields_remaining > 0 )
          return std::tuple_cat( std::tuple< T >( std::move( t ) ), message_to_tuple< Ts... >( msg ) );
-
-      return std::tuple< T >( std::move( t ) );
+      else
+         return std::tuple< T >( std::move( t ) );
    }
 
    /*
