@@ -318,10 +318,7 @@ inline void require_payer_transaction_nonce( apply_context& ctx, const std::stri
 
 inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   auto payer_key = converter::to< uint160_t >( payer );
-   auto trx_nonce_key = converter::as< uint64_t >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::nonce" ) ).digest() );
-
-   system_call::db_put_object( ctx, database::space::kernel, converter::as< statedb::object_key >( payer_key, trx_nonce_key ), converter::as< std::string >( nonce ) );
+   system_call::db_put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -817,7 +814,7 @@ THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
 
 THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&) account ) )
 {
-   auto obj = system_call::db_get_object( context, database::space::kernel, converter::as< statedb::object_key >( account, "nonce" ) ).value();
+   auto obj = system_call::db_get_object( context, database::space::kernel, database::key::transaction_nonce( account ) ).value();
 
    get_account_nonce_return ret;
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <koinos/bigint.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/common.pb.h>
 #include <koinos/conversion.hpp>
@@ -25,6 +26,13 @@ namespace key {
 
 const statedb::object_key head_block_time   = converter::as< statedb::object_key >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::head_block_time" ) ) );
 const statedb::object_key chain_id          = converter::as< statedb::object_key >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::chain_id" ) ) );
+
+inline statedb::object_key transaction_nonce( const std::string& payer )
+{
+   auto payer_key = converter::to< uint160_t >( payer );
+   auto trx_nonce_key = converter::to< uint64_t >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::nonce" ) ).digest() );
+   return converter::as< statedb::object_key >( payer_key, trx_nonce_key );
+}
 
 } // key
 
