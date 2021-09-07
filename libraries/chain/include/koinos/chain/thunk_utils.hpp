@@ -229,7 +229,7 @@ namespace koinos::chain::detail {
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
                                                                                                                      \
-      auto _key = converter::as< statedb::object_key >( _sid );                                                      \
+      auto _key = converter::as< std::string >( _sid );                                                              \
       std::string _blob_bundle;                                                                                      \
                                                                                                                      \
       with_stack_frame(                                                                                              \

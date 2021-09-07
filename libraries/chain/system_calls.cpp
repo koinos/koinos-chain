@@ -64,12 +64,13 @@ void register_thunks( thunk_dispatcher& td )
    )
 }
 
-// TODO: Should this be a thunk?
+KOINOS_TODO( "Should this be a thunk?" );
+KOINOS_TODO( "This is called on every database access. Can we optimize away the conversion because it is done all the time?" );
 bool is_system_space( const statedb::object_space& space_id )
 {
-   return space_id == database::space::contract ||
-          space_id == database::space::system_call_dispatch ||
-          space_id == database::space::kernel;
+   return space_id == converter::as< statedb::object_space >( database::space::contract ) ||
+          space_id == converter::as< statedb::object_space >( database::space::system_call_dispatch ) ||
+          space_id == converter::as< statedb::object_space >( database::space::kernel );
 }
 
 THUNK_DEFINE_BEGIN();
@@ -377,7 +378,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_stream.str().c_str())("signer_hash", signer_stream.str().c_str())
    );
 
-   system_call::db_put_object( context, database::space::contract, converter::as< statedb::object_key >( contract_id ), o.bytecode() );
+   system_call::db_put_object( context, database::space::contract, converter::as< std::string >( contract_id ), o.bytecode() );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -427,7 +428,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    if ( o.target().has_system_call_bundle() )
    {
       auto contract_id = converter::to< crypto::multihash >( o.target().system_call_bundle().contract_id() );
-      auto contract = db_get_object( context, database::space::contract, converter::as< statedb::object_key >( contract_id ) ).value();
+      auto contract = db_get_object( context, database::space::contract, converter::as< std::string >( contract_id ) ).value();
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
    }
@@ -441,7 +442,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   system_call::db_put_object( context, database::space::system_call_dispatch, converter::as< statedb::object_key >( o.call_id() ), converter::as< std::string >( o.target() ) );
+   system_call::db_put_object( context, database::space::system_call_dispatch, converter::as< std::string >( o.call_id() ), converter::as< std::string >( o.target() ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )
@@ -465,8 +466,8 @@ THUNK_DEFINE( db_put_object_return, db_put_object, ((const std::string&) space, 
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
 
-   const auto _space = converter::to< statedb::object_space >( space );
-   const auto _key   = converter::to< statedb::object_key >( key );
+   const auto _space = converter::as< statedb::object_space >( space );
+   const auto _key   = converter::as< statedb::object_key >( key );
    const auto _obj   = converter::to< statedb::object_value >( obj );
 
    check_db_permissions( context, _space );
@@ -489,8 +490,8 @@ THUNK_DEFINE( db_put_object_return, db_put_object, ((const std::string&) space, 
 
 THUNK_DEFINE( db_get_object_return, db_get_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   const auto _space = converter::to< statedb::object_space >( space );
-   const auto _key   = converter::to< statedb::object_key >( key );
+   const auto _space = converter::as< statedb::object_space >( space );
+   const auto _key   = converter::as< statedb::object_key >( key );
 
    check_db_permissions( context, _space );
 
@@ -521,8 +522,8 @@ THUNK_DEFINE( db_get_object_return, db_get_object, ((const std::string&) space, 
 
 THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   const auto _space = converter::to< statedb::object_space >( space );
-   const auto _key   = converter::to< statedb::object_key >( key );
+   const auto _space = converter::as< statedb::object_space >( space );
+   const auto _key   = converter::as< statedb::object_key >( key );
 
    check_db_permissions( context, _space );
 
@@ -552,8 +553,8 @@ THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const std::string
 
 THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   const auto _space = converter::to< statedb::object_space >( space );
-   const auto _key   = converter::to< statedb::object_key >( key );
+   const auto _space = converter::as< statedb::object_space >( space );
+   const auto _key   = converter::as< statedb::object_key >( key );
 
    check_db_permissions( context, _space );
 
@@ -584,7 +585,7 @@ THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const std::string
 THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
    auto contract_id_hash = converter::to< crypto::multihash >( contract_id );
-   auto contract_key     = converter::as< statedb::object_key >( contract_id_hash );
+   auto contract_key     = converter::as< std::string >( contract_id_hash );
 
    // We need to be in kernel mode to read the contract data
    std::string bytecode;
@@ -667,7 +668,7 @@ THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
    hi.mutable_head_topology()->set_id( converter::as< std::string >( head->id() ) );
    hi.mutable_head_topology()->set_previous( converter::as< std::string >( head->parent_id() ) );
    hi.mutable_head_topology()->set_height( head->revision() );
-   hi.set_last_irreversible_block( get_last_irreversible_block( context ).value().height() );
+   hi.set_last_irreversible_block( get_last_irreversible_block( context ).value() );
 
    if ( const auto* block = context.get_block(); block != nullptr )
    {
@@ -756,21 +757,9 @@ THUNK_DEFINE_VOID( get_last_irreversible_block_return, get_last_irreversible_blo
 {
    auto head = context.get_state_node();
 
-   block_topology topo;
-   if ( head->revision() > default_irreversible_threshold )
-   {
-      KOINOS_TODO( "We need to get the last irreversible block topology" );
-   }
-   else
-   {
-      topo.set_height( 0 );
-      topo.set_id( converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
-      topo.set_previous( converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
-   }
-
    get_last_irreversible_block_return ret;
-   auto* v = ret.mutable_value();
-   *v = topo;
+   ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
+
    return ret;
 }
 
@@ -800,7 +789,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    KOINOS_ASSERT(
       sig_account.size() == account.size() && std::equal(sig_account.begin(), sig_account.end(), account.begin()),
       invalid_signature,
-      "signature does not match"//, ("account", account)("sig_account", sig_account)
+      "signature does not match", ("account", account)("sig_account", sig_account)
    );
 }
 

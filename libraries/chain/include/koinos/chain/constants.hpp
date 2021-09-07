@@ -16,22 +16,22 @@ namespace database {
 
 namespace space {
 
-const statedb::object_space contract             = converter::as< statedb::object_space >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::contract" ) ) );
-const statedb::object_space system_call_dispatch = converter::as< statedb::object_space >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::system_call" ) ) );
-const statedb::object_space kernel               = converter::as< statedb::object_space >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::kernel" ) ) );
+const auto contract             = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::contract" ) ) );
+const auto system_call_dispatch = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::system_call" ) ) );
+const auto kernel               = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::kernel" ) ) );
 
 } // space
 
 namespace key {
 
-const statedb::object_key head_block_time   = converter::as< statedb::object_key >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::head_block_time" ) ) );
-const statedb::object_key chain_id          = converter::as< statedb::object_key >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::chain_id" ) ) );
+const auto head_block_time   = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::head_block_time" ) ) );
+const auto chain_id          = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::chain_id" ) ) );
 
-inline statedb::object_key transaction_nonce( const std::string& payer )
+inline std::string transaction_nonce( const std::string& payer )
 {
    auto payer_key = converter::to< uint160_t >( payer );
    auto trx_nonce_key = converter::to< uint64_t >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::nonce" ) ).digest() );
-   return converter::as< statedb::object_key >( payer_key, trx_nonce_key );
+   return converter::as< std::string >( payer_key, trx_nonce_key );
 }
 
 } // key

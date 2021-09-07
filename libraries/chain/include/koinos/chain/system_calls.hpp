@@ -7,6 +7,7 @@
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/crypto/multihash.hpp>
 
+#include <koinos/chain/chain.pb.h>
 #include <koinos/protocol/protocol.pb.h>
 #include <koinos/protocol/system_call_ids.pb.h>
 
@@ -56,7 +57,7 @@ THUNK_DECLARE( void, prints, const std::string& str );
 THUNK_DECLARE( void, exit_contract, uint8_t exit_code );
 
 THUNK_DECLARE( verify_block_signature_return, verify_block_signature, const std::string& digest, const std::string& active_data, const std::string& signature_data );
-THUNK_DECLARE( verify_merkle_root_return, verify_merkle_root, const std::string& root, const std::string& hashes );
+THUNK_DECLARE( verify_merkle_root_return, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
 
 THUNK_DECLARE( void, apply_block, const protocol::block& block, bool check_passive_data, bool check_block_signature, bool check_transaction_signatures );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
@@ -64,10 +65,10 @@ THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_con
 THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 
-THUNK_DECLARE( db_put_object_return, db_put_object, const statedb::object_space& space, const statedb::object_key& key, const std::string& obj );
-THUNK_DECLARE( db_get_object_return, db_get_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( db_get_next_object_return, db_get_next_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( db_get_prev_object_return, db_get_prev_object, const statedb::object_space& space, const statedb::object_key& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( db_put_object_return, db_put_object, const std::string& space, const std::string& key, const std::string& obj );
+THUNK_DECLARE( db_get_object_return, db_get_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( db_get_next_object_return, db_get_next_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( db_get_prev_object_return, db_get_prev_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
 
 THUNK_DECLARE( call_contract_return, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 

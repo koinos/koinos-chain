@@ -255,7 +255,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      auto lib = system_call::get_last_irreversible_block( ctx ).value().height();
+      auto lib = system_call::get_last_irreversible_block( ctx ).value();
 
       _state_db.finalize_node( block_node->id() );
 
@@ -480,8 +480,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    statedb::get_object_result result;
    statedb::get_object_args   args;
-   args.space    = database::space::kernel;
-   args.key      = database::key::chain_id;
+   args.space    = converter::as< statedb::object_space >( database::space::kernel );
+   args.key      = converter::as< statedb::object_key >( database::key::chain_id );
    args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
    args.buf_size = chain_id_stream.vector().size();
 

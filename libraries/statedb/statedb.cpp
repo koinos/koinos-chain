@@ -14,13 +14,6 @@
 
 namespace koinos::statedb {
 
-std::string multihash_to_string( const crypto::multihash&h )
-{
-   std::stringstream ss;
-   ss << h;
-   return ss.str();
-}
-
 using boost::container::flat_set;
 
 namespace detail {
@@ -195,7 +188,7 @@ state_node_ptr state_db_impl::get_node_at_revision( uint64_t revision, const sta
    auto node_itr = _index.find( delta->id() );
 
    KOINOS_ASSERT( node_itr != _index.end(), internal_error,
-      "could not find state node associated with linked state_delta ${id}", ("id", multihash_to_string( delta->id() ).c_str() ) );
+      "could not find state node associated with linked state_delta ${id}", ("id", delta->id() ) );
 
    return *node_itr;
 }
@@ -229,7 +222,7 @@ void state_db_impl::finalize_node( const state_node_id& node_id )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    auto node = get_node( node_id );
-   KOINOS_ASSERT( node, illegal_argument, "node ${n} not found.", ("n", multihash_to_string( node_id ).c_str()) );
+   KOINOS_ASSERT( node, illegal_argument, "node ${n} not found.", ("n", node_id) );
 
    node->impl->_is_writable = false;
 
@@ -307,7 +300,7 @@ void state_db_impl::commit_node( const state_node_id& node_id )
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "cannot commit root node, root node already committed" );
    auto node = get_node( node_id );
-   KOINOS_ASSERT( node, illegal_argument, "node ${n} not found", ("n", multihash_to_string( node_id ).c_str()) );
+   KOINOS_ASSERT( node, illegal_argument, "node ${n} not found", ("n", node_id) );
 
    flat_set< state_node_id > whitelist{ node->id() };
 

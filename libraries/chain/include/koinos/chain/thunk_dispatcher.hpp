@@ -44,7 +44,7 @@ namespace detail
    std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T >, void >
    copy_from( const google::protobuf::Message& m, T& t ) {}
 
-   std::any get_type_from_field_impl( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
+   inline std::any get_type_from_field_impl( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd )
    {
       auto ref = msg.GetReflection();
       std::any field;
@@ -238,7 +238,7 @@ namespace detail
    }
 
    template<>
-   std::tuple<> message_to_tuple<>( const google::protobuf::Message& )
+   inline std::tuple<> message_to_tuple<>( const google::protobuf::Message& )
    {
       return std::tuple<>();
    }

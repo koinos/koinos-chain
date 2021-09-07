@@ -505,14 +505,14 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 
    for( int i = 0; i < uint32_t( default_irreversible_threshold ); i++ )
    {
-      auto lib = system_call::get_last_irreversible_block( ctx );
+      auto lib = system_call::get_last_irreversible_block( ctx ).value();
       BOOST_REQUIRE_EQUAL( lib, 0 );
 
       db.finalize_node( ctx.get_state_node()->id() );
       ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), koinos::crypto::hash( CRYPTO_RIPEMD160_ID, i ) ) );
    }
 
-   auto lib = system_call::get_last_irreversible_block( ctx );
+   auto lib = system_call::get_last_irreversible_block( ctx ).value();
    BOOST_REQUIRE_EQUAL( lib, 1 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
