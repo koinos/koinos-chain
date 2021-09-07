@@ -15,7 +15,7 @@
 
 #include <iostream>
 #include <filesystem>
-
+#if 0 // comments out test
 using namespace koinos;
 using namespace koinos::statedb;
 using statedb::detail::merge_index;
@@ -1636,3 +1636,4 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
+#endif

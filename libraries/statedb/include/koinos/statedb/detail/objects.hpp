@@ -30,34 +30,34 @@ struct by_key;
 namespace serializer::detail {
 
 template< typename H, typename T >
-std::vector< char > to_binary_vector( const boost::tuples::cons< H, T >& var );
+inline std::vector< char > to_binary_vector( const boost::tuples::cons< H, T >& var );
 template< typename H, typename T >
-std::size_t from_binary_array( const char* data, std::size_t size, boost::tuples::cons< H, T >& var );
+inline std::size_t from_binary_array( const char* data, std::size_t size, boost::tuples::cons< H, T >& var );
 template< typename H, typename T >
-std::size_t binary_size( const boost::tuples::cons< H, T >& var );
+inline std::size_t binary_size( const boost::tuples::cons< H, T >& var );
 
 template< typename T >
-std::vector< char > to_binary_vector( const mira::multi_index::composite_key_result< T >& var );
+inline std::vector< char > to_binary_vector( const mira::multi_index::composite_key_result< T >& var );
 template< typename T >
-std::size_t from_binary_array( const char* data, std::size_t size, mira::multi_index::composite_key_result< T >& var );
+inline std::size_t from_binary_array( const char* data, std::size_t size, mira::multi_index::composite_key_result< T >& var );
 template< typename T >
-std::size_t binary_size( const char* data, std::size_t size, mira::multi_index::composite_key_result< T >& var );
+inline std::size_t binary_size( const char* data, std::size_t size, mira::multi_index::composite_key_result< T >& var );
 
-std::vector< char > to_binary_vector( const std::vector< std::byte >& var );
-std::size_t from_binary_array( const char* data, std::size_t size, std::vector< std::byte >& var );
-std::size_t binary_size( const std::vector< std::byte >& var );
+inline std::vector< char > to_binary_vector( const std::vector< std::byte >& var );
+inline std::size_t from_binary_array( const char* data, std::size_t size, std::vector< std::byte >& var );
+inline std::size_t binary_size( const std::vector< std::byte >& var );
 
-std::vector< char > to_binary_vector( const std::vector< unsigned char >& var );
-std::size_t from_binary_array( const char* data, std::size_t size, std::vector< unsigned char >& var );
-std::size_t binary_size( const std::vector< unsigned char >& var );
+inline std::vector< char > to_binary_vector( const std::vector< unsigned char >& var );
+inline std::size_t from_binary_array( const char* data, std::size_t size, std::vector< unsigned char >& var );
+inline std::size_t binary_size( const std::vector< unsigned char >& var );
 
-std::vector< char > to_binary_vector( const crypto::multihash& var );
-std::size_t from_binary_array( const char* data, std::size_t size, crypto::multihash& var );
-std::size_t binary_size( const crypto::multihash& var );
+inline std::vector< char > to_binary_vector( const crypto::multihash& var );
+inline std::size_t from_binary_array( const char* data, std::size_t size, crypto::multihash& var );
+inline std::size_t binary_size( const crypto::multihash& var );
 
-std::vector< char > to_binary_vector( const state_object& var );
-std::size_t from_binary_array( const char* data, std::size_t size, state_object& var );
-std::size_t binary_size( const state_object& var );
+inline std::vector< char > to_binary_vector( const state_object& var );
+inline std::size_t from_binary_array( const char* data, std::size_t size, state_object& var );
+inline std::size_t binary_size( const state_object& var );
 
 } // detail
 
@@ -181,6 +181,7 @@ std::size_t binary_size( const mira::multi_index::composite_key_result< T >& var
 std::vector< char > to_binary_vector( const std::vector< std::byte >& var )
 {
    std::vector< char > bytes;
+   bytes.resize( var.size() );
    std::transform( std::begin( var ), std::end( var ), std::begin( bytes ), []( std::byte b ) { return static_cast< char >( b ); } );
    return bytes;
 }
@@ -201,6 +202,7 @@ std::size_t binary_size( const std::vector< std::byte >& var )
 std::vector< char > to_binary_vector( const std::vector< unsigned char >& var )
 {
    std::vector< char > bytes;
+   bytes.resize( var.size() );
    std::transform( std::begin( var ), std::end( var ), std::begin( bytes ), []( unsigned char b ) { return static_cast< char >( b ); } );
    return bytes;
 }

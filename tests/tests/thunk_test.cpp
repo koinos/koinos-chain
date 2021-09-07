@@ -18,13 +18,9 @@
 
 #include <koinos/crypto/elliptic.hpp>
 
-#include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/json.hpp>
-#include <koinos/pack/classes.hpp>
-
-#include <koinos/pack/rt/binary.hpp>
-
 #include <mira/database_configuration.hpp>
+
+#if 0
 
 #include <koinos/tests/koin.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
@@ -890,3 +886,5 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+#endif
