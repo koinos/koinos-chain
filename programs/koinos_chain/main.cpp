@@ -107,8 +107,8 @@ void attach_request_handler(
       service::chain,
       [&]( const std::string& msg ) -> std::string
       {
-         rpc::chain::chain_rpc_request args;
-         rpc::chain::chain_rpc_response resp;
+         rpc::chain::chain_request args;
+         rpc::chain::chain_response resp;
 
          if ( args.ParseFromString( msg ) )
          {
@@ -116,44 +116,44 @@ void attach_request_handler(
             {
                switch( args.request_case() )
                {
-                  case rpc::chain::chain_rpc_request::RequestCase::kReserved:
+                  case rpc::chain::chain_request::RequestCase::kReserved:
                   {
                      resp.mutable_reserved();
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kSubmitBlock:
+                  case rpc::chain::chain_request::RequestCase::kSubmitBlock:
                   {
                      controller.submit_block( args.submit_block() );
                      resp.mutable_submit_block();
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kSubmitTransaction:
+                  case rpc::chain::chain_request::RequestCase::kSubmitTransaction:
                   {
                      controller.submit_transaction( args.submit_transaction() );
                      resp.mutable_submit_transaction();
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kGetHeadInfo:
+                  case rpc::chain::chain_request::RequestCase::kGetHeadInfo:
                   {
                      *resp.mutable_get_head_info() = controller.get_head_info( args.get_head_info() );
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kGetChainId:
+                  case rpc::chain::chain_request::RequestCase::kGetChainId:
                   {
                      *resp.mutable_get_chain_id() = controller.get_chain_id( args.get_chain_id() );
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kGetForkHeads:
+                  case rpc::chain::chain_request::RequestCase::kGetForkHeads:
                   {
                      *resp.mutable_get_fork_heads() = controller.get_fork_heads( args.get_fork_heads() );
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kReadContract:
+                  case rpc::chain::chain_request::RequestCase::kReadContract:
                   {
                      *resp.mutable_read_contract() = controller.read_contract( args.read_contract() );
                      break;
                   }
-                  case rpc::chain::chain_rpc_request::RequestCase::kGetAccountNonce:
+                  case rpc::chain::chain_request::RequestCase::kGetAccountNonce:
                   {
                      *resp.mutable_get_account_nonce() = controller.get_account_nonce( args.get_account_nonce() );
                      break;
@@ -575,7 +575,7 @@ int main( int argc, char** argv )
 
       {
          LOG(info) << "Attempting to connect to mempool...";
-         rpc::mempool::mempool_rpc_request req;
+         rpc::mempool::mempool_request req;
          req.mutable_reserved();
          std::string s;
          req.SerializeToString( &s );

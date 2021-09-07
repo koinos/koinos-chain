@@ -405,7 +405,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
          auto future = _client->rpc( service::mempool, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
 
-         rpc::mempool::mempool_rpc_response resp;
+         rpc::mempool::mempool_response resp;
          resp.ParseFromString( future.get() );
 
          KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from mempool: ${e}", ("e", resp.error()) );
