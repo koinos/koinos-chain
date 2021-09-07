@@ -216,19 +216,31 @@ namespace detail
    // adds it to the tuple and recusively calls with the remaining arguments (Ts).
    // The base case is when there are no more fields remaining (Ts is empty).
    template< typename T, typename... Ts >
-   std::tuple< T, Ts... > message_to_tuple( const google::protobuf::Message& msg )
+   std::tuple< T, Ts... > message_to_tuple_impl( const google::protobuf::Message& msg )
    {
       // Get our type
       constexpr std::size_t fields_remaining = sizeof...( Ts );
       auto desc = msg.GetDescriptor();
       auto fd = desc->FindFieldByNumber( desc->field_count() - fields_remaining );
-      typename std::remove_reference< T >::type t;
+      T t;
       get_type_from_field( msg, fd, t );
 
       if constexpr ( fields_remaining > 0 )
-         return std::tuple_cat( std::tuple< T >( std::move( t ) ), message_to_tuple< Ts... >( msg ) );
+         return std::tuple_cat( std::tuple< T >( std::move( t ) ), message_to_tuple_impl< Ts... >( msg ) );
       else
          return std::tuple< T >( std::move( t ) );
+   }
+
+   template< typename... Ts >
+   std::tuple< std::decay_t< Ts >... > message_to_tuple( const google::protobuf::Message& msg )
+   {
+      return message_to_tuple< std::decay_t< Ts >... >( msg );
+   }
+
+   template<>
+   std::tuple<> message_to_tuple<>( const google::protobuf::Message& )
+   {
+      return std::tuple<>();
    }
 
    /*

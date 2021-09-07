@@ -106,7 +106,7 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::db_get_object( context, database::space::kernel, database::key::chain_id );
+         auto obj = system_call::db_get_object( context, database::space::kernel, database::key::chain_id ).value();
          chain_id = converter::to< crypto::multihash >( obj );
       }
    );
@@ -427,7 +427,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    if ( o.target().has_system_call_bundle() )
    {
       auto contract_id = converter::to< crypto::multihash >( o.target().system_call_bundle().contract_id() );
-      auto contract = db_get_object( context, database::space::contract, converter::to< statedb::object_key >( contract_id ) ).value();
+      auto contract = db_get_object( context, database::space::contract, converter::as< statedb::object_key >( contract_id ) ).value();
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
    }
@@ -441,7 +441,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   system_call::db_put_object( context, database::space::system_call_dispatch, converter::to< statedb::object_key >( o.call_id() ), converter::to< std::string >( o.target() ) );
+   system_call::db_put_object( context, database::space::system_call_dispatch, converter::as< statedb::object_key >( o.call_id() ), converter::as< std::string >( o.target() ) );
 }
 
 void check_db_permissions( const apply_context& context, const statedb::object_space& space )
@@ -584,7 +584,7 @@ THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const std::string
 THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
    auto contract_id_hash = converter::to< crypto::multihash >( contract_id );
-   auto contract_key     = converter::to< statedb::object_key >( contract_id_hash );
+   auto contract_key     = converter::as< statedb::object_key >( contract_id_hash );
 
    // We need to be in kernel mode to read the contract data
    std::string bytecode;
@@ -664,8 +664,8 @@ THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
    auto head = context.get_state_node();
 
    chain::head_info hi;
-   hi.mutable_head_topology()->set_id( converter::to< std::string >( head->id() ) );
-   hi.mutable_head_topology()->set_previous( converter::to< std::string >( head->parent_id() ) );
+   hi.mutable_head_topology()->set_id( converter::as< std::string >( head->id() ) );
+   hi.mutable_head_topology()->set_previous( converter::as< std::string >( head->parent_id() ) );
    hi.mutable_head_topology()->set_height( head->revision() );
    hi.set_last_irreversible_block( get_last_irreversible_block( context ).value().height() );
 
@@ -710,8 +710,7 @@ THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint
 THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
 {
    KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
-   crypto::recoverable_signature signature;
-   std::copy_n( signature_data.begin(), signature_data.size(), signature.begin() );
+   crypto::recoverable_signature signature = converter::as< crypto::recoverable_signature >( signature_data );
 
    KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "signature must be canonical" );
 
