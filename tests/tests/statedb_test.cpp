@@ -126,7 +126,7 @@ BOOST_FIXTURE_TEST_SUITE( statedb_tests, statedb_fixture )
 BOOST_AUTO_TEST_CASE( basic_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = converter::as< object_space >( uint256_t( 0 ) );
+   object_space space = converter::as< object_space >( 0 );
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    vectorstream vs;
    to_binary( vs, book_a );
    put_args.space = space;
-   put_args.key = converter::as< object_key >( uint256_t( book_a.id ) );
+   put_args.key = converter::as< object_key >( book_a.id );
    put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    put_args.object_size = vs.vector().size();
 
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    get_object_args get_args;
    get_object_result get_res;
    get_args.space = space;
-   get_args.key = converter::as< object_key >( uint256_t( book_a.id ) );
+   get_args.key = converter::as< object_key >( book_a.id );
    get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    get_args.buf_size = vs.vector().size();
 
@@ -1445,7 +1445,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
 BOOST_AUTO_TEST_CASE( reset_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = converter::as< object_space >( uint256_t( 0 ) );
+   object_space space = converter::as< object_space >( 0 );
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -1460,7 +1460,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    vectorstream vs;
    to_binary( vs, book_a );
    put_args.space = space;
-   put_args.key = converter::as< object_key >( uint256_t( book_a.id ) );
+   put_args.key = converter::as< object_key >( book_a.id );
    put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    put_args.object_size = vs.vector().size();
 
@@ -1479,7 +1479,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    get_object_args get_args;
    get_object_result get_res;
    get_args.space = space;
-   get_args.key = converter::as< object_key >( uint256_t( book_a.id ) );
+   get_args.key = converter::as< object_key >( book_a.id );
    get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    get_args.buf_size = vs.vector().size();
 
@@ -1495,7 +1495,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
 BOOST_AUTO_TEST_CASE( anonymous_node_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = converter::as< object_space >( uint256_t( 0 ) );
+   object_space space = converter::as< object_space >( 0 );
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -1510,7 +1510,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    vectorstream vs;
    to_binary( vs, book_a );
    put_args.space = space;
-   put_args.key = converter::as< object_key >( uint256_t( book_a.id ) );
+   put_args.key = converter::as< object_key >( book_a.id );
    put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    put_args.object_size = vs.vector().size();
 
@@ -1524,7 +1524,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    get_object_args get_args;
    get_object_result get_res;
    get_args.space = space;
-   get_args.key = converter::as< object_key >( uint256_t( book_a.id ) );
+   get_args.key = converter::as< object_key >( book_a.id );
    get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    get_args.buf_size = vs.vector().size();
 
