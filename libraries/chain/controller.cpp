@@ -463,7 +463,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    block_topology topo = head_info.head_topology();
 
    rpc::chain::get_head_info_response resp;
-   resp.set_allocated_head_topology( &topo );
+   *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
 
    return resp;
