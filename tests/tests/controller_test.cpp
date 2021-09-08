@@ -29,12 +29,10 @@ struct controller_fixture
 {
    controller_fixture()
    {
-      using namespace koinos::chain;
-
-      koinos::initialize_logging( "koinos_test", {}, "info" );
+      initialize_logging( "koinos_test", {}, "info" );
 
       auto seed = "test seed"s;
-      _block_signing_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, seed.c_str(), seed.size() ) );
+      _block_signing_private_key = crypto::private_key::regenerate( crypto::hash( koinos::crypto::multicodec::sha2_256, seed.c_str(), seed.size() ) );
 
       _state_dir = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       LOG(info) << "Test temp dir: " << _state_dir.string();
@@ -42,9 +40,9 @@ struct controller_fixture
 
       auto database_config = mira::utilities::default_database_configuration();
 
-      koinos::chain::genesis_data genesis_data;
-      auto chain_id = koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address() );
-      genesis_data[ { converter::as< statedb::object_space >( koinos::chain::database::space::kernel ), converter::as< statedb::object_key >( koinos::chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      chain::genesis_data genesis_data;
+      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address() );
+      genesis_data[ { converter::as< statedb::object_space >( chain::database::space::kernel ), converter::as< statedb::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       _controller.open( _state_dir, database_config, genesis_data, false );
    }
@@ -54,7 +52,7 @@ struct controller_fixture
       std::filesystem::remove_all( _state_dir );
    }
 
-   void set_block_merkle_roots( koinos::protocol::block& block, koinos::protocol::active_block_data& active_data, crypto::multicodec code, std::size_t size = 0 )
+   void set_block_merkle_roots( protocol::block& block, protocol::active_block_data& active_data, crypto::multicodec code, std::size_t size = 0 )
    {
       std::vector< crypto::multihash > transactions;
       std::vector< crypto::multihash > passives;
@@ -78,16 +76,16 @@ struct controller_fixture
       active_data.set_passive_data_merkle_root( converter::as< std::string >( passives_merkle_tree.root()->hash() ) );
    }
 
-   void sign_block( koinos::protocol::block& block, koinos::crypto::private_key& block_signing_key )
+   void sign_block( protocol::block& block, crypto::private_key& block_signing_key )
    {
-      auto id_mh = koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block.header(), block.active() );
+      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, block.header(), block.active() );
       block.set_signature_data( converter::as< std::string >( block_signing_key.sign_compact( id_mh ) ) );
    }
 
-   void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypto::private_key& transaction_signing_key )
+   void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       // Signature is on the hash of the active data
-      auto id_mh = koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, transaction.active() );
+      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.active() );
       transaction.set_id( converter::as< std::string >( id_mh ) );
       transaction.set_signature_data( converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
@@ -112,9 +110,9 @@ struct controller_fixture
       return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
    }
 */
-   koinos::chain::controller   _controller;
-   std::filesystem::path       _state_dir;
-   koinos::crypto::private_key _block_signing_private_key;
+   chain::controller      _controller;
+   std::filesystem::path  _state_dir;
+   crypto::private_key    _block_signing_private_key;
 };
 
 BOOST_FIXTURE_TEST_SUITE( controller_tests, controller_fixture )
