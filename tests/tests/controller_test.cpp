@@ -130,15 +130,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    protocol::active_transaction_data trx_active_data;
 
-   // *trx_active_data.add_operations() = protocol::reserved_operation();
-   // trx_active_data.set_resource_limit( 10 );
-   // trx_req.mutable_transaction()->set_id( converter:as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx_active_data ) );
-   // trx_req.mutable_transaction()->set_active( converter::as< std::string >( trx_active_data ) );
-   // auto signature = key.sign_compact( trx_req.transaction().id() );
-   // trx_req.mutable_transaction()->set_signature_data( converter::as< std::string >( signature ) );
-
-   // BOOST_CHECK_THROW( _controller.submit_transaction( trx_req ), chain::reserved_operation_exception );
-
    BOOST_TEST_MESSAGE( "Test submit block" );
    BOOST_TEST_MESSAGE( "Error when first block does not have height of 1" );
 
@@ -230,63 +221,61 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( block_irreversibility )
 { try {
-   using namespace koinos;
-   using namespace koinos::chain;
+
+   BOOST_TEST_MESSAGE( "Check block irreversibility" );
 
    rpc::chain::submit_block_request block_req;
-   block_req.verify_passive_data = true;
-   block_req.verify_block_signature = true;
-   block_req.verify_transaction_signatures = true;
+   block_req.set_verify_passive_data( true );
+   block_req.set_verify_block_signature( true );
+   block_req.set_verify_transaction_signature( true );
 
    auto head_info_res = _controller.get_head_info();
 
-   for( uint32_t i = 1; i <= uint32_t( default_irreversible_threshold ); i++ )
+   for ( uint64_t i = 1; i <= chain::default_irreversible_threshold; i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
-      block_req.block.active_data.make_mutable();
-      block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-      block_req.block.header.height    = head_info_res.head_topology.height + 1;
-      block_req.block.header.previous  = head_info_res.head_topology.id;
+      block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+      block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
+      block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
 
-      set_block_merkle_roots( block_req.block, koinos::crypto::multicodec::sha2_256 );
-      sign_block( block_req.block, _block_signing_private_key );
-
-      block_req.block.id = crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block.header, block_req.block.active_data );
+      protocol::active_block_data active_data;
+      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_active( converter::as< std::string >( active_data ) );
+      block_req.mutable_block()->set_id( converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       _controller.submit_block( block_req );
 
       head_info_res = _controller.get_head_info();
 
-      BOOST_REQUIRE( head_info_res.last_irreversible_height == 0 );
+      BOOST_REQUIRE( head_info_res.last_irreversible_block() == 0 );
    }
 
-   for( uint32_t i = uint32_t( default_irreversible_threshold ) + 1;
-        i <= uint32_t( default_irreversible_threshold ) + 3;
-        i++ )
+   for ( uint64_t i = chain::default_irreversible_threshold + 1; i <= chain::default_irreversible_threshold + 3; i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
-      block_req.block.active_data.make_mutable();
-      block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-      block_req.block.header.height    = head_info_res.head_topology.height + 1;
-      block_req.block.header.previous  = head_info_res.head_topology.id;
+      block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+      block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
+      block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
 
-      set_block_merkle_roots( block_req.block, koinos::crypto::multicodec::sha2_256 );
-      sign_block( block_req.block, _block_signing_private_key );
-
-      block_req.block.id = crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block.header, block_req.block.active_data );
+      protocol::active_block_data active_data;
+      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_active( converter::as< std::string >( active_data ) );
+      block_req.mutable_block()->set_id( converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       _controller.submit_block( block_req );
 
       head_info_res = _controller.get_head_info();
 
-      BOOST_REQUIRE( head_info_res.last_irreversible_height == i - default_irreversible_threshold );
+      BOOST_REQUIRE( head_info_res.last_irreversible_block() == i - chain::default_irreversible_threshold );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( fork_heads )
 { try {
    using namespace koinos;
