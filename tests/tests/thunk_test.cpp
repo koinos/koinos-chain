@@ -462,7 +462,7 @@ BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
    BOOST_REQUIRE_THROW( chain::system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( hash_thunk_test )
 { try {
    BOOST_TEST_MESSAGE( "hash thunk test" );
@@ -562,13 +562,12 @@ BOOST_AUTO_TEST_CASE( require_authority )
    ctx.set_transaction( trx );
    BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, foo_account_string ), chain::invalid_signature );
 
-   auto signature = foo_key.sign_compact( koinos::crypto::hash( crypto::multicodec::sha2_256, trx.active() ) );
-   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   trx.set_signature_data( converter::as< std::string >( foo_key.sign_compact( crypto::hash( crypto::multicodec::sha2_256, trx.active() ) ) ) );
    ctx.set_transaction( trx );
 
-   system_call::require_authority( ctx, foo_account );
+   chain::system_call::require_authority( ctx, foo_account_string );
 
-   BOOST_REQUIRE_THROW( system_call::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
+   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, bar_account_string ), chain::invalid_signature );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
