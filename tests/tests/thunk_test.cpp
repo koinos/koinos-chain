@@ -216,7 +216,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 #if 0
-BOOST_AUTO_TEST_CASE( contract_tests )
+BOOST_AUTO_TEST_CAS E( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( override_tests )
+BOOST_AUTO_TEST_CAS E( override_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test set system call operation" );
 
@@ -654,7 +654,7 @@ BOOST_AUTO_TEST_CASE( get_contract_id_test )
    BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id_bytes.begin() ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 #if 0
-BOOST_AUTO_TEST_CASE( token_tests )
+BOOST_AUTO_TEST_CAS E( token_tests )
 { try {
    using namespace koinos;
 
@@ -833,7 +833,7 @@ catch( const eosio::vm::exception& e )
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( tick_limit )
+BOOST_AUTO_TEST_CAS E( tick_limit )
 { try {
    using namespace koinos;
    BOOST_TEST_MESSAGE( "Upload forever contract" );

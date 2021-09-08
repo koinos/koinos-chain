@@ -376,7 +376,7 @@ BOOST_AUTO_TEST_CASE( fork_heads )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 #if 0
-BOOST_AUTO_TEST_CASE( read_contract_tests )
+BOOST_AUTO_TEST_CAS E( read_contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Upload contracts" );
 
@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( transaction_reversion_test )
+BOOST_AUTO_TEST_CAS E( transaction_reversion_test )
 { try {
    BOOST_TEST_MESSAGE( "Upload KOIN contract and attempt to mint to Alice" );
 
