@@ -436,19 +436,31 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
-BOOST_AUTO_TEST_CASE( chain_thunks_test )
+#endif
+BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
 { try {
-   BOOST_TEST_MESSAGE( "get_head_info test" );
+   BOOST_TEST_MESSAGE( "get_head_info thunk test" );
 
-   auto info = koinos::chain::system_call::get_head_info( ctx );
-   BOOST_CHECK_EQUAL( info.head_topology.height, 1 );
+   BOOST_CHECK_EQUAL( chain::system_call::get_head_info( ctx ).value().head_topology().height(), 1 );
+
+   koinos::protocol::block block;
+   block.mutable_header()->set_timestamp( 1000 );
+   ctx.set_block( block );
+
+   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).value().head_block_time() == block.header().timestamp() );
+
+   ctx.clear_block();
+
+   chain::system_call::db_put_object( ctx, chain::database::space::kernel, chain::database::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
+
+   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).value().head_block_time() == block.header().timestamp() );
+
    // Test exception when null state pointer is passed
-   ctx.set_state_node( std::shared_ptr< abstract_state_node >() );
-   BOOST_REQUIRE_THROW( system_call::get_head_info( ctx ), koinos::chain::database_exception );
+   ctx.set_state_node( std::shared_ptr< chain::abstract_state_node >() );
+   BOOST_REQUIRE_THROW( chain::system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( hash_thunk_test )
 { try {
    BOOST_TEST_MESSAGE( "hash thunk test" );
@@ -558,98 +570,90 @@ BOOST_AUTO_TEST_CASE( require_authority )
    BOOST_REQUIRE_THROW( system_call::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#endif
 BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 { try {
    using namespace koinos;
 
    BOOST_TEST_MESSAGE( "Test transaction nonce" );
 
-   variable_blob obj_blob;
-   crypto::private_key key;
-   std::string seed = "alpha bravo charlie delta";
-
-   key = crypto::private_key::regenerate( crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+   auto key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "alpha bravo charlie delta"s ) );
 
    protocol::transaction transaction;
-   transaction.active_data.make_mutable();
-   transaction.active_data->operations.push_back( protocol::nop_operation() );
-   transaction.active_data->resource_limit = 20;
-   transaction.active_data->nonce = 0;
-   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   auto signature = key.sign_compact( transaction.id );
-   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+   protocol::active_transaction_data active;
+   active.set_resource_limit( 20 );
+   active.set_nonce( 0 );
+   transaction.set_active( converter::as< std::string >( active ) );
+   transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, active ) ) );
+   transaction.set_signature_data( converter::as< std::string >( key.sign_compact( converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
-   system_call::apply_transaction( ctx, transaction );
-   auto payer = system_call::get_transaction_payer( ctx, transaction );
-   auto next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   chain::system_call::apply_transaction( ctx, transaction );
+   auto payer = chain::system_call::get_transaction_payer( ctx, transaction ).value();
+   auto next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
    BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
-   transaction.active_data.make_mutable();
-   transaction.active_data->resource_limit = 25;
-   transaction.active_data->nonce = 0;
-   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   signature = key.sign_compact( transaction.id );
-   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+   active.set_resource_limit( 25 );
+   active.set_nonce( 0 );
+   transaction.set_active( converter::as< std::string >( active ) );
+   transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) );
+   transaction.set_signature_data( converter::as< std::string >( key.sign_compact( converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
-   BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
    BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
-   transaction.active_data.make_mutable();
-   transaction.active_data->nonce = 1;
-   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   signature = key.sign_compact( transaction.id );
-   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+   active.set_nonce( 1 );
+   transaction.set_active( converter::as< std::string >( active ) );
+   transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, active ) ) );
+   transaction.set_signature_data( converter::as< std::string >( key.sign_compact( converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
-   system_call::apply_transaction( ctx, transaction );
+   chain::system_call::apply_transaction( ctx, transaction );
 
-   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
    BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
-   transaction.active_data.make_mutable();
-   transaction.active_data->resource_limit = 30;
-   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   signature = key.sign_compact( transaction.id );
-   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+   active.set_resource_limit( 30 );
+   transaction.set_active( converter::as< std::string >( active ) );
+   transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, active ) ) );
+   transaction.set_signature_data( converter::as< std::string >( key.sign_compact( converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
-   BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
    BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
-   transaction.active_data.make_mutable();
-   transaction.active_data->nonce = 2;
-   transaction.id = crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-   signature = key.sign_compact( transaction.id );
-   transaction.signature_data = variable_blob( signature.begin(), signature.end() );
+   active.set_nonce( 2 );
+   transaction.set_active( converter::as< std::string >( active ) );
+   transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, active ) ) );
+   transaction.set_signature_data( converter::as< std::string >( key.sign_compact( converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
-   system_call::apply_transaction( ctx, transaction );
+   chain::system_call::apply_transaction( ctx, transaction );
 
-   next_nonce = system_call::get_account_nonce( ctx, payer ).nonce;
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
    BOOST_REQUIRE_EQUAL( next_nonce, 3 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( get_contract_id_test )
 { try {
-   auto contract_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "get_contract_id_test"s ).digest;
+   auto contract_id = crypto::hash( crypto::multicodec::ripemd_160, "get_contract_id_test"s ).digest();
 
-   ctx.push_frame( koinos::chain::stack_frame {
+   ctx.push_frame( chain::stack_frame {
       .call = contract_id,
-      .call_privilege = koinos::chain::privilege::kernel_mode
+      .call_privilege = chain::privilege::kernel_mode
    } );
 
-   auto id = system_call::get_contract_id( ctx );
+   auto id = chain::system_call::get_contract_id( ctx );
 
-   BOOST_REQUIRE( contract_id.size() == id.size() );
-   BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id.begin() ) );
+   BOOST_REQUIRE( contract_id.size() == id.value().size() );
+   auto id_bytes = converter::as< std::vector< std::byte > >( id.value() );
+   BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id_bytes.begin() ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( token_tests )
 { try {
    using namespace koinos;
@@ -828,23 +832,6 @@ catch( const eosio::vm::exception& e )
    BOOST_FAIL("EOSIO VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
-BOOST_AUTO_TEST_CASE( get_head_block_time )
-{ try {
-   using namespace koinos;
-   koinos::protocol::block block;
-   block.header.timestamp = 1000;
-   ctx.set_block( block );
-
-   BOOST_REQUIRE( system_call::get_head_block_time( ctx ) == block.header.timestamp );
-
-   ctx.clear_block();
-
-   auto key = database::key_from_string( database::key::head_block_time );
-   system_call::db_put_object( ctx, database::kernel_space, key, pack::to_variable_blob( block.header.timestamp ) );
-
-   BOOST_REQUIRE( system_call::get_head_block_time( ctx ) == block.header.timestamp );
-} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( tick_limit )
 { try {

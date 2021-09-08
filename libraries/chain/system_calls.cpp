@@ -722,7 +722,7 @@ THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string
 
 THUNK_DEFINE( get_transaction_payer_return, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
-   std::string account = system_call::recover_public_key( context, transaction.signature_data(), transaction.active() ).value();
+   std::string account = system_call::recover_public_key( context, transaction.signature_data(), converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) ).value();
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
 
