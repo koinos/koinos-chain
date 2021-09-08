@@ -683,7 +683,7 @@ THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
 
 THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
-   auto multicodec = static_cast< crypto::multicodec>( id );
+   auto multicodec = static_cast< crypto::multicodec >( id );
    switch ( multicodec )
    {
       case crypto::multicodec::sha1:
@@ -697,7 +697,7 @@ THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint
       default:
          KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
    }
-   auto hash = crypto::hash( multicodec, obj, size );
+   auto hash = crypto::hash( multicodec, obj, std::size_t( size ) );
 
    hash_return ret;
    ret.set_value( converter::as< std::string >( hash ) );
