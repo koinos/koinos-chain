@@ -19,7 +19,7 @@ namespace koinos::chain {
 namespace detail
 {
    template< typename T, typename Lambda >
-   std::enable_if_t< std::is_same_v< decltype( Lambda( std::declval< int >() ) ), T >, void >
+   std::enable_if_t< std::is_same_v< decltype( std::declval< Lambda >()( std::declval< int >() ) ), T >, void >
    iterate_repeated_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, std::vector< T >& v, Lambda&& l )
    {
       auto ref = msg.GetReflection();
@@ -30,7 +30,7 @@ namespace detail
    }
 
    template< typename T, typename Lambda >
-   std::enable_if_t< !std::is_same_v< decltype( Lambda( std::declval< int >() ) ), T >, void >
+   std::enable_if_t< !std::is_same_v< decltype( std::declval< Lambda >()( std::declval< int >() ) ), T >, void >
    iterate_repeated_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, std::vector< T >& v, Lambda&& l ) {}
 
    template< typename T >
@@ -234,7 +234,7 @@ namespace detail
    template< typename... Ts >
    std::tuple< std::decay_t< Ts >... > message_to_tuple( const google::protobuf::Message& msg )
    {
-      return message_to_tuple< std::decay_t< Ts >... >( msg );
+      return message_to_tuple_impl< std::decay_t< Ts >... >( msg );
    }
 
    template<>

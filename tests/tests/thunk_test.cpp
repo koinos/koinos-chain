@@ -390,27 +390,28 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.clear_transaction();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#endif
 BOOST_AUTO_TEST_CASE( thunk_test )
 { try {
    BOOST_TEST_MESSAGE( "thunk test" );
 
-   using namespace koinos::chain;
+   chain::prints_args args;
 
-   koinos::chain::prints_args args;
+   std::string arg;
+   std::string ret;
 
-   args.message = "Hello World";
+   args.set_message( "Hello World" );
+   args.SerializeToString( &arg );
 
-   koinos::variable_blob vl_args, vl_ret;
-   koinos::pack::to_variable_blob( vl_args, args );
    host_api.invoke_thunk(
-      thunk_id_type( koinos::chain::thunk_id::prints ),
-      vl_ret.data(),
-      vl_ret.size(),
-      vl_args.data(),
-      vl_args.size() );
+      protocol::system_call_id::prints,
+      ret.data(),
+      ret.size(),
+      arg.data(),
+      arg.size()
+   );
 
-   BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
+   BOOST_CHECK_EQUAL( ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -418,34 +419,47 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 { try {
    BOOST_TEST_MESSAGE( "system call test" );
 
-   using namespace koinos::chain;
+   chain::prints_args args;
 
-   koinos::chain::prints_args args;
+   std::string arg;
+   std::string ret;
 
-   args.message = "Hello World";
+   args.set_message( "Hello World" );
+   args.SerializeToString( &arg );
 
-   koinos::variable_blob vl_args, vl_ret;
-   koinos::pack::to_variable_blob( vl_args, args );
    host_api.invoke_system_call(
-      system_call_id_type( koinos::chain::system_call_id::prints ),
-      vl_ret.data(),
-      vl_ret.size(),
-      vl_args.data(),
-      vl_args.size() );
+      protocol::system_call_id::prints,
+      ret.data(),
+      ret.size(),
+      arg.data(),
+      arg.size()
+   );
 
-   BOOST_CHECK_EQUAL( vl_ret.size(), 0 );
+   BOOST_CHECK_EQUAL( ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( chain_thunks_test )
+BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
 { try {
-   BOOST_TEST_MESSAGE( "get_head_info test" );
+   BOOST_TEST_MESSAGE( "get_head_info thunk test" );
 
-   auto info = koinos::chain::system_call::get_head_info( ctx );
-   BOOST_CHECK_EQUAL( info.head_topology.height, 1 );
+   BOOST_CHECK_EQUAL( chain::system_call::get_head_info( ctx ).value().head_topology().height(), 1 );
+
+   koinos::protocol::block block;
+   block.mutable_header()->set_timestamp( 1000 );
+   ctx.set_block( block );
+
+   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).value().head_block_time() == block.header().timestamp() );
+
+   ctx.clear_block();
+
+   chain::system_call::db_put_object( ctx, chain::database::space::kernel, chain::database::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
+
+   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).value().head_block_time() == block.header().timestamp() );
+
    // Test exception when null state pointer is passed
-   ctx.set_state_node( std::shared_ptr< abstract_state_node >() );
-   BOOST_REQUIRE_THROW( system_call::get_head_info( ctx ), koinos::chain::database_exception );
+   ctx.set_state_node( std::shared_ptr< chain::abstract_state_node >() );
+   BOOST_REQUIRE_THROW( chain::system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -454,38 +468,36 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
    BOOST_TEST_MESSAGE( "hash thunk test" );
 
    std::string test_string = "hash::string";
-   koinos::variable_blob blob;
-   koinos::pack::to_variable_blob( blob, test_string );
 
-   auto thunk_hash  = system_call::hash( ctx, CRYPTO_SHA2_256_ID, blob );
-   auto native_hash = koinos::crypto::hash( CRYPTO_SHA2_256_ID, test_string );
+   auto thunk_hash  = converter::to< crypto::multihash >( chain::system_call::hash( ctx, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), test_string ).value() );
+   auto native_hash = crypto::hash( crypto::multicodec::sha2_256, test_string );
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
    koinos::block_topology block_topology;
-   block_topology.height = 100;
-   block_topology.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::id"s );
-   block_topology.previous = koinos::crypto::hash( CRYPTO_SHA2_256_ID, "random::previous"s );
+   block_topology.set_height( 100 );
+   block_topology.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, "random::id"s ) ) );
+   block_topology.set_previous( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, "random::previous"s ) ) );
 
-   koinos::pack::to_variable_blob( blob, block_topology );
-   thunk_hash = system_call::hash( ctx, CRYPTO_RIPEMD160_ID, blob );
-   native_hash = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, block_topology );
+   std::string blob;
+   block_topology.SerializeToString( &blob );
+   thunk_hash = converter::to< crypto::multihash >( chain::system_call::hash( ctx, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), blob ).value() );
+   native_hash = crypto::hash( crypto::multicodec::sha2_256, block_topology );
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
-   BOOST_REQUIRE_THROW( system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
+   BOOST_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
    ctx.set_in_user_code( true );
-   BOOST_REQUIRE_THROW( system_call::apply_block( ctx, koinos::protocol::block{}, false, false, false ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_transaction( ctx, koinos::protocol::transaction() ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_reserved_operation( ctx, koinos::protocol::reserved_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_upload_contract_operation( ctx, koinos::protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, koinos::protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, koinos::protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{}, false, false, false ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
 }
 
 BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
@@ -493,16 +505,16 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 
    BOOST_TEST_MESSAGE( "last irreversible block test" );
 
-   for( int i = 0; i < uint32_t( default_irreversible_threshold ); i++ )
+   for( uint64_t i = 0; i < chain::default_irreversible_threshold; i++ )
    {
-      auto lib = system_call::get_last_irreversible_block( ctx ).value();
+      auto lib = chain::system_call::get_last_irreversible_block( ctx ).value();
       BOOST_REQUIRE_EQUAL( lib, 0 );
 
       db.finalize_node( ctx.get_state_node()->id() );
-      ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), koinos::crypto::hash( CRYPTO_RIPEMD160_ID, i ) ) );
+      ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), crypto::hash( crypto::multicodec::sha2_256, i ) ) );
    }
 
-   auto lib = system_call::get_last_irreversible_block( ctx ).value();
+   auto lib = chain::system_call::get_last_irreversible_block( ctx ).value();
    BOOST_REQUIRE_EQUAL( lib, 1 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -513,43 +525,44 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    ctx.pop_frame();
    ctx.pop_frame();
 
-   BOOST_REQUIRE_THROW( ctx.pop_frame(), koinos::chain::stack_exception );
+   BOOST_REQUIRE_THROW( ctx.pop_frame(), chain::stack_exception );
 
-   auto call1_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call1"s ).digest;
-   ctx.push_frame( koinos::chain::stack_frame{ .call = call1_vb } );
-   BOOST_REQUIRE_THROW( ctx.get_caller(), koinos::chain::stack_exception );
+   auto call1_vb = crypto::hash( crypto::multicodec::ripemd_160, "call1"s ).digest();
+   ctx.push_frame( chain::stack_frame{ .call = call1_vb } );
+   BOOST_REQUIRE_THROW( ctx.get_caller(), chain::stack_exception );
 
-   auto call2_vb = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call2"s ).digest;
-   ctx.push_frame( koinos::chain::stack_frame{ .call = call2_vb } );
+   auto call2_vb = crypto::hash( crypto::multicodec::ripemd_160, "call2"s ).digest();
+   ctx.push_frame( chain::stack_frame{ .call = call2_vb } );
    BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
 
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
 
-   for( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
+   for ( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
    {
-      ctx.push_frame( koinos::chain::stack_frame{ .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "call"s + std::to_string(i) ).digest } );
+      ctx.push_frame( chain::stack_frame{ .call = crypto::hash( crypto::multicodec::ripemd_160, "call"s + std::to_string( i ) ).digest() } );
    }
 
-   BOOST_REQUIRE_THROW( ctx.push_frame( koinos::chain::stack_frame{} ), koinos::chain::stack_overflow );
+   BOOST_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::stack_overflow );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( require_authority )
 { try {
-   auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "foo"s ) );
+   auto foo_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "foo"s ) );
    auto foo_account_string = foo_key.get_public_key().to_address();
-   koinos::variable_blob foo_account( foo_account_string.begin(), foo_account_string.end() );
-   auto bar_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "bar"s ) );
+
+   auto bar_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "bar"s ) );
    auto bar_account_string = bar_key.get_public_key().to_address();
-   koinos::variable_blob bar_account( bar_account_string.begin(), bar_account_string.end() );
 
-   koinos::protocol::transaction trx;
-   trx.active_data = koinos::protocol::active_transaction_data{};
+   protocol::transaction trx;
+   protocol::active_transaction_data active_data;
+   trx.set_active( converter::as< std::string >( active_data ) );
+
    ctx.set_transaction( trx );
-   BOOST_REQUIRE_THROW( system_call::require_authority( ctx, foo_account ), koinos::chain::invalid_signature );
+   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, foo_account_string ), chain::invalid_signature );
 
-   auto signature = foo_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
+   auto signature = foo_key.sign_compact( koinos::crypto::hash( crypto::multicodec::sha2_256, trx.active() ) );
    trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
    ctx.set_transaction( trx );
 
@@ -558,7 +571,7 @@ BOOST_AUTO_TEST_CASE( require_authority )
    BOOST_REQUIRE_THROW( system_call::require_authority( ctx, bar_account ), koinos::chain::invalid_signature );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 { try {
    using namespace koinos;
