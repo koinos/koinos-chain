@@ -52,7 +52,7 @@ struct controller_fixture
       std::filesystem::remove_all( _state_dir );
    }
 
-   void set_block_merkle_roots( protocol::block& block, protocol::active_block_data& active_data, crypto::multicodec code, std::size_t size = 0 )
+   void set_block_merkle_roots( protocol::block& block, protocol::active_block_data& active_data, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
    {
       std::vector< crypto::multihash > transactions;
       std::vector< crypto::multihash > passives;

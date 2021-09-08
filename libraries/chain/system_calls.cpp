@@ -697,7 +697,7 @@ THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint
       default:
          KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
    }
-   auto hash = crypto::hash( multicodec, obj, std::size_t( size ) );
+   auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
    hash_return ret;
    ret.set_value( converter::as< std::string >( hash ) );
