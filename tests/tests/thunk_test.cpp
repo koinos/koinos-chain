@@ -20,66 +20,62 @@
 
 #include <mira/database_configuration.hpp>
 
-#if 0
+//#include <koinos/tests/koin.hpp>
+//#include <koinos/tests/wasm/contract_return.hpp>
+//#include <koinos/tests/wasm/forever.hpp>
+//#include <koinos/tests/wasm/hello.hpp>
+//#include <koinos/tests/wasm/koin.hpp>
+//#include <koinos/tests/wasm/syscall_override.hpp>
 
-#include <koinos/tests/koin.hpp>
-#include <koinos/tests/wasm/contract_return.hpp>
-#include <koinos/tests/wasm/forever.hpp>
-#include <koinos/tests/wasm/hello.hpp>
-#include <koinos/tests/wasm/koin.hpp>
-#include <koinos/tests/wasm/syscall_override.hpp>
-
+using namespace koinos;
 using namespace std::string_literals;
 
 struct thunk_fixture
 {
-   thunk_fixture() :
-      host_api( ctx )
+   thunk_fixture() : host_api( ctx )
    {
-      using namespace koinos::chain;
-
-      koinos::initialize_logging( "koinos_test", {}, "info" );
+      initialize_logging( "koinos_test", {}, "info" );
 
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       std::filesystem::create_directory( temp );
       std::any cfg = mira::utilities::default_database_configuration();
 
       auto seed = "test seed"s;
-      _signing_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+      _signing_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, seed ) );
 
-      koinos::chain::genesis_data genesis_data;
-      auto chain_id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, _signing_private_key.get_public_key().to_address() );
-      genesis_data[ { database::kernel_space, database::key_from_string( database::key::chain_id ) } ] = koinos::pack::to_variable_blob( chain_id );
+      chain::genesis_data genesis_data;
+      auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address() );
+      genesis_data[ { converter::as< statedb::object_space >( chain::database::space::kernel ), converter::as< statedb::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
-      db.open( temp, cfg, [&]( koinos::statedb::state_node_ptr root )
+      db.open( temp, cfg, [&]( statedb::state_node_ptr root )
       {
          for ( const auto& entry : genesis_data )
          {
-            koinos::statedb::put_object_args put_args;
+            statedb::put_object_args put_args;
             put_args.space = entry.first.first;
             put_args.key = entry.first.second;
             put_args.buf = entry.second.data();
             put_args.object_size = entry.second.size();
 
-            koinos::statedb::put_object_result put_res;
+            statedb::put_object_result put_res;
             root->put_object( put_res, put_args );
 
             KOINOS_ASSERT(
                !put_res.object_existed,
-               koinos::chain::unexpected_state,
+               chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
          }
       } );
 
-      ctx.set_state_node( db.create_writable_node( db.get_head()->id(), koinos::crypto::hash( CRYPTO_SHA2_256_ID, 1 ) ) );
-      ctx.push_frame( koinos::chain::stack_frame {
-         .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "thunk_tests"s ).digest,
-         .call_privilege = koinos::chain::privilege::kernel_mode
+      ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
+      ctx.push_frame( chain::stack_frame {
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "thunk_tests"s ).digest(),
+         .call_privilege = chain::privilege::kernel_mode
       } );
-      ctx.push_frame( koinos::chain::stack_frame {
-         .call = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, "thunk_tests"s ).digest,
-         .call_privilege = koinos::chain::privilege::kernel_mode
+      ctx.push_frame( chain::stack_frame {
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "thunk_tests"s ).digest(),
+         .call_privilege = chain::privilege::kernel_mode
       } );
 
       koinos::chain::register_host_functions();
@@ -91,38 +87,38 @@ struct thunk_fixture
       std::filesystem::remove_all( temp );
    }
 
-   void sign_transaction( koinos::protocol::transaction& transaction, koinos::crypto::private_key& transaction_signing_key )
+   void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       // Signature is on the hash of the active data
-      transaction.id = koinos::crypto::hash( CRYPTO_SHA2_256_ID, transaction.active_data );
-      auto signature = transaction_signing_key.sign_compact( transaction.id );
-      koinos::pack::to_variable_blob( transaction.signature_data, signature );
+      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.active() );
+      transaction.set_id( converter::as< std::string >( id_mh ) );
+      transaction.set_signature_data( converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
 
-   std::vector< uint8_t > get_hello_wasm()
-   {
-      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
-   }
-
-   std::vector< uint8_t > get_contract_return_wasm()
-   {
-      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
-   }
-
-   std::vector< uint8_t > get_syscall_override_wasm()
-   {
-      return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
-   }
-
-   std::vector< uint8_t > get_koin_wasm()
-   {
-      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
-   }
-
-   std::vector< uint8_t > get_forever_wasm()
-   {
-      return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
-   }
+//   std::vector< uint8_t > get_hello_wasm()
+//   {
+//      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
+//   }
+//
+//   std::vector< uint8_t > get_contract_return_wasm()
+//   {
+//      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
+//   }
+//
+//   std::vector< uint8_t > get_syscall_override_wasm()
+//   {
+//      return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
+//   }
+//
+//   std::vector< uint8_t > get_koin_wasm()
+//   {
+//      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
+//   }
+//
+//   std::vector< uint8_t > get_forever_wasm()
+//   {
+//      return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
+//   }
 
    std::filesystem::path temp;
    koinos::statedb::state_db db;
@@ -133,21 +129,19 @@ struct thunk_fixture
 
 BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
 
-using namespace koinos::chain;
-
 BOOST_AUTO_TEST_CASE( db_crud )
 { try {
-   koinos::variable_blob object_data;
+   std::string object_data;
 
    // This test expects chain ID not to be present in the database, so
    // we begin by removing it
    BOOST_REQUIRE(
-      system_call::db_put_object(
+      chain::system_call::db_put_object(
          ctx,
-         database::kernel_space,
-         database::key_from_string( database::key::chain_id ),
+         chain::database::space::kernel,
+         chain::database::key::chain_id,
          object_data
-      ) == true
+      ).value() == true
    );
 
    auto node = std::dynamic_pointer_cast< koinos::statedb::state_node >( ctx.get_state_node() );
@@ -155,73 +149,73 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
-   BOOST_REQUIRE_THROW( system_call::db_put_object( ctx, database::kernel_space, 0, object_data ), koinos::chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( system_call::db_get_object( ctx, database::kernel_space, 0 ), koinos::chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( system_call::db_get_next_object( ctx, database::kernel_space, 0 ), koinos::chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( system_call::db_get_prev_object( ctx, database::kernel_space, 0 ), koinos::chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::db_put_object( ctx, chain::database::space::kernel, converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::db_get_object( ctx, chain::database::space::kernel, converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::db_get_next_object( ctx, chain::database::space::kernel, converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::db_get_prev_object( ctx, chain::database::space::kernel, converter::as< std::string >( 0 ) ), chain::state_node_not_found );
 
    ctx.set_state_node( node );
 
-   koinos::pack::to_variable_blob( object_data, "object1"s );
+   object_data = "object1"s;
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE( system_call::db_put_object( ctx, database::kernel_space, 1, object_data ) == false );
-   auto obj_blob = system_call::db_get_object( ctx, database::kernel_space, 1 );
-   BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object1" );
+   BOOST_REQUIRE( chain::system_call::db_put_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ), object_data ).value() == false );
+   auto obj_blob = chain::system_call::db_get_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ) ).value();
+   BOOST_REQUIRE( object_data == "object1" );
 
    BOOST_TEST_MESSAGE( "Testing getting a non-existent object" );
 
-   obj_blob = system_call::db_get_object( ctx, database::kernel_space, 2 );
+   obj_blob = chain::system_call::db_get_object( ctx, chain::database::space::kernel, converter::as< std::string >( 2 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test iteration" );
 
-   koinos::pack::to_variable_blob( object_data, "object2"s );
-   system_call::db_put_object( ctx, database::kernel_space, 2, object_data );
-   koinos::pack::to_variable_blob( object_data, "object3"s );
-   system_call::db_put_object( ctx, database::kernel_space, 3, object_data );
+   object_data = "object2"s;
+   chain::system_call::db_put_object( ctx, chain::database::space::kernel, converter::as< std::string >( 2 ), object_data );
+   object_data = "object3"s;
+   chain::system_call::db_put_object( ctx, chain::database::space::kernel, converter::as< std::string >( 3 ), object_data );
 
-   obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 2, 8 );
-   BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object3" );
+   obj_blob = chain::system_call::db_get_next_object( ctx, chain::database::space::kernel, converter::as< std::string >( 2 ), 8 ).value();
+   BOOST_REQUIRE( obj_blob == "object3" );
 
-   obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 2, 8 );
-   BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object1" );
+   obj_blob = chain::system_call::db_get_prev_object( ctx, chain::database::space::kernel, converter::as< std::string >( 2 ), 8 ).value();
+   BOOST_REQUIRE( obj_blob == "object1" );
 
    BOOST_TEST_MESSAGE( "Test iterator overrun" );
 
-   obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 3 );
+   obj_blob = chain::system_call::db_get_next_object( ctx, chain::database::space::kernel, converter::as< std::string >( 3 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 4 );
+   obj_blob = chain::system_call::db_get_next_object( ctx, chain::database::space::kernel, converter::as< std::string >( 4 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 1 );
+   obj_blob = chain::system_call::db_get_prev_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = system_call::db_get_prev_object( ctx, database::kernel_space, 0 );
+   obj_blob = chain::system_call::db_get_prev_object( ctx, chain::database::space::kernel, converter::as< std::string >( 0 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
-   koinos::pack::to_variable_blob( object_data, "space1.object1"s );
-   system_call::db_put_object( ctx, database::contract_space, 1, object_data );
-   obj_blob = system_call::db_get_next_object( ctx, database::kernel_space, 3 );
+   object_data = "space1.object1"s;
+   chain::system_call::db_put_object( ctx, chain::database::space::contract, converter::as< std::string >( 1 ), object_data );
+   obj_blob = chain::system_call::db_get_next_object( ctx, chain::database::space::kernel, converter::as< std::string >( 3 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = system_call::db_get_next_object( ctx, database::contract_space, 1 );
+   obj_blob = chain::system_call::db_get_next_object( ctx, chain::database::space::contract, converter::as< std::string >( 1 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = system_call::db_get_prev_object( ctx, database::contract_space, 1 );
+   obj_blob = chain::system_call::db_get_prev_object( ctx, chain::database::space::contract, converter::as< std::string >( 1 ) ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test object modification" );
-   koinos::pack::to_variable_blob( object_data, "object1.1"s );
-   BOOST_REQUIRE( system_call::db_put_object( ctx, database::kernel_space, 1, object_data ) == true );
-   obj_blob = system_call::db_get_object( ctx, database::kernel_space, 1, 10 );
-   BOOST_REQUIRE( koinos::pack::from_variable_blob< std::string >( obj_blob ) == "object1.1" );
+   object_data = "object1.1"s;
+   BOOST_REQUIRE( chain::system_call::db_put_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ), object_data ).value() == true );
+   obj_blob = chain::system_call::db_get_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ), 10 ).value();
+   BOOST_REQUIRE( obj_blob == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE( system_call::db_put_object( ctx, database::kernel_space, 1, object_data ) == true );
-   obj_blob = system_call::db_get_object( ctx, database::kernel_space, 1, 10 );
+   BOOST_REQUIRE( chain::system_call::db_put_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ), object_data ).value() == true );
+   obj_blob = chain::system_call::db_get_object( ctx, chain::database::space::kernel, converter::as< std::string >( 1 ), 10 ).value();
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
@@ -884,7 +878,5 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
-BOOST_AUTO_TEST_SUITE_END()
-
 #endif
+BOOST_AUTO_TEST_SUITE_END()
