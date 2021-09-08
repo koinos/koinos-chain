@@ -275,110 +275,109 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( fork_heads )
 { try {
-   using namespace koinos;
-   using namespace koinos::chain;
-
    BOOST_TEST_MESSAGE( "Setting up forks and checking heads" );
 
    rpc::chain::submit_block_request block_req;
-   block_req.verify_passive_data = true;
-   block_req.verify_block_signature = true;
-   block_req.verify_transaction_signatures = true;
+   block_req.set_verify_passive_data( true );
+   block_req.set_verify_block_signature( true );
+   block_req.set_verify_transaction_signature( true );
 
    uint64_t test_timestamp = 1609459200;
 
    auto root_head_info = _controller.get_head_info();
-   auto head_info = root_head_info;
+   rpc::chain::get_head_info_response head_info;
+   head_info.CopyFrom( root_head_info );
 
-   for( int i = 1; i <= uint32_t( default_irreversible_threshold ); i++ )
+   for ( uint64_t i = 1; i <= chain::default_irreversible_threshold; i++ )
    {
-      block_req.block.active_data.make_mutable();
-      block_req.block.header.timestamp = test_timestamp + i;
-      block_req.block.header.height    = head_info.head_topology.height + 1;
-      block_req.block.header.previous  = head_info.head_topology.id;
+      block_req.mutable_block()->mutable_header()->set_timestamp( test_timestamp + i );
+      block_req.mutable_block()->mutable_header()->set_height( head_info.head_topology().height() + 1 );
+      block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
 
-      set_block_merkle_roots( block_req.block, koinos::crypto::multicodec::sha2_256 );
-      sign_block( block_req.block, _block_signing_private_key );
-
-      block_req.block.id = crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block.header, block_req.block.active_data );
+      protocol::active_block_data active_data;
+      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_active( converter::as< std::string >( active_data ) );
+      block_req.mutable_block()->set_id( converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       _controller.submit_block( block_req );
 
-      head_info.head_topology.height++;
-      head_info.head_topology.previous = head_info.head_topology.id;
-      head_info.head_topology.id = block_req.block.id;
+      head_info.mutable_head_topology()->set_height( head_info.head_topology().height() + 1 );
+      head_info.mutable_head_topology()->set_previous( head_info.head_topology().id() );
+      head_info.mutable_head_topology()->set_id( block_req.block().id() );
    }
 
-   auto fork_head_info = head_info;
-   head_info = root_head_info;
+   rpc::chain::get_head_info_response fork_head_info;
+   fork_head_info.CopyFrom( head_info );
+   head_info.CopyFrom( root_head_info );
 
-   for( int i = 1; i <= uint32_t( default_irreversible_threshold ); i++ )
+   for ( uint64_t i = 1; i <= chain::default_irreversible_threshold; i++ )
    {
-      block_req.block.active_data.make_mutable();
-      block_req.block.header.timestamp = test_timestamp + i + uint32_t( default_irreversible_threshold );
-      block_req.block.header.height    = head_info.head_topology.height + 1;
-      block_req.block.header.previous  = head_info.head_topology.id;
+      block_req.mutable_block()->mutable_header()->set_timestamp( test_timestamp + i + chain::default_irreversible_threshold );
+      block_req.mutable_block()->mutable_header()->set_height( head_info.head_topology().height() + 1 );
+      block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
 
-      set_block_merkle_roots( block_req.block, koinos::crypto::multicodec::sha2_256 );
-      sign_block( block_req.block, _block_signing_private_key );
-
-      block_req.block.id = crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block.header, block_req.block.active_data );
+      protocol::active_block_data active_data;
+      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_active( converter::as< std::string >( active_data ) );
+      block_req.mutable_block()->set_id( converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       _controller.submit_block( block_req );
 
-      head_info.head_topology.height++;
-      head_info.head_topology.previous = head_info.head_topology.id;
-      head_info.head_topology.id = block_req.block.id;
+      head_info.mutable_head_topology()->set_height( head_info.head_topology().height() + 1 );
+      head_info.mutable_head_topology()->set_previous( head_info.head_topology().id() );
+      head_info.mutable_head_topology()->set_id( block_req.block().id() );
 
       auto fork_heads = _controller.get_fork_heads();
 
-      BOOST_REQUIRE_EQUAL( fork_heads.fork_heads.size(), 2 );
-      auto topo0 = fork_heads.fork_heads[0];
-      auto topo1 = fork_heads.fork_heads[1];
+      BOOST_REQUIRE_EQUAL( fork_heads.fork_heads_size(), 2 );
+      auto topo0 = fork_heads.fork_heads( 0 );
+      auto topo1 = fork_heads.fork_heads( 1 );
 
-      BOOST_CHECK( (    topo0.height   == fork_head_info.head_topology.height
-                     && topo0.previous == fork_head_info.head_topology.previous
-                     && topo0.id       == fork_head_info.head_topology.id
-                     && topo1.height   == head_info.head_topology.height
-                     && topo1.previous == head_info.head_topology.previous
-                     && topo1.id       == head_info.head_topology.id )
-                   || ( topo1.height   == fork_head_info.head_topology.height
-                     && topo1.previous == fork_head_info.head_topology.previous
-                     && topo1.id       == fork_head_info.head_topology.id
-                     && topo0.height   == head_info.head_topology.height
-                     && topo0.previous == head_info.head_topology.previous
-                     && topo0.id       == head_info.head_topology.id ) );
+      BOOST_CHECK( (    topo0.height()   == fork_head_info.head_topology().height()
+                     && topo0.previous() == fork_head_info.head_topology().previous()
+                     && topo0.id()       == fork_head_info.head_topology().id()
+                     && topo1.height()   == head_info.head_topology().height()
+                     && topo1.previous() == head_info.head_topology().previous()
+                     && topo1.id()       == head_info.head_topology().id() )
+                   || ( topo1.height()   == fork_head_info.head_topology().height()
+                     && topo1.previous() == fork_head_info.head_topology().previous()
+                     && topo1.id()       == fork_head_info.head_topology().id()
+                     && topo0.height()   == head_info.head_topology().height()
+                     && topo0.previous() == head_info.head_topology().previous()
+                     && topo0.id()       == head_info.head_topology().id() ) );
    }
 
-   block_req.block.active_data.make_mutable();
-   block_req.block.header.timestamp = test_timestamp + ( 2 * uint32_t( default_irreversible_threshold ) ) + 1;
-   block_req.block.header.height    = head_info.head_topology.height + 1;
-   block_req.block.header.previous  = head_info.head_topology.id;
+   block_req.mutable_block()->mutable_header()->set_timestamp( test_timestamp + ( 2 * chain::default_irreversible_threshold ) + 1 );
+   block_req.mutable_block()->mutable_header()->set_height( head_info.head_topology().height() + 1 );
+   block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
 
-   set_block_merkle_roots( block_req.block, koinos::crypto::multicodec::sha2_256 );
-   sign_block( block_req.block, _block_signing_private_key );
-
-   block_req.block.id = crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block.header, block_req.block.active_data );
+   protocol::active_block_data active_data;
+   set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_active( converter::as< std::string >( active_data ) );
+   block_req.mutable_block()->set_id( converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
 
-   head_info.head_topology.height++;
-   head_info.head_topology.previous = head_info.head_topology.id;
-   head_info.head_topology.id = block_req.block.id;
+   head_info.mutable_head_topology()->set_height( head_info.head_topology().height() + 1 );
+   head_info.mutable_head_topology()->set_previous( head_info.head_topology().id() );
+   head_info.mutable_head_topology()->set_id( block_req.block().id() );
 
    auto fork_heads = _controller.get_fork_heads();
 
-   BOOST_REQUIRE_EQUAL( fork_heads.fork_heads.size(), 1 );
-   BOOST_CHECK_EQUAL( fork_heads.fork_heads[0].height, head_info.head_topology.height );
-   BOOST_CHECK_EQUAL( fork_heads.fork_heads[0].previous, head_info.head_topology.previous );
-   BOOST_CHECK_EQUAL( fork_heads.fork_heads[0].id, head_info.head_topology.id );
+   BOOST_REQUIRE_EQUAL( fork_heads.fork_heads_size(), 1 );
+   BOOST_CHECK_EQUAL( fork_heads.fork_heads( 0 ).height(), head_info.head_topology().height() );
+   BOOST_CHECK_EQUAL( fork_heads.fork_heads( 0 ).previous(), head_info.head_topology().previous() );
+   BOOST_CHECK_EQUAL( fork_heads.fork_heads( 0 ).id(), head_info.head_topology().id() );
 
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( read_contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Upload contracts" );
