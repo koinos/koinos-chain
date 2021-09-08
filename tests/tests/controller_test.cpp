@@ -54,10 +54,12 @@ struct controller_fixture
       std::filesystem::remove_all( _state_dir );
    }
 
-   void set_block_merkle_roots( koinos::protocol::block& block, koinos::protocol::active_block_data& active_data, crypto::multicodec code, uint64_t size = 0 )
+   void set_block_merkle_roots( koinos::protocol::block& block, koinos::protocol::active_block_data& active_data, crypto::multicodec code, std::size_t size = 0 )
    {
-      std::vector< crypto::multihash > transactions( block.transactions().size() );
-      std::vector< crypto::multihash > passives( 2 * ( block.transactions().size() + 1 ) );
+      std::vector< crypto::multihash > transactions;
+      std::vector< crypto::multihash > passives;
+      transactions.reserve( block.transactions().size() );
+      passives.reserve( 2 * ( block.transactions().size() + 1 ) );
 
       passives.emplace_back( crypto::hash( code, block.passive(), size ) );
       passives.emplace_back( crypto::multihash::empty( code ) );
@@ -149,6 +151,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 2 );
    block_req.mutable_block()->mutable_header()->set_previous( converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+   block_req.mutable_block()->mutable_passive();
 
    protocol::active_block_data block_active_data;
 
@@ -168,14 +171,17 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_height( 1 );
    block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
 
+   sign_block( *block_req.mutable_block(), foo_key );
+
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::invalid_block_signature );
 
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
    block_req.mutable_block()->mutable_header()->set_previous( converter::as< std::string >( crypto::multihash::empty( crypto::multicodec::sha2_256 ) ) );
-   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
 
    set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_active( converter::as< std::string >( block_active_data ) );
+   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block );
@@ -195,9 +201,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Test successful block" );
 
    block_req.mutable_block()->mutable_header()->set_previous( converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
-   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
 
    set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_active( converter::as< std::string >( block_active_data ) );
+   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
@@ -207,9 +214,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_previous( block_req.block().id() );
    block_req.mutable_block()->mutable_header()->set_height( 2 );
    block_req.mutable_block()->mutable_header()->set_timestamp( block_req.block().header().timestamp() - 1 );
-   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
 
    set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_active( converter::as< std::string >( block_active_data ) );
+   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );

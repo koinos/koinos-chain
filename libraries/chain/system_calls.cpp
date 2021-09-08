@@ -125,10 +125,12 @@ THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string
    std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return converter::to< crypto::multihash >( s ); } );
 
    auto root_hash = converter::to< crypto::multihash >( root );
-   auto mtree = crypto::merkle_tree( root_hash.code(), hashes );
+   auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
+
+   auto merkle_root = mtree.root()->hash();
 
    verify_merkle_root_return ret;
-   ret.set_value( mtree.root()->hash() == root_hash );
+   ret.set_value( merkle_root == root_hash );
    return ret;
 }
 
@@ -170,27 +172,22 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_ASSERT( block.header().height(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "height") );
    KOINOS_ASSERT( block.header().timestamp(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "timestamp") );
    KOINOS_ASSERT( block.active().size(), koinos::exception, "missing expected field: ${f}", ("f", "active") );
-   KOINOS_ASSERT( block.passive().size(), koinos::exception, "missing expected field: ${f}", ("f", "passive") );
+   KOINOS_ASSERT( block.passive().size() == 0, koinos::exception, "unexpected vlaue in field: ${f}", ("f", "passive") );
    KOINOS_ASSERT( block.signature_data().size(), koinos::exception, "missing expected field: ${f}", ("f", "signature_data") );
 
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
-
    const crypto::multihash tx_root = converter::to< crypto::multihash >( active_data.transaction_merkle_root() );
    size_t tx_count = block.transactions_size();
 
    // Check transaction Merkle root
-   std::vector< std::string > hashes( tx_count );
+   std::vector< std::string > hashes;
+   hashes.reserve( tx_count );
 
    for ( const auto& trx : block.transactions() )
    {
       hashes.emplace_back( converter::as< std::string >( crypto::hash( tx_root.code(), trx ) ) );
    }
-
-//   for ( std::size_t i = 0; i < tx_count; i++ )
-//   {
-//      hashes[i] = converter::as< std::string >( crypto::hash( tx_root.code(), block.transactions( i ).active() ) );
-//   }
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ).value(), transaction_root_mismatch, "transaction merkle root does not match" );
 
@@ -225,7 +222,8 @@ THUNK_DEFINE( void, apply_block,
 
       KOINOS_TODO( "Can we optimize away the string copies?" );
       auto passive_root = converter::to< crypto::multihash >( active_data.passive_data_merkle_root() );
-      std::vector< std::string > passives( 2 * ( block.transactions().size() + 1 ) );
+      std::vector< std::string > passives;
+      passives.reserve( 2 * ( block.transactions().size() + 1 ) );
 
       passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
       passives.emplace_back( converter::as< std::string >( crypto::multihash::empty( passive_root.code() ) ) );
@@ -236,7 +234,7 @@ THUNK_DEFINE( void, apply_block,
          passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
       }
 
-      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), hashes ).value(), passive_root_mismatch, "passive merkle root does not match" );
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), passives ).value(), passive_root_mismatch, "passive merkle root does not match" );
    }
 
    //
@@ -368,14 +366,10 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    auto signer_hash = crypto::hash( crypto::multicodec::ripemd_160, sig_account );
    auto contract_id = converter::to< crypto::multihash >( o.contract_id() );
 
-   std::stringstream contract_stream, signer_stream;
-   contract_stream << contract_id;
-   signer_stream << signer_hash;
-
    KOINOS_ASSERT(
       signer_hash.digest().size() == contract_id.digest().size() && std::equal( signer_hash.digest().begin(), signer_hash.digest().end(), contract_id.digest().begin() ),
       invalid_signature,
-      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_stream.str().c_str())("signer_hash", signer_stream.str().c_str())
+      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_id)("signer_hash", signer_hash)
    );
 
    system_call::db_put_object( context, database::space::contract, converter::as< std::string >( contract_id ), o.bytecode() );
@@ -676,7 +670,9 @@ THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
    }
    else
    {
-      hi.set_head_block_time( converter::to< uint64_t >( system_call::db_get_object( context, database::space::kernel, database::key::head_block_time ).value() ) );
+      auto val = system_call::db_get_object( context, database::space::kernel, database::key::head_block_time ).value();
+      uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
+      hi.set_head_block_time( time );
    }
 
    get_head_info_return ret;

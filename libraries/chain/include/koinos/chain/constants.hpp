@@ -16,16 +16,16 @@ namespace database {
 
 namespace space {
 
-const auto contract             = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::contract" ) ) );
-const auto system_call_dispatch = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::system_call" ) ) );
-const auto kernel               = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_space::kernel" ) ) );
+const auto contract             = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_space::contract" ) ) );
+const auto system_call_dispatch = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_space::system_call" ) ) );
+const auto kernel               = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_space::kernel" ) ) );
 
 } // space
 
 namespace key {
 
-const auto head_block_time   = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::head_block_time" ) ) );
-const auto chain_id          = converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::chain_id" ) ) );
+const auto head_block_time   = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
+const auto chain_id          = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
 
 inline std::string transaction_nonce( const std::string& payer )
 {
