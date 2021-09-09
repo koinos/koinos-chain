@@ -340,7 +340,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
             {
                case rpc::block_store::block_store_response::ResponseCase::kGetHighestBlock:
                {
-                  target_head.CopyFrom( resp.get_highest_block() );
+                  target_head.CopyFrom( resp.get_highest_block().topology() );
                   break;
                }
                case rpc::block_store::block_store_response::ResponseCase::kError:
