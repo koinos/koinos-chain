@@ -226,8 +226,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( _client && _client->is_connected() )
       {
-         rpc::block_store::add_block_request req;
-         req.mutable_block_to_add()->CopyFrom( block );
+         rpc::block_store::block_store_request req;
+         req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
 
          auto future = _client->rpc( service::block_store, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
 
