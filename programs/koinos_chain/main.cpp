@@ -112,6 +112,8 @@ void attach_request_handler(
 
          if ( args.ParseFromString( msg ) )
          {
+            LOG(debug) << "Received rpc: " << args;
+
             try
             {
                switch( args.request_case() )
@@ -186,6 +188,8 @@ void attach_request_handler(
             resp.mutable_error()->set_message( "Received bad message" );
          }
 
+         LOG(debug) << "Sending rpc response: " << resp;
+
          std::string r;
          resp.SerializeToString( &r );
          return r;
@@ -212,7 +216,7 @@ void attach_request_handler(
          try
          {
             rpc::chain::submit_block_request sub_block;
-            sub_block.set_allocated_block( bam.mutable_block() );
+            sub_block.set_allocated_block( bam.release_block() );
             sub_block.set_verify_passive_data( false );
             sub_block.set_verify_block_signature( true );
             sub_block.set_verify_transaction_signature( false );
@@ -299,7 +303,7 @@ void index_loop(
 
          for ( auto& block_item : *batch->mutable_block_items() )
          {
-            sub_block.set_allocated_block( block_item.mutable_block() );
+            sub_block.set_allocated_block( block_item.release_block() );
             controller.submit_block( sub_block, last_height );
          }
       }

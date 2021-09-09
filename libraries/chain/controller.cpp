@@ -227,7 +227,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       if ( _client && _client->is_connected() )
       {
          rpc::block_store::add_block_request req;
-         req.set_allocated_block_to_add( &block );
+         req.mutable_block_to_add()->CopyFrom( block );
 
          auto future = _client->rpc( service::block_store, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
 
@@ -272,9 +272,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          try
          {
             broadcast::block_irreversible bc;
-            block_topology topo = last_irreversible_block;
-
-            bc.set_allocated_topology( &topo );
+            bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
             _client->broadcast( "koinos.block.irreversible", converter::as< std::string >( bc ) );
          }
@@ -287,7 +285,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          {
             broadcast::block_accepted ba;
 
-            ba.set_allocated_block( &block );
+            ba.mutable_block()->CopyFrom( block );
 
             _client->broadcast( "koinos.block.accept", converter::as< std::string >( ba ) );
          }
@@ -299,9 +297,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          try
          {
             broadcast::fork_heads fh;
-            block_topology topo = last_irreversible_block;
-
-            fh.set_allocated_last_irreversible_block( &topo );
+            fh.mutable_last_irreversible_block()->CopyFrom( last_irreversible_block );
 
             for ( const auto& fork_head : fork_heads )
             {
@@ -420,7 +416,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          {
             broadcast::transaction_accepted ta;
 
-            ta.set_allocated_transaction( &transaction );
+            *ta.mutable_transaction() = transaction;
             ta.set_payer( payer );
             ta.set_max_payer_resources( max_payer_resources );
             ta.set_height( ctx.get_state_node()->revision() );
