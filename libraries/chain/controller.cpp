@@ -140,9 +140,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    statedb::state_node_ptr block_node;
 
    auto block        = request.block();
-   auto block_id     = crypto::multihash::from( block.id() );
+   auto block_id     = converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
-   auto parent_id    = crypto::multihash::from( block.header().previous() );
+   auto parent_id    = converter::to< crypto::multihash >( block.header().previous() );
    block_node        = _state_db.get_node( block_id );
 
    if ( block_node ) return {}; // Block has been applied

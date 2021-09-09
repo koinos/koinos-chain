@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+#include <koinos/conversion.hpp>
 #include <koinos/statedb/statedb_types.hpp>
 
 #include <mira/index_adapter.hpp>
@@ -222,20 +223,20 @@ std::size_t binary_size( const std::vector< unsigned char >& var )
 
 std::vector< char > to_binary_vector( const crypto::multihash& var )
 {
-   return var.as< std::vector< char > >();
+   return converter::as< std::vector< char > >( var );
 }
 
 std::size_t from_binary_array( const char* data, std::size_t size, crypto::multihash& var )
 {
    std::vector< std::byte > bytes;
    auto n = from_binary_array( data, size, bytes );
-   var = crypto::multihash::from( bytes );
+   var = converter::to< crypto::multihash >( bytes );
    return n;
 }
 
 std::size_t binary_size( const crypto::multihash& var )
 {
-   return var.as< std::vector< std::byte > >().size();
+   return converter::as< std::vector< std::byte > >( var ).size();
 }
 
 std::vector< char > to_binary_vector( const state_object& var )
