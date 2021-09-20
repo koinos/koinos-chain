@@ -192,6 +192,7 @@ void attach_request_handler(
 
          std::string r;
          resp.SerializeToString( &r );
+         LOG(debug) << to_hex( r );
          return r;
       }
    );
@@ -550,7 +551,7 @@ int main( int argc, char** argv )
       LOG(info) << "Genesis authority: " << genesis_address;
 
       chain::genesis_data genesis_data;
-      genesis_data[ { converter::as< statedb::object_space >( koinos::chain::database::space::kernel ), converter::as< statedb::object_key >( koinos::chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { converter::as< state_db::object_space >( koinos::chain::database::space::kernel ), converter::as< state_db::object_key >( koinos::chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );

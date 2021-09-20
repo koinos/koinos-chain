@@ -42,7 +42,7 @@ struct controller_fixture
 
       chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address() );
-      genesis_data[ { converter::as< statedb::object_space >( chain::database::space::kernel ), converter::as< statedb::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { converter::as< state_db::object_space >( chain::database::space::kernel ), converter::as< state_db::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       _controller.open( _state_dir, database_config, genesis_data, false );
    }

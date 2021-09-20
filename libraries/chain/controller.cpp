@@ -14,7 +14,7 @@
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/state_db.hpp>
 
 #include <koinos/util.hpp>
 
@@ -62,8 +62,8 @@ class controller_impl final
       rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
 
    private:
-      statedb::state_db             _state_db;
-      std::shared_mutex             _state_db_mutex;
+      state_db::database            _db;
+      std::shared_mutex             _db_mutex;
       std::shared_ptr< mq::client > _client;
       int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
 
@@ -78,25 +78,25 @@ controller_impl::controller_impl()
 
 controller_impl::~controller_impl()
 {
-   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
-   _state_db.close();
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
+   _db.close();
 }
 
 void controller_impl::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
-   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
-   _state_db.open( p, o, [&]( statedb::state_node_ptr root )
+   _db.open( p, o, [&]( state_db::state_node_ptr root )
    {
       for ( const auto& entry : data )
       {
-         statedb::put_object_args put_args;
+         state_db::put_object_args put_args;
          put_args.space = entry.first.first;
          put_args.key = entry.first.second;
          put_args.buf = entry.second.data();
          put_args.object_size = entry.second.size();
 
-         statedb::put_object_result put_res;
+         state_db::put_object_result put_res;
          root->put_object( put_res, put_args );
 
          KOINOS_ASSERT(
@@ -111,10 +111,10 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
    if ( reset )
    {
       LOG(info) << "Resetting database...";
-      _state_db.reset();
+      _db.reset();
    }
 
-   auto head = _state_db.get_head();
+   auto head = _db.get_head();
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
@@ -128,7 +128,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    uint64_t index_to,
    std::chrono::system_clock::time_point now )
 {
-   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
    static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
@@ -137,13 +137,13 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto time_upper_bound  = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
    uint64_t parent_height = 0;
 
-   statedb::state_node_ptr block_node;
+   state_db::state_node_ptr block_node;
 
    auto block        = request.block();
    auto block_id     = converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
    auto parent_id    = converter::to< crypto::multihash >( block.header().previous() );
-   block_node        = _state_db.get_node( block_id );
+   block_node        = _db.get_node( block_id );
 
    if ( block_node ) return {}; // Block has been applied
 
@@ -152,7 +152,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
-   block_node = _state_db.create_writable_node( parent_id, block_id );
+   block_node = _db.create_writable_node( parent_id, block_id );
 
    // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
    // than the parent block timestamp.
@@ -171,7 +171,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          .call_privilege = privilege::kernel_mode
       } );
 
-      auto parent_node = _state_db.get_node( parent_id );
+      auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
       auto head_info = system_call::get_head_info( parent_ctx ).value();
       parent_height = head_info.head_topology().height();
@@ -257,12 +257,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto lib = system_call::get_last_irreversible_block( ctx ).value();
 
-      _state_db.finalize_node( block_node->id() );
+      _db.finalize_node( block_node->id() );
 
-      if ( std::optional< state_node_ptr > node; lib > _state_db.get_root()->revision() )
+      if ( std::optional< state_node_ptr > node; lib > _db.get_root()->revision() )
       {
-         node = _state_db.get_node_at_revision( lib, block_node->id() );
-         _state_db.commit_node( node.value()->id() );
+         node = _db.get_node_at_revision( lib, block_node->id() );
+         _db.commit_node( node.value()->id() );
       }
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
@@ -326,7 +326,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _state_db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id() );
       }
 
       throw;
@@ -344,7 +344,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _state_db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id() );
       }
 
       throw;
@@ -355,7 +355,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    std::string payer;
    uint64_t max_payer_resources;
@@ -366,7 +366,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
-   auto pending_trx_node = _state_db.get_head()->create_anonymous_node();
+   auto pending_trx_node = _db.get_head()->create_anonymous_node();
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
    apply_context ctx;
@@ -445,7 +445,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
 rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::chain::get_head_info_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
@@ -453,7 +453,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _state_db.get_head() );
+   ctx.set_state_node( _db.get_head() );
 
    auto head_info = system_call::get_head_info( ctx ).value();
    block_topology topo = head_info.head_topology();
@@ -467,23 +467,23 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
 rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chain::get_chain_id_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    boost::interprocess::basic_ivectorstream< std::vector< char > > chain_id_stream;
    std::vector< char > chain_id_vector;
    chain_id_vector.resize( 128 );
    chain_id_stream.swap_vector( chain_id_vector );
 
-   statedb::get_object_result result;
-   statedb::get_object_args   args;
-   args.space    = converter::as< statedb::object_space >( database::space::kernel );
-   args.key      = converter::as< statedb::object_key >( database::key::chain_id );
+   state_db::get_object_result result;
+   state_db::get_object_args   args;
+   args.space    = converter::as< state_db::object_space >( database::space::kernel );
+   args.key      = converter::as< state_db::object_key >( database::key::chain_id );
    args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
    args.buf_size = chain_id_stream.vector().size();
 
-   statedb::state_node_ptr head;
+   state_db::state_node_ptr head;
 
-   head = _state_db.get_head();
+   head = _db.get_head();
 
    head->get_object( result, args );
 
@@ -503,7 +503,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
 fork_data controller_impl::get_fork_data()
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
    return get_fork_data_lockless();
 }
 
@@ -517,10 +517,10 @@ fork_data controller_impl::get_fork_data_lockless()
       .call_privilege = privilege::kernel_mode
    } );
 
-   std::vector< statedb::state_node_ptr > fork_heads;
+   std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _state_db.get_root() );
-   fork_heads = _state_db.get_fork_heads();
+   ctx.set_state_node( _db.get_root() );
+   fork_heads = _db.get_fork_heads();
 
    auto head_info = system_call::get_head_info( ctx ).value();
    fdata.second = head_info.head_topology();
@@ -572,11 +572,11 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   statedb::state_node_ptr head_node;
+   state_db::state_node_ptr head_node;
 
-   head_node = _state_db.get_head();
+   head_node = _db.get_head();
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
@@ -606,9 +606,9 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
       .call_privilege = privilege::kernel_mode
    } );
 
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   ctx.set_state_node( _state_db.get_head() );
+   ctx.set_state_node( _db.get_head() );
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() ).value();
 
