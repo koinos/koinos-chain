@@ -2,11 +2,11 @@
 
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/crypto/elliptic.hpp>
+#include <koinos/statedb/statedb.hpp>
+#include <koinos/vm_manager/vm_backend.hpp>
 
 #include <koinos/chain/chain.pb.h>
 #include <koinos/protocol/protocol.pb.h>
-
-#include <koinos/statedb/statedb.hpp>
 
 #include <deque>
 #include <optional>
@@ -35,7 +35,10 @@ struct stack_frame
 class apply_context
 {
    public:
-      apply_context() = default;
+      apply_context() = delete;
+      apply_context( std::shared_ptr< vm_manager::vm_backend > );
+
+      std::shared_ptr< vm_manager::vm_backend > get_backend() const;
 
       /// Console methods:
       void console_append( const std::string& val );
@@ -83,17 +86,6 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
-      template< typename Op >
-      inline void meter( const Op& op )
-      {
-         int64_t cost = 1;          // TODO:  Load cost from a table instead of having it always be 1
-         _meter_ticks -= cost;
-         if( _meter_ticks < 0 )
-         {
-            throw tick_meter_exception{ "tick meter ran out of cycles" };
-         }
-      }
-
       inline void set_meter_ticks(int64_t meter_ticks)
       {
          _start_meter_ticks = meter_ticks;
@@ -110,23 +102,24 @@ class apply_context
          return _start_meter_ticks - _meter_ticks;
       }
 
-      std::vector< stack_frame >             _stack;
-
    private:
       friend struct frame_restorer;
 
-      abstract_state_node_ptr                _current_state_node;
-      std::string                            _pending_console_output;
-      std::optional< crypto::public_key >    _key_auth;
+      std::shared_ptr< vm_manager::vm_backend > _vm_backend;
+      std::vector< stack_frame >                _stack;
 
-      bool                                   _is_in_user_code = false;
-      bool                                   _read_only = false;
+      abstract_state_node_ptr                   _current_state_node;
+      std::string                               _pending_console_output;
+      std::optional< crypto::public_key >       _key_auth;
 
-      int64_t                                _start_meter_ticks = 0;
-      int64_t                                _meter_ticks = 0;
+      bool                                      _is_in_user_code = false;
+      bool                                      _read_only = false;
 
-      const protocol::block*                 _block = nullptr;
-      const protocol::transaction*           _trx = nullptr;
+      int64_t                                   _start_meter_ticks = 0;
+      int64_t                                   _meter_ticks = 0;
+
+      const protocol::block*                    _block = nullptr;
+      const protocol::transaction*              _trx = nullptr;
 };
 
 struct frame_restorer
@@ -161,13 +154,3 @@ void with_stack_frame( apply_context& ctx, stack_frame&& f, Lambda&& l )
 }
 
 } // koinos::chain
-
-namespace eosio::vm {
-
-template< typename Host, typename Op >
-void meter_wasm_opcode( koinos::chain::apply_context* host, const Op& op )
-{
-   host->meter(op);
-}
-
-} // eosio::vm

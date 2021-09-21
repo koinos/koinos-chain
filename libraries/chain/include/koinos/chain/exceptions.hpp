@@ -17,13 +17,9 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_buffer_size, database_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( operation_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( reserved_operation_exception, operation_exception );
 
-// WASM exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( wasm_type_conversion_exception, wasm_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_return_buffer, wasm_exception );
-
 // System call exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( system_call_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_return_buffer, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_system_call, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_contract, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( forbidden_override, system_call_exception );
@@ -57,7 +53,11 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( stack_overflow, stack_exception );
 
 // Resource exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( resource_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( tick_meter_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( tick_max_too_high_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( tick_meter_exception, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( tick_max_too_high_exception, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( per_block_tick_limit_exception, resource_exception );
+
+// VM Exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
 
 } // koinos::chain

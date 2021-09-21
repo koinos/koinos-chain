@@ -6,6 +6,7 @@
 #include <koinos/bigint.hpp>
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -283,7 +284,7 @@ THUNK_DEFINE( void, apply_block,
 
       ticks_used += context.get_used_meter_ticks();
 
-      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, tick_meter_exception, "per-block tick limit exceeded" );
+      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, per_block_tick_limit_exception, "per-block tick limit exceeded" );
    }
 }
 
@@ -596,13 +597,6 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
       }
    );
 
-   wasm_allocator_type wa;
-   wasm_code_ptr bytecode_ptr( (uint8_t*)bytecode.data(), bytecode.size() );
-   backend_type backend( bytecode_ptr, bytecode_ptr.bounds(), registrar_type{} );
-
-   backend.set_wasm_allocator( &wa );
-   backend.initialize();
-
    context.push_frame( stack_frame {
       .call = converter::to< std::vector< std::byte > >( contract_id ),
       .call_privilege = context.get_privilege(),
@@ -610,18 +604,21 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
       .entry_point = entry_point
    } );
 
+   chain::host_api hapi( context );
+   vm_manager::context vm_ctx( hapi, context.get_meter_ticks() );
+
    try
    {
-      backend( &context, "env", "_start" );
+      context.get_backend()->run( vm_ctx, bytecode.data(), bytecode.size() );
    }
    catch( const exit_success& ) {}
    catch( ... ) {
       context.pop_frame();
-      wa.free();
+      context.set_meter_ticks( vm_ctx.meter_ticks );
       throw;
    }
 
-   wa.free();
+   context.set_meter_ticks( vm_ctx.meter_ticks );
 
    call_contract_return ret;
    ret.set_value( converter::to< std::string >( context.pop_frame().call_return ) );

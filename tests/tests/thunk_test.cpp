@@ -12,11 +12,13 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/host.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
+
+#include <koinos/vm_manager/exceptions.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -32,8 +34,13 @@ using namespace std::string_literals;
 
 struct thunk_fixture
 {
-   thunk_fixture() : host_api( ctx )
+   thunk_fixture() :
+      vm_backend( koinos::vm_manager::get_vm_backend() ),
+      ctx( vm_backend ),
+      host( ctx )
    {
+      KOINOS_ASSERT( vm_backend, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
+
       initialize_logging( "koinos_test", {}, "info" );
 
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
@@ -78,7 +85,7 @@ struct thunk_fixture
          .call_privilege = chain::privilege::kernel_mode
       } );
 
-      koinos::chain::register_host_functions();
+      vm_backend->initialize();
    }
 
    ~thunk_fixture()
@@ -122,8 +129,9 @@ struct thunk_fixture
 
    std::filesystem::path temp;
    koinos::statedb::state_db db;
+   std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
    koinos::chain::apply_context ctx;
-   koinos::chain::host_api host_api;
+   koinos::chain::host_api host;
    koinos::crypto::private_key _signing_private_key;
 };
 
@@ -329,8 +337,8 @@ BOOST_AUTO_TEST_CAS E( override_tests )
    // Test invoking the overridden system call
    koinos::variable_blob vl_args, vl_ret;
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
-   BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
+   host.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
+   BOOST_REQUIRE( "Greetings from koinos vm" == host.context.get_pending_console_output() );
 
    // Call stock prints and save the message
    koinos::chain::prints_args args;
@@ -338,13 +346,13 @@ BOOST_AUTO_TEST_CAS E( override_tests )
    koinos::variable_blob vl_args2, vl_ret2;
    koinos::pack::to_variable_blob( vl_args2, args );
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call(
+   host.invoke_system_call(
       system_call_id_type( koinos::chain::system_call_id::prints ),
       vl_ret2.data(),
       vl_ret2.size(),
       vl_args2.data(),
       vl_args2.size() );
-   auto original_message = host_api.context.get_pending_console_output();
+   auto original_message = host.context.get_pending_console_output();
 
    auto random_private_key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "key2"s ) );
    sign_transaction( tx, random_private_key2 );
@@ -372,18 +380,18 @@ BOOST_AUTO_TEST_CAS E( override_tests )
 
    // Now test that the message has been modified
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call(
+   host.invoke_system_call(
       system_call_id_type( koinos::chain::system_call_id::prints ),
       vl_ret2.data(),
       vl_ret2.size(),
       vl_args2.data(),
       vl_args2.size() );
-   auto new_message = host_api.context.get_pending_console_output();
+   auto new_message = host.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
 
-   system_call::prints( host_api.context, original_message );
-   new_message = host_api.context.get_pending_console_output();
+   system_call::prints( host.context, original_message );
+   new_message = host.context.get_pending_console_output();
    BOOST_REQUIRE( original_message != new_message );
    BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
 
@@ -403,7 +411,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
 
-   host_api.invoke_thunk(
+   host.invoke_thunk(
       protocol::system_call_id::prints,
       ret.data(),
       ret.size(),
@@ -427,7 +435,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
 
-   host_api.invoke_system_call(
+   host.invoke_system_call(
       protocol::system_call_id::prints,
       ret.data(),
       ret.size(),
@@ -826,10 +834,10 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    LOG(info) << "KOIN supply: " << supply;
 
 }
-catch( const eosio::vm::exception& e )
+catch( const koinos::vm_manager::vm_exception& e )
 {
-   LOG(info) << e.what() << ": " << e.detail();
-   BOOST_FAIL("EOSIO VM Exception");
+   LOG(info) << e.what();
+   BOOST_FAIL("VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -862,7 +870,7 @@ BOOST_AUTO_TEST_CAS E( tick_limit )
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
    koinos::protocol::call_contract_operation op2;
    std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), tick_meter_exception );
+   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), koinos::vm_manager::tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 #endif

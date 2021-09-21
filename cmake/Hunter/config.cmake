@@ -30,6 +30,11 @@ hunter_config(rocksdb
       CMAKE_C_FLAGS=-fvisibility=hidden
 )
 
+hunter_config(fizzy
+   URL "https://github.com/wasmx/fizzy/archive/86268ecd0e42f376b2e80d6e72ba8ec653099879.tar.gz"
+   SHA1 "c4af52631141582bce4f99ea6c404a80882a4c1d"
+)
+
 hunter_config(rabbitmq-c
    URL "https://github.com/alanxz/rabbitmq-c/archive/b8e5f43b082c5399bf1ee723c3fd3c19cecd843e.tar.gz"
    SHA1 "35d4ce3e4f0a5348de64bbed25c6e1df72da2594"

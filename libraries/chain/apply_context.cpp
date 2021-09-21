@@ -3,6 +3,14 @@
 
 namespace koinos::chain {
 
+apply_context::apply_context( std::shared_ptr< vm_manager::vm_backend > vm_backend ) :
+   _vm_backend( vm_backend ) {}
+
+std::shared_ptr< vm_manager::vm_backend > apply_context::get_backend() const
+{
+   return _vm_backend;
+}
+
 void apply_context::console_append( const std::string& val )
 {
    _pending_console_output += val;

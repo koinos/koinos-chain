@@ -1,11 +1,11 @@
 #include <koinos/block_store/block_store.pb.h>
 #include <koinos/broadcast/broadcast.pb.h>
 
+#include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/host.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/conversion.hpp>
@@ -17,6 +17,8 @@
 #include <koinos/statedb/statedb.hpp>
 
 #include <koinos/util.hpp>
+
+#include <koinos/vm_manager/vm_backend.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -62,10 +64,11 @@ class controller_impl final
       rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
 
    private:
-      statedb::state_db             _state_db;
-      std::shared_mutex             _state_db_mutex;
-      std::shared_ptr< mq::client > _client;
-      int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
+      statedb::state_db                         _state_db;
+      std::shared_mutex                         _state_db_mutex;
+      std::shared_ptr< vm_manager::vm_backend > _vm_backend;
+      std::shared_ptr< mq::client >             _client;
+      int64_t                                   _max_read_cycles = KOINOS_MAX_METER_TICKS;
 
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
@@ -73,7 +76,12 @@ class controller_impl final
 
 controller_impl::controller_impl()
 {
-   register_host_functions();
+   _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
+   KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
+
+   _vm_backend->initialize();
+
+   LOG(info) << "Initialzed " << _vm_backend->backend_name() << " vm backend";
 }
 
 controller_impl::~controller_impl()
@@ -158,7 +166,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    // than the parent block timestamp.
    if ( block_node && !parent_id.is_zero() )
    {
-      apply_context parent_ctx;
+      apply_context parent_ctx( _vm_backend );
 
       // The following call to set_meter_ticks() does not set an upper bound on the cycles that
       // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
@@ -178,7 +186,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       time_lower_bound = head_info.head_block_time();
    }
 
-   apply_context ctx;
+   apply_context ctx( _vm_backend );
 
    // The following call to set_meter_ticks() does not set an upper bound on the cycles that
    // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
@@ -369,7 +377,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    auto pending_trx_node = _state_db.get_head()->create_anonymous_node();
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
-   apply_context ctx;
+   apply_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -447,7 +455,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 {
    std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
 
-   apply_context ctx;
+   apply_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -510,7 +518,7 @@ fork_data controller_impl::get_fork_data()
 fork_data controller_impl::get_fork_data_lockless()
 {
    fork_data fdata;
-   apply_context ctx;
+   apply_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_fork_data"s ).digest(),
@@ -578,7 +586,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    head_node = _state_db.get_head();
 
-   apply_context ctx;
+   apply_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "read_contract"s ).digest(),
       .call_privilege = privilege::kernel_mode,
@@ -599,7 +607,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
-   apply_context ctx;
+   apply_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_nonce"s ).digest(),
