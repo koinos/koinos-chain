@@ -44,7 +44,7 @@ struct thunk_fixture
       _signing_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, seed ) );
 
       chain::genesis_data genesis_data;
-      auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address() );
+      auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address_bytes() );
       genesis_data[ { converter::as< state_db::object_space >( chain::database::space::kernel ), converter::as< state_db::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       db.open( temp, cfg, [&]( state_db::state_node_ptr root )
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CAS E( contract_tests )
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
    auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
-   auto contract_address = contract_private_key.get_public_key().to_address();
+   auto contract_address = contract_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx;
    sign_transaction( trx, contract_private_key );
    ctx.set_transaction( trx );
@@ -287,7 +287,7 @@ BOOST_AUTO_TEST_CAS E( override_tests )
    // Upload a test contract to use as override
    koinos::protocol::upload_contract_operation contract_op;
    auto bytecode = get_hello_wasm();
-   auto contract_address = random_private_key.get_public_key().to_address();
+   auto contract_address = random_private_key.get_public_key().to_address_bytes();
    auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
    std::memcpy( contract_op.contract_id.data(), id.digest.data(), contract_op.contract_id.size() );
 
@@ -353,7 +353,7 @@ BOOST_AUTO_TEST_CAS E( override_tests )
    // Override prints with a contract that prepends a message before printing
    koinos::protocol::upload_contract_operation contract_op2;
    auto bytecode2 = get_syscall_override_wasm();
-   auto contract_address2 = random_private_key2.get_public_key().to_address();
+   auto contract_address2 = random_private_key2.get_public_key().to_address_bytes();
    auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address2 );
    std::memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
    contract_op2.bytecode.insert( contract_op2.bytecode.end(), bytecode2.begin(), bytecode2.end() );
@@ -550,10 +550,10 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 BOOST_AUTO_TEST_CASE( require_authority )
 { try {
    auto foo_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "foo"s ) );
-   auto foo_account_string = foo_key.get_public_key().to_address();
+   auto foo_account_string = foo_key.get_public_key().to_address_bytes();
 
    auto bar_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "bar"s ) );
-   auto bar_account_string = bar_key.get_public_key().to_address();
+   auto bar_account_string = bar_key.get_public_key().to_address_bytes();
 
    protocol::transaction trx;
    protocol::active_transaction_data active_data;
@@ -659,7 +659,7 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    using namespace koinos;
 
    auto contract_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "token_contract"s ) );
-   auto contract_address = contract_private_key.get_public_key().to_address();
+   auto contract_address = contract_private_key.get_public_key().to_address_bytes();
    protocol::transaction trx;
    sign_transaction( trx, contract_private_key );
    ctx.set_transaction( trx );
@@ -707,10 +707,10 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    LOG(info) << "koin.total_supply() opcode count: " << ctx.get_used_meter_ticks();
 
    auto alice_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "alice"s ) );
-   auto alice_address = alice_private_key.get_public_key().to_address();
+   auto alice_address = alice_private_key.get_public_key().to_address_bytes();
 
    auto bob_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "bob"s ) );
-   auto bob_address = bob_private_key.get_public_key().to_address();
+   auto bob_address = bob_private_key.get_public_key().to_address_bytes();
 
    response.clear();
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
@@ -844,7 +844,7 @@ BOOST_AUTO_TEST_CAS E( tick_limit )
    ctx.set_transaction( trx );
 
    protocol::upload_contract_operation op;
-   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, contract_private_key.get_public_key().to_address() );
+   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, contract_private_key.get_public_key().to_address_bytes() );
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_forever_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );

@@ -113,7 +113,7 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
    );
 
    verify_block_signature_return ret;
-   ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address() ) );
+   ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
    return ret;
 }
 
@@ -414,7 +414,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    std::memcpy( sig.data(), tx.signature_data().c_str(), tx.signature_data().size() );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::to< crypto::multihash >( tx.id() ) ).to_address() ),
+      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
@@ -714,7 +714,7 @@ THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string
    auto pub_key = crypto::public_key::recover( signature, converter::to< crypto::multihash >( digest ) );
    KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
-   auto address = pub_key.to_address();
+   auto address = pub_key.to_address_bytes();
    recover_public_key_return ret;
    ret.set_value( address );
    return ret;
