@@ -11,7 +11,7 @@
 #include <koinos/protocol/protocol.pb.h>
 #include <koinos/protocol/system_call_ids.pb.h>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/state_db.hpp>
 
 #define KOINOS_EXIT_SUCCESS 0
 #define KOINOS_EXIT_FAILURE 1

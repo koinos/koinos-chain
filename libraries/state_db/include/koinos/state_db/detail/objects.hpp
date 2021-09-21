@@ -3,7 +3,7 @@
 #include <cstddef>
 
 #include <koinos/conversion.hpp>
-#include <koinos/statedb/statedb_types.hpp>
+#include <koinos/state_db/state_db_types.hpp>
 
 #include <mira/index_adapter.hpp>
 #include <mira/ordered_index.hpp>
@@ -12,7 +12,7 @@
 #include <mira/indexed_by.hpp>
 #include <mira/composite_key.hpp>
 
-namespace koinos::statedb::detail {
+namespace koinos::state_db::detail {
 
 struct state_object
 {
@@ -288,4 +288,4 @@ typedef mira::multi_index_adapter<
    >
 > state_object_index;
 
-} // koinos::statedb::detail
+} // koinos::state_db::detail

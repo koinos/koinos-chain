@@ -1,6 +1,6 @@
 #pragma once
 
-#include <koinos/statedb/detail/state_delta.hpp>
+#include <koinos/state_db/detail/state_delta.hpp>
 
 #include <boost/container/deque.hpp>
 
@@ -12,7 +12,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-namespace koinos::statedb::detail {
+namespace koinos::state_db::detail {
 
    using namespace boost::multi_index;
 
@@ -469,4 +469,4 @@ namespace koinos::statedb::detail {
          }
    };
 
-} // koinos::statedb::detail
+} // koinos::state_db::detail

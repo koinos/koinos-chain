@@ -6,7 +6,7 @@
 #include <koinos/chain/chain.pb.h>
 #include <koinos/protocol/protocol.pb.h>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/state_db.hpp>
 
 #include <deque>
 #include <optional>
@@ -17,9 +17,9 @@
 namespace koinos::chain {
 
 using boost::container::flat_set;
-using koinos::statedb::state_node_ptr;
-using koinos::statedb::anonymous_state_node_ptr;
-using koinos::statedb::abstract_state_node;
+using koinos::state_db::state_node_ptr;
+using koinos::state_db::anonymous_state_node_ptr;
+using koinos::state_db::abstract_state_node;
 
 using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 
