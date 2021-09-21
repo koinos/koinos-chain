@@ -5,10 +5,10 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/exception.hpp>
-#include <koinos/statedb/detail/merge_iterator.hpp>
-#include <koinos/statedb/detail/objects.hpp>
-#include <koinos/statedb/detail/state_delta.hpp>
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/state_db/detail/merge_iterator.hpp>
+#include <koinos/state_db/detail/objects.hpp>
+#include <koinos/state_db/detail/state_delta.hpp>
+#include <koinos/state_db/state_db.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -19,9 +19,9 @@
 #include <filesystem>
 
 using namespace koinos;
-using namespace koinos::statedb;
-using statedb::detail::merge_index;
-using statedb::detail::state_delta;
+using namespace koinos::state_db;
+using state_db::detail::merge_index;
+using state_db::detail::state_delta;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 
@@ -60,7 +60,7 @@ struct by_sum;
 
 typedef mira::multi_index_adapter<
    book,
-   koinos::statedb::detail::state_object_serializer,
+   koinos::state_db::detail::state_object_serializer,
    mira::multi_index::indexed_by<
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_id >, mira::multi_index::member< book, book::id_type, &book::id > >,
       mira::multi_index::ordered_unique< mira::multi_index::tag< by_a >,  mira::multi_index::member< book, int,           &book::a  > >,
@@ -100,9 +100,9 @@ void from_binary< book >( std::istream& o, book& b )
 
 }
 
-struct statedb_fixture
+struct state_db_fixture
 {
-   statedb_fixture()
+   state_db_fixture()
    {
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       std::filesystem::create_directory( temp );
@@ -111,17 +111,17 @@ struct statedb_fixture
       db.open( temp, cfg );
    }
 
-   ~statedb_fixture()
+   ~state_db_fixture()
    {
       db.close();
       std::filesystem::remove_all( temp );
    }
 
-   state_db db;
+   database db;
    std::filesystem::path temp;
 };
 
-BOOST_FIXTURE_TEST_SUITE( statedb_tests, statedb_fixture )
+BOOST_FIXTURE_TEST_SUITE( state_db_tests, state_db_fixture )
 
 BOOST_AUTO_TEST_CASE( basic_test )
 { try {
@@ -267,7 +267,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
-   BOOST_TEST_MESSAGE( "Basic fork tests on statedb" );
+   BOOST_TEST_MESSAGE( "Basic fork tests on state_db" );
    crypto::multihash id, prev_id, block_1000_id;
    test_block b;
 

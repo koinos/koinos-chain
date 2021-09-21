@@ -67,11 +67,11 @@ void register_thunks( thunk_dispatcher& td )
 
 KOINOS_TODO( "Should this be a thunk?" );
 KOINOS_TODO( "This is called on every database access. Can we optimize away the conversion because it is done all the time?" );
-bool is_system_space( const statedb::object_space& space_id )
+bool is_system_space( const state_db::object_space& space_id )
 {
-   return space_id == converter::as< statedb::object_space >( database::space::contract ) ||
-          space_id == converter::as< statedb::object_space >( database::space::system_call_dispatch ) ||
-          space_id == converter::as< statedb::object_space >( database::space::kernel );
+   return space_id == converter::as< state_db::object_space >( database::space::contract ) ||
+          space_id == converter::as< state_db::object_space >( database::space::system_call_dispatch ) ||
+          space_id == converter::as< state_db::object_space >( database::space::kernel );
 }
 
 THUNK_DEFINE_BEGIN();
@@ -440,10 +440,10 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    system_call::db_put_object( context, database::space::system_call_dispatch, converter::as< std::string >( o.call_id() ), converter::as< std::string >( o.target() ) );
 }
 
-void check_db_permissions( const apply_context& context, const statedb::object_space& space )
+void check_db_permissions( const apply_context& context, const state_db::object_space& space )
 {
    auto privilege = context.get_privilege();
-   auto caller = converter::to< statedb::object_space >( context.get_caller() );
+   auto caller = converter::to< state_db::object_space >( context.get_caller() );
    if ( space != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
@@ -461,21 +461,21 @@ THUNK_DEFINE( db_put_object_return, db_put_object, ((const std::string&) space, 
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
 
-   const auto _space = converter::as< statedb::object_space >( space );
-   const auto _key   = converter::as< statedb::object_key >( key );
-   const auto _obj   = converter::to< statedb::object_value >( obj );
+   const auto _space = converter::as< state_db::object_space >( space );
+   const auto _key   = converter::as< state_db::object_key >( key );
+   const auto _obj   = converter::to< state_db::object_value >( obj );
 
    check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
-   statedb::put_object_args put_args;
+   state_db::put_object_args put_args;
    put_args.space = _space;
    put_args.key = _key;
    put_args.buf = _obj.data();
    put_args.object_size = _obj.size();
 
-   statedb::put_object_result put_res;
+   state_db::put_object_result put_res;
    state->put_object( put_res, put_args );
 
    db_put_object_return ret;
@@ -485,24 +485,24 @@ THUNK_DEFINE( db_put_object_return, db_put_object, ((const std::string&) space, 
 
 THUNK_DEFINE( db_get_object_return, db_get_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   const auto _space = converter::as< statedb::object_space >( space );
-   const auto _key   = converter::as< statedb::object_key >( key );
+   const auto _space = converter::as< state_db::object_space >( space );
+   const auto _key   = converter::as< state_db::object_key >( key );
 
    check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   statedb::get_object_args get_args;
+   state_db::get_object_args get_args;
    get_args.space = _space;
    get_args.key = _key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
 
-   statedb::object_value object_buffer;
+   state_db::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
-   statedb::get_object_result get_res;
+   state_db::get_object_result get_res;
    state->get_object( get_res, get_args );
 
    if( get_res.key == get_args.key && get_res.size > 0 )
@@ -517,23 +517,23 @@ THUNK_DEFINE( db_get_object_return, db_get_object, ((const std::string&) space, 
 
 THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   const auto _space = converter::as< statedb::object_space >( space );
-   const auto _key   = converter::as< statedb::object_key >( key );
+   const auto _space = converter::as< state_db::object_space >( space );
+   const auto _key   = converter::as< state_db::object_key >( key );
 
    check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
-   statedb::get_object_args get_args;
+   state_db::get_object_args get_args;
    get_args.space = _space;
    get_args.key = _key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
 
-   statedb::object_value object_buffer;
+   state_db::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
-   statedb::get_object_result get_res;
+   state_db::get_object_result get_res;
    state->get_next_object( get_res, get_args );
 
    if( get_res.size > 0 )
@@ -548,23 +548,23 @@ THUNK_DEFINE( db_get_next_object_return, db_get_next_object, ((const std::string
 
 THUNK_DEFINE( db_get_prev_object_return, db_get_prev_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
 {
-   const auto _space = converter::as< statedb::object_space >( space );
-   const auto _key   = converter::as< statedb::object_key >( key );
+   const auto _space = converter::as< state_db::object_space >( space );
+   const auto _key   = converter::as< state_db::object_key >( key );
 
    check_db_permissions( context, _space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
-   statedb::get_object_args get_args;
+   state_db::get_object_args get_args;
    get_args.space = _space;
    get_args.key = _key;
    get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
 
-   statedb::object_value object_buffer;
+   state_db::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
    get_args.buf = object_buffer.data();
 
-   statedb::get_object_result get_res;
+   state_db::get_object_result get_res;
    state->get_prev_object( get_res, get_args );
 
    if( get_res.size > 0 )

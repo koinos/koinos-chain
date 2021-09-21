@@ -52,19 +52,19 @@ struct thunk_fixture
 
       chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address() );
-      genesis_data[ { converter::as< statedb::object_space >( chain::database::space::kernel ), converter::as< statedb::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { converter::as< state_db::object_space >( chain::database::space::kernel ), converter::as< state_db::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
-      db.open( temp, cfg, [&]( statedb::state_node_ptr root )
+      db.open( temp, cfg, [&]( state_db::state_node_ptr root )
       {
          for ( const auto& entry : genesis_data )
          {
-            statedb::put_object_args put_args;
+            state_db::put_object_args put_args;
             put_args.space = entry.first.first;
             put_args.key = entry.first.second;
             put_args.buf = entry.second.data();
             put_args.object_size = entry.second.size();
 
-            statedb::put_object_result put_res;
+            state_db::put_object_result put_res;
             root->put_object( put_res, put_args );
 
             KOINOS_ASSERT(
@@ -128,7 +128,7 @@ struct thunk_fixture
 //   }
 
    std::filesystem::path temp;
-   koinos::statedb::state_db db;
+   koinos::state_db::database db;
    std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
    koinos::chain::apply_context ctx;
    koinos::chain::host_api host;
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
       ).value() == true
    );
 
-   auto node = std::dynamic_pointer_cast< koinos::statedb::state_node >( ctx.get_state_node() );
+   auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );

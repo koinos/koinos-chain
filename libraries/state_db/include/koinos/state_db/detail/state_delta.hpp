@@ -1,6 +1,6 @@
 #pragma once
-#include <koinos/statedb/statedb_types.hpp>
-#include <koinos/statedb/detail/uniqueness_validator.hpp>
+#include <koinos/state_db/state_db_types.hpp>
+#include <koinos/state_db/detail/uniqueness_validator.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 
@@ -10,7 +10,7 @@
 
 const std::vector< uint8_t > ID_KEY { 'D','E','L','T','A','_','I','D' };
 
-namespace koinos::statedb::detail {
+namespace koinos::state_db::detail {
 
    using boost::container::flat_set;
 
@@ -421,6 +421,6 @@ namespace koinos::statedb::detail {
          }
    };
 
-} // koinos::statedb::detail
+} // koinos::state_db::detail
 
 #undef ID_KEY

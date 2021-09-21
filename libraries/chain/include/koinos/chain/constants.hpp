@@ -7,7 +7,7 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/common.pb.h>
 #include <koinos/conversion.hpp>
-#include <koinos/statedb/statedb_types.hpp>
+#include <koinos/state_db/state_db_types.hpp>
 #include <koinos/util.hpp>
 
 namespace koinos::chain {
