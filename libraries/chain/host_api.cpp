@@ -8,6 +8,10 @@
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>
 
+#include <koinos/protocol/system_call_ids.pb.h>
+
+using namespace std::string_literals;
+
 namespace koinos::chain {
 
 host_api::host_api( apply_context& ctx ) : _ctx( ctx ) {}
@@ -27,7 +31,7 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
    with_stack_frame(
       _ctx,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+         .call = "invoke_system_call"s,
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
@@ -54,16 +58,7 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
 
    if ( target.thunk_id() )
    {
-      with_stack_frame(
-         _ctx,
-         stack_frame {
-            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
-            .call_privilege = _ctx.get_privilege(),
-         },
-         [&]() {
-            thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
-         }
-      );
+      thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    else if ( target.has_system_call_bundle() )
    {
@@ -76,8 +71,11 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
       with_stack_frame(
          _ctx,
          stack_frame {
-            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            .call = scb.contract_id(),
+            .sid = protocol::system_call_id( sid ),
             .call_privilege = privilege::kernel_mode,
+            .call_args = args,
+            .entry_point = scb.entry_point()
          },
          [&]()
          {

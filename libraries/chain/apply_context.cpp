@@ -68,13 +68,13 @@ void apply_context::clear_transaction()
    _trx = nullptr;
 }
 
-const std::vector< std::byte >& apply_context::get_contract_call_args() const
+const std::string& apply_context::get_contract_call_args() const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].call_args;
 }
 
-std::vector< std::byte > apply_context::get_contract_return() const
+const std::string& apply_context::get_contract_return() const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].call_return;
@@ -86,7 +86,7 @@ uint32_t apply_context::get_contract_entry_point() const
    return _stack[ _stack.size() - 2 ].entry_point;
 }
 
-void apply_context::set_contract_return( const std::vector< std::byte >& ret )
+void apply_context::set_contract_return( const std::string& ret )
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    _stack[ _stack.size() - 2 ].call_return = ret;
@@ -116,7 +116,13 @@ stack_frame apply_context::pop_frame()
    return frame;
 }
 
-const std::vector< std::byte >& apply_context::get_caller()const
+const stack_frame& apply_context::peek_frame() const
+{
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   return _stack[ _stack.size() - 1 ];
+}
+
+const std::string& apply_context::get_caller()const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
    return _stack[ _stack.size() - 2 ].call;

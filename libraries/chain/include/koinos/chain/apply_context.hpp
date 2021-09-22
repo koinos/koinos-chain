@@ -7,6 +7,7 @@
 
 #include <koinos/chain/chain.pb.h>
 #include <koinos/protocol/protocol.pb.h>
+#include <koinos/protocol/system_call_ids.pb.h>
 
 #include <deque>
 #include <optional>
@@ -25,11 +26,12 @@ using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 
 struct stack_frame
 {
-   std::vector< std::byte > call;
+   std::string              call;
+   protocol::system_call_id sid = protocol::system_call_id::reserved_id;
    privilege                call_privilege;
-   std::vector< std::byte > call_args;
+   std::string              call_args;
    uint32_t                 entry_point = 0;
-   std::vector< std::byte > call_return;
+   std::string              call_return;
 };
 
 class apply_context
@@ -56,13 +58,13 @@ class apply_context
       const protocol::transaction& get_transaction() const;
       void clear_transaction();
 
-      void set_contract_call_args( const std::vector< std::byte >& args );
-      const std::vector< std::byte >& get_contract_call_args() const;
+      void set_contract_call_args( const std::string& args );
+      const std::string& get_contract_call_args() const;
 
       uint32_t get_contract_entry_point() const;
 
-      std::vector< std::byte > get_contract_return() const;
-      void set_contract_return( const std::vector< std::byte >& ret );
+      const std::string& get_contract_return() const;
+      void set_contract_return( const std::string& ret );
 
       /**
        * For now, authority lives on the context.
@@ -73,8 +75,9 @@ class apply_context
 
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
+      const stack_frame& peek_frame() const;
 
-      const std::vector< std::byte >& get_caller()const;
+      const std::string& get_caller()const;
       privilege get_caller_privilege()const;
 
       void set_privilege( privilege );

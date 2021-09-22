@@ -174,11 +174,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       parent_ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
 
-      parent_ctx.push_frame( stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
-         .call_privilege = privilege::kernel_mode
-      } );
-
       auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
       auto head_info = system_call::get_head_info( parent_ctx ).value();
@@ -217,11 +212,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       KOINOS_ASSERT( block.header().timestamp() <= time_upper_bound, timestamp_out_of_bounds, "block timestamp is too far in the future" );
       KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds, "block timestamp is too old" );
-
-      ctx.push_frame( stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
-         .call_privilege = privilege::kernel_mode
-      } );
 
       ctx.set_state_node( block_node );
 
@@ -378,10 +368,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
    apply_context ctx( _vm_backend );
-   ctx.push_frame( stack_frame {
-      .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
-      .call_privilege = privilege::kernel_mode
-   } );
 
    try
    {
@@ -456,10 +442,6 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    apply_context ctx( _vm_backend );
-   ctx.push_frame( stack_frame {
-      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
-      .call_privilege = privilege::kernel_mode
-   } );
 
    ctx.set_state_node( _db.get_head() );
 
@@ -519,11 +501,6 @@ fork_data controller_impl::get_fork_data_lockless()
 {
    fork_data fdata;
    apply_context ctx( _vm_backend );
-
-   ctx.push_frame( koinos::chain::stack_frame {
-      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_fork_data"s ).digest(),
-      .call_privilege = privilege::kernel_mode
-   } );
 
    std::vector< state_db::state_node_ptr > fork_heads;
 
@@ -587,10 +564,6 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    head_node = _db.get_head();
 
    apply_context ctx( _vm_backend );
-   ctx.push_frame( stack_frame {
-      .call = crypto::hash( crypto::multicodec::ripemd_160, "read_contract"s ).digest(),
-      .call_privilege = privilege::kernel_mode,
-   } );
 
    ctx.set_state_node( head_node );
    ctx.set_read_only( true );
@@ -608,11 +581,6 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
    apply_context ctx( _vm_backend );
-
-   ctx.push_frame( koinos::chain::stack_frame {
-      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_nonce"s ).digest(),
-      .call_privilege = privilege::kernel_mode
-   } );
 
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 

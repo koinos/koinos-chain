@@ -77,11 +77,11 @@ struct thunk_fixture
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
       ctx.push_frame( chain::stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "thunk_tests"s ).digest(),
+         .call = "thunk_tests"s,
          .call_privilege = chain::privilege::kernel_mode
       } );
       ctx.push_frame( chain::stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "thunk_tests"s ).digest(),
+         .call = "thunk_tests"s,
          .call_privilege = chain::privilege::kernel_mode
       } );
 
@@ -535,20 +535,21 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 
    BOOST_REQUIRE_THROW( ctx.pop_frame(), chain::stack_exception );
 
-   auto call1_vb = crypto::hash( crypto::multicodec::ripemd_160, "call1"s ).digest();
-   ctx.push_frame( chain::stack_frame{ .call = call1_vb } );
+   ctx.push_frame( chain::stack_frame{ .call = "call1"s } );
    BOOST_REQUIRE_THROW( ctx.get_caller(), chain::stack_exception );
 
-   auto call2_vb = crypto::hash( crypto::multicodec::ripemd_160, "call2"s ).digest();
-   ctx.push_frame( chain::stack_frame{ .call = call2_vb } );
-   BOOST_REQUIRE( std::equal( call1_vb.begin(), call1_vb.end(), ctx.get_caller().begin() ) );
+   ctx.push_frame( chain::stack_frame{ .call = "call2"s } );
+   BOOST_REQUIRE( ctx.get_caller() == "call1" );
+
+   const auto& top = ctx.peek_frame();
+   BOOST_REQUIRE( top.call == "call2" );
 
    auto last_frame = ctx.pop_frame();
-   BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
+   BOOST_REQUIRE( last_frame.call == "call2" );
 
    for ( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
    {
-      ctx.push_frame( chain::stack_frame{ .call = crypto::hash( crypto::multicodec::ripemd_160, "call"s + std::to_string( i ) ).digest() } );
+      ctx.push_frame( chain::stack_frame{ .call = "call"s + std::to_string( i ) } );
    }
 
    BOOST_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::stack_overflow );
@@ -648,18 +649,14 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
 BOOST_AUTO_TEST_CASE( get_contract_id_test )
 { try {
-   auto contract_id = crypto::hash( crypto::multicodec::ripemd_160, "get_contract_id_test"s ).digest();
-
    ctx.push_frame( chain::stack_frame {
-      .call = contract_id,
+      .call = "get_contract_id_test"s,
       .call_privilege = chain::privilege::kernel_mode
    } );
 
    auto id = chain::system_call::get_contract_id( ctx );
 
-   BOOST_REQUIRE( contract_id.size() == id.value().size() );
-   auto id_bytes = converter::as< std::vector< std::byte > >( id.value() );
-   BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id_bytes.begin() ) );
+   BOOST_REQUIRE( "get_contract_id_test"s == id.value() );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 #if 0
 BOOST_AUTO_TEST_CAS E( token_tests )
