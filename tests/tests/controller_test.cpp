@@ -41,7 +41,7 @@ struct controller_fixture
       auto database_config = mira::utilities::default_database_configuration();
 
       chain::genesis_data genesis_data;
-      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address() );
+      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
       genesis_data[ { converter::as< state_db::object_space >( chain::database::space::kernel ), converter::as< state_db::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       _controller.open( _state_dir, database_config, genesis_data, false );
@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( crypto::multicodec::sha2_256, "foo"s ) );
 
-   block_active_data.set_signer( converter::as< std::string >( foo_key.get_public_key().to_address() ) );
+   block_active_data.set_signer( converter::as< std::string >( foo_key.get_public_key().to_address_bytes() ) );
    block_req.mutable_block()->mutable_header()->set_height( 1 );
    block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
 
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_CHECK_EQUAL(
       converter::to< crypto::multihash >( _controller.get_chain_id().chain_id() ),
-      koinos::crypto::hash( crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address() )
+      koinos::crypto::hash( crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() )
    );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -388,7 +388,7 @@ BOOST_AUTO_TEST_CAS E( read_contract_tests )
    trx1.active_data.make_mutable();
 
    koinos::protocol::upload_contract_operation op;
-   auto contract_1_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key1.get_public_key().to_address() );
+   auto contract_1_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key1.get_public_key().to_address_bytes() );
    std::memcpy( op.contract_id.data(), contract_1_id.digest.data(), op.contract_id.size() );
    auto bytecode = get_hello_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -401,7 +401,7 @@ BOOST_AUTO_TEST_CAS E( read_contract_tests )
    trx2.active_data.make_mutable();
 
    bytecode = get_contract_return_wasm();
-   auto contract_2_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key2.get_public_key().to_address() );
+   auto contract_2_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key2.get_public_key().to_address_bytes() );
    std::memcpy( op.contract_id.data(), contract_2_id.digest.data(), op.contract_id.size() );
    op.bytecode.clear();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -414,7 +414,7 @@ BOOST_AUTO_TEST_CAS E( read_contract_tests )
    trx3.active_data.make_mutable();
 
    bytecode = get_db_write_wasm();
-   auto contract_3_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key3.get_public_key().to_address() );
+   auto contract_3_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key3.get_public_key().to_address_bytes() );
    std::memcpy( op.contract_id.data(), contract_3_id.digest.data(), op.contract_id.size() );
    op.bytecode.clear();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
@@ -484,13 +484,13 @@ BOOST_AUTO_TEST_CAS E( transaction_reversion_test )
 
    auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "contract"s ) );
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
-   auto alice_address = alice_private_key.get_public_key().to_address();
+   auto alice_address = alice_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx1;
    trx1.active_data.make_mutable();
 
    // Upload the KOIN contract
    koinos::protocol::upload_contract_operation op;
-   auto id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_private_key.get_public_key().to_address() );
+   auto id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_private_key.get_public_key().to_address_bytes() );
    std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
    auto bytecode = get_koin_wasm();
    op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );

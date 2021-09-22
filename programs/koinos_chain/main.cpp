@@ -545,7 +545,7 @@ int main( int argc, char** argv )
       std::getline( ifs, genesis_address );
       ifs.close();
 
-      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_address );
+      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, from_hex( genesis_address ) );
 
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Genesis authority: " << genesis_address;
