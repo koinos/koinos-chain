@@ -362,7 +362,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    uint64_t trx_resource_limit;
 
    auto transaction    = request.transaction();
-   auto transaction_id = transaction.id();
+   auto transaction_id = to_hex( transaction.id() );
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
@@ -393,11 +393,12 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       if ( _client && _client->is_connected() )
       {
-         rpc::mempool::check_pending_account_resources_request req;
+         rpc::mempool::mempool_request req;
+         auto* check_pending = req.mutable_check_pending_account_resources();
 
-         req.set_payer( payer );
-         req.set_max_payer_resources( max_payer_resources );
-         req.set_trx_resource_limit( trx_resource_limit );
+         check_pending->set_payer( payer );
+         check_pending->set_max_payer_resources( max_payer_resources );
+         check_pending->set_trx_resource_limit( trx_resource_limit );
 
          auto future = _client->rpc( service::mempool, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
 

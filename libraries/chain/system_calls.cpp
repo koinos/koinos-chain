@@ -186,7 +186,7 @@ THUNK_DEFINE( void, apply_block,
 
    for ( const auto& trx : block.transactions() )
    {
-      hashes.emplace_back( converter::as< std::string >( crypto::hash( tx_root.code(), trx ) ) );
+      hashes.emplace_back( converter::as< std::string >( crypto::hash( tx_root.code(), trx.active() ) ) );
    }
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ).value(), transaction_root_mismatch, "transaction merkle root does not match" );
@@ -367,7 +367,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    auto contract_id = converter::to< crypto::multihash >( o.contract_id() );
 
    KOINOS_ASSERT(
-      signer_hash.digest().size() == contract_id.digest().size() && std::equal( signer_hash.digest().begin(), signer_hash.digest().end(), contract_id.digest().begin() ),
+      signer_hash == contract_id,
       invalid_signature,
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_id)("signer_hash", signer_hash)
    );
@@ -781,9 +781,10 @@ THUNK_DEFINE_VOID( get_transaction_signature_return, get_transaction_signature )
 THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
-   std:;string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) ).value();
+   std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) ).value();
+
    KOINOS_ASSERT(
-      sig_account.size() == account.size() && std::equal(sig_account.begin(), sig_account.end(), account.begin()),
+      account == sig_account,
       invalid_signature,
       "signature does not match", ("account", account)("sig_account", sig_account)
    );
