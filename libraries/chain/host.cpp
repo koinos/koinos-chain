@@ -30,7 +30,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         blob_bundle = thunk::db_get_object(
+         blob_bundle = thunk::get_object(
             context,
             database::space::system_call_dispatch,
             key,

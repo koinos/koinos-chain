@@ -218,7 +218,7 @@ namespace koinos::chain::detail {
    }
 }
 
-#define _THUNK_DETAIL_ARG_PACK(r, msg, i, elem) koinos::chain::detail::set_message_field( msg, i, elem );
+#define _THUNK_DETAIL_ARG_PACK(r, msg, i, elem) koinos::chain::detail::set_message_field( msg, i + 1, elem );
 #define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH_I(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
@@ -239,7 +239,7 @@ namespace koinos::chain::detail {
             .call_privilege = privilege::kernel_mode,                                                                \
          },                                                                                                          \
          [&]() {                                                                                                     \
-            _blob_bundle = thunk::db_get_object(                                                                     \
+            _blob_bundle = thunk::get_object(                                                                        \
                context,                                                                                              \
                database::space::system_call_dispatch,                                                                \
                _key,                                                                                                 \
@@ -283,6 +283,7 @@ namespace koinos::chain::detail {
       }                                                                                                              \
       else if ( _target.has_system_call_bundle() )                                                                   \
       {                                                                                                              \
+         LOG(info) << "System call override for " << _sid; \
          const auto& _scb = _target.system_call_bundle();                                                            \
          BOOST_PP_CAT( SYSCALL, _args ) _args;                                                                       \
          BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \

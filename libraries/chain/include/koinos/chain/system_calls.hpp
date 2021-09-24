@@ -65,10 +65,10 @@ THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_con
 THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 
-THUNK_DECLARE( db_put_object_return, db_put_object, const std::string& space, const std::string& key, const std::string& obj );
-THUNK_DECLARE( db_get_object_return, db_get_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( db_get_next_object_return, db_get_next_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( db_get_prev_object_return, db_get_prev_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( put_object_return, put_object, const std::string& space, const std::string& key, const std::string& obj );
+THUNK_DECLARE( get_object_return, get_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( get_next_object_return, get_next_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( get_prev_object_return, get_prev_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
 
 THUNK_DECLARE( call_contract_return, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 
