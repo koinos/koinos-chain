@@ -1,7 +1,7 @@
 
 #include <stdint.h>
 
-#define KOINOS_SYSTEM_CALL_ID_prints 0x9b229941
+#define KOINOS_SYSTEM_CALL_ID_prints 1
 
 extern "C" {
    void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );

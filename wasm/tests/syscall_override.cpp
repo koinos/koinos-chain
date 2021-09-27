@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#define KOINOS_SYSTEM_CALL_ID_get_contract_args 0x9fbba198
-#define KOINOS_THUNK_ID_prints 0x8f6df54d
+#define KOINOS_SYSTEM_CALL_ID_get_contract_args 15
+#define KOINOS_THUNK_ID_prints 1
 
 char prepend[] = "test: ";
 #define PREPEND_LEN sizeof(prepend) - 1
