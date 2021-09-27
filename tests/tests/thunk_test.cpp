@@ -21,9 +21,9 @@
 #include <mira/database_configuration.hpp>
 
 //#include <koinos/tests/koin.hpp>
-//#include <koinos/tests/wasm/contract_return.hpp>
+#include <koinos/tests/wasm/contract_return.hpp>
 //#include <koinos/tests/wasm/forever.hpp>
-//#include <koinos/tests/wasm/hello.hpp>
+#include <koinos/tests/wasm/hello.hpp>
 //#include <koinos/tests/wasm/koin.hpp>
 //#include <koinos/tests/wasm/syscall_override.hpp>
 
@@ -215,64 +215,54 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
-BOOST_AUTO_TEST_CAS E( contract_tests )
+
+BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
 
-   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "contract"s ) );
    auto contract_address = contract_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx;
    sign_transaction( trx, contract_private_key );
    ctx.set_transaction( trx );
 
-   auto contract_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
+   auto contract_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_address );
 
    koinos::protocol::upload_contract_operation op;
-   memcpy( op.contract_id.data(), contract_id.digest.data(), op.contract_id.size() );
-   auto bytecode = get_hello_wasm();
-   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   op.set_contract_id( converter::as< std::string >( contract_id ) );
+   op.set_bytecode( std::string( (const char*)hello_wasm, hello_wasm_len ) );
 
-   system_call::apply_upload_contract_operation( ctx, op );
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
-   auto stored_bytecode = system_call::get_object( ctx, database::contract_space, contract_key, bytecode.size() );
+   auto stored_bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::contract, converter::as< std::string>( contract_id ), op.bytecode().size() );
 
-   BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
-   BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
+   BOOST_REQUIRE( stored_bytecode.value().size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( stored_bytecode.value().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
    koinos::protocol::call_contract_operation op2;
-   std::memcpy( op2.contract_id.data(), contract_id.digest.data(), op2.contract_id.size() );
-   system_call::apply_execute_contract_operation( ctx, op2 );
-   BOOST_REQUIRE( "Greetings from koinos vm" == ctx.get_pending_console_output() );
+   op2.set_contract_id( op.contract_id() );
+   koinos::chain::system_call::apply_call_contract_operation( ctx, op2 );
+   BOOST_REQUIRE_EQUAL( "Greetings from koinos vm", ctx.get_pending_console_output() );
 
    LOG(info) << "hello.wasm opcode count: " << ctx.get_used_meter_ticks();
-
-   BOOST_REQUIRE_THROW( system_call::apply_reserved_operation( ctx, koinos::protocol::reserved_operation() ), reserved_operation_exception );
 
    BOOST_TEST_MESSAGE( "Test contract return" );
 
    // Upload the return test contract
-   koinos::pack::protocol::upload_contract_operation contract_op;
-   auto return_bytecode = get_contract_return_wasm();
-   //auto return_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, return_bytecode );
-   std::memcpy( contract_op.contract_id.data(), contract_id.digest.data(), contract_op.contract_id.size() );
-   contract_op.bytecode.insert( contract_op.bytecode.end(), return_bytecode.begin(), return_bytecode.end() );
-   system_call::apply_upload_contract_operation( ctx, contract_op );
+   op.set_bytecode( std::string( (const char*)contract_return_wasm, contract_return_wasm_len ) );
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   std::string arg_str = "echo";
-   koinos::variable_blob args = koinos::pack::to_variable_blob( arg_str );
-   auto contract_ret = system_call::execute_contract(ctx, contract_op.contract_id, 0, args);
-   auto return_str = koinos::pack::from_variable_blob< std::string >( contract_ret );
-   BOOST_REQUIRE_EQUAL( arg_str, return_str );
+   auto contract_ret = koinos::chain::system_call::call_contract(ctx, op.contract_id(), 0, "echo");
+
+   BOOST_REQUIRE_EQUAL( contract_ret.value(), "echo" );
    LOG(info) << "echo opcode count: " << ctx.get_used_meter_ticks();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CAS E( override_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test set system call operation" );

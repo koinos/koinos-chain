@@ -14,12 +14,13 @@ void prints( char* msg )
    int i = 0;
    while( msg[i] && i < 127 )
    {
-      args[i+1] = msg[i];
+      args[i+2] = msg[i];
       i++;
    }
-   args[0] = (uint8_t)i;
+   args[0] = '\x0a';
+   args[1] = (uint8_t)i;
 
-   invoke_system_call( KOINOS_SYSTEM_CALL_ID_prints, 0, 0, args, i + 1 );
+   invoke_system_call( KOINOS_SYSTEM_CALL_ID_prints, 0, 0, args, i + 2 );
 }
 
 int main()
