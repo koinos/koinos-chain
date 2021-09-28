@@ -259,7 +259,7 @@ THUNK_DEFINE( void, apply_block,
    auto block_node = context.get_state_node();
    int64_t ticks_used = 0;
 
-   for( const auto& tx : block.transactions() )
+   for ( const auto& tx : block.transactions() )
    {
       auto trx_node = block_node->create_anonymous_node();
       context.set_state_node( trx_node );
@@ -279,7 +279,10 @@ THUNK_DEFINE( void, apply_block,
          system_call::apply_transaction( context, tx );
          trx_node->commit();
       }
-      catch ( ... ) { /* Do nothing will result in trx reversion */ }
+      catch ( const std::exception& e )
+      {
+         LOG(info) << "Transaction " << to_hex( tx.id() ) << " reverted with: " << e.what();
+      }
 
       ticks_used += context.get_used_meter_ticks();
 
@@ -372,7 +375,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_id)("signer_hash", signer_hash)
    );
 
-   system_call::put_object( context, database::space::contract, converter::as< std::string >( contract_id ), o.bytecode() );
+   system_call::put_object( context, database::space::contract, o.contract_id(), o.bytecode() );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -467,7 +470,7 @@ THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const
 
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
-   const auto _obj   = converter::to< state_db::object_value >( obj );
+   const auto _obj   = converter::as< state_db::object_value >( obj );
 
    check_db_permissions( context, _space );
 
@@ -583,9 +586,6 @@ THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) spa
 
 THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
-   auto contract_id_hash = converter::to< crypto::multihash >( contract_id );
-   auto contract_key     = converter::as< std::string >( contract_id_hash );
-
    // We need to be in kernel mode to read the contract data
    std::string bytecode;
    with_stack_frame(
@@ -596,7 +596,7 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
       },
       [&]()
       {
-         bytecode = system_call::get_object( context, database::space::contract, contract_key ).value();
+         bytecode = system_call::get_object( context, database::space::contract, contract_id ).value();
          KOINOS_ASSERT( bytecode.size(), invalid_contract, "contract does not exist" );
       }
    );
