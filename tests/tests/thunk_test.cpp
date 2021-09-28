@@ -25,7 +25,7 @@
 //#include <koinos/tests/wasm/forever.hpp>
 #include <koinos/tests/wasm/hello.hpp>
 //#include <koinos/tests/wasm/koin.hpp>
-//#include <koinos/tests/wasm/syscall_override.hpp>
+#include <koinos/tests/wasm/syscall_override.hpp>
 
 using namespace koinos;
 using namespace std::string_literals;
@@ -262,39 +262,58 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    LOG(info) << "echo opcode count: " << ctx.get_used_meter_ticks();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
-BOOST_AUTO_TEST_CAS E( override_tests )
+
+BOOST_AUTO_TEST_CASE( override_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test set system call operation" );
 
    auto seed = "non-genesis key"s;
-   auto random_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash_str( CRYPTO_SHA2_256_ID, seed.c_str(), seed.size() ) );
+   auto random_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, seed ) );
 
    koinos::protocol::transaction tx;
    sign_transaction( tx, random_private_key );
    ctx.set_transaction( tx );
 
    // Upload a test contract to use as override
-   koinos::protocol::upload_contract_operation contract_op;
-   auto bytecode = get_hello_wasm();
    auto contract_address = random_private_key.get_public_key().to_address_bytes();
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
-   std::memcpy( contract_op.contract_id.data(), id.digest.data(), contract_op.contract_id.size() );
+   auto contract_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_address );
 
-   contract_op.bytecode.insert( contract_op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   system_call::apply_upload_contract_operation( ctx, contract_op );
+   koinos::protocol::upload_contract_operation contract_op;
+   contract_op.set_contract_id( converter::as< std::string >( contract_id ) );
+   contract_op.set_bytecode( std::string( (const char*)hello_wasm, hello_wasm_len ) );
+
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op );
+
+   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
+   koinos::protocol::call_contract_operation call_op;
+   call_op.set_contract_id( contract_op.contract_id() );
+   koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
+   auto original_message = host_api.context.get_pending_console_output();
+   BOOST_REQUIRE_EQUAL( "Greetings from koinos vm", original_message );
+
+   // Override prints with a contract that prepends a message before printing
+   auto random_private_key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "key2"s ) );
+   auto contract_address2 = random_private_key2.get_public_key().to_address_bytes();
+   auto contract_id2 = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_address2 );
+
+   koinos::protocol::upload_contract_operation contract_op2;
+   contract_op2.set_contract_id( converter::as< std::string >( contract_id2 ) );
+   contract_op2.set_bytecode( std::string( (const char*)syscall_override_wasm, syscall_override_wasm_len ) );
+
+   sign_transaction( tx, random_private_key2 );
+   ctx.set_transaction( tx );
+
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op2 );
 
    // Set the system call
-   koinos::protocol::set_system_call_operation call_op;
-   koinos::chain::contract_call_bundle bundle;
-   bundle.contract_id = contract_op.contract_id;
-   bundle.entry_point = 0;
-   call_op.call_id = 11675754;
-   call_op.target = bundle;
+   koinos::protocol::set_system_call_operation set_op;
+   set_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::prints ) );
+   set_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( contract_op2.contract_id() );
+   set_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
 
    BOOST_TEST_MESSAGE( "Test failure to override system call without genesis key" );
 
-   BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, call_op ), insufficient_privileges );
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::insufficient_privileges );
 
    BOOST_TEST_MESSAGE( "Test success overriding a system call with the genesis key" );
 
@@ -302,85 +321,30 @@ BOOST_AUTO_TEST_CAS E( override_tests )
    sign_transaction( tx, _signing_private_key );
    ctx.set_transaction( tx );
 
-   system_call::apply_set_system_call_operation( ctx, call_op );
+   koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
 
    // Fetch the created call bundle from the database and check it
-   auto call_target = koinos::pack::from_variable_blob< koinos::chain::system_call_target >( system_call::get_object( ctx, database::system_call_dispatch_space, call_op.call_id ) );
-   auto call_bundle = std::get< koinos::chain::contract_call_bundle >( call_target );
-   BOOST_REQUIRE( call_bundle.contract_id == bundle.contract_id );
-   BOOST_REQUIRE( call_bundle.entry_point == bundle.entry_point );
+   auto call_target = koinos::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::system_call_dispatch, converter::as< std::string >( set_op.call_id() ) ).value() );
+   BOOST_REQUIRE( call_target.has_system_call_bundle() );
+   BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
+   BOOST_REQUIRE( call_target.system_call_bundle().entry_point() == set_op.target().system_call_bundle().entry_point() );
 
    // Ensure exception thrown on invalid contract
-   auto false_id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, 1234 );
-   std::memcpy( bundle.contract_id.data(), false_id.digest.data(), bundle.contract_id.size() );
-   call_op.target = bundle;
-   BOOST_REQUIRE_THROW( system_call::apply_set_system_call_operation( ctx, call_op ), invalid_contract );
+   auto false_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, 1234 );
+   set_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( converter::as< std::string >( false_id ) );
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
 
    // Test invoking the overridden system call
-   koinos::variable_blob vl_args, vl_ret;
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call( 11675754, vl_ret.data(), vl_ret.size(), vl_args.data(), vl_args.size() );
-   BOOST_REQUIRE( "Greetings from koinos vm" == host_api.context.get_pending_console_output() );
+   koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
+   BOOST_REQUIRE_EQUAL( "test: " + original_message, ctx.get_pending_console_output() );
 
-   // Call stock prints and save the message
-   koinos::chain::prints_args args;
-   args.message = "Hello World";
-   koinos::variable_blob vl_args2, vl_ret2;
-   koinos::pack::to_variable_blob( vl_args2, args );
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call(
-      system_call_id_type( koinos::chain::system_call_id::prints ),
-      vl_ret2.data(),
-      vl_ret2.size(),
-      vl_args2.data(),
-      vl_args2.size() );
-   auto original_message = host_api.context.get_pending_console_output();
-
-   auto random_private_key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "key2"s ) );
-   sign_transaction( tx, random_private_key2 );
-   ctx.set_transaction( tx );
-
-   // Override prints with a contract that prepends a message before printing
-   koinos::protocol::upload_contract_operation contract_op2;
-   auto bytecode2 = get_syscall_override_wasm();
-   auto contract_address2 = random_private_key2.get_public_key().to_address_bytes();
-   auto id2 = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address2 );
-   std::memcpy( contract_op2.contract_id.data(), id2.digest.data(), contract_op2.contract_id.size() );
-   contract_op2.bytecode.insert( contract_op2.bytecode.end(), bytecode2.begin(), bytecode2.end() );
-   system_call::apply_upload_contract_operation( ctx, contract_op2 );
-
-   sign_transaction( tx, _signing_private_key );
-   ctx.set_transaction( tx );
-
-   koinos::protocol::set_system_call_operation call_op2;
-   koinos::chain::contract_call_bundle bundle2;
-   bundle2.contract_id = contract_op2.contract_id;
-   bundle2.entry_point = 0;
-   call_op2.call_id = system_call_id_type( koinos::chain::system_call_id::prints );
-   call_op2.target = bundle2;
-   system_call::apply_set_system_call_operation( ctx, call_op2 );
-
-   // Now test that the message has been modified
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   host_api.invoke_system_call(
-      system_call_id_type( koinos::chain::system_call_id::prints ),
-      vl_ret2.data(),
-      vl_ret2.size(),
-      vl_args2.data(),
-      vl_args2.size() );
-   auto new_message = host_api.context.get_pending_console_output();
-   BOOST_REQUIRE( original_message != new_message );
-   BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
-
-   system_call::prints( host_api.context, original_message );
-   new_message = host_api.context.get_pending_console_output();
-   BOOST_REQUIRE( original_message != new_message );
-   BOOST_REQUIRE_EQUAL( "test: Hello World", new_message );
+   koinos::chain::system_call::prints( host_api.context, "Hello World" );
+   BOOST_REQUIRE_EQUAL( "test: Hello World", host_api.context.get_pending_console_output() );
 
    ctx.clear_transaction();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#endif
+
 BOOST_AUTO_TEST_CASE( thunk_test )
 { try {
    BOOST_TEST_MESSAGE( "thunk test" );

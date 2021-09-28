@@ -21,7 +21,7 @@ void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t r
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    auto key = converter::as< std::string >( sid );
-   std::string blob_bundle;
+   std::string blob_target;
 
    with_stack_frame(
       context,
@@ -30,7 +30,7 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         blob_bundle = thunk::get_object(
+         blob_target = thunk::get_object(
             context,
             database::space::system_call_dispatch,
             key,
@@ -41,10 +41,9 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
 
    protocol::system_call_target target;
 
-   if ( blob_bundle.size() )
+   if ( blob_target.size() )
    {
-      auto bundle = target.mutable_system_call_bundle();
-      bundle->ParseFromString( blob_bundle );
+      target.ParseFromString( blob_target );
    }
    else
    {
@@ -67,10 +66,8 @@ void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint
    else if ( target.has_system_call_bundle() )
    {
       const auto& scb = target.system_call_bundle();
-      std::string args;
       KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" );
-      args.resize( arg_len );
-      std::memcpy( args.data(), arg_ptr.value, arg_len );
+      std::string args( arg_ptr.value, arg_len );
       std::string ret;
       with_stack_frame(
          context,

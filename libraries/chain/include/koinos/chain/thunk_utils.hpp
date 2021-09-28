@@ -230,7 +230,7 @@ namespace koinos::chain::detail {
       uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
                                                                                                                      \
       auto _key = converter::as< std::string >( _sid );                                                              \
-      std::string _blob_bundle;                                                                                      \
+      std::string _blob_target;                                                                                      \
                                                                                                                      \
       with_stack_frame(                                                                                              \
          context,                                                                                                    \
@@ -239,7 +239,7 @@ namespace koinos::chain::detail {
             .call_privilege = privilege::kernel_mode,                                                                \
          },                                                                                                          \
          [&]() {                                                                                                     \
-            _blob_bundle = thunk::get_object(                                                                        \
+            _blob_target = thunk::get_object(                                                                        \
                context,                                                                                              \
                database::space::system_call_dispatch,                                                                \
                _key,                                                                                                 \
@@ -250,10 +250,9 @@ namespace koinos::chain::detail {
                                                                                                                      \
       protocol::system_call_target _target;                                                                          \
                                                                                                                      \
-      if ( _blob_bundle.size() )                                                                                     \
+      if ( _blob_target.size() )                                                                                     \
       {                                                                                                              \
-         auto _bundle = _target.mutable_system_call_bundle();                                                        \
-         _bundle->ParseFromString( _blob_bundle );                                                                   \
+         _target.ParseFromString( _blob_target );                                                                    \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \
@@ -283,7 +282,6 @@ namespace koinos::chain::detail {
       }                                                                                                              \
       else if ( _target.has_system_call_bundle() )                                                                   \
       {                                                                                                              \
-         LOG(info) << "System call override for " << _sid; \
          const auto& _scb = _target.system_call_bundle();                                                            \
          BOOST_PP_CAT( SYSCALL, _args ) _args;                                                                       \
          BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \

@@ -438,10 +438,8 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_THROW( unknown_system_call, "set_system_call invoked with unknown override" );
    }
 
-   LOG(info) << "protocol::system_call_id::verify_block_signature: " << (uint32_t)protocol::system_call_id::verify_block_signature;
-
    // Place the override in the database
-   system_call::put_object( context, database::space::system_call_dispatch, converter::as< std::string >( o.call_id() ), converter::as< std::string >( o.target() ) );
+   system_call::put_object( context, database::space::system_call_dispatch, converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), converter::as< std::string >( o.target() ) );
 }
 
 void check_db_permissions( const apply_context& context, const state_db::object_space& space )
@@ -467,7 +465,7 @@ THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const
 
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
-   const auto _obj   = converter::to< state_db::object_value >( obj );
+   const auto _obj   = converter::as< state_db::object_value >( obj );
 
    check_db_permissions( context, _space );
 
@@ -584,7 +582,6 @@ THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) spa
 THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
    auto contract_id_hash = converter::to< crypto::multihash >( contract_id );
-   auto contract_key     = converter::as< std::string >( contract_id_hash );
 
    // We need to be in kernel mode to read the contract data
    std::string bytecode;
@@ -596,7 +593,7 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
       },
       [&]()
       {
-         bytecode = system_call::get_object( context, database::space::contract, contract_key ).value();
+         bytecode = system_call::get_object( context, database::space::contract, contract_id ).value();
          KOINOS_ASSERT( bytecode.size(), invalid_contract, "contract does not exist" );
       }
    );
@@ -609,9 +606,9 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
    backend.initialize();
 
    context.push_frame( stack_frame {
-      .call = converter::to< std::vector< std::byte > >( contract_id ),
+      .call = converter::as< std::vector< std::byte > >( contract_id ),
       .call_privilege = context.get_privilege(),
-      .call_args = converter::to< std::vector< std::byte > >( args ),
+      .call_args = converter::as< std::vector< std::byte > >( args ),
       .entry_point = entry_point
    } );
 
@@ -650,7 +647,7 @@ THUNK_DEFINE_VOID( get_contract_args_size_return, get_contract_args_size )
 THUNK_DEFINE_VOID( get_contract_args_return, get_contract_args )
 {
    get_contract_args_return ret;
-   ret.set_value( converter::to< std::string >( context.get_contract_call_args() ) );
+   ret.set_value( converter::as< std::string >( context.get_contract_call_args() ) );
    return ret;
 }
 
