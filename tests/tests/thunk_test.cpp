@@ -20,11 +20,12 @@
 
 #include <mira/database_configuration.hpp>
 
-//#include <koinos/tests/koin.hpp>
+#include <koinos/contracts/token/token.pb.h>
+
 #include <koinos/tests/wasm/contract_return.hpp>
 //#include <koinos/tests/wasm/forever.hpp>
 #include <koinos/tests/wasm/hello.hpp>
-//#include <koinos/tests/wasm/koin.hpp>
+#include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
 
 using namespace koinos;
@@ -607,178 +608,171 @@ BOOST_AUTO_TEST_CASE( get_contract_id_test )
    auto id_bytes = converter::as< std::vector< std::byte > >( id.value() );
    BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id_bytes.begin() ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
-BOOST_AUTO_TEST_CAS E( token_tests )
+
+BOOST_AUTO_TEST_CASE( token_tests )
 { try {
    using namespace koinos;
 
-   auto contract_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "token_contract"s ) );
+   auto contract_private_key = crypto::private_key::regenerate( crypto::hash( koinos::crypto::multicodec::sha2_256, "token_contract"s ) );
    auto contract_address = contract_private_key.get_public_key().to_address_bytes();
    protocol::transaction trx;
    sign_transaction( trx, contract_private_key );
    ctx.set_transaction( trx );
 
    koinos::protocol::upload_contract_operation op;
-   auto id = koinos::crypto::hash( CRYPTO_RIPEMD160_ID, contract_address );
-   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
-   auto bytecode = get_koin_wasm();
-   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   auto id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_address );
+   op.set_contract_id( converter::as< std::string >( id ) );
+   op.set_bytecode( std::string( (const char*)koin_wasm, koin_wasm_len ) );
 
-   system_call::apply_upload_contract_operation( ctx, op );
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
    ctx.set_privilege( chain::privilege::user_mode );
 
-   contract_id_type contract_id;
-   std::memcpy( contract_id.data(), id.digest.data(), contract_id.size() );
-
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   auto response = system_call::execute_contract( ctx, contract_id, 0x76ea4297, variable_blob() );
-   auto name = pack::from_variable_blob< std::string >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
+   auto name = converter::to< koinos::contracts::token::name_return >( response.value() ).value();
    LOG(info) << name;
    LOG(info) << "koin.name() opcode count: " << ctx.get_used_meter_ticks();
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x7e794b24, variable_blob() );
-   auto symbol = pack::from_variable_blob< std::string >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x7e794b24, "" );
+   auto symbol = converter::to< koinos::contracts::token::symbol_return >( response.value() ).value();
    LOG(info) << symbol;
    LOG(info) << "koin.symbol() opcode count: " << ctx.get_used_meter_ticks();
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x59dc15ce, variable_blob() );
-   auto decimals = pack::from_variable_blob< uint8_t >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x59dc15ce, "" );
+   auto decimals = converter::to< koinos::contracts::token::decimals_return >( response.value() ).value();
    LOG(info) << (uint32_t)decimals;
    LOG(info) << "koin.decimals() opcode count: " << ctx.get_used_meter_ticks();
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
-   auto supply = pack::from_variable_blob< uint64_t >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
+   auto supply = converter::to< koinos::contracts::token::total_supply_return >( response.value() ).value();
    LOG(info) << "KOIN supply: " << supply;
    LOG(info) << "koin.total_supply() opcode count: " << ctx.get_used_meter_ticks();
 
-   auto alice_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "alice"s ) );
+   auto alice_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
 
-   auto bob_private_key = crypto::private_key::regenerate( crypto::hash( CRYPTO_SHA2_256_ID, "bob"s ) );
+   auto bob_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "bob"s ) );
    auto bob_address = bob_private_key.get_public_key().to_address_bytes();
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
-   auto balance = pack::from_variable_blob< uint64_t >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   koinos::contracts::token::balance_of_args balance_of_args;
+   balance_of_args.set_owner( converter::as< std::string >( alice_address ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
+   auto balance = converter::to< koinos::contracts::token::balance_of_return >( response.value() ).value();
+   LOG(info) << "'alice' balance: " << balance;
    LOG(info) << "koin.balance_of(alice) opcode count: " << ctx.get_used_meter_ticks();
 
-   LOG(info) << "'alice' balance: " << balance;
-
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
-   balance = pack::from_variable_blob< uint64_t >( response );
-   LOG(info) << "koin.balance_of(bob) opcode count: " << ctx.get_used_meter_ticks();
-
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   balance_of_args.set_owner( converter::as< std::string >( bob_address ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
+   balance = converter::to< koinos::contracts::token::balance_of_return >( response.value() ).value();
    LOG(info) << "'bob' balance: " << balance;
+   LOG(info) << "koin.balance_of(bob) opcode count: " << ctx.get_used_meter_ticks();
 
    ctx.get_pending_console_output();
 
    LOG(info) << "Mint to 'alice'";
-   auto m_args = mint_args{ .to = alice_address, .value = 100 };
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
-   auto success = pack::from_variable_blob< bool >( response );
+   koinos::contracts::token::mint_args mint_args;
+   mint_args.set_to( converter::as< std::string >( alice_address ) );
+   mint_args.set_value( 100 );
+
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, converter::as< std::string >( mint_args ) );
+   auto success = converter::to< koinos::contracts::token::mint_return >( response.value() ).value();
    BOOST_REQUIRE( !success );
    LOG(info) << "koin.mint() opcode count (failure case): " << ctx.get_used_meter_ticks();
 
    ctx.set_privilege( chain::privilege::kernel_mode );
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0xc2f82bdc, pack::to_variable_blob( m_args ) );
-   success = pack::from_variable_blob< bool >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, converter::as< std::string >( mint_args ) );
+   success = converter::to< koinos::contracts::token::mint_return >( response.value() ).value();
    BOOST_REQUIRE( success );
    LOG(info) << "koin.mint() opcode count (success case): " << ctx.get_used_meter_ticks();
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
-   balance = pack::from_variable_blob< uint64_t >( response );
+   ctx.set_privilege( chain::privilege::user_mode );
+   balance_of_args.set_owner( converter::as< std::string >( alice_address ) );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
+   balance = converter::to< koinos::contracts::token::balance_of_return >( response.value() ).value();
    LOG(info) << "koin.balance_of(alice) opcode count: " << ctx.get_used_meter_ticks();
 
    LOG(info) << "'alice' balance: " << balance;
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
-   balance = pack::from_variable_blob< uint64_t >( response );
+   balance_of_args.set_owner( converter::as< std::string >( bob_address ) );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
+   balance = converter::to< koinos::contracts::token::balance_of_return >( response.value() ).value();
    LOG(info) << "koin.balance_of(bob) opcode count: " << ctx.get_used_meter_ticks();
 
    LOG(info) << "'bob' balance: " << balance;
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
-   supply = pack::from_variable_blob< uint64_t >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
+   supply = converter::to< koinos::contracts::token::total_supply_return >( response.value() ).value();
    LOG(info) << "KOIN supply: " << supply;
    LOG(info) << "koin.total_supply() opcode count: " << ctx.get_used_meter_ticks();
 
    LOG(info) << "Transfer from 'alice' to 'bob'";
-   auto t_args = transfer_args{ .from = alice_address, .to = bob_address, .value = 25 };
-   trx.active_data = koinos::protocol::active_transaction_data{};
+   koinos::contracts::token::transfer_args transfer_args;
+   transfer_args.set_from( converter::as< std::string >( alice_address ) );
+   transfer_args.set_to( converter::as< std::string >( bob_address ) );
+   transfer_args.set_value( 25 );
+
    ctx.set_transaction( trx );
-   response.clear();
    try
    {
-      system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+      koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
    catch ( const koinos::chain::invalid_signature& ) {}
 
-   auto signature = bob_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
-   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   auto signature = bob_private_key.sign_compact( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, trx.active() ) );
+   trx.set_signature_data( converter::as< std::string >( signature ) );
    ctx.set_transaction( trx );
 
-   response.clear();
    try
    {
-      system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
+      koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
    catch ( const koinos::chain::invalid_signature& ) {}
 
-   signature = alice_private_key.sign_compact( koinos::crypto::hash( CRYPTO_SHA2_256_ID, trx.active_data ) );
-   trx.signature_data = koinos::pack::variable_blob( signature.begin(), signature.end() );
+   signature = alice_private_key.sign_compact( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, trx.active() ) );
+   trx.set_signature_data( converter::as< std::string >( signature ) );
    ctx.set_transaction( trx );
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x62efa292, pack::to_variable_blob( t_args ) );
-   success = pack::from_variable_blob< bool >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, converter::as< std::string >( transfer_args ) );
+   success = converter::to< koinos::contracts::token::transfer_return >( response.value() ).value();
    BOOST_REQUIRE( success );
    LOG(info) << "koin.transfer() opcode count: " << ctx.get_used_meter_ticks();
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( alice_address ) );
-   balance = pack::from_variable_blob< uint64_t >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   balance_of_args.set_owner( converter::as< std::string >( alice_address ) );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
+   balance = converter::to< koinos::contracts::token::balance_of_return >( response.value() ).value();
 
    LOG(info) << "'alice' balance: " << balance;
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0x15619248, pack::to_variable_blob( bob_address ) );
-   balance = pack::from_variable_blob< uint64_t >( response );
+   balance_of_args.set_owner( converter::as< std::string >( bob_address ) );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
+   balance = converter::to< koinos::contracts::token::balance_of_return >( response.value() ).value();
 
    LOG(info) << "'bob' balance: " << balance;
 
-   response.clear();
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
-   response = system_call::execute_contract( ctx, contract_id, 0xcf2e8212, variable_blob() );
-   supply = pack::from_variable_blob< uint64_t >( response );
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
+   supply = converter::to< koinos::contracts::token::total_supply_return >( response.value() ).value();
    LOG(info) << "KOIN supply: " << supply;
-
+   LOG(info) << "koin.total_supply() opcode count: " << ctx.get_used_meter_ticks();
 }
 catch( const eosio::vm::exception& e )
 {
@@ -786,13 +780,13 @@ catch( const eosio::vm::exception& e )
    BOOST_FAIL("EOSIO VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CAS E( tick_limit )
 { try {
    using namespace koinos;
    BOOST_TEST_MESSAGE( "Upload forever contract" );
 
-   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( CRYPTO_SHA2_256_ID, "contract"s ) );
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "contract"s ) );
    protocol::transaction trx;
    sign_transaction( trx, contract_private_key );
    ctx.set_transaction( trx );
@@ -816,7 +810,7 @@ BOOST_AUTO_TEST_CAS E( tick_limit )
    ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
    koinos::protocol::call_contract_operation op2;
    std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), tick_meter_exception );
+   BOOST_REQUIRE_THROW( system_call::apply_call_contract_operation( ctx, op2 ), tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 #endif

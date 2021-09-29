@@ -39,15 +39,15 @@ inline std::string transaction_nonce( const std::string& payer )
 namespace system_call_dispatch {
 
 // Size for buffer when fetching system call from database -> 1 for variant, 20 for contract_id, 4 for entry_point
-const int64_t max_object_size = -1;
+constexpr uint32_t max_object_size = 512;
 
 } // system_call_dispatch
 
-constexpr std::size_t max_object_size = 1024 * 1024; // 1 MB
+constexpr uint32_t max_object_size = 1024 * 1024; // 1 MB
 
 } // database
 
 // Default irreversible block threshold
-const uint64_t default_irreversible_threshold = 60;
+constexpr uint64_t default_irreversible_threshold = 60;
 
 } // koinos::chain

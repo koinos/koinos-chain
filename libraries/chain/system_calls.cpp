@@ -80,7 +80,7 @@ THUNK_DEFINE( void, prints, ((const std::string&) str) )
    context.console_append( str );
 }
 
-THUNK_DEFINE( void, exit_contract, ((uint8_t) exit_code) )
+THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
 {
    switch( exit_code )
    {
@@ -488,7 +488,7 @@ THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const
    return ret;
 }
 
-THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
@@ -520,7 +520,7 @@ THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const
    return ret;
 }
 
-THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
@@ -551,7 +551,7 @@ THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) spa
    return ret;
 }
 
-THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) space, (const std::string&) key, (int32_t) object_size_hint) )
+THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );

@@ -54,7 +54,7 @@ void register_thunks( thunk_dispatcher& td );
  */
 
 THUNK_DECLARE( void, prints, const std::string& str );
-THUNK_DECLARE( void, exit_contract, uint8_t exit_code );
+THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
 
 THUNK_DECLARE( verify_block_signature_return, verify_block_signature, const std::string& digest, const std::string& active_data, const std::string& signature_data );
 THUNK_DECLARE( verify_merkle_root_return, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
@@ -66,9 +66,9 @@ THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contrac
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 
 THUNK_DECLARE( put_object_return, put_object, const std::string& space, const std::string& key, const std::string& obj );
-THUNK_DECLARE( get_object_return, get_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( get_next_object_return, get_next_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
-THUNK_DECLARE( get_prev_object_return, get_prev_object, const std::string& space, const std::string& key, int32_t object_size_hint = -1 );
+THUNK_DECLARE( get_object_return, get_object, const std::string& space, const std::string& key, uint32_t object_size_hint = 0 );
+THUNK_DECLARE( get_next_object_return, get_next_object, const std::string& space, const std::string& key, uint32_t object_size_hint = 0 );
+THUNK_DECLARE( get_prev_object_return, get_prev_object, const std::string& space, const std::string& key, uint32_t object_size_hint = 0 );
 
 THUNK_DECLARE( call_contract_return, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 
