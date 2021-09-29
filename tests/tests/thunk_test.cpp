@@ -23,7 +23,7 @@
 #include <koinos/contracts/token/token.pb.h>
 
 #include <koinos/tests/wasm/contract_return.hpp>
-//#include <koinos/tests/wasm/forever.hpp>
+#include <koinos/tests/wasm/forever.hpp>
 #include <koinos/tests/wasm/hello.hpp>
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
@@ -96,30 +96,30 @@ struct thunk_fixture
       transaction.set_signature_data( converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
 
-//   std::vector< uint8_t > get_hello_wasm()
-//   {
-//      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
-//   }
-//
-//   std::vector< uint8_t > get_contract_return_wasm()
-//   {
-//      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
-//   }
-//
-//   std::vector< uint8_t > get_syscall_override_wasm()
-//   {
-//      return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
-//   }
-//
-//   std::vector< uint8_t > get_koin_wasm()
-//   {
-//      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
-//   }
-//
-//   std::vector< uint8_t > get_forever_wasm()
-//   {
-//      return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
-//   }
+   std::vector< uint8_t > get_hello_wasm()
+   {
+      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
+   }
+
+   std::vector< uint8_t > get_contract_return_wasm()
+   {
+      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
+   }
+
+   std::vector< uint8_t > get_syscall_override_wasm()
+   {
+      return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
+   }
+
+   std::vector< uint8_t > get_koin_wasm()
+   {
+      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
+   }
+
+   std::vector< uint8_t > get_forever_wasm()
+   {
+      return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
+   }
 
    std::filesystem::path temp;
    koinos::state_db::database db;
@@ -781,8 +781,8 @@ catch( const eosio::vm::exception& e )
    BOOST_FAIL("EOSIO VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
-BOOST_AUTO_TEST_CAS E( tick_limit )
+
+BOOST_AUTO_TEST_CASE( tick_limit )
 { try {
    using namespace koinos;
    BOOST_TEST_MESSAGE( "Upload forever contract" );
@@ -793,26 +793,24 @@ BOOST_AUTO_TEST_CAS E( tick_limit )
    ctx.set_transaction( trx );
 
    protocol::upload_contract_operation op;
-   auto id = crypto::hash( CRYPTO_RIPEMD160_ID, contract_private_key.get_public_key().to_address_bytes() );
-   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
-   auto bytecode = get_forever_wasm();
-   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
+   auto id = crypto::hash( crypto::multicodec::ripemd_160, contract_private_key.get_public_key().to_address_bytes() );
+   op.set_contract_id( converter::as< std::string >( id ) );
+   op.set_bytecode( converter::as< std::string >( get_forever_wasm() ) );
 
-   system_call::apply_upload_contract_operation( ctx, op );
+   chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   koinos::uint256 contract_key = koinos::pack::from_fixed_blob< koinos::uint160_t >( op.contract_id );
-   auto stored_bytecode = system_call::get_object( ctx, koinos::chain::database::contract_space, contract_key, bytecode.size() );
+   auto stored_bytecode = chain::system_call::get_object( ctx, koinos::chain::database::space::contract, op.contract_id(), op.bytecode().size() ).value();
 
-   BOOST_REQUIRE( stored_bytecode.size() == bytecode.size() );
-   BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), bytecode.data(), bytecode.size() ) == 0 );
+   BOOST_REQUIRE( stored_bytecode.size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), op.bytecode().data(), op.bytecode().size() ) == 0 );
 
    BOOST_TEST_MESSAGE( "Execute forever contract" );
 
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
    koinos::protocol::call_contract_operation op2;
-   std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   BOOST_REQUIRE_THROW( system_call::apply_call_contract_operation( ctx, op2 ), tick_meter_exception );
+   op2.set_contract_id( op.contract_id() );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#endif
+
 BOOST_AUTO_TEST_SUITE_END()

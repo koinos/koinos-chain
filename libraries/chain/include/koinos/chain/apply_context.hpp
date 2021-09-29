@@ -90,7 +90,7 @@ class apply_context
          _meter_ticks -= cost;
          if( _meter_ticks < 0 )
          {
-            //throw tick_meter_exception{ "tick meter ran out of cycles" };
+            throw tick_meter_exception{ "tick meter ran out of cycles" };
          }
       }
 
