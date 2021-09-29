@@ -12,13 +12,15 @@
 
 #include <mira/database_configuration.hpp>
 
-// #include <koinos/tests/koin.hpp>
+//#include <koinos/tests/koin.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
 #include <koinos/tests/wasm/hello.hpp>
 #include <koinos/tests/wasm/koin.hpp>
 
 #include <koinos/util.hpp>
+
+#include <koinos/contracts/token/token.pb.h>
 
 #include <chrono>
 #include <filesystem>
@@ -105,10 +107,10 @@ struct controller_fixture
       return std::vector< uint8_t >( db_write_wasm, db_write_wasm + db_write_wasm_len );
    }
 
-//   std::vector< uint8_t > get_koin_wasm()
-//   {
-//      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
-//   }
+   std::vector< uint8_t > get_koin_wasm()
+   {
+      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
+   }
 
    chain::controller      _controller;
    std::filesystem::path  _state_dir;
@@ -472,8 +474,8 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
-BOOST_AUTO_TEST_CAS E( transaction_reversion_test )
+
+BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 { try {
    BOOST_TEST_MESSAGE( "Upload KOIN contract and attempt to mint to Alice" );
 
@@ -481,62 +483,70 @@ BOOST_AUTO_TEST_CAS E( transaction_reversion_test )
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx1;
-   trx1.active_data.make_mutable();
+   koinos::protocol::active_transaction_data active1;
 
    // Upload the KOIN contract
-   koinos::protocol::upload_contract_operation op;
    auto id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_private_key.get_public_key().to_address_bytes() );
-   std::memcpy( op.contract_id.data(), id.digest.data(), op.contract_id.size() );
-   auto bytecode = get_koin_wasm();
-   op.bytecode.insert( op.bytecode.end(), bytecode.begin(), bytecode.end() );
-   trx1.active_data->operations.push_back( op );
-   trx1.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
+   auto op1 = active1.add_operations()->mutable_upload_contract();
+   op1->set_contract_id( converter::as< std::string >( id ) );
+   op1->set_bytecode( converter::as< std::string >( get_koin_wasm() ) );
+   active1.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   trx1.set_active( converter::as< std::string >( active1 ) );
+   trx1.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
    sign_transaction( trx1, contract_private_key );
 
    koinos::protocol::transaction trx2;
-   trx2.active_data.make_mutable();
+   koinos::protocol::active_transaction_data active2;
 
-   auto m_args = mint_args{ .to = alice_address, .value = 100 };
-   koinos::protocol::call_contract_operation call;
-   std::memcpy( call.contract_id.data(), id.digest.data(), call.contract_id.size() );
-   call.entry_point = 0xc2f82bdc;
-   call.args = koinos::pack::to_variable_blob( m_args );
-   trx2.active_data->resource_limit = KOINOS_MAX_METER_TICKS;
-   trx2.active_data->operations.push_back( call );
+   koinos::contracts::token::mint_args mint_arg;
+   mint_arg.set_to( alice_address );
+   mint_arg.set_value( 100 );
+
+   auto op2 = active2.add_operations()->mutable_call_contract();
+   op2->set_contract_id( op1->contract_id() );
+   op2->set_entry_point( 0xc2f82bdc );
+   op2->set_args( mint_arg.SerializeAsString() );
+   active2.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   trx2.set_active( converter::as< std::string >( active2 ) );
+   trx2.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
    sign_transaction( trx2, alice_private_key );
 
    koinos::rpc::chain::submit_block_request block_req;
-   block_req.verify_passive_data = false;
-   block_req.verify_block_signature = false;
-   block_req.verify_transaction_signatures = false;
+   block_req.set_verify_passive_data( false );
+   block_req.set_verify_block_signature( false );
+   block_req.set_verify_transaction_signature( false );
 
    auto duration = std::chrono::system_clock::now().time_since_epoch();
-   block_req.block.header.timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
-   block_req.block.header.height = 1;
-   block_req.block.header.previous = koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 );
-   block_req.block.transactions.push_back( trx1 );
-   block_req.block.transactions.push_back( trx2 );
+   block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+   block_req.mutable_block()->mutable_header()->set_height( 1 );
+   block_req.mutable_block()->mutable_header()->set_previous( converter::as< std::string >( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ) );
+   *block_req.mutable_block()->add_transactions() = trx1;
+   *block_req.mutable_block()->add_transactions() = trx2;
 
-   set_block_merkle_roots( block_req.block, koinos::crypto::multicodec::sha2_256 );
-   sign_block( block_req.block, _block_signing_private_key );
-
-   block_req.block.id = koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block.header, block_req.block.active_data );
+   koinos::protocol::active_block_data active_block_data;
+   set_block_merkle_roots( *block_req.mutable_block(), active_block_data, koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_active( converter::as< std::string >( active_block_data ) );
+   block_req.mutable_block()->set_id( converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
 
    BOOST_TEST_MESSAGE( "Verify mint did nothing" );
 
-   koinos::rpc::chain::read_contract_request request;
-   std::memcpy( request.contract_id.data(), id.digest.data(), request.contract_id.size() );
-   request.entry_point = 0x15619248;
-   request.args = koinos::pack::to_variable_blob( alice_address );
+   koinos::contracts::token::balance_of_args bal_args;
+   bal_args.set_owner( alice_address );
 
-   LOG(info) << request;
+   koinos::rpc::chain::read_contract_request request;
+   request.set_contract_id( op1->contract_id() );
+   request.set_entry_point( 0x15619248 );
+   request.set_args( bal_args.SerializeAsString() );
 
    auto response = _controller.read_contract( request );
-   auto alice_balance = koinos::pack::from_variable_blob< uint64_t >( response.result );
-   BOOST_REQUIRE_EQUAL( alice_balance, 0 );
+   koinos::contracts::token::balance_of_return bal_ret;
+   bal_ret.ParseFromString( response.result() );
+
+   BOOST_REQUIRE_EQUAL( bal_ret.value(), 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#endif
+
 BOOST_AUTO_TEST_SUITE_END()
