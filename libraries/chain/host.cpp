@@ -20,7 +20,6 @@ void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t r
 
 void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
-   LOG(info) << sid;
    auto key = converter::as< std::string >( sid );
    std::string blob_target;
 
