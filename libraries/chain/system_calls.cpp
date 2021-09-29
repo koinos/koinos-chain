@@ -796,7 +796,9 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
 {
    get_contract_id_return ret;
+   LOG(info) << to_hex( converter::as< std::string >( context.get_caller() ) );
    ret.set_value( converter::as< std::string >( context.get_caller() ) );
+   LOG(info) << to_hex( converter::as< std::string >( ret ) );
    return ret;
 }
 
