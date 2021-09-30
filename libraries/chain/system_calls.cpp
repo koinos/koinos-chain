@@ -172,7 +172,7 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_ASSERT( block.header().height(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "height") );
    KOINOS_ASSERT( block.header().timestamp(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "timestamp") );
    KOINOS_ASSERT( block.active().size(), koinos::exception, "missing expected field: ${f}", ("f", "active") );
-   KOINOS_ASSERT( block.passive().size() == 0, koinos::exception, "unexpected vlaue in field: ${f}", ("f", "passive") );
+   KOINOS_ASSERT( block.passive().size() == 0, koinos::exception, "unexpected value in field: ${f}", ("f", "passive") );
    KOINOS_ASSERT( block.signature_data().size(), koinos::exception, "missing expected field: ${f}", ("f", "signature_data") );
 
    protocol::active_block_data active_data;

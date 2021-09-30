@@ -269,8 +269,7 @@ namespace detail
       auto ret = std::apply( thunk, thunk_args );
       std::string s;
       ret.SerializeToString( &s );
-      // Maybe Koinos::Exception?
-      assert( s.size() <= ret_len );
+      KOINOS_ASSERT( s.size() <= ret_len, koinos::exception, "return buffer is not large enough for the return value" );
       KOINOS_TODO( "I think this copy can be optimized away possible with a string stream" );
       std::memcpy( ret_ptr, s.c_str(), s.size() );
       return 0;
