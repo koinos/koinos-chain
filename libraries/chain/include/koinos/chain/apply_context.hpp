@@ -1,9 +1,12 @@
 #pragma once
 
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/statedb/statedb.hpp>
-#include <koinos/pack/classes.hpp>
 #include <koinos/crypto/elliptic.hpp>
+
+#include <koinos/chain/chain.pb.h>
+#include <koinos/protocol/protocol.pb.h>
+
+#include <koinos/state_db/state_db.hpp>
 
 #include <deque>
 #include <optional>
@@ -14,19 +17,19 @@
 namespace koinos::chain {
 
 using boost::container::flat_set;
-using koinos::statedb::state_node_ptr;
-using koinos::statedb::anonymous_state_node_ptr;
-using koinos::statedb::abstract_state_node;
+using koinos::state_db::state_node_ptr;
+using koinos::state_db::anonymous_state_node_ptr;
+using koinos::state_db::abstract_state_node;
 
 using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 
 struct stack_frame
 {
-   protocol::account_type  call;
-   privilege               call_privilege;
-   variable_blob           call_args;
-   uint32_t                entry_point = 0;
-   variable_blob           call_return;
+   std::vector< std::byte > call;
+   privilege                call_privilege;
+   std::vector< std::byte > call_args;
+   uint32_t                 entry_point = 0;
+   std::vector< std::byte > call_return;
 };
 
 class apply_context
@@ -50,13 +53,13 @@ class apply_context
       const protocol::transaction& get_transaction() const;
       void clear_transaction();
 
-      void set_contract_call_args( const variable_blob& args );
-      const variable_blob& get_contract_call_args() const;
+      void set_contract_call_args( const std::vector< std::byte >& args );
+      const std::vector< std::byte >& get_contract_call_args() const;
 
       uint32_t get_contract_entry_point() const;
 
-      variable_blob get_contract_return() const;
-      void set_contract_return( const variable_blob& ret );
+      std::vector< std::byte > get_contract_return() const;
+      void set_contract_return( const std::vector< std::byte >& ret );
 
       /**
        * For now, authority lives on the context.
@@ -68,7 +71,7 @@ class apply_context
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
 
-      const protocol::account_type& get_caller()const;
+      const std::vector< std::byte >& get_caller()const;
       privilege get_caller_privilege()const;
 
       void set_privilege( privilege );

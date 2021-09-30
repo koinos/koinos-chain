@@ -1,9 +1,17 @@
 hunter_config(Boost
-   VERSION "1.72.0-p1"
+   VERSION ${HUNTER_Boost_VERSION}
    CMAKE_ARGS
       USE_CONFIG_FROM_BOOST=ON
       Boost_USE_STATIC_LIBS=ON
       Boost_NO_BOOST_CMAKE=ON
+)
+
+hunter_config(Protobuf
+   URL  "https://github.com/koinos/protobuf/archive/e1b1477875a8b022903b548eb144f2c7bf4d9561.tar.gz"
+   SHA1 "5796707a98eec15ffb3ad86ff50e8eec5fa65e68"
+   CMAKE_ARGS
+      CMAKE_CXX_FLAGS=-fvisibility=hidden
+      CMAKE_C_FLAGS=-fvisibility=hidden
 )
 
 hunter_config(rocksdb
@@ -54,8 +62,8 @@ hunter_config(koinos_util
       BUILD_TESTS=OFF
 )
 
-hunter_config(koinos_types
-   GIT_SUBMODULE "libraries/types"
+hunter_config(koinos_proto
+   GIT_SUBMODULE "libraries/proto"
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )

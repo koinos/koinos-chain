@@ -1,49 +1,48 @@
 
 #pragma once
-#include <koinos/statedb/statedb_types.hpp>
+#include <koinos/state_db/state_db_types.hpp>
 
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <any>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <vector>
 
-#define STATE_DB_MAX_OBJECT_SIZE 1024*1024 // 1 MB
-
-namespace koinos { namespace statedb {
+namespace koinos::state_db {
 
 namespace detail {
-class state_db_impl;
+class database_impl;
 class state_node_impl;
 class anonymous_state_node_impl;
 }
 
 struct get_object_args
 {
-   object_space    space;
-   object_key      key;
-   char*           buf = nullptr;
-   uint64_t        buf_size = 0;
+   object_space     space;
+   object_key       key;
+   std::byte*       buf = nullptr;
+   uint64_t         buf_size = 0;
 };
 
 struct get_object_result
 {
-   object_key      key;
-   int64_t         size = 0;
+   object_key       key;
+   int64_t          size = 0;
 };
 
 struct put_object_args
 {
-   object_space    space;
-   object_key      key;
-   const char      *buf = nullptr;    // null -> delete object
-   uint64_t        object_size = 0;
+   object_space     space;
+   object_key       key;
+   const std::byte* buf = nullptr;    // null -> delete object
+   uint64_t         object_size = 0;
 };
 
 struct put_object_result
 {
-   bool            object_existed = false;
+   bool             object_existed = false;
 };
 
 class anonymous_state_node;
@@ -112,7 +111,7 @@ class abstract_state_node
       virtual const state_node_id& parent_id()const = 0;
       virtual uint64_t             revision()const = 0;
 
-      friend class detail::state_db_impl;
+      friend class detail::database_impl;
 
    protected:
       virtual std::shared_ptr< abstract_state_node > shared_from_derived() = 0;
@@ -164,7 +163,7 @@ class state_node final : public abstract_state_node, public std::enable_shared_f
 using state_node_ptr = std::shared_ptr< state_node >;
 
 /**
- * StateDB is designed to provide parallel access to the database across
+ * database is designed to provide parallel access to the database across
  * different states.
  *
  * It does by tracking positive state deltas, which can be merged on the fly
@@ -175,15 +174,15 @@ using state_node_ptr = std::shared_ptr< state_node >;
  * States are organized as a tree with the assumption that one path wins out
  * over time and cousin paths are discarded as the root is advanced.
  *
- * Currently, state_db is not thread safe. That is, calls directly on state_db
+ * Currently, database is not thread safe. That is, calls directly on database
  * are not thread safe. (i.e. deleting a node concurrently to creating a new
- * node can leave statedb in an undefined state)
+ * node can leave database in an undefined state)
  *
  * Conccurrency across state nodes is supported native to the implementation
  * without locks. Writes on a single state node need to be serialized, but
  * reads are implicitly parallel.
  *
- * TODO: Either extend the design of statedb to support concurrent access
+ * TODO: Either extend the design of database to support concurrent access
  * or implement a some locking mechanism for access to the fork multi
  * index container.
  *
@@ -196,11 +195,11 @@ using state_node_ptr = std::shared_ptr< state_node >;
  * should heavily favor readers. Writing can happen lazily, preferably when
  * there is no contention from readers at all.
  */
-class state_db final
+class database final
 {
    public:
-      state_db();
-      ~state_db();
+      database();
+      ~database();
 
       /**
        * Open the database.
@@ -242,7 +241,7 @@ class state_db final
        * - Otherwise, return a new writable node.
        * - Writing to the returned node will not modify the parent node.
        *
-       * If the parent is subsequently discarded, state_db preserves
+       * If the parent is subsequently discarded, database preserves
        * as much of the parent's state storage as necessary to continue
        * to serve queries on any (non-discarded) children.  A discarded
        * parent node's state may internally be merged into a child's
@@ -277,7 +276,7 @@ class state_db final
        * are accessing affected nodes by this call.
        *
        * TODO: Implement thread safety within commit node to make
-       * statedb thread safe for all callers.
+       * database thread safe for all callers.
        */
       void commit_node( const state_node_id& node_id );
 
@@ -306,7 +305,7 @@ class state_db final
       state_node_ptr get_root()const;
 
    private:
-      std::unique_ptr< detail::state_db_impl > impl;
+      std::unique_ptr< detail::database_impl > impl;
 };
 
 
@@ -321,4 +320,4 @@ class state_db final
 // object_type is semantics defined by the application, different object_type can have different index_type
 // object_id is 256 bits, semantics defined by application
 
-} }
+}

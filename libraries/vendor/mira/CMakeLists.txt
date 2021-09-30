@@ -6,7 +6,7 @@ file(GLOB HEADERS "include/mira/*.hpp" "include/mira/detail/*.hpp")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
-find_package(Boost CONFIG REQUIRED thread date_time system filesystem chrono unit_test_framework locale)
+find_package(Boost CONFIG REQUIRED thread date_time system filesystem chrono unit_test_framework)
 find_package(RocksDB CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 set(Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF")
@@ -47,7 +47,7 @@ if( CLANG_TIDY_EXE )
    )
 endif( CLANG_TIDY_EXE )
 
-target_link_libraries(mira PUBLIC Boost::boost Boost::filesystem Boost::thread Boost::system Boost::chrono Boost::date_time Boost::locale RocksDB::rocksdb nlohmann_json::nlohmann_json)
+target_link_libraries(mira PUBLIC Boost::boost Boost::filesystem Boost::thread Boost::system Boost::chrono Boost::date_time RocksDB::rocksdb nlohmann_json::nlohmann_json)
 target_include_directories(mira PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(test)

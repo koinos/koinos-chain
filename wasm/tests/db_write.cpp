@@ -1,7 +1,11 @@
 #include <koinos/system/system_calls.hpp>
 
+#include <string>
+
+using namespace std::string_literals;
+
 int main()
 {
-   koinos::system::db_put_object( 1, 0, koinos::system::get_contract_args() );
+   koinos::system::put_object( "\x01"s, "\x00"s, koinos::system::get_contract_args() );
    return 0;
 }

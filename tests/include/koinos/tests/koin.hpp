@@ -1,8 +1,4 @@
-#include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/json.hpp>
-#include <koinos/pack/classes.hpp>
-
-#include <koinos/pack/rt/binary.hpp>
+#pragma once
 
 struct transfer_args
 {

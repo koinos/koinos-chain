@@ -31,8 +31,8 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/cpp-pm/hunter/archive/v0.23.289.tar.gz"
-   SHA1 "7d7323704780200a1575fc089d26f8a8a393a1fa"
+   URL "https://github.com/cpp-pm/hunter/archive/v0.23.313.tar.gz"
+   SHA1 "6c369e5aab2749a616917df3b23511535f413604"
    LOCAL
 )
 
@@ -86,33 +86,35 @@ if(COVERAGE)
         "libraries/vendor/*")
 endif()
 
-hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono locale test program_options)
+hunter_add_package(Boost COMPONENTS system log thread date_time filesystem chrono test program_options)
 hunter_add_package(libsecp256k1)
 hunter_add_package(nlohmann_json)
 hunter_add_package(OpenSSL)
 hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
 hunter_add_package(yaml-cpp)
+hunter_add_package(Protobuf)
 
 hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)
-hunter_add_package(koinos_types)
+hunter_add_package(koinos_proto)
 hunter_add_package(koinos_exception)
 hunter_add_package(koinos_crypto)
 hunter_add_package(koinos_mq)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono locale program_options)
+find_package(Boost CONFIG REQUIRED COMPONENTS system log log_setup thread date_time filesystem chrono program_options)
 find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(rabbitmq-c CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
 
 find_package(koinos_crypto CONFIG REQUIRED)
 find_package(koinos_exception CONFIG REQUIRED)
 find_package(koinos_log CONFIG REQUIRED)
 find_package(koinos_mq CONFIG REQUIRED)
-find_package(koinos_types CONFIG REQUIRED)
+find_package(koinos_proto CONFIG REQUIRED)
 find_package(koinos_util CONFIG REQUIRED)
 
 add_subdirectory(programs)

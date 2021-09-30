@@ -1,10 +1,10 @@
-#include <koinos/pack/rt/pack_fwd.hpp>
 
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
+#include <koinos/conversion.hpp>
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>
 
@@ -12,89 +12,81 @@ namespace koinos::chain {
 
 host_api::host_api( apply_context& _ctx ) : context( _ctx ) {}
 
-void host_api::invoke_thunk( thunk_id_type tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
+void host_api::invoke_thunk( uint32_t tid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
-   thunk_dispatcher::instance().call_thunk( thunk_id( tid ), context, ret_ptr, ret_len, arg_ptr, arg_len );
+   thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-void host_api::invoke_system_call( system_call_id_type sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
+void host_api::invoke_system_call( uint32_t sid, array_ptr< char > ret_ptr, uint32_t ret_len, array_ptr< const char > arg_ptr, uint32_t arg_len )
 {
-   // TODO Do we need to invoke serialization here?
-   statedb::object_key key = sid;
-   variable_blob blob_target;
+   auto key = converter::as< std::string >( sid );
+   std::string blob_target;
 
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         blob_target = thunk::db_get_object(
+         blob_target = thunk::get_object(
             context,
-            database::system_call_dispatch_space,
+            database::space::system_call_dispatch,
             key,
-            database::system_call_dispatch_object_max_size
-         );
+            database::system_call_dispatch::max_object_size
+         ).value();
       }
    );
 
-   system_call_target target;
+   protocol::system_call_target target;
 
-   if( blob_target.size() == 0 )
+   if ( blob_target.size() )
    {
-      auto maybe_thunk_id = get_default_system_call_entry( system_call_id( sid ) );
-      KOINOS_ASSERT( maybe_thunk_id,
-         unknown_system_call,
-         "system call table dispatch entry ${sid} does not exist",
-         ("sid", sid)
-      );
-      target = *maybe_thunk_id;
+      target.ParseFromString( blob_target );
    }
    else
    {
-      koinos::pack::from_variable_blob( blob_target, target );
+      target.set_thunk_id( sid );
    }
 
-   std::visit(
-      koinos::overloaded{
-         [&]( thunk_id& tid ) {
-            with_stack_frame(
-               context,
-               stack_frame {
-                  .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,
-                  .call_privilege = context.get_privilege(),
-               },
-               [&]() {
-                  thunk_dispatcher::instance().call_thunk( tid, context, ret_ptr, ret_len, arg_ptr, arg_len );
-               }
-            );
+   if ( target.thunk_id() )
+   {
+      with_stack_frame(
+         context,
+         stack_frame {
+            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            .call_privilege = context.get_privilege(),
          },
-         [&]( contract_call_bundle& scb ) {
-            variable_blob args;
-            KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" )
-            args.resize( arg_len );
-            std::memcpy( args.data(), arg_ptr.value, arg_len );
-            variable_blob ret;
-            with_stack_frame(
-               context,
-               stack_frame {
-                  .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,
-                  .call_privilege = privilege::kernel_mode,
-               },
-               [&]()
-               {
-                  ret = thunk::execute_contract( context, scb.contract_id, scb.entry_point, args );
-               }
-            );
-            KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "Return buffer too small" );
-            std::memcpy( ret.data(), ret_ptr.value, ret.size() );
+         [&]() {
+            thunk_dispatcher::instance().call_thunk( target.thunk_id(), context, ret_ptr, ret_len, arg_ptr, arg_len );
+         }
+      );
+   }
+   else if ( target.has_system_call_bundle() )
+   {
+      const auto& scb = target.system_call_bundle();
+      KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" );
+      std::string args( arg_ptr.value, arg_len );
+      std::string ret;
+      with_stack_frame(
+         context,
+         stack_frame {
+            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            .call_privilege = privilege::kernel_mode,
          },
-         [&]( auto& ) {
-            KOINOS_THROW( unknown_system_call, "system call table dispatch entry ${sid} has unimplemented type ${tag}",
-               ("sid", sid)("tag", target.index()) );
-         } }, target );
+         [&]()
+         {
+            ret = thunk::call_contract( context, scb.contract_id(), scb.entry_point(), args ).value();
+         }
+      );
+      KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
+      std::memcpy( ret.data(), ret_ptr.value, ret.size() );
+   }
+   else
+   {
+      KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", sid) );
+   }
 }
 
 } // koinos::chain

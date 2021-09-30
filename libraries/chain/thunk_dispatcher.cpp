@@ -13,14 +13,14 @@ const thunk_dispatcher& thunk_dispatcher::instance()
    return td;
 }
 
-void thunk_dispatcher::call_thunk( thunk_id id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const
+void thunk_dispatcher::call_thunk( uint32_t id, apply_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const
 {
    auto it = _dispatch_map.find( id );
    KOINOS_ASSERT( it != _dispatch_map.end(), thunk_not_found, "Thunk ${id} not found", ("id", id) );
    it->second( ctx, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-bool thunk_dispatcher::thunk_exists( thunk_id id ) const
+bool thunk_dispatcher::thunk_exists( uint32_t id ) const
 {
    auto it = _dispatch_map.find( id );
    return it != _dispatch_map.end();

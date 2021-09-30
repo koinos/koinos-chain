@@ -271,8 +271,8 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    {
       Object o;
       o.id = item;
-      o.name = "any_name";
       o.val = item + 200;
+      o.val2 = 100;
 
       index.emplace( std::move( o ) );
    }
@@ -283,8 +283,8 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    for( const auto& item : c )
    {
       BOOST_REQUIRE( item.id == v[ cnt++ ] );
-      BOOST_REQUIRE( item.name == "any_name" );
       BOOST_REQUIRE( item.val == item.id + 200 );
+      BOOST_REQUIRE( item.val2 == 100 );
    }
 
    BOOST_TEST_MESSAGE( "Removing 2 objects: first and last" );
@@ -298,15 +298,21 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    BOOST_REQUIRE( v.size() - 2 == c.size() );
 
    //Modyfing key `name` in one object.
-   index.modify( c.begin(), [] ( Object& o ) { o.name = "completely_different_name"; } );
+   index.modify( c.begin(), [] ( Object& o ) {
+      o.val2 = 105;
+   });
    auto it1 = c.begin();
-   BOOST_REQUIRE( it1->name == "completely_different_name" );
+   BOOST_REQUIRE( it1->val2 == 105 );
    uint32_t val1 = it1->val;
 
    //Creating collision in two objects: [1] and [2]
    auto it2 = it1;
    it2++;
-   BOOST_REQUIRE( index.modify( it2, [ val1 ]( Object& obj ){ obj.name = "completely_different_name"; obj.val = val1;} ) == false );
+   BOOST_REQUIRE( index.modify( it2, [ val1 ]( Object& obj ){
+      obj.val = val1;
+      obj.val2 = 105;
+      } ) == false
+   );
 
    //Removing object [1].
    it1 = c.begin();
@@ -331,8 +337,8 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
       auto constructor = [ &item ]( Object &obj )
       {
          obj.id = item;
-         obj.name = "all_objects_have_the_same_name";
          obj.val = 667;
+         obj.val2 = 666;
       };
 
       if( cnt == 0 )
@@ -354,8 +360,8 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
 
    auto it_only_one = c.begin();
    BOOST_REQUIRE( it_only_one->id == v[0] );
-   BOOST_REQUIRE( it_only_one->name == "all_objects_have_the_same_name" );
    BOOST_REQUIRE( it_only_one->val == 667 );
+   BOOST_REQUIRE( it_only_one->val2 == 666 );
 
    BOOST_TEST_MESSAGE( "Erasing one objects." );
 
@@ -368,8 +374,8 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    {
       Object o;
       o.id = item;
-      o.name = "object nr:" + std::to_string( cnt++ );
       o.val = 5000;
+      o.val2 = cnt++;
 
       index.emplace( std::move( o ) );
    }
@@ -390,14 +396,14 @@ void misc_test( const std::vector< uint64_t >& v, IndexType& index )
    found = ordered_idx.find( v[0] );
    BOOST_REQUIRE( found != ordered_idx.end() );
 
-   auto cfound = composite_ordered_idx.find( boost::make_tuple( "stupid_name", 5000 ) );
+   auto cfound = composite_ordered_idx.find( boost::make_tuple( v.size() + 1, 5000 ) );
    BOOST_REQUIRE( cfound == composite_ordered_idx.end() );
 
-   cfound = composite_ordered_idx.find( boost::make_tuple( "object nr:" + std::to_string( 0 ), 5000 ) );
+   cfound = composite_ordered_idx.find( boost::make_tuple( 0, 5000 ) );
    auto copy_cfound = cfound;
-   auto cfound2 = composite_ordered_idx.find( boost::make_tuple( "object nr:" + std::to_string( 9 ), 5000 ) );
-   BOOST_REQUIRE( cfound == composite_ordered_idx.begin() );
 
+   auto cfound2 = composite_ordered_idx.find( boost::make_tuple( v.size() - 1, 5000 ) );
+   BOOST_REQUIRE( cfound == composite_ordered_idx.begin() );
    {
       auto last = composite_ordered_idx.end();
       --last;

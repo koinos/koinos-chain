@@ -3,10 +3,11 @@
 #include <boost/preprocessor/punctuation/comma.hpp>
 #include <boost/vmd/is_empty.hpp>
 
-#include <koinos/pack/classes.hpp>
-#include <koinos/pack/system_call_ids.hpp>
-#include <koinos/pack/thunk_ids.hpp>
+#include <koinos/crypto/merkle_tree.hpp>
 
+#include <koinos/protocol/system_call_ids.pb.h>
+
+#include <koinos/conversion.hpp>
 #include <koinos/util.hpp>
 
 // This file exposes seven public macros for consumption
@@ -20,29 +21,12 @@
 #define _THUNK_RET_SUFFIX  _return
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( thunk_id::elem, thunk::elem );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( protocol::system_call_id::elem, thunk::elem );
 
 #define THUNK_REGISTER( dispatcher, args )                        \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
 
-#define _DEFAULT_SYS_CALL_ENTRY( SID, DATA, CALL )                \
-case(system_call_id::CALL):                                       \
-{                                                                 \
-   retval = thunk_id::CALL;                                       \
-   break;                                                         \
-}
 
-#define SYSTEM_CALL_DEFAULTS( args )                                           \
-std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
-{                                                                              \
-   std::optional< thunk_id > retval;                                           \
-   switch( sid )                                                               \
-   {                                                                           \
-      BOOST_PP_SEQ_FOR_EACH( _DEFAULT_SYS_CALL_ENTRY, sid, args )              \
-      default: {} /* Do Nothing */                                             \
-   }                                                                           \
-   return retval;                                                              \
-}
 
 #define VA_ARGS(...) , ##__VA_ARGS__
 
@@ -75,8 +59,167 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
 #define _THUNK_DETAIL_DEFINE_FORWARD(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_FORWARD_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
-#define _THUNK_DETAIL_ARG_PACK(r, blob, elem) koinos::pack::to_variable_blob( blob, elem, true );
-#define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
+namespace koinos::chain::detail {
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, int64_t value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      if ( fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM )
+         ref->SetEnumValue( &msg, fd, (int)value );
+      else
+         ref->SetInt64( &msg, fd, value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, uint64_t value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      ref->SetUInt64( &msg, fd, value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, int32_t value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      if ( fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM )
+         ref->SetEnumValue( &msg, fd, (int)value );
+      else
+         ref->SetInt32( &msg, fd, value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, uint32_t value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      ref->SetUInt32( &msg, fd, value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, bool value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      ref->SetBool( &msg, fd, value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::string& value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      ref->SetString( &msg, fd, value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const google::protobuf::Message& value )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      auto m = ref->MutableMessage( &msg, fd );
+      m->CopyFrom( value );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< uint64_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddUInt64( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< int64_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddInt64( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< uint32_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddUInt32( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< int32_t >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+      {
+         if ( fd->type() == google::protobuf::FieldDescriptor::Type::TYPE_ENUM )
+            ref->AddEnumValue( &msg, fd, (int)v );
+         else
+            ref->AddInt32( &msg, fd, v );
+      }
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< bool >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddBool( &msg, fd, v );
+   }
+
+   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< std::string >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+         ref->AddString( &msg, fd, v );
+   }
+
+   template< typename T >
+   std::enable_if_t< std::is_base_of_v< google::protobuf::Message, T >, void >
+   inline set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< T >& values )
+   {
+      auto desc = msg.GetDescriptor();
+      auto ref = msg.GetReflection();
+      auto fd = desc->FindFieldByNumber( index );
+      assert( fd );
+      assert( fd->is_repeated() );
+      for( const auto& v : values )
+      {
+         auto m = ref->AddMessage( &msg, fd );
+         m->CopyFrom( v );
+      }
+   }
+}
+
+#define _THUNK_DETAIL_ARG_PACK(r, msg, i, elem) koinos::chain::detail::set_message_field( msg, i + 1, elem );
+#define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH_I(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    }                                                                                                                 \
@@ -84,88 +227,85 @@ std::optional< thunk_id > get_default_system_call_entry( system_call_id sid )  \
    RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
    {                                                                                                                 \
                                                                                                                      \
-      uint32_t _sid = static_cast< uint32_t >( system_call_id::SYSCALL );                                            \
+      uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
                                                                                                                      \
-      /* TODO Do we need to invoke serialization here? */                                                            \
-      statedb::object_key _key = _sid;                                                                               \
-      koinos::variable_blob _vl_target;                                                                              \
+      auto _key = converter::as< std::string >( _sid );                                                              \
+      std::string _blob_target;                                                                                      \
                                                                                                                      \
       with_stack_frame(                                                                                              \
          context,                                                                                                    \
          stack_frame {                                                                                               \
-            .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,                 \
+            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),    \
             .call_privilege = privilege::kernel_mode,                                                                \
          },                                                                                                          \
          [&]() {                                                                                                     \
-            _vl_target = thunk::db_get_object(                                                                       \
+            _blob_target = thunk::get_object(                                                                        \
                context,                                                                                              \
-               database::system_call_dispatch_space,                                                                 \
+               database::space::system_call_dispatch,                                                                \
                _key,                                                                                                 \
-               database::system_call_dispatch_object_max_size                                                        \
-            );                                                                                                       \
+               database::system_call_dispatch::max_object_size                                                       \
+            ).value();                                                                                               \
          }                                                                                                           \
       );                                                                                                             \
                                                                                                                      \
-      system_call_target _target;                                                                                    \
-      if( _vl_target.size() == 0 )                                                                                   \
+      protocol::system_call_target _target;                                                                          \
+                                                                                                                     \
+      if ( _blob_target.size() )                                                                                     \
       {                                                                                                              \
-         auto maybe_thunk_id = get_default_system_call_entry( system_call_id( _sid ) );                              \
-         KOINOS_ASSERT( maybe_thunk_id,                                                                              \
-            unknown_system_call,                                                                                     \
-            "system call table dispatch entry ${sid} does not exist",                                                \
-            ("sid", _sid)                                                                                            \
-            );                                                                                                       \
-         _target = *maybe_thunk_id;                                                                                  \
+         _target.ParseFromString( _blob_target );                                                                    \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \
-         _target = koinos::pack::from_variable_blob< system_call_target >( _vl_target );                             \
+         _target.set_thunk_id( _sid );                                                                               \
       }                                                                                                              \
                                                                                                                      \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                    \
                                                                                                                      \
-      std::visit(                                                                                                    \
-         koinos::overloaded{                                                                                         \
-            [&]( thunk_id& _tid ) {                                                                                  \
-               with_stack_frame(                                                                                     \
-                  context,                                                                                           \
-                  stack_frame {                                                                                      \
-                     .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,        \
-                     .call_privilege = context.get_privilege(),                                                      \
-                  },                                                                                                 \
-                  [&]() {                                                                                            \
-                     BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                \
-                     thunk_dispatcher::instance().call_thunk<                                                        \
-                        RETURN_TYPE                                                                                  \
-                        TYPES >(                                                                                     \
-                           _tid,                                                                                     \
-                           context                                                                                   \
-                           FWD );                                                                                    \
-                  }                                                                                                  \
-               );                                                                                                    \
+      if ( _target.thunk_id() )                                                                                      \
+      {                                                                                                              \
+         with_stack_frame(                                                                                           \
+            context,                                                                                                 \
+            stack_frame {                                                                                            \
+               .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call " ) ).digest(),\
+               .call_privilege = context.get_privilege(),                                                            \
             },                                                                                                       \
-            [&]( contract_call_bundle& _scb ) {                                                                      \
-               variable_blob _args;                                                                                  \
-               BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                           \
-               variable_blob _contract_ret;                                                                          \
-               with_stack_frame(                                                                                     \
-                  context,                                                                                           \
-                  stack_frame {                                                                                      \
-                     .call = crypto::hash( CRYPTO_RIPEMD160_ID, std::string( "invoke_system_call" ) ).digest,        \
-                     .call_privilege = privilege::kernel_mode,                                                       \
-                  },                                                                                                 \
-                  [&]()                                                                                              \
-                  {                                                                                                  \
-                     _contract_ret = thunk::execute_contract( context, _scb.contract_id, _scb.entry_point, _args );  \
-                  }                                                                                                  \
-               );                                                                                                    \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,koinos::pack::from_variable_blob( _contract_ret, _ret );)    \
+            [&]() {                                                                                                  \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
+                  thunk_dispatcher::instance().call_thunk<                                                           \
+                     RETURN_TYPE                                                                                     \
+                     TYPES >(                                                                                        \
+                        _sid,                                                                                        \
+                        context                                                                                      \
+                        FWD );                                                                                       \
+            }                                                                                                        \
+         );                                                                                                          \
+      }                                                                                                              \
+      else if ( _target.has_system_call_bundle() )                                                                   \
+      {                                                                                                              \
+         const auto& _scb = _target.system_call_bundle();                                                            \
+         BOOST_PP_CAT( SYSCALL, _args ) _args;                                                                       \
+         BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
+         std::string _ret_str;                                                                                       \
+         with_stack_frame(                                                                                           \
+            context,                                                                                                 \
+            stack_frame {                                                                                            \
+               .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(), \
+               .call_privilege = privilege::kernel_mode,                                                             \
             },                                                                                                       \
-            [&]( auto& _a ) {                                                                                        \
-               KOINOS_THROW( unknown_system_call,                                                                    \
-                  "system call table dispatch entry ${sid} has unimplemented type ${tag}",                           \
-                  ("sid", _sid)("tag", _target.index()) );                                                           \
-            } }, _target );                                                                                          \
+            [&]()                                                                                                    \
+            {                                                                                                        \
+               std::string _arg_str;                                                                                 \
+               _args.SerializeToString( &_arg_str );                                                                 \
+               _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
+            }                                                                                                        \
+         );                                                                                                          \
+         BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
+      }                                                                                                              \
+      else                                                                                                           \
+      {                                                                                                              \
+         KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
+      }                                                                                                              \
+                                                                                                                     \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret;)                                                         \
    }                                                                                                                 \
    }                                                                                                                 \

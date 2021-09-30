@@ -4,9 +4,6 @@
 [submodule "libraries/log"]
 	path = libraries/log
 	url = https://github.com/koinos/koinos-log-cpp.git
-[submodule "libraries/types"]
-	path = libraries/types
-	url = https://github.com/koinos/koinos-types.git
 [submodule "libraries/util"]
 	path = libraries/util
 	url = https://github.com/koinos/koinos-util-cpp.git
@@ -19,3 +16,6 @@
 [submodule "libraries/crypto"]
 	path = libraries/crypto
 	url = https://github.com/koinos/koinos-crypto-cpp.git
+[submodule "libraries/proto"]
+	path = libraries/proto
+	url = https://github.com/koinos/koinos-proto-cpp.git

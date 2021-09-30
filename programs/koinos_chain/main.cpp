@@ -20,6 +20,10 @@
 #include <koinos/log.hpp>
 #include <koinos/util.hpp>
 
+#include <koinos/broadcast/broadcast.pb.h>
+#include <koinos/rpc/block_store/block_store_rpc.pb.h>
+#include <koinos/rpc/mempool/mempool_rpc.pb.h>
+
 #include <mira/database_configuration.hpp>
 
 #define KOINOS_MAJOR_VERSION "0"
@@ -103,70 +107,93 @@ void attach_request_handler(
       service::chain,
       [&]( const std::string& msg ) -> std::string
       {
-         rpc::chain::chain_rpc_response response;
-         pack::json j;
+         rpc::chain::chain_request args;
+         rpc::chain::chain_response resp;
 
-         try
+         if ( args.ParseFromString( msg ) )
          {
-            j = pack::json::parse( msg );
-            rpc::chain::chain_rpc_request request;
-            pack::from_json( j, request );
+            LOG(debug) << "Received rpc: " << args;
 
-            std::visit(
-               koinos::overloaded {
-                  [&]( const rpc::chain::submit_block_request& r )
+            try
+            {
+               switch( args.request_case() )
+               {
+                  case rpc::chain::chain_request::RequestCase::kReserved:
                   {
-                     response = controller.submit_block( r );
-                  },
-                  [&]( const rpc::chain::submit_transaction_request& r )
-                  {
-                     response = controller.submit_transaction( r );
-                  },
-                  [&]( const rpc::chain::get_head_info_request& r )
-                  {
-                     response = controller.get_head_info( r );
-                  },
-                  [&]( const rpc::chain::get_chain_id_request& r )
-                  {
-                     response = controller.get_chain_id( r );
-                  },
-                  [&]( const rpc::chain::get_fork_heads_request& r )
-                  {
-                     response = controller.get_fork_heads( r );
-                  },
-                  [&]( const rpc::chain::read_contract_request& r )
-                  {
-                     response = controller.read_contract( r );
-                  },
-                  [&]( const rpc::chain::get_account_nonce_request& r )
-                  {
-                     response = controller.get_account_nonce( r );
-                  },
-                  [&]( const auto& r )
-                  {
-                     response = rpc::chain::chain_error_response{ .error_text = "Unknown RPC type" };
+                     resp.mutable_reserved();
+                     break;
                   }
-               },
-               request
-            );
+                  case rpc::chain::chain_request::RequestCase::kSubmitBlock:
+                  {
+                     controller.submit_block( args.submit_block() );
+                     resp.mutable_submit_block();
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kSubmitTransaction:
+                  {
+                     controller.submit_transaction( args.submit_transaction() );
+                     resp.mutable_submit_transaction();
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kGetHeadInfo:
+                  {
+                     *resp.mutable_get_head_info() = controller.get_head_info( args.get_head_info() );
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kGetChainId:
+                  {
+                     *resp.mutable_get_chain_id() = controller.get_chain_id( args.get_chain_id() );
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kGetForkHeads:
+                  {
+                     *resp.mutable_get_fork_heads() = controller.get_fork_heads( args.get_fork_heads() );
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kReadContract:
+                  {
+                     *resp.mutable_read_contract() = controller.read_contract( args.read_contract() );
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kGetAccountNonce:
+                  {
+                     *resp.mutable_get_account_nonce() = controller.get_account_nonce( args.get_account_nonce() );
+                     break;
+                  }
+                  default:
+                  {
+                     resp.mutable_error()->set_message( "Error: attempted to call unknown rpc" );
+                  }
+               }
+            }
+            catch( const koinos::exception& e )
+            {
+               auto error = resp.mutable_error();
+               error->set_message( e.what() );
+               error->set_data( e.get_stacktrace() );
+            }
+            catch( std::exception& e )
+            {
+               resp.mutable_error()->set_message( e.what() );
+            }
+            catch( ... )
+            {
+               LOG(error) << "Unexpected error while handling rpc: " << args.ShortDebugString();
+               resp.mutable_error()->set_message( "Unexpected error while handling rpc" );
+            }
          }
-         catch( koinos::exception& e )
+         else
          {
-            response = rpc::chain::chain_error_response {
-               .error_text = e.get_message(),
-               .error_data = e.get_stacktrace()
-            };
-         }
-         catch( std::exception& e )
-         {
-            response = rpc::chain::chain_error_response {
-               .error_text = e.what()
-            };
+            LOG(warning) << "Received bad message";
+            resp.mutable_error()->set_message( "Received bad message" );
          }
 
-         j.clear();
-         pack::to_json( j, response );
-         return j.dump();
+         LOG(debug) << "Sending rpc response: " << resp;
+
+         std::string r;
+         resp.SerializeToString( &r );
+         LOG(debug) << to_hex( r );
+         return r;
       }
    );
 
@@ -180,16 +207,21 @@ void attach_request_handler(
       "koinos.block.accept",
       [&]( const std::string& msg )
       {
-         try {
-            broadcast::block_accepted bam;
-            pack::from_json( pack::json::parse( msg ), bam );
+         broadcast::block_accepted bam;
+         if ( !bam.ParseFromString( msg ) )
+         {
+            LOG(warning) << "Could not parse block accepted broadcast";
+            return;
+         }
 
-            controller.submit_block( {
-               .block = bam.block,
-               .verify_passive_data = false,
-               .verify_block_signature = true,
-               .verify_transaction_signatures = false
-            } );
+         try
+         {
+            rpc::chain::submit_block_request sub_block;
+            sub_block.set_allocated_block( bam.release_block() );
+            sub_block.set_verify_passive_data( false );
+            sub_block.set_verify_block_signature( true );
+            sub_block.set_verify_transaction_signature( false );
+            controller.submit_block( sub_block );
          }
          catch( const boost::exception& e )
          {
@@ -224,7 +256,7 @@ void attach_request_handler(
 void index_loop(
    chain::controller& controller,
    concurrent::sync_bounded_queue< std::shared_future< std::string > >& rpc_queue,
-   block_height_type last_height )
+   uint64_t last_height )
 {
    while ( true )
    {
@@ -241,32 +273,39 @@ void index_loop(
       try
       {
          rpc::block_store::block_store_response resp;
-         pack::from_json( pack::json::parse( future.get() ), resp );
-         rpc::block_store::get_blocks_by_height_response batch;
+         rpc::block_store::get_blocks_by_height_response* batch = nullptr;
 
-         std::visit( koinos::overloaded {
-            [&]( rpc::block_store::get_blocks_by_height_response& r )
-            {
-               batch = std::move( r );
-            },
-            [&]( rpc::block_store::block_store_error_response& r )
-            {
-               KOINOS_THROW( koinos::exception, r.error_text );
-            },
-            [&]( auto& )
-            {
-               KOINOS_THROW( koinos::exception, "unexpected block store response" );
-            }
-         }, resp );
-
-         for ( auto& block_item : batch.block_items )
+         if ( resp.ParseFromString( future.get() ) )
          {
-            controller.submit_block( {
-               .block = *block_item.block,
-               .verify_passive_data = false,
-               .verify_block_signature = true,
-               .verify_transaction_signatures = false
-            }, last_height );
+            switch( resp.response_case() )
+            {
+               case rpc::block_store::block_store_response::ResponseCase::kGetBlocksByHeight:
+               {
+                  batch = resp.mutable_get_blocks_by_height();
+                  break;
+               }
+               case rpc::block_store::block_store_response::ResponseCase::kError:
+               {
+                  KOINOS_THROW( koinos::exception, resp.error().message() );
+                  break;
+               }
+               default:
+               {
+                  KOINOS_THROW( koinos::exception, "unexpected block store response" );
+                  break;
+               }
+            }
+         }
+
+         rpc::chain::submit_block_request sub_block;
+         sub_block.set_verify_passive_data( false );
+         sub_block.set_verify_block_signature( true );
+         sub_block.set_verify_transaction_signature( false );
+
+         for ( auto& block_item : *batch->mutable_block_items() )
+         {
+            sub_block.set_allocated_block( block_item.release_block() );
+            controller.submit_block( sub_block, last_height );
          }
       }
       catch ( const boost::exception& e )
@@ -291,32 +330,45 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
       const auto before = std::chrono::system_clock::now();
 
       LOG(info) << "Retrieving highest block from block store";
-      pack::json j;
-      pack::to_json( j, block_store_request{ get_highest_block_request{} } );
-      auto future = mq_client->rpc( service::block_store, j.dump() );
+      rpc::block_store::block_store_request req;
+      req.mutable_get_highest_block();
+      std::string req_str;
+      req.SerializeToString( &req_str );
+      auto future = mq_client->rpc( service::block_store, req_str );
 
-      block_store_response resp;
-      pack::from_json( pack::json::parse( future.get() ), resp );
-
+      rpc::block_store::block_store_response resp;
       block_topology target_head;
-      std::visit( koinos::overloaded {
-         [&]( get_highest_block_response& r )
-         {
-            target_head = r.topology;
-         },
-         [&]( block_store_error_response& r )
-         {
-            KOINOS_THROW( koinos::exception, r.error_text );
-         },
-         [&]( auto& )
-         {
-            KOINOS_THROW( koinos::exception, "unexpected block store response" );
-         }
-      }, resp );
+
+      if( resp.ParseFromString( future.get() ) )
+      {
+         switch( resp.response_case() )
+            {
+               case rpc::block_store::block_store_response::ResponseCase::kGetHighestBlock:
+               {
+                  target_head.CopyFrom( resp.get_highest_block().topology() );
+                  break;
+               }
+               case rpc::block_store::block_store_response::ResponseCase::kError:
+               {
+                  KOINOS_THROW( koinos::exception, resp.error().message() );
+                  break;
+               }
+               default:
+               {
+                  KOINOS_THROW( koinos::exception, "unexpected block store response" );
+                  break;
+               }
+            }
+      }
+      else
+      {
+         LOG(error) << "Could not get highest block from block store";
+         exit( EXIT_FAILURE );
+      }
 
       auto head_info = controller.get_head_info();
 
-      if( head_info.head_topology.height < target_head.height )
+      if ( head_info.head_topology().height() < target_head.height() )
       {
          LOG(info) << "Indexing to target block: " << target_head;
 
@@ -324,25 +376,24 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
 
          auto index_thread = std::make_unique< std::thread >( [&]()
          {
-            index_loop( controller, rpc_queue, target_head.height );
+            index_loop( controller, rpc_queue, target_head.height() );
          } );
 
-         multihash last_id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
-         block_height_type last_height = head_info.head_topology.height;
+         crypto::multihash last_id = crypto::multihash::zero( crypto::multicodec::sha2_256 );
+         uint64_t last_height = head_info.head_topology().height();
 
-         while ( last_height < target_head.height )
+         while ( last_height < target_head.height() )
          {
-            get_blocks_by_height_request req {
-               .head_block_id         = target_head.id,
-               .ancestor_start_height = block_height_type{ last_height + 1 },
-               .num_blocks            = batch_size,
-               .return_block          = true,
-               .return_receipt        = false
-            };
+            auto* by_height_req = req.mutable_get_blocks_by_height();
+            by_height_req->set_head_block_id( target_head.id() );
+            by_height_req->set_ancestor_start_height( last_height + 1 );
+            by_height_req->set_num_blocks( batch_size );
+            by_height_req->set_return_block( true );
+            by_height_req->set_return_receipt( false );
 
-            pack::to_json( j, block_store_request{ req } );
-            rpc_queue.push_back( mq_client->rpc( service::block_store, j.dump() ) );
-            last_height += block_height_type{ batch_size };
+            req.SerializeToString( &req_str );
+            rpc_queue.push_back( mq_client->rpc( service::block_store, req_str ) );
+            last_height += batch_size;
          }
 
          rpc_queue.close();
@@ -351,7 +402,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
          auto new_head_info = controller.get_head_info();
 
          const std::chrono::duration< double > duration = std::chrono::system_clock::now() - before;
-         LOG(info) << "Finished indexing " << new_head_info.head_topology.height - head_info.head_topology.height << " blocks, took " << duration.count() << " seconds";
+         LOG(info) << "Finished indexing " << new_head_info.head_topology().height() - head_info.head_topology().height() << " blocks, took " << duration.count() << " seconds";
       }
    }
    catch ( const std::exception& e )
@@ -467,7 +518,7 @@ int main( int argc, char** argv )
       if ( !std::filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
 
-      pack::json database_config;
+      nlohmann::json database_config;
 
       try
       {
@@ -494,14 +545,13 @@ int main( int argc, char** argv )
       std::getline( ifs, genesis_address );
       ifs.close();
 
-      multihash chain_id = crypto::hash( CRYPTO_SHA2_256_ID, genesis_address );
+      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, from_hex( genesis_address ) );
 
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Genesis authority: " << genesis_address;
 
-      auto key = koinos::chain::database::key_from_string( koinos::chain::database::key::chain_id );
       chain::genesis_data genesis_data;
-      genesis_data[ { koinos::chain::database::kernel_space, key } ] = pack::to_variable_blob( chain_id );
+      genesis_data[ { converter::as< state_db::object_space >( koinos::chain::database::space::kernel ), converter::as< state_db::object_key >( koinos::chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
@@ -520,17 +570,21 @@ int main( int argc, char** argv )
 
       {
          LOG(info) << "Attempting to connect to block_store...";
-         pack::json j;
-         pack::to_json( j, rpc::block_store::block_store_request{ rpc::block_store::block_store_reserved_request{} } );
-         mq_client->rpc( service::block_store, j.dump() ).get();
+         rpc::block_store::block_store_request req;
+         req.mutable_reserved();
+         std::string s;
+         req.SerializeToString( &s );
+         mq_client->rpc( service::block_store, s ).get();
          LOG(info) << "Established connection to block_store";
       }
 
       {
          LOG(info) << "Attempting to connect to mempool...";
-         pack::json j;
-         pack::to_json( j, rpc::mempool::mempool_rpc_request{ rpc::mempool::mempool_reserved_request{} } );
-         mq_client->rpc( service::mempool, j.dump() ).get();
+         rpc::mempool::mempool_request req;
+         req.mutable_reserved();
+         std::string s;
+         req.SerializeToString( &s );
+         mq_client->rpc( service::mempool, s ).get();
          LOG(info) << "Established connection to mempool";
       }
 

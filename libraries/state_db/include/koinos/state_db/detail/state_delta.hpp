@@ -1,6 +1,6 @@
 #pragma once
-#include <koinos/statedb/statedb_types.hpp>
-#include <koinos/statedb/detail/uniqueness_validator.hpp>
+#include <koinos/state_db/state_db_types.hpp>
+#include <koinos/state_db/detail/uniqueness_validator.hpp>
 
 #include <koinos/crypto/multihash.hpp>
 
@@ -10,7 +10,7 @@
 
 const std::vector< uint8_t > ID_KEY { 'D','E','L','T','A','_','I','D' };
 
-namespace koinos::statedb::detail {
+namespace koinos::state_db::detail {
 
    using boost::container::flat_set;
 
@@ -54,7 +54,7 @@ namespace koinos::statedb::detail {
             _revision = _indices->revision();
             if( !_indices->get_metadata( ID_KEY, _id ) )
             {
-               _id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+               _id = crypto::multihash::zero( crypto::multicodec::sha2_256 );
                _indices->put_metadata( ID_KEY, _id );
             }
          }
@@ -244,7 +244,7 @@ namespace koinos::statedb::detail {
                _next_object_id = _parent->_next_object_id;
 
             _revision = 0;
-            _id = crypto::zero_hash( CRYPTO_SHA2_256_ID );
+            _id = crypto::multihash::zero( crypto::multicodec::sha2_256 );
             _indices->put_metadata( ID_KEY, _id );
          }
 
@@ -421,6 +421,6 @@ namespace koinos::statedb::detail {
          }
    };
 
-} // koinos::statedb::detail
+} // koinos::state_db::detail
 
 #undef ID_KEY

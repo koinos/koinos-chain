@@ -1,3 +1,6 @@
+#include <koinos/block_store/block_store.pb.h>
+#include <koinos/broadcast/broadcast.pb.h>
+
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 
@@ -5,11 +8,13 @@
 #include <koinos/chain/host.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <koinos/pack/classes.hpp>
-#include <koinos/pack/rt/binary.hpp>
-#include <koinos/pack/rt/json.hpp>
+#include <koinos/conversion.hpp>
 
-#include <koinos/statedb/statedb.hpp>
+#include <koinos/rpc/block_store/block_store_rpc.pb.h>
+#include <koinos/rpc/chain/chain_rpc.pb.h>
+#include <koinos/rpc/mempool/mempool_rpc.pb.h>
+
+#include <koinos/state_db/state_db.hpp>
 
 #include <koinos/util.hpp>
 
@@ -23,6 +28,8 @@
 #include <optional>
 #include <shared_mutex>
 #include <thread>
+
+#include <boost/interprocess/streams/vectorstream.hpp>
 
 namespace koinos::chain {
 
@@ -44,7 +51,7 @@ class controller_impl final
 
       rpc::chain::submit_block_response submit_block(
          const rpc::chain::submit_block_request&,
-         block_height_type index_to,
+         uint64_t index_to,
          std::chrono::system_clock::time_point now
       );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
@@ -55,8 +62,8 @@ class controller_impl final
       rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
 
    private:
-      statedb::state_db             _state_db;
-      std::shared_mutex             _state_db_mutex;
+      state_db::database            _db;
+      std::shared_mutex             _db_mutex;
       std::shared_ptr< mq::client > _client;
       int64_t                       _max_read_cycles = KOINOS_MAX_METER_TICKS;
 
@@ -71,25 +78,25 @@ controller_impl::controller_impl()
 
 controller_impl::~controller_impl()
 {
-   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
-   _state_db.close();
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
+   _db.close();
 }
 
 void controller_impl::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
 {
-   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
-   _state_db.open( p, o, [&]( statedb::state_node_ptr root )
+   _db.open( p, o, [&]( state_db::state_node_ptr root )
    {
       for ( const auto& entry : data )
       {
-         statedb::put_object_args put_args;
+         state_db::put_object_args put_args;
          put_args.space = entry.first.first;
          put_args.key = entry.first.second;
          put_args.buf = entry.second.data();
          put_args.object_size = entry.second.size();
 
-         statedb::put_object_result put_res;
+         state_db::put_object_result put_res;
          root->put_object( put_res, put_args );
 
          KOINOS_ASSERT(
@@ -104,10 +111,10 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
    if ( reset )
    {
       LOG(info) << "Resetting database...";
-      _state_db.reset();
+      _db.reset();
    }
 
-   auto head = _state_db.get_head();
+   auto head = _db.get_head();
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
@@ -118,35 +125,38 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
 
 rpc::chain::submit_block_response controller_impl::submit_block(
    const rpc::chain::submit_block_request& request,
-   block_height_type index_to,
+   uint64_t index_to,
    std::chrono::system_clock::time_point now )
 {
-   std::lock_guard< std::shared_mutex > lock( _state_db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
    static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
 
-   auto time_lower_bound = uint64_t( 0 );
-   auto time_upper_bound = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
-   block_height_type parent_height{ 0 };
+   auto time_lower_bound  = uint64_t( 0 );
+   auto time_upper_bound  = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
+   uint64_t parent_height = 0;
 
-   statedb::state_node_ptr block_node;
+   state_db::state_node_ptr block_node;
 
-   block_node = _state_db.get_node( request.block.id );
+   auto block        = request.block();
+   auto block_id     = converter::to< crypto::multihash >( block.id() );
+   auto block_height = block.header().height();
+   auto parent_id    = converter::to< crypto::multihash >( block.header().previous() );
+   block_node        = _db.get_node( block_id );
 
    if ( block_node ) return {}; // Block has been applied
 
    if ( !index_to )
    {
-      LOG(info) << "Pushing block - Height: " << request.block.header.height
-         << ", ID: " << request.block.id;
+      LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
-   block_node = _state_db.create_writable_node( request.block.header.previous, request.block.id );
+   block_node = _db.create_writable_node( parent_id, block_id );
 
    // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
    // than the parent block timestamp.
-   if ( block_node && !crypto::multihash_is_zero( request.block.header.previous ) )
+   if ( block_node && !parent_id.is_zero() )
    {
       apply_context parent_ctx;
 
@@ -154,17 +164,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
       // system calls are overridden.  See issue #439.
 
-      parent_ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
+      parent_ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
 
       parent_ctx.push_frame( stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
          .call_privilege = privilege::kernel_mode
       } );
 
-      auto parent_node = _state_db.get_node( request.block.header.previous );
+      auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
-      time_lower_bound = system_call::get_head_block_time( parent_ctx ).t;
-      parent_height = system_call::get_head_info( parent_ctx ).head_topology.height;
+      auto head_info = system_call::get_head_info( parent_ctx ).value();
+      parent_height = head_info.head_topology().height();
+      time_lower_bound = head_info.head_block_time();
    }
 
    apply_context ctx;
@@ -172,35 +183,35 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    // The following call to set_meter_ticks() does not set an upper bound on the cycles that
    // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
    // system calls are overridden.  See issue #439.
-   ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
+   ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
 
    try
    {
       // Genesis case, when the first block is submitted the previous must be the zero hash
-      if ( crypto::multihash_is_zero( request.block.header.previous ) )
+      if ( parent_id.is_zero() )
       {
-         KOINOS_ASSERT( request.block.header.height == 1, unexpected_height, "First block must have height of 1" );
+         KOINOS_ASSERT( block_height == 1, unexpected_height, "first block must have height of 1" );
       }
 
       KOINOS_ASSERT(
-         crypto::hash_n( CRYPTO_SHA2_256_ID, request.block.header, request.block.active_data ) == request.block.id,
+         crypto::hash( crypto::multicodec::sha2_256, block.header(), block.active() ) == block_id,
          block_id_mismatch,
-         "Block contains an invalid block ID"
+         "block contains an invalid block ID"
       );
 
-      KOINOS_ASSERT( block_node, unknown_previous_block, "Unknown previous block" );
+      KOINOS_ASSERT( block_node, unknown_previous_block, "unknown previous block" );
 
       KOINOS_ASSERT(
-         request.block.header.height == parent_height + 1,
+         block_height == parent_height + 1,
          unexpected_height,
-         "Expected block height of ${a}, was ${b}", ("a", parent_height + 1)("b", request.block.header.height)
+         "expected block height of ${a}, was ${b}", ("a", parent_height + 1)("b", block_height)
       );
 
-      KOINOS_ASSERT( request.block.header.timestamp.t <= time_upper_bound, timestamp_out_of_bounds, "Block timestamp is too far in the future" );
-      KOINOS_ASSERT( request.block.header.timestamp.t >= time_lower_bound, timestamp_out_of_bounds, "Block timestamp is too old" );
+      KOINOS_ASSERT( block.header().timestamp() <= time_upper_bound, timestamp_out_of_bounds, "block timestamp is too far in the future" );
+      KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds, "block timestamp is too old" );
 
       ctx.push_frame( stack_frame {
-         .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_block"s ).digest,
+         .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
          .call_privilege = privilege::kernel_mode
       } );
 
@@ -208,51 +219,34 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       system_call::apply_block(
          ctx,
-         request.block,
-         request.verify_passive_data,
-         request.verify_block_signature,
-         request.verify_transaction_signatures );
+         block,
+         request.verify_passive_data(),
+         request.verify_block_signature(),
+         request.verify_transaction_signature() );
 
       if ( _client && _client->is_connected() )
       {
-         rpc::block_store::block_store_request req = rpc::block_store::add_block_request {
-            .block_to_add = block_store::block_item {
-               .block_id     = request.block.id,
-               .block_height = request.block.header.height,
-               .block        = request.block
-            }
-         };
+         rpc::block_store::block_store_request req;
+         req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
 
-         pack::json j;
-         pack::to_json( j, req );
-         auto future = _client->rpc( service::block_store, j.dump(), 750 /* ms */, mq::retry_policy::none );
+         auto future = _client->rpc( service::block_store, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
 
          rpc::block_store::block_store_response resp;
-         pack::from_json( pack::json::parse( future.get() ), resp );
+         resp.ParseFromString( future.get() );
 
-         std::visit( koinos::overloaded {
-            [&]( const rpc::block_store::add_block_response& r )
-            {
-            },
-            [&] ( const rpc::block_store::block_store_error_response& r )
-            {
-               KOINOS_THROW( koinos::exception, "Received error response from block store: ${error}", ("error", r.error_text) );
-            },
-            [&] ( const auto& r )
-            {
-               KOINOS_THROW( koinos::exception, "Unexpected response from block store" );
-            }
-         }, resp );
+         KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from block store: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_add_block(), koinos::exception, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
       if ( !index_to )
       {
-         LOG(info) << "Block application successful - Height: " << request.block.header.height << ", ID: " << request.block.id;
+         LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id;
+         LOG(info) << "Apply block ticks: " << KOINOS_MAX_METER_TICKS - ctx.get_meter_ticks();
       }
-      else if ( request.block.header.height % index_message_interval == 0 )
+      else if ( block_height % index_message_interval == 0 )
       {
-         auto progress = request.block.header.height.t / static_cast< double >( index_to.t ) * 100;
-         LOG(info) << "Indexing chain (" << progress << "%) - Height: " << request.block.header.height << ", ID: " << request.block.id;
+         auto progress = block_height / static_cast< double >( index_to ) * 100;
+         LOG(info) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
       }
 
       auto output = ctx.get_pending_console_output();
@@ -262,14 +256,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      auto lib = system_call::get_last_irreversible_block( ctx );
+      auto lib = system_call::get_last_irreversible_block( ctx ).value();
 
-      _state_db.finalize_node( block_node->id() );
+      _db.finalize_node( block_node->id() );
 
-      if ( std::optional< state_node_ptr > node; lib > _state_db.get_root()->revision() )
+      if ( std::optional< state_node_ptr > node; lib > _db.get_root()->revision() )
       {
-         node = _state_db.get_node_at_revision( uint64_t( lib ), block_node->id() );
-         _state_db.commit_node( node.value()->id() );
+         node = _db.get_node_at_revision( lib, block_node->id() );
+         _db.commit_node( node.value()->id() );
       }
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
@@ -278,13 +272,10 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       {
          try
          {
-            pack::json j;
+            broadcast::block_irreversible bc;
+            bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
-            pack::to_json( j, broadcast::block_irreversible {
-               .topology = last_irreversible_block
-            } );
-
-            _client->broadcast( "koinos.block.irreversible", j.dump() );
+            _client->broadcast( "koinos.block.irreversible", converter::as< std::string >( bc ) );
          }
          catch ( const std::exception& e )
          {
@@ -293,13 +284,11 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          try
          {
-            pack::json j;
+            broadcast::block_accepted ba;
 
-            pack::to_json( j, broadcast::block_accepted {
-               .block = request.block
-            } );
+            ba.mutable_block()->CopyFrom( block );
 
-            _client->broadcast( "koinos.block.accept", j.dump() );
+            _client->broadcast( "koinos.block.accept", converter::as< std::string >( ba ) );
          }
          catch ( const std::exception& e )
          {
@@ -308,14 +297,16 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          try
          {
-            pack::json j;
+            broadcast::fork_heads fh;
+            fh.mutable_last_irreversible_block()->CopyFrom( last_irreversible_block );
 
-            pack::to_json( j, broadcast::fork_heads {
-               .fork_heads              = fork_heads,
-               .last_irreversible_block = last_irreversible_block
-            } );
+            for ( const auto& fork_head : fork_heads )
+            {
+               auto* head = fh.add_heads();
+               *head = fork_head;
+            }
 
-            _client->broadcast( "koinos.block.forks", j.dump() );
+            _client->broadcast( "koinos.block.forks", converter::as< std::string >( fh ) );
          }
          catch ( const std::exception& e )
          {
@@ -325,7 +316,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    }
    catch( const std::exception& e )
    {
-      LOG(warning) << "Block application failed - Height: " << request.block.header.height << " ID: " << request.block.id << ", with reason: " << e.what();
+      LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
 
       auto output = ctx.get_pending_console_output();
 
@@ -336,14 +327,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _state_db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id() );
       }
 
       throw;
    }
    catch( ... )
    {
-      LOG(warning) << "Block application failed - Height: " << request.block.header.height << ", ID: " << request.block.id << ", for an unknown reason";
+      LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
 
       auto output = ctx.get_pending_console_output();
 
@@ -354,7 +345,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _state_db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id() );
       }
 
       throw;
@@ -365,20 +356,23 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   koinos::protocol::account_type payer;
-   uint128 max_payer_resources;
-   uint128 trx_resource_limit;
+   std::string payer;
+   uint64_t max_payer_resources;
+   uint64_t trx_resource_limit;
 
-   LOG(info) << "Pushing transaction - ID: " << request.transaction.id;
+   auto transaction    = request.transaction();
+   auto transaction_id = to_hex( transaction.id() );
 
-   auto pending_trx_node = _state_db.get_head()->create_anonymous_node();
-   KOINOS_ASSERT( pending_trx_node, trx_state_error, "Error creating pending transaction state node" );
+   LOG(info) << "Pushing transaction - ID: " << transaction_id;
+
+   auto pending_trx_node = _db.get_head()->create_anonymous_node();
+   KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
-      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "submit_transaction"s ).digest,
+      .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
       .call_privilege = privilege::kernel_mode
    } );
 
@@ -390,67 +384,46 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
       // system calls are overridden.  See issue #439.
 
-      ctx.set_meter_ticks(KOINOS_MAX_METER_TICKS);
+      ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
 
-      payer = system_call::get_transaction_payer( ctx, request.transaction );
-      max_payer_resources = system_call::get_max_account_resources( ctx, payer );
-      trx_resource_limit = system_call::get_transaction_resource_limit( ctx, request.transaction );
+      payer = system_call::get_transaction_payer( ctx, transaction ).value();
+      max_payer_resources = system_call::get_max_account_resources( ctx, payer ).value();
+      trx_resource_limit = system_call::get_transaction_resource_limit( ctx, transaction ).value();
 
-      system_call::apply_transaction( ctx, request.transaction );
-
-      rpc::mempool::check_pending_account_resources_request check_req
-      {
-         .payer = payer,
-         .max_payer_resources = max_payer_resources,
-         .trx_resource_limit = trx_resource_limit
-      };
+      system_call::apply_transaction( ctx, transaction );
 
       if ( _client && _client->is_connected() )
       {
-         rpc::mempool::mempool_rpc_request mem_req = check_req;
-         pack::json j;
-         pack::to_json( j, mem_req );
-         auto future = _client->rpc( service::mempool, j.dump(), 750 /* ms */, mq::retry_policy::none );
+         rpc::mempool::mempool_request req;
+         auto* check_pending = req.mutable_check_pending_account_resources();
 
-         rpc::mempool::mempool_rpc_response resp;
-         pack::from_json( pack::json::parse( future.get() ), resp );
+         check_pending->set_payer( payer );
+         check_pending->set_max_payer_resources( max_payer_resources );
+         check_pending->set_trx_resource_limit( trx_resource_limit );
 
-         std::visit( koinos::overloaded {
-            [&]( const rpc::mempool::check_pending_account_resources_response& r )
-            {
-               if ( !r.success )
-               {
-                  KOINOS_THROW( koinos::exception, "Insufficient pending account resources" );
-               }
-            },
-            [&] ( const rpc::mempool::mempool_error_response& r )
-            {
-               KOINOS_THROW( koinos::exception, r.error_text );
-            },
-            [&] ( const auto& r )
-            {
-               KOINOS_THROW( koinos::exception, "Unexpected response from mempool" );
-            }
-         }, resp );
+         auto future = _client->rpc( service::mempool, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
+
+         rpc::mempool::mempool_response resp;
+         resp.ParseFromString( future.get() );
+
+         KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from mempool: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_check_pending_account_resources(), koinos::exception, "received unexpected response from mempool" );
       }
 
-      LOG(info) << "Transaction application successful - ID: " << request.transaction.id;
+      LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
       if ( _client && _client->is_connected() )
       {
          try
          {
-            pack::json j;
+            broadcast::transaction_accepted ta;
 
-            pack::to_json( j, broadcast::transaction_accepted {
-               .transaction = request.transaction,
-               .payer = payer,
-               .max_payer_resources = max_payer_resources,
-               .trx_resource_limit = trx_resource_limit,
-               .height = block_height_type{ ctx.get_state_node()->revision() }
-            } );
+            *ta.mutable_transaction() = transaction;
+            ta.set_payer( payer );
+            ta.set_max_payer_resources( max_payer_resources );
+            ta.set_height( ctx.get_state_node()->revision() );
 
-            _client->broadcast( "koinos.transaction.accept", j.dump() );
+            _client->broadcast( "koinos.transaction.accept", converter::as< std::string >( ta ) );
          }
          catch ( const std::exception& e )
          {
@@ -460,12 +433,12 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    }
    catch( const std::exception& e )
    {
-      LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", with reason: " << e.what();
+      LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
       throw;
    }
    catch( ... )
    {
-      LOG(warning) << "Transaction application failed - ID: " << request.transaction.id << ", for an unknown reason";
+      LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
       throw;
    }
 
@@ -474,58 +447,65 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
 rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::chain::get_head_info_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
-      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_head_info"s ).digest,
+      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _state_db.get_head() );
+   ctx.set_state_node( _db.get_head() );
 
-   auto head_info = system_call::get_head_info( ctx );
-   return {
-      .head_topology            = head_info.head_topology,
-      .last_irreversible_height = head_info.last_irreversible_height
-   };
+   auto head_info = system_call::get_head_info( ctx ).value();
+   block_topology topo = head_info.head_topology();
+
+   rpc::chain::get_head_info_response resp;
+   *resp.mutable_head_topology() = topo;
+   resp.set_last_irreversible_block( head_info.last_irreversible_block() );
+
+   return resp;
 }
 
 rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chain::get_chain_id_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   boost::interprocess::basic_vectorstream< statedb::object_value > chain_id_stream;
-   statedb::object_value chain_id_vector;
+   boost::interprocess::basic_ivectorstream< std::vector< char > > chain_id_stream;
+   std::vector< char > chain_id_vector;
    chain_id_vector.resize( 128 );
    chain_id_stream.swap_vector( chain_id_vector );
 
-   statedb::get_object_result result;
-   statedb::get_object_args   args;
-   args.space    = database::kernel_space;
-   args.key      = database::key_from_string( database::key::chain_id );
-   args.buf      = const_cast< char* >( chain_id_stream.vector().data() );
+   state_db::get_object_result result;
+   state_db::get_object_args   args;
+   args.space    = converter::as< state_db::object_space >( database::space::kernel );
+   args.key      = converter::as< state_db::object_key >( database::key::chain_id );
+   args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
    args.buf_size = chain_id_stream.vector().size();
 
-   statedb::state_node_ptr head;
+   state_db::state_node_ptr head;
 
-   head = _state_db.get_head();
+   head = _db.get_head();
 
    head->get_object( result, args );
 
    KOINOS_ASSERT( result.key == args.key, retrieval_failure, "unable to retrieve chain id" );
    KOINOS_ASSERT( result.size <= args.buf_size, insufficent_buffer_size, "chain id buffer overflow" );
 
-   multihash chain_id;
-   pack::from_binary( chain_id_stream, chain_id, result.size );
-   LOG(info) << "get_chain_id returning " << chain_id;
+   crypto::multihash chain_id;
+   from_binary( chain_id_stream, chain_id );
 
-   return { .chain_id = chain_id };
+   LOG(debug) << "get_chain_id: " << chain_id;
+
+   rpc::chain::get_chain_id_response resp;
+   resp.set_chain_id( converter::as< std::string >( chain_id ) );
+
+   return resp;
 }
 
 fork_data controller_impl::get_fork_data()
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
    return get_fork_data_lockless();
 }
 
@@ -535,34 +515,34 @@ fork_data controller_impl::get_fork_data_lockless()
    apply_context ctx;
 
    ctx.push_frame( koinos::chain::stack_frame {
-      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_fork_data"s ).digest,
+      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_fork_data"s ).digest(),
       .call_privilege = privilege::kernel_mode
    } );
 
-   std::vector< statedb::state_node_ptr > fork_heads;
+   std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _state_db.get_root() );
-   fork_heads = _state_db.get_fork_heads();
+   ctx.set_state_node( _db.get_root() );
+   fork_heads = _db.get_fork_heads();
 
-   auto head_info = system_call::get_head_info( ctx );
-   fdata.second = head_info.head_topology;
+   auto head_info = system_call::get_head_info( ctx ).value();
+   fdata.second = head_info.head_topology();
 
    for ( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
-      auto head_info = system_call::get_head_info( ctx );
-      fdata.first.emplace_back( std::move( head_info.head_topology ) );
+      auto head_info = system_call::get_head_info( ctx ).value();
+      fdata.first.emplace_back( std::move( head_info.head_topology() ) );
    }
 
    // Sort all fork heads by height
    std::sort( fdata.first.begin(), fdata.first.end(), []( const block_topology& a, const block_topology& b )
    {
-      return a.height > b.height;
+      return a.height() > b.height();
    } );
 
    // If there is a tie for highest block, ensure the head block is first
    auto fork_itr = fdata.first.begin();
-   while ( fork_itr != fdata.first.begin() && fork_itr->id != head_info.head_topology.id )
+   while ( fork_itr != fdata.first.begin() && fork_itr->id() != head_info.head_topology().id() )
    {
       ++fork_itr;
    }
@@ -577,27 +557,32 @@ fork_data controller_impl::get_fork_data_lockless()
 
 rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::chain::get_fork_heads_request& )
 {
-   rpc::chain::get_fork_heads_response response;
+   rpc::chain::get_fork_heads_response resp;
 
    const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+   auto topo = resp.mutable_last_irreversible_block();
+   *topo = std::move( last_irreversible_block );
 
-   response.fork_heads              = fork_heads;
-   response.last_irreversible_block = last_irreversible_block;
+   for ( const auto& fork_head : fork_heads )
+   {
+      auto* head = resp.add_fork_heads();
+      *head = fork_head;
+   }
 
-   return response;
+   return resp;
 }
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   statedb::state_node_ptr head_node;
+   state_db::state_node_ptr head_node;
 
-   head_node = _state_db.get_head();
+   head_node = _db.get_head();
 
    apply_context ctx;
    ctx.push_frame( stack_frame {
-      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "read_contract"s ).digest,
+      .call = crypto::hash( crypto::multicodec::ripemd_160, "read_contract"s ).digest(),
       .call_privilege = privilege::kernel_mode,
    } );
 
@@ -605,12 +590,13 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    ctx.set_read_only( true );
    ctx.set_meter_ticks( _max_read_cycles );
 
-   auto result = system_call::execute_contract( ctx, request.contract_id, request.entry_point, request.args );
+   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() ).value();
 
-   return rpc::chain::read_contract_response {
-      .result = std::move( result ),
-      .logs = ctx.get_pending_console_output()
-   };
+   rpc::chain::read_contract_response resp;
+   resp.set_result( result );
+   resp.set_logs( ctx.get_pending_console_output() );
+
+   return resp;
 }
 
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
@@ -618,14 +604,20 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
    apply_context ctx;
 
    ctx.push_frame( koinos::chain::stack_frame {
-      .call = crypto::hash( CRYPTO_RIPEMD160_ID, "get_account_nonce"s ).digest,
+      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_nonce"s ).digest(),
       .call_privilege = privilege::kernel_mode
    } );
 
-   std::shared_lock< std::shared_mutex > lock( _state_db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   ctx.set_state_node( _state_db.get_head() );
-   return { system_call::get_account_nonce( ctx, request.account ).nonce };
+   ctx.set_state_node( _db.get_head() );
+
+   auto nonce = system_call::get_account_nonce( ctx, request.account() ).value();
+
+   rpc::chain::get_account_nonce_response resp;
+   resp.set_nonce( nonce );
+
+   return resp;
 }
 
 } // detail
@@ -646,7 +638,7 @@ void controller::set_client( std::shared_ptr< mq::client > c )
 
 rpc::chain::submit_block_response controller::submit_block(
    const rpc::chain::submit_block_request& request,
-   block_height_type index_to,
+   uint64_t index_to,
    std::chrono::system_clock::time_point now )
 {
    return _my->submit_block( request, index_to, now );

@@ -2,8 +2,8 @@
 
 #include <koinos/chain/constants.hpp>
 #include <koinos/mq/client.hpp>
-#include <koinos/statedb/statedb_types.hpp>
-#include <koinos/pack/classes.hpp>
+#include <koinos/rpc/chain/chain_rpc.pb.h>
+#include <koinos/state_db/state_db_types.hpp>
 
 #include <any>
 #include <chrono>
@@ -15,7 +15,7 @@ namespace koinos::chain {
 
 namespace detail { class controller_impl; }
 
-using genesis_data = std::map< std::pair< statedb::object_space, statedb::object_key >, statedb::object_value >;
+using genesis_data = std::map< std::pair< state_db::object_space, state_db::object_key >, state_db::object_value >;
 
 class controller final
 {
@@ -28,7 +28,7 @@ class controller final
 
       rpc::chain::submit_block_response submit_block(
          const rpc::chain::submit_block_request&,
-         block_height_type index_to = block_height_type{ 0 },
+         uint64_t index_to = 0,
          std::chrono::system_clock::time_point now = std::chrono::system_clock::now()
       );
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request&  );
