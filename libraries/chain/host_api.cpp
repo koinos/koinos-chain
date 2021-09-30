@@ -22,7 +22,7 @@ void host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, cons
 void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    auto key = converter::as< std::string >( sid );
-   std::string blob_bundle;
+   std::string blob_target;
 
    with_stack_frame(
       _ctx,
@@ -31,7 +31,7 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         blob_bundle = thunk::db_get_object(
+         blob_target = thunk::get_object(
             _ctx,
             database::space::system_call_dispatch,
             key,
@@ -42,10 +42,9 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
 
    protocol::system_call_target target;
 
-   if ( blob_bundle.size() )
+   if ( blob_target.size() )
    {
-      auto bundle = target.mutable_system_call_bundle();
-      bundle->ParseFromString( blob_bundle );
+      target.ParseFromString( blob_target );
    }
    else
    {
@@ -68,10 +67,13 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
    else if ( target.has_system_call_bundle() )
    {
       const auto& scb = target.system_call_bundle();
-      std::string args;
       KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" );
+<<<<<<< HEAD:libraries/chain/host_api.cpp
       args.resize( arg_len );
       std::memcpy( args.data(), arg_ptr, arg_len );
+=======
+      std::string args( arg_ptr.value, arg_len );
+>>>>>>> protobuf:libraries/chain/host.cpp
       std::string ret;
       with_stack_frame(
          _ctx,

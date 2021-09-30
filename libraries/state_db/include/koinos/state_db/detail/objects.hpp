@@ -190,7 +190,7 @@ std::vector< char > to_binary_vector( const std::vector< std::byte >& var )
 std::size_t from_binary_array( const char* data, std::size_t size, std::vector< std::byte >& var )
 {
    var.clear();
-   var.resize( size );
+   var.reserve( size );
    var.insert( std::begin( var ), reinterpret_cast< const std::byte* >( data ), reinterpret_cast< const std::byte* >( data + size ) );
    return size;
 }
@@ -211,7 +211,7 @@ std::vector< char > to_binary_vector( const std::vector< unsigned char >& var )
 std::size_t from_binary_array( const char* data, std::size_t size, std::vector< unsigned char >& var )
 {
    var.clear();
-   var.resize( size );
+   var.reserve( size );
    var.insert( std::begin( var ), reinterpret_cast< const unsigned char* >( data ), reinterpret_cast< const unsigned char* >( data + size ) );
    return size;
 }
