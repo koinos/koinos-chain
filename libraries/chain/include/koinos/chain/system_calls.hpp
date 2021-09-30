@@ -23,7 +23,6 @@ namespace koinos::chain {
 class apply_context;
 class thunk_dispatcher;
 
-// std::optional< thunk_id > get_default_system_call_entry( system_call_id sid );
 void register_thunks( thunk_dispatcher& td );
 
 /*
