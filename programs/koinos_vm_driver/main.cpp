@@ -9,7 +9,6 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
-//#include <koinos/vm_manager/vm_backend.hpp>
 
 #include <mira/database_configuration.hpp>
 

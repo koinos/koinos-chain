@@ -121,7 +121,7 @@ void fizzy_runner::parse_bytecode( char* bytecode_data, size_t bytecode_size )
    KOINOS_ASSERT( bytecode_data != nullptr, fizzy_returned_null_exception, "fizzy_instance was unexpectedly null pointer" );
    KOINOS_ASSERT( _module == nullptr, runner_state_exception, "_module was unexpectedly non-null" );
    _module = fizzy_parse((uint8_t *) bytecode_data, bytecode_size, nullptr);
-   KOINOS_ASSERT( _module != nullptr, module_parse_exception, "Could not parse Fizzy module" );
+   KOINOS_ASSERT( _module != nullptr, module_parse_exception, "could not parse fizzy module" );
 }
 
 void fizzy_runner::instantiate_module()
@@ -159,7 +159,7 @@ void fizzy_runner::instantiate_module()
    {
       std::string error_code = fizzy_error_code_name( fizzy_err.code );
       std::string error_message = fizzy_err.message;
-      KOINOS_THROW( module_instantiate_exception, "Could not instantiate module - ${code}: ${msg}", ("code", error_code)("msg", error_message) );
+      KOINOS_THROW( module_instantiate_exception, "could not instantiate module - ${code}: ${msg}", ("code", error_code)("msg", error_message) );
    }
 }
 
@@ -179,8 +179,8 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
       uint32_t arg_len = args[4].i32;
       const char* arg_ptr = resolve_ptr(_instance, args[3].i32, arg_len);
 
-      KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_thunk()" );
-      KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_thunk()" );
+      KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_thunk()" );
+      KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_thunk()" );
 
       _ctx.host_api.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
@@ -209,8 +209,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       uint32_t arg_len = args[4].i32;
       const char* arg_ptr = resolve_ptr(_instance, args[3].i32, arg_len);
 
-      KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "Invalid ret_ptr in invoke_system_call()" );
-      KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "Invalid arg_ptr in invoke_system_call()" );
+      KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_system_call()" );
+      KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_system_call()" );
 
       _ctx.host_api.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
@@ -227,11 +227,11 @@ void fizzy_runner::call_start()
 {
    KOINOS_ASSERT( _fizzy_context == nullptr, runner_state_exception, "_fizzy_context was unexpectedly non-null" );
    _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _ctx.meter_ticks );
-   KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "Could not create execution context" );
+   KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "could not create execution context" );
 
    uint32_t start_func_idx = 0;
    bool success = fizzy_find_exported_function_index( _module, "_start", &start_func_idx );
-   KOINOS_ASSERT( success, module_start_exception, "Module does not have _start function" );
+   KOINOS_ASSERT( success, module_start_exception, "module does not have _start function" );
 
    FizzyExecutionResult result = fizzy_execute( _instance, start_func_idx, nullptr, _fizzy_context );
    if( _exception )
@@ -249,9 +249,9 @@ void fizzy_runner::call_start()
    {
       if( _ctx.meter_ticks < 0 )
       {
-         KOINOS_THROW( tick_meter_exception, "Ran out of ticks" );
+         KOINOS_THROW( tick_meter_exception, "ran out of ticks" );
       }
-      KOINOS_THROW( wasm_trap_exception, "Module exited due to trap" );
+      KOINOS_THROW( wasm_trap_exception, "module exited due to trap" );
    }
 }
 

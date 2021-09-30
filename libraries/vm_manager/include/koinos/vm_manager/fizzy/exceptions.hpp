@@ -5,7 +5,7 @@
 
 namespace koinos::vm_manager::fizzy {
 
-KOINOS_DECLARE_DERIVED_EXCEPTION( fizzy_vm_exception, vmbackend_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( fizzy_vm_exception, vm_backend_exception );
 
 // Module loading exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( module_parse_exception, fizzy_vm_exception );

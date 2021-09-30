@@ -22,8 +22,7 @@ std::vector< std::shared_ptr< vm_backend > > get_vm_backends()
 
 std::string get_default_vm_backend_name()
 {
-   const std::string default_vm_backend = fizzy::name;
-   return default_vm_backend;
+   return "fizzy";
 }
 
 std::shared_ptr< vm_backend > get_vm_backend( const std::string& name )
