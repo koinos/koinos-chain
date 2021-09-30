@@ -12,11 +12,13 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/host.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
+
+#include <koinos/vm_manager/exceptions.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -33,8 +35,13 @@ using namespace std::string_literals;
 
 struct thunk_fixture
 {
-   thunk_fixture() : host_api( ctx )
+   thunk_fixture() :
+      vm_backend( koinos::vm_manager::get_vm_backend() ),
+      ctx( vm_backend ),
+      host( ctx )
    {
+      KOINOS_ASSERT( vm_backend, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
+
       initialize_logging( "koinos_test", {}, "info" );
 
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
@@ -79,7 +86,7 @@ struct thunk_fixture
          .call_privilege = chain::privilege::kernel_mode
       } );
 
-      koinos::chain::register_host_functions();
+      vm_backend->initialize();
    }
 
    ~thunk_fixture()
@@ -123,8 +130,9 @@ struct thunk_fixture
 
    std::filesystem::path temp;
    koinos::state_db::database db;
+   std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
    koinos::chain::apply_context ctx;
-   koinos::chain::host_api host_api;
+   koinos::chain::host_api host;
    koinos::crypto::private_key _signing_private_key;
 };
 
@@ -289,7 +297,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::protocol::call_contract_operation call_op;
    call_op.set_contract_id( contract_op.contract_id() );
    koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
-   auto original_message = host_api.context.get_pending_console_output();
+   auto original_message = host._ctx.get_pending_console_output();
    BOOST_REQUIRE_EQUAL( "Greetings from koinos vm", original_message );
 
    // Override prints with a contract that prepends a message before printing
@@ -339,8 +347,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
    BOOST_REQUIRE_EQUAL( "test: " + original_message, ctx.get_pending_console_output() );
 
-   koinos::chain::system_call::prints( host_api.context, "Hello World" );
-   BOOST_REQUIRE_EQUAL( "test: Hello World", host_api.context.get_pending_console_output() );
+   koinos::chain::system_call::prints( host._ctx, "Hello World" );
+   BOOST_REQUIRE_EQUAL( "test: Hello World", host._ctx.get_pending_console_output() );
 
    ctx.clear_transaction();
 
@@ -358,7 +366,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
 
-   host_api.invoke_thunk(
+   host.invoke_thunk(
       protocol::system_call_id::prints,
       ret.data(),
       ret.size(),
@@ -382,7 +390,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
 
-   host_api.invoke_system_call(
+   host.invoke_system_call(
       protocol::system_call_id::prints,
       ret.data(),
       ret.size(),
@@ -775,10 +783,10 @@ BOOST_AUTO_TEST_CASE( token_tests )
    LOG(info) << "KOIN supply: " << supply;
    LOG(info) << "koin.total_supply() opcode count: " << ctx.get_used_meter_ticks();
 }
-catch( const eosio::vm::exception& e )
+catch( const koinos::vm_manager::vm_exception& e )
 {
-   LOG(info) << e.what() << ": " << e.detail();
-   BOOST_FAIL("EOSIO VM Exception");
+   LOG(info) << e.what();
+   BOOST_FAIL("VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -809,7 +817,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
    koinos::protocol::call_contract_operation op2;
    op2.set_contract_id( op.contract_id() );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::tick_meter_exception );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), koinos::vm_manager::tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

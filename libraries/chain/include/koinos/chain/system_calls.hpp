@@ -2,7 +2,6 @@
 
 #include <koinos/chain/thunk_utils.hpp>
 #include <koinos/chain/types.hpp>
-#include <koinos/chain/wasm/common.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/crypto/multihash.hpp>
