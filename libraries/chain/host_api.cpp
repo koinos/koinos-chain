@@ -68,12 +68,7 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
    {
       const auto& scb = target.system_call_bundle();
       KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" );
-<<<<<<< HEAD:libraries/chain/host_api.cpp
-      args.resize( arg_len );
-      std::memcpy( args.data(), arg_ptr, arg_len );
-=======
-      std::string args( arg_ptr.value, arg_len );
->>>>>>> protobuf:libraries/chain/host.cpp
+      std::string args( arg_ptr, arg_len );
       std::string ret;
       with_stack_frame(
          _ctx,

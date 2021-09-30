@@ -297,7 +297,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::protocol::call_contract_operation call_op;
    call_op.set_contract_id( contract_op.contract_id() );
    koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
-   auto original_message = host_api.context.get_pending_console_output();
+   auto original_message = host._ctx.get_pending_console_output();
    BOOST_REQUIRE_EQUAL( "Greetings from koinos vm", original_message );
 
    // Override prints with a contract that prepends a message before printing
@@ -347,8 +347,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
    BOOST_REQUIRE_EQUAL( "test: " + original_message, ctx.get_pending_console_output() );
 
-   koinos::chain::system_call::prints( host_api.context, "Hello World" );
-   BOOST_REQUIRE_EQUAL( "test: Hello World", host_api.context.get_pending_console_output() );
+   koinos::chain::system_call::prints( host._ctx, "Hello World" );
+   BOOST_REQUIRE_EQUAL( "test: Hello World", host._ctx.get_pending_console_output() );
 
    ctx.clear_transaction();
 
@@ -816,13 +816,8 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
    ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
    koinos::protocol::call_contract_operation op2;
-<<<<<<< HEAD
-   std::memcpy( op2.contract_id.data(), id.digest.data(), op2.contract_id.size() );
-   BOOST_REQUIRE_THROW( system_call::apply_execute_contract_operation( ctx, op2 ), koinos::vm_manager::tick_meter_exception );
-=======
    op2.set_contract_id( op.contract_id() );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::tick_meter_exception );
->>>>>>> protobuf
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), koinos::vm_manager::tick_meter_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

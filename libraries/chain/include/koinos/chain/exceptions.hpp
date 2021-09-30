@@ -53,7 +53,6 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( stack_overflow, stack_exception );
 
 // Resource exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( resource_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( tick_meter_exception, resource_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( tick_max_too_high_exception, resource_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( per_block_tick_limit_exception, resource_exception );
 
