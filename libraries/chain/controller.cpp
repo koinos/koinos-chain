@@ -395,7 +395,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       ctx.set_meter_ticks( KOINOS_MAX_METER_TICKS );
 
       payer = system_call::get_transaction_payer( ctx, transaction ).value();
-      max_payer_resources = system_call::get_max_account_resources( ctx, payer ).value();
+      max_payer_resources = system_call::get_account_rc( ctx, payer ).value();
       trx_resource_limit = system_call::get_transaction_resource_limit( ctx, transaction ).value();
 
       system_call::apply_transaction( ctx, transaction );

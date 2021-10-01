@@ -50,7 +50,6 @@ void register_thunks( thunk_dispatcher& td )
       (recover_public_key)
 
       (get_transaction_payer)
-      (get_max_account_resources)
       (get_transaction_resource_limit)
 
       (get_last_irreversible_block)
@@ -62,6 +61,11 @@ void register_thunks( thunk_dispatcher& td )
       (get_contract_id)
 
       (get_account_nonce)
+
+      (get_account_rc)
+      (consume_account_rc)
+      (get_resource_limits)
+      (consume_block_resources)
    )
 }
 
@@ -731,14 +735,6 @@ THUNK_DEFINE( get_transaction_payer_return, get_transaction_payer, ((const proto
    return ret;
 }
 
-THUNK_DEFINE( get_max_account_resources_return, get_max_account_resources, ((const std::string&) account) )
-{
-   uint64_t max_resources = 10'000'000;
-   get_max_account_resources_return ret;
-   ret.set_value( max_resources );
-   return ret;
-}
-
 THUNK_DEFINE( get_transaction_resource_limit_return, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
 {
    protocol::active_transaction_data active_data;
@@ -808,6 +804,43 @@ THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&)
    else
       ret.set_value( 0 );
 
+   return ret;
+}
+
+THUNK_DEFINE( get_account_rc_return, get_account_rc, ((const std::string&) account) )
+{
+   uint64_t max_resources = 10'000'000;
+   get_account_rc_return ret;
+   ret.set_value( max_resources );
+   return ret;
+}
+
+THUNK_DEFINE( consume_account_rc_return, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
+{
+   consume_account_rc_return ret;
+   ret.set_value( true );
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_resource_limits_return, get_resource_limits )
+{
+   resource_limit_data rd;
+   rd.set_disk_storage_cost( 1 );
+   rd.set_disk_storage_limit( 1000 );
+   rd.set_network_bandwidth_cost( 1 );
+   rd.set_network_bandwidth_limit( 1000 );
+   rd.set_compute_bandwidth_cost( 1 );
+   rd.set_compute_bandwidth_limit( 1000 );
+
+   get_resource_limits_return ret;
+   *ret.mutable_value() = rd;
+   return ret;
+}
+
+THUNK_DEFINE( consume_block_resources_return, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
+{
+   consume_block_resources_return ret;
+   ret.set_value( true );
    return ret;
 }
 

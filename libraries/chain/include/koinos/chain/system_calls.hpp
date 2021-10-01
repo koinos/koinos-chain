@@ -82,8 +82,7 @@ THUNK_DECLARE( hash_return, hash, uint64_t code, const std::string& obj, uint64_
 THUNK_DECLARE( recover_public_key_return, recover_public_key, const std::string& signature_data, const std::string& digest );
 
 THUNK_DECLARE( get_transaction_payer_return, get_transaction_payer, const protocol::transaction& tx );
-THUNK_DECLARE( get_max_account_resources_return, get_max_account_resources, const std::string& account );
-THUNK_DECLARE( get_transaction_resource_limit_return, get_transaction_resource_limit, const protocol::transaction& tx);
+THUNK_DECLARE( get_transaction_resource_limit_return, get_transaction_resource_limit, const protocol::transaction& tx );
 
 THUNK_DECLARE_VOID( get_last_irreversible_block_return, get_last_irreversible_block );
 
@@ -94,5 +93,11 @@ THUNK_DECLARE( void, require_authority, const std::string& account );
 THUNK_DECLARE_VOID( get_contract_id_return, get_contract_id );
 
 THUNK_DECLARE( get_account_nonce_return, get_account_nonce, const std::string& account );
+
+THUNK_DECLARE( get_account_rc_return, get_account_rc, const std::string& account );
+THUNK_DECLARE( consume_account_rc_return, consume_account_rc, const std::string& account, uint64_t rc );
+
+THUNK_DECLARE_VOID( get_resource_limits_return, get_resource_limits );
+THUNK_DECLARE( consume_block_resources_return, consume_block_resources, uint64_t disk, uint64_t network, uint64_t compute );
 
 } // koinos::chain
