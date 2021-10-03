@@ -94,7 +94,7 @@ hunter_add_package(rabbitmq-c)
 hunter_add_package(rocksdb)
 hunter_add_package(yaml-cpp)
 hunter_add_package(Protobuf)
-hunter_add_Package(fizzy)
+hunter_add_package(fizzy)
 
 hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)

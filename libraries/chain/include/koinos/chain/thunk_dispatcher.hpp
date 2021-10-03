@@ -255,7 +255,6 @@ namespace detail
    typename std::enable_if< std::is_same< ThunkReturn, void >::value, int >::type
    call_thunk_impl( const std::function< ThunkReturn(apply_context&, ThunkArgs...) >& thunk, apply_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      // static_assert( std::is_same< RetStruct, std::void_t >::value, "Thunk return does not match defined return in koinos-types" );
       auto thunk_args = std::tuple_cat( std::tuple< apply_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
       std::apply( thunk, thunk_args );
       return 0;
@@ -270,9 +269,8 @@ namespace detail
       auto ret = std::apply( thunk, thunk_args );
       std::string s;
       ret.SerializeToString( &s );
-      // Maybe Koinos::Exception?
-      assert( s.size() <= ret_len );
-      KOINOS_TODO( "I think this copy can be optimized away possible with a string stream" );
+      KOINOS_ASSERT( s.size() <= ret_len, koinos::exception, "return buffer is not large enough for the return value" );
+      KOINOS_TODO( "We should avoid making copies where possible (Issue #473)" );
       std::memcpy( ret_ptr, s.c_str(), s.size() );
       return 0;
    }
@@ -304,7 +302,7 @@ class thunk_dispatcher
       auto call_thunk( uint32_t id, apply_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), thunk_not_found, "Thunk ${id} not found", ("id", id ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), thunk_not_found, "thunk ${id} not found", ("id", id ) );
          return std::any_cast< std::function<ThunkReturn(apply_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 

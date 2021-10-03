@@ -7,8 +7,6 @@
 
 namespace koinos::vm_manager::fizzy {
 
-const std::string name( "fizzy" );
-
 /**
  * Implementation of vm_backend for Fizzy.
  */
