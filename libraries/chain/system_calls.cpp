@@ -258,7 +258,6 @@ THUNK_DEFINE( void, apply_block,
    //
 
    auto block_node = context.get_state_node();
-   int64_t ticks_used = 0;
 
    for ( const auto& tx : block.transactions() )
    {
@@ -270,7 +269,7 @@ THUNK_DEFINE( void, apply_block,
       // This means we might use up to one transaction's worth of ticks
       // in excess of KOINOS_MAX_TICKS_PER_BLOCK determining that the block uses too many ticks.
       //
-      // We could potentially have the per-transaction set_meter_ticks() set a value that
+      // We could potentially have the per-transaction reset_meter_ticks() set a value that
       // causes a transaction to terminate as soon as the block limit is exceeded, but this
       // seems like this would add architectural complexity for the purpose of needlessly
       // optimizing an unusual case.
@@ -285,9 +284,7 @@ THUNK_DEFINE( void, apply_block,
          LOG(info) << "Transaction " << to_hex( tx.id() ) << " reverted with: " << e.what();
       }
 
-      ticks_used += context.get_used_meter_ticks();
-
-      KOINOS_ASSERT( ticks_used <= KOINOS_MAX_TICKS_PER_BLOCK, per_block_tick_limit_exception, "per-block tick limit exceeded" );
+      KOINOS_ASSERT( context.get_meter_ticks() >= 0, per_block_tick_limit_exception, "per-block tick limit exceeded" );
    }
 }
 
@@ -327,30 +324,55 @@ inline void update_payer_transaction_nonce( apply_context& ctx, const std::strin
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   int64_t pre_transaction_meter_ticks_used = context.get_used_meter_ticks();
+   int64_t pre_transaction_max_meter_ticks = pre_transaction_meter_ticks_used + context.get_meter_ticks();
 
    auto setter = transaction_setter( context, trx );
 
    protocol::active_transaction_data active_data;
    active_data.ParseFromString( trx.active() );
 
-   auto payer = system_call::get_transaction_payer( context, trx ).value();
-   system_call::require_authority( context, payer );
-   require_payer_transaction_nonce( context, payer, active_data.nonce() );
-
    KOINOS_ASSERT( active_data.resource_limit() <= KOINOS_MAX_METER_TICKS, tick_max_too_high_exception, "tick max is too high" );
-   context.set_meter_ticks( active_data.resource_limit() );
+   context.reset_meter_ticks( active_data.resource_limit() );
 
-   for ( const auto& o : active_data.operations() )
+   std::string payer;
+
+   try
    {
-      if ( o.has_upload_contract() )
-         system_call::apply_upload_contract_operation( context, o.upload_contract() );
-      else if ( o.has_call_contract() )
-         system_call::apply_call_contract_operation( context, o.call_contract() );
-      else if ( o.has_set_system_call() )
-         system_call::apply_set_system_call_operation( context, o.set_system_call() );
-      else
-         KOINOS_THROW( koinos::exception, "unknown operation" );
+      payer = system_call::get_transaction_payer( context, trx ).value();
+      system_call::require_authority( context, payer );
+      require_payer_transaction_nonce( context, payer, active_data.nonce() );
+
+      for ( const auto& o : active_data.operations() )
+      {
+         if ( o.has_upload_contract() )
+            system_call::apply_upload_contract_operation( context, o.upload_contract() );
+         else if ( o.has_call_contract() )
+            system_call::apply_call_contract_operation( context, o.call_contract() );
+         else if ( o.has_set_system_call() )
+            system_call::apply_set_system_call_operation( context, o.set_system_call() );
+         else
+            KOINOS_THROW( koinos::exception, "unknown operation" );
+      }
+   } catch ( ... )
+   {
+      int64_t used_meter_ticks = context.get_used_meter_ticks();
+      context.reset_meter_ticks( pre_transaction_max_meter_ticks );
+      context.use_meter_ticks( pre_transaction_meter_ticks_used );
+      context.use_meter_ticks( used_meter_ticks );
+
+      // Next nonce should be the current nonce + 1
+      update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
+
+      LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
+
+      throw;
    }
+
+   int64_t used_meter_ticks = context.get_used_meter_ticks();
+   context.reset_meter_ticks( pre_transaction_max_meter_ticks );
+   context.use_meter_ticks( pre_transaction_meter_ticks_used );
+   context.use_meter_ticks( used_meter_ticks );
 
    // Next nonce should be the current nonce + 1
    update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
@@ -608,20 +630,16 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
    } );
 
    chain::host_api hapi( context );
-   vm_manager::context vm_ctx( hapi, context.get_meter_ticks() );
 
    try
    {
-      context.get_backend()->run( vm_ctx, bytecode.data(), bytecode.size() );
+      context.get_backend()->run( hapi, bytecode.data(), bytecode.size() );
    }
    catch( const exit_success& ) {}
    catch( ... ) {
       context.pop_frame();
-      context.set_meter_ticks( vm_ctx.meter_ticks );
       throw;
    }
-
-   context.set_meter_ticks( vm_ctx.meter_ticks );
 
    call_contract_return ret;
    ret.set_value( converter::to< std::string >( context.pop_frame().call_return ) );

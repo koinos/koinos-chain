@@ -78,7 +78,7 @@ std::string fizzy_error_code_name(FizzyErrorCode code) noexcept
 class fizzy_runner
 {
    public:
-      fizzy_runner( context& c ) : _ctx(c) {}
+      fizzy_runner( abstract_host_api& h ) : _hapi(h) {}
       ~fizzy_runner();
 
       void parse_bytecode( char* bytecode_data, size_t bytecode_size );
@@ -89,7 +89,7 @@ class fizzy_runner
       FizzyExecutionResult _invoke_system_call( const FizzyValue* args, FizzyExecutionContext* fizzy_context ) noexcept;
 
    private:
-      context& _ctx;
+      abstract_host_api& _hapi;
       const FizzyModule* _module = nullptr;
       FizzyInstance* _instance = nullptr;
       FizzyExecutionContext* _fizzy_context = nullptr;
@@ -182,7 +182,11 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_thunk()" );
 
-      _ctx.host_api.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
+      int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
+      KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
+      _hapi.set_meter_ticks( *ticks );
+
+      _hapi.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    catch(...)
    {
@@ -212,7 +216,13 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_system_call()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_system_call()" );
 
-      _ctx.host_api.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
+      int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
+      KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
+      _hapi.set_meter_ticks( *ticks );
+
+      _hapi.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
+
+      *ticks = _hapi.get_meter_ticks();
    }
    catch(...)
    {
@@ -226,7 +236,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 void fizzy_runner::call_start()
 {
    KOINOS_ASSERT( _fizzy_context == nullptr, runner_state_exception, "_fizzy_context was unexpectedly non-null" );
-   _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _ctx.meter_ticks );
+   _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _hapi.get_meter_ticks() );
    KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "could not create execution context" );
 
    uint32_t start_func_idx = 0;
@@ -234,6 +244,11 @@ void fizzy_runner::call_start()
    KOINOS_ASSERT( success, module_start_exception, "module does not have _start function" );
 
    FizzyExecutionResult result = fizzy_execute( _instance, start_func_idx, nullptr, _fizzy_context );
+
+   int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
+   KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
+   _hapi.set_meter_ticks( *ticks );
+
    if( _exception )
    {
       std::exception_ptr exc = _exception;
@@ -241,13 +256,9 @@ void fizzy_runner::call_start()
       std::rethrow_exception( exc );
    }
 
-   int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
-   KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
-   _ctx.meter_ticks = *ticks;
-
    if( result.trapped )
    {
-      if( _ctx.meter_ticks < 0 )
+      if( _hapi.get_meter_ticks() < 0 )
       {
          KOINOS_THROW( tick_meter_exception, "ran out of ticks" );
       }
@@ -255,9 +266,9 @@ void fizzy_runner::call_start()
    }
 }
 
-void fizzy_vm_backend::run( context& ctx, char* bytecode_data, size_t bytecode_size )
+void fizzy_vm_backend::run( abstract_host_api& hapi, char* bytecode_data, size_t bytecode_size )
 {
-   fizzy_runner runner(ctx);
+   fizzy_runner runner(hapi);
    runner.parse_bytecode( bytecode_data, bytecode_size );
    runner.instantiate_module();
    runner.call_start();

@@ -86,21 +86,12 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
-      inline void set_meter_ticks(int64_t meter_ticks)
-      {
-         _start_meter_ticks = meter_ticks;
-         _meter_ticks = meter_ticks;
-      }
+      void reset_meter_ticks(int64_t meter_ticks);
+      void set_meter_ticks(int64_t meter_ticks);
+      void use_meter_ticks(int64_t meter_ticks);
 
-      inline int64_t get_meter_ticks()
-      {
-         return _meter_ticks;
-      }
-
-      inline int64_t get_used_meter_ticks()
-      {
-         return _start_meter_ticks - _meter_ticks;
-      }
+      int64_t get_meter_ticks();
+      int64_t get_used_meter_ticks();
 
    private:
       friend struct frame_restorer;

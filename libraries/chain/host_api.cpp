@@ -90,4 +90,14 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
    }
 }
 
+int64_t host_api::get_meter_ticks() const
+{
+   return _ctx.get_meter_ticks();
+}
+
+void host_api::set_meter_ticks( int64_t meter_ticks )
+{
+   _ctx.set_meter_ticks( meter_ticks );
+}
+
 } // koinos::chain

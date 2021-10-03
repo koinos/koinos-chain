@@ -1,6 +1,6 @@
 #pragma once
 
-#include <koinos/vm_manager/context.hpp>
+#include <koinos/vm_manager/host_api.hpp>
 
 #include <memory>
 #include <string>
@@ -30,7 +30,7 @@ class vm_backend
       /**
        * Run some bytecode.
        */
-      virtual void run( context&, char* bytecode_data, size_t bytecode_size ) = 0;
+      virtual void run( abstract_host_api&, char* bytecode_data, size_t bytecode_size ) = 0;
 };
 
 /**
