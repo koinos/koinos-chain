@@ -53,6 +53,7 @@ struct controller_fixture
 
    virtual ~controller_fixture()
    {
+      boost::log::core::get()->remove_all_sinks();
       std::filesystem::remove_all( _state_dir );
    }
 
@@ -498,7 +499,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    koinos::protocol::transaction trx2;
    koinos::protocol::active_transaction_data active2;
 
-   koinos::contracts::token::mint_args mint_arg;
+   koinos::contracts::token::mint_arguments mint_arg;
    mint_arg.set_to( alice_address );
    mint_arg.set_value( 100 );
 
@@ -533,7 +534,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 
    BOOST_TEST_MESSAGE( "Verify mint did nothing" );
 
-   koinos::contracts::token::balance_of_args bal_args;
+   koinos::contracts::token::balance_of_arguments bal_args;
    bal_args.set_owner( alice_address );
 
    koinos::rpc::chain::read_contract_request request;
@@ -542,7 +543,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    request.set_args( bal_args.SerializeAsString() );
 
    auto response = _controller.read_contract( request );
-   koinos::contracts::token::balance_of_return bal_ret;
+   koinos::contracts::token::balance_of_result bal_ret;
    bal_ret.ParseFromString( response.result() );
 
    BOOST_REQUIRE_EQUAL( bal_ret.value(), 0 );

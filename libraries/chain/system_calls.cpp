@@ -41,9 +41,9 @@ void register_thunks( thunk_dispatcher& td )
       (call_contract)
 
       (get_entry_point)
-      (get_contract_args_size)
-      (get_contract_args)
-      (set_contract_return)
+      (get_contract_arguments_size)
+      (get_contract_arguments)
+      (set_contract_result)
 
       (get_head_info)
       (hash)
@@ -98,7 +98,7 @@ THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
+THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
 {
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
@@ -117,12 +117,12 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
       }
    );
 
-   verify_block_signature_return ret;
+   verify_block_signature_result ret;
    ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
    return ret;
 }
 
-THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
+THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
    std::vector< crypto::multihash > leaves;
 
@@ -134,7 +134,7 @@ THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string
 
    auto merkle_root = mtree.root()->hash();
 
-   verify_merkle_root_return ret;
+   verify_merkle_root_result ret;
    ret.set_value( merkle_root == root_hash );
    return ret;
 }
@@ -467,7 +467,7 @@ void check_db_permissions( const apply_context& context, const state_db::object_
    }
 }
 
-THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const std::string&) key, (const std::string&) obj) )
+THUNK_DEFINE( put_object_result, put_object, ((const std::string&) space, (const std::string&) key, (const std::string&) obj) )
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
 
@@ -488,12 +488,12 @@ THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const
    state_db::put_object_result put_res;
    state->put_object( put_res, put_args );
 
-   put_object_return ret;
+   put_object_result ret;
    ret.set_value( put_res.object_existed );
    return ret;
 }
 
-THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
@@ -520,12 +520,12 @@ THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const
    else
       object_buffer.clear();
 
-   get_object_return ret;
+   get_object_result ret;
    ret.set_value( converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
-THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
@@ -551,12 +551,12 @@ THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) spa
    else
       object_buffer.clear();
 
-   get_next_object_return ret;
+   get_next_object_result ret;
    ret.set_value( converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
-THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
@@ -582,12 +582,12 @@ THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) spa
    else
       object_buffer.clear();
 
-   get_prev_object_return ret;
+   get_prev_object_result ret;
    ret.set_value( converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
-THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
+THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
    // We need to be in kernel mode to read the contract data
    std::string bytecode;
@@ -627,38 +627,38 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
 
    context.set_meter_ticks( vm_ctx.meter_ticks );
 
-   call_contract_return ret;
+   call_contract_result ret;
    ret.set_value( converter::to< std::string >( context.pop_frame().call_return ) );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_entry_point_return, get_entry_point )
+THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
 {
-   get_entry_point_return ret;
+   get_entry_point_result ret;
    ret.set_value( context.get_contract_entry_point() );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_contract_args_size_return, get_contract_args_size )
+THUNK_DEFINE_VOID( get_contract_arguments_size_result, get_contract_arguments_size )
 {
-   get_contract_args_size_return ret;
+   get_contract_arguments_size_result ret;
    ret.set_value( (uint32_t)context.get_contract_call_args().size() );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_contract_args_return, get_contract_args )
+THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
 {
-   get_contract_args_return ret;
+   get_contract_arguments_result ret;
    ret.set_value( converter::as< std::string >( context.get_contract_call_args() ) );
    return ret;
 }
 
-THUNK_DEFINE( void, set_contract_return, ((const std::string&) ret) )
+THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
 {
    context.set_contract_return( converter::to< std::vector< std::byte > >( ret ) );
 }
 
-THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
+THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 {
    auto head = context.get_state_node();
 
@@ -679,13 +679,13 @@ THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
       hi.set_head_block_time( time );
    }
 
-   get_head_info_return ret;
+   get_head_info_result ret;
    auto* v = ret.mutable_value();
    *v = hi;
    return ret;
 }
 
-THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
+THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
    auto multicodec = static_cast< crypto::multicodec >( id );
    switch ( multicodec )
@@ -703,12 +703,12 @@ THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint
    }
    auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
-   hash_return ret;
+   hash_result ret;
    ret.set_value( converter::as< std::string >( hash ) );
    return ret;
 }
 
-THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
+THUNK_DEFINE( recover_public_key_result, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
 {
    KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
    crypto::recoverable_signature signature = converter::as< crypto::recoverable_signature >( signature_data );
@@ -719,45 +719,45 @@ THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string
    KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
    auto address = pub_key.to_address_bytes();
-   recover_public_key_return ret;
+   recover_public_key_result ret;
    ret.set_value( address );
    return ret;
 }
 
-THUNK_DEFINE( get_transaction_payer_return, get_transaction_payer, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
    std::string account = system_call::recover_public_key( context, transaction.signature_data(), converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) ).value();
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
 
-   get_transaction_payer_return ret;
+   get_transaction_payer_result ret;
    ret.set_value( account );
    return ret;
 }
 
-THUNK_DEFINE( get_transaction_resource_limit_return, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( get_transaction_resource_limit_result, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
 {
    protocol::active_transaction_data active_data;
    active_data.ParseFromString( transaction.active() );
 
-   get_transaction_resource_limit_return ret;
+   get_transaction_resource_limit_result ret;
    ret.set_value( active_data.resource_limit() );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_last_irreversible_block_return, get_last_irreversible_block )
+THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_block )
 {
    auto head = context.get_state_node();
 
-   get_last_irreversible_block_return ret;
+   get_last_irreversible_block_result ret;
    ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
 
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_caller_return, get_caller )
+THUNK_DEFINE_VOID( get_caller_result, get_caller )
 {
-   get_caller_return ret;
+   get_caller_result ret;
    auto frame0 = context.pop_frame(); // get_caller frame
    auto frame1 = context.pop_frame(); // contract frame
    ret.set_caller( converter::as< std::string >( context.get_caller() ) );
@@ -767,9 +767,9 @@ THUNK_DEFINE_VOID( get_caller_return, get_caller )
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_transaction_signature_return, get_transaction_signature )
+THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
 {
-   get_transaction_signature_return ret;
+   get_transaction_signature_result ret;
    ret.set_value( context.get_transaction().signature_data() );
    return ret;
 }
@@ -786,18 +786,18 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    );
 }
 
-THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
+THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
 {
-   get_contract_id_return ret;
+   get_contract_id_result ret;
    ret.set_value( converter::as< std::string >( context.get_caller() ) );
    return ret;
 }
 
-THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&) account ) )
+THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&) account ) )
 {
    auto obj = system_call::get_object( context, database::space::kernel, database::key::transaction_nonce( account ) ).value();
 
-   get_account_nonce_return ret;
+   get_account_nonce_result ret;
 
    if ( obj.size() > 0 )
       ret.set_value( converter::to< uint64_t >( obj ) );
@@ -807,22 +807,22 @@ THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&)
    return ret;
 }
 
-THUNK_DEFINE( get_account_rc_return, get_account_rc, ((const std::string&) account) )
+THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )
 {
    uint64_t max_resources = 10'000'000;
-   get_account_rc_return ret;
+   get_account_rc_result ret;
    ret.set_value( max_resources );
    return ret;
 }
 
-THUNK_DEFINE( consume_account_rc_return, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
+THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
 {
-   consume_account_rc_return ret;
+   consume_account_rc_result ret;
    ret.set_value( true );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_resource_limits_return, get_resource_limits )
+THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 {
    resource_limit_data rd;
    rd.set_disk_storage_cost( 1 );
@@ -832,14 +832,14 @@ THUNK_DEFINE_VOID( get_resource_limits_return, get_resource_limits )
    rd.set_compute_bandwidth_cost( 1 );
    rd.set_compute_bandwidth_limit( 1000 );
 
-   get_resource_limits_return ret;
+   get_resource_limits_result ret;
    *ret.mutable_value() = rd;
    return ret;
 }
 
-THUNK_DEFINE( consume_block_resources_return, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
+THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
 {
-   consume_block_resources_return ret;
+   consume_block_resources_result ret;
    ret.set_value( true );
    return ret;
 }
