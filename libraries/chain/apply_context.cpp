@@ -130,13 +130,13 @@ privilege apply_context::get_caller_privilege()const
 
 void apply_context::set_privilege( privilege p )
 {
-   KOINOS_ASSERT( _stack.size() , koinos::exception, "" );
+   KOINOS_ASSERT( _stack.size() , stack_exception, "stack has no calling frame" );
    _stack[ _stack.size() - 1 ].call_privilege = p;
 }
 
 privilege apply_context::get_privilege()const
 {
-   KOINOS_ASSERT( _stack.size() , koinos::exception, "" );
+   KOINOS_ASSERT( _stack.size() , stack_exception, "stack has no calling frame" );
    return _stack[ _stack.size() - 1 ].call_privilege;
 }
 
@@ -158,6 +158,35 @@ void apply_context::set_read_only( bool ro )
 bool apply_context::is_read_only()const
 {
    return _read_only;
+}
+
+void apply_context::reset_meter_ticks( int64_t meter_ticks )
+{
+   KOINOS_ASSERT( meter_ticks >= 0, invalid_meter_ticks, "cannot set negative meter ticks" );
+   _meter_ticks = meter_ticks;
+   _start_meter_ticks = meter_ticks;
+}
+
+void apply_context::set_meter_ticks( int64_t meter_ticks )
+{
+   KOINOS_ASSERT( meter_ticks <= _meter_ticks, invalid_meter_ticks, "cannot add meter ticks" );
+   _meter_ticks = meter_ticks;
+}
+
+void apply_context::use_meter_ticks( int64_t meter_ticks )
+{
+   KOINOS_ASSERT( meter_ticks >= 0, invalid_meter_ticks, "cannot consume negative meter ticks" );
+   _meter_ticks -= meter_ticks;
+}
+
+int64_t apply_context::get_meter_ticks()
+{
+   return _meter_ticks;
+}
+
+int64_t apply_context::get_used_meter_ticks()
+{
+   return _start_meter_ticks - _meter_ticks;
 }
 
 } // koinos::chain

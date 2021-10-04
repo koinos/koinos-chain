@@ -1,6 +1,5 @@
 #pragma once
 
-#include <koinos/vm_manager/context.hpp>
 #include <koinos/vm_manager/vm_backend.hpp>
 
 #include <string>
@@ -19,7 +18,7 @@ class fizzy_vm_backend : public vm_backend
       virtual std::string backend_name();
       virtual void initialize();
 
-      virtual void run( context& ctx, char* bytecode_data, size_t bytecode_size );
+      virtual void run( abstract_host_api& hapi, char* bytecode_data, size_t bytecode_size );
 };
 
 } // koinos::vm_manager::fizzy
