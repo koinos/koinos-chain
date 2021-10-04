@@ -248,7 +248,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( !index_to )
       {
-         LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id;
+         auto num_transactions = block.transactions_size();
+
+         LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
          LOG(info) << "Apply block ticks: " << KOINOS_MAX_METER_TICKS - ctx.get_meter_ticks();
       }
       else if ( block_height % index_message_interval == 0 )
