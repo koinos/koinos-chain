@@ -78,9 +78,9 @@ int main( int argc, char** argv, char** envp )
       LOG(info) << "Initialized " << vm_backend->backend_name() << " VM backend";
 
       chain::apply_context ctx( vm_backend );
+      ctx.reset_meter_ticks( vmap[ TICKS_OPTION ].as< int64_t >() );
       chain::host_api hapi( ctx );
-      vm_manager::context vm_ctx( hapi, vmap[ TICKS_OPTION ].as< int64_t >() );
-      vm_backend->run( vm_ctx, contract_wasm.data(), contract_wasm.size() );
+      vm_backend->run( hapi, contract_wasm.data(), contract_wasm.size() );
 
       auto output = ctx.get_pending_console_output();
 
