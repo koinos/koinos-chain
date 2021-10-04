@@ -354,7 +354,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          else
             KOINOS_THROW( koinos::exception, "unknown operation" );
       }
-   } catch ( ... )
+   }
+   catch ( ... )
    {
       int64_t used_meter_ticks = context.get_used_meter_ticks();
       context.reset_meter_ticks( pre_transaction_max_meter_ticks );
