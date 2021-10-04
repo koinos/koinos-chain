@@ -81,7 +81,7 @@ controller_impl::controller_impl()
 
    _vm_backend->initialize();
 
-   LOG(info) << "Initialzed " << _vm_backend->backend_name() << " vm backend";
+   LOG(info) << "Initialized " << _vm_backend->backend_name() << " vm backend";
 }
 
 controller_impl::~controller_impl()
