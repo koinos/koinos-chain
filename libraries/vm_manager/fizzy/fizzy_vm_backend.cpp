@@ -215,9 +215,6 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
    _exception = std::exception_ptr();
 
-   int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
-   KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
-
    try
    {
       uint32_t xid = args[0].i32;
@@ -228,6 +225,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_system_call()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_system_call()" );
+      int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
+      KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
       _hapi.set_meter_ticks( *ticks );
 
       try
