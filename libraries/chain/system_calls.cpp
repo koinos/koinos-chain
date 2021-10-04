@@ -336,6 +336,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.reset_meter_ticks( active_data.resource_limit() );
 
    std::string payer;
+   auto exception = std::exception_ptr();
 
    try
    {
@@ -354,19 +355,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          else
             KOINOS_THROW( koinos::exception, "unknown operation" );
       }
-   } catch ( ... )
+   }
+   catch ( ... )
    {
-      int64_t used_meter_ticks = context.get_used_meter_ticks();
-      context.reset_meter_ticks( pre_transaction_max_meter_ticks );
-      context.use_meter_ticks( pre_transaction_meter_ticks_used );
-      context.use_meter_ticks( used_meter_ticks );
-
-      // Next nonce should be the current nonce + 1
-      update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
-
-      LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
-
-      throw;
+      // Catch the exception and store it so we can do post transaction cleanup
+      exception = std::current_exception();
    }
 
    int64_t used_meter_ticks = context.get_used_meter_ticks();
@@ -378,6 +371,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
 
    LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
+
+   // If there was an exception, rethrow it now.
+   if ( exception )
+   {
+      std::rethrow_exception( exception );
+   }
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
