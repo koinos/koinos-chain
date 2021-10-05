@@ -1,6 +1,7 @@
 #pragma once
 
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/resources.hpp>
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/state_db/state_db.hpp>
 #include <koinos/vm_manager/vm_backend.hpp>
@@ -93,6 +94,8 @@ class apply_context
       int64_t get_meter_ticks();
       int64_t get_used_meter_ticks();
 
+      resource_meter& resource_meter();
+
    private:
       friend struct frame_restorer;
 
@@ -111,6 +114,8 @@ class apply_context
 
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
+
+      class resource_meter                      _resource_meter;
 };
 
 struct frame_restorer

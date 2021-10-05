@@ -842,12 +842,15 @@ THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string
 THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 {
    resource_limit_data rd;
-   rd.set_disk_storage_cost( 1 );
-   rd.set_disk_storage_limit( 1000 );
-   rd.set_network_bandwidth_cost( 1 );
-   rd.set_network_bandwidth_limit( 1000 );
+
+   rd.set_disk_storage_cost( 100 );
+   rd.set_disk_storage_limit( 20'480 );             // 200GiB / ( seconds per year / 3 )
+
+   rd.set_network_bandwidth_cost( 10 );
+   rd.set_network_bandwidth_limit( 81'920 );        // 80KiB
+
    rd.set_compute_bandwidth_cost( 1 );
-   rd.set_compute_bandwidth_limit( 1000 );
+   rd.set_compute_bandwidth_limit( 1'000'000'000 ); // 1B ticks
 
    get_resource_limits_result ret;
    *ret.mutable_value() = rd;

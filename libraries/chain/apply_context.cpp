@@ -189,4 +189,9 @@ int64_t apply_context::get_used_meter_ticks()
    return _start_meter_ticks - _meter_ticks;
 }
 
+resource_meter& apply_context::resource_meter()
+{
+   return _resource_meter;
+}
+
 } // koinos::chain
