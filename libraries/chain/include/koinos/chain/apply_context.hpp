@@ -94,7 +94,7 @@ class apply_context
       int64_t get_meter_ticks();
       int64_t get_used_meter_ticks();
 
-      resource_meter& resource_meter();
+      chain::resource_meter& resource_meter();
 
    private:
       friend struct frame_restorer;
@@ -115,7 +115,7 @@ class apply_context
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
 
-      class resource_meter                      _resource_meter;
+      chain::resource_meter                     _resource_meter;
 };
 
 struct frame_restorer
