@@ -225,6 +225,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       ctx.set_state_node( block_node );
 
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
+
       system_call::apply_block(
          ctx,
          block,
@@ -381,6 +383,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
    apply_context ctx( _vm_backend );
+
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -389,6 +392,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    try
    {
       ctx.set_state_node( pending_trx_node );
+
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
 
       // The following call to reset_meter_ticks() does not set an upper bound on the cycles that
       // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
@@ -599,6 +604,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    ctx.set_state_node( head_node );
    ctx.set_read_only( true );
    ctx.reset_meter_ticks( _max_read_cycles );
+   ctx.resource_meter().set_resource_limit_data( koinos::chain::system_call::get_resource_limits( ctx ).value() );
 
    auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() ).value();
 

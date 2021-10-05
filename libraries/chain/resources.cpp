@@ -32,17 +32,12 @@ uint64_t rc_session::close()
 resource_meter::resource_meter() = default;
 resource_meter::~resource_meter() = default;
 
-void resource_meter::set_resource_limit_data( resource_limit_data&& rld )
+void resource_meter::set_resource_limit_data( const resource_limit_data& rld )
 {
-   _resource_limit_data         = std::move( rld );
+   _resource_limit_data         = rld;
    _disk_storage_remaining      = _resource_limit_data.disk_storage_limit();
    _network_bandwidth_remaining = _resource_limit_data.network_bandwidth_limit();
    _compute_bandwidth_remaining = _resource_limit_data.compute_bandwidth_limit();
-}
-
-void resource_meter::set_resource_limit_data( const resource_limit_data& rld )
-{
-   set_resource_limit_data( std::move( rld ) );
 }
 
 std::shared_ptr< rc_session > resource_meter::make_session( uint64_t rc )

@@ -290,6 +290,13 @@ THUNK_DEFINE( void, apply_block,
 
       KOINOS_ASSERT( context.get_meter_ticks() >= 0, per_block_tick_limit_exception, "per-block tick limit exceeded" );
    }
+
+   system_call::consume_block_resources(
+      context,
+      context.resource_meter().disk_storage_used(),
+      context.resource_meter().network_bandwidth_used(),
+      context.resource_meter().compute_bandwidth_used()
+   );
 }
 
 // RAII class to ensure apply context transaction state is consistent if there is an error applying
@@ -328,6 +335,7 @@ inline void update_payer_transaction_nonce( apply_context& ctx, const std::strin
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+
    int64_t pre_transaction_meter_ticks_used = context.get_used_meter_ticks();
    int64_t pre_transaction_max_meter_ticks = pre_transaction_meter_ticks_used + context.get_meter_ticks();
 
@@ -345,6 +353,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    try
    {
       payer = system_call::get_transaction_payer( context, trx ).value();
+
+      auto payer_rc = system_call::get_account_rc( context, payer ).value();
+      KOINOS_ASSERT( payer_rc >= active_data.resource_limit(), insufficent_rc, "payer does not have the rc to cover transaction rc limit" );
+
+      auto payer_session = context.resource_meter().make_session( active_data.resource_limit() );
+
       system_call::require_authority( context, payer );
       require_payer_transaction_nonce( context, payer, active_data.nonce() );
 
@@ -359,6 +373,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          else
             KOINOS_THROW( koinos::exception, "unknown operation" );
       }
+
+      // Next nonce should be the current nonce + 1
+      update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
+
+      auto payer_consumed_rc = payer_session->close();
+      system_call::consume_account_rc( context, payer, payer_consumed_rc );
    }
    catch ( ... )
    {
@@ -370,9 +390,6 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.reset_meter_ticks( pre_transaction_max_meter_ticks );
    context.use_meter_ticks( pre_transaction_meter_ticks_used );
    context.use_meter_ticks( used_meter_ticks );
-
-   // Next nonce should be the current nonce + 1
-   update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
 
    LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
 
@@ -847,7 +864,7 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
    rd.set_disk_storage_limit( 20'480 );             // 200GiB / ( seconds per year / 3 )
 
    rd.set_network_bandwidth_cost( 10 );
-   rd.set_network_bandwidth_limit( 81'920 );        // 80KiB
+   rd.set_network_bandwidth_limit( 1'048'576 );     // 1MiB
 
    rd.set_compute_bandwidth_cost( 1 );
    rd.set_compute_bandwidth_limit( 1'000'000'000 ); // 1B ticks
@@ -859,6 +876,10 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 
 THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
 {
+   LOG(info) << "Consumed disk storage: " << disk;
+   LOG(info) << "Consumed network bandwidth: " << network;
+   LOG(info) << "Consumed compute bandwidth: " << compute;
+
    consume_block_resources_result ret;
    ret.set_value( true );
    return ret;

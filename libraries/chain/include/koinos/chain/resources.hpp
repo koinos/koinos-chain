@@ -26,7 +26,6 @@ public:
    resource_meter();
    ~resource_meter();
 
-   void set_resource_limit_data( resource_limit_data&& rld );
    void set_resource_limit_data( const resource_limit_data& rld );
 
    std::shared_ptr< rc_session > make_session( uint64_t rc );
