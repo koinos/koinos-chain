@@ -110,7 +110,11 @@ fizzy_runner::~fizzy_runner()
    {
       if( _module != nullptr )
       {
-         //fizzy_free_module( _module );
+         // While testing the changes for #400, I was getting malloc errors that resolved themselves
+         // by commenting out this line (freeing already freed memory). It would appear that fizzy_initialize
+         // takes ownership even on failure and this line is not needed.
+         // The bug I ran in to could be replicated via an uploaded contract and is therefore and attack vector.
+         // fizzy_free_module( _module );
       }
    }
    if( _fizzy_context != nullptr )
