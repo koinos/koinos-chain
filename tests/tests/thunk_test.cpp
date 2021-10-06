@@ -333,7 +333,11 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
 
    // Fetch the created call bundle from the database and check it
+   // The call bundle should be read from the parent context
    auto call_target = koinos::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::system_call_dispatch, converter::as< std::string >( set_op.call_id() ) ).value() );
+   BOOST_REQUIRE( !call_target.has_system_call_bundle() );
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   call_target = koinos::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::system_call_dispatch, converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
    BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
    BOOST_REQUIRE( call_target.system_call_bundle().entry_point() == set_op.target().system_call_bundle().entry_point() );

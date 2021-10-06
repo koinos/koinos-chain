@@ -511,6 +511,20 @@ uint64_t state_node::revision()const
    return impl->_state->revision();
 }
 
+abstract_state_node_ptr state_node::get_parent()const
+{
+   auto parent_delta = impl->_state->parent();
+   if ( parent_delta )
+   {
+      auto parent_node = std::make_shared< state_node >();
+      parent_node->impl->_is_writable = false;
+      parent_node->impl->_state = parent_delta;
+      return parent_node;
+   }
+
+   return abstract_state_node_ptr();
+}
+
 abstract_state_node_ptr state_node::shared_from_derived()
 {
    return shared_from_this();
@@ -532,6 +546,11 @@ const state_node_id& anonymous_state_node::parent_id()const
 uint64_t anonymous_state_node::revision()const
 {
    return parent->revision();
+}
+
+abstract_state_node_ptr anonymous_state_node::get_parent()const
+{
+   return parent;
 }
 
 void anonymous_state_node::commit()

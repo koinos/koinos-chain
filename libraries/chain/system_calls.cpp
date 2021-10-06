@@ -253,7 +253,8 @@ THUNK_DEFINE( void, apply_block,
    for ( const auto& tx : block.transactions() )
    {
       auto trx_node = block_node->create_anonymous_node();
-      context.set_state_node( trx_node );
+      // This sets the block parent as the parent node so that overrides are read from the current node
+      context.set_state_node( trx_node, context.get_parent_node() );
 
       // At this point, ticks_used could potentially be very close to KOINOS_MAX_TICKS_PER_BLOCK.
       //
@@ -508,7 +509,8 @@ THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const
 
    check_db_permissions( context, _space );
 
-   auto state = context.get_state_node();
+   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
+
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    state_db::get_object_args get_args;
@@ -540,7 +542,7 @@ THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) spa
 
    check_db_permissions( context, _space );
 
-   auto state = context.get_state_node();
+   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::get_object_args get_args;
    get_args.space = _space;
@@ -571,7 +573,7 @@ THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) spa
 
    check_db_permissions( context, _space );
 
-   auto state = context.get_state_node();
+   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::get_object_args get_args;
    get_args.space = _space;
