@@ -26,6 +26,7 @@ std::string apply_context::get_pending_console_output()
 void apply_context::set_state_node( abstract_state_node_ptr node )
 {
    _current_state_node = node;
+   _parent_state_node = _current_state_node ? node->get_parent() : abstract_state_node_ptr();
 }
 
 abstract_state_node_ptr apply_context::get_state_node()const
@@ -33,9 +34,16 @@ abstract_state_node_ptr apply_context::get_state_node()const
    return _current_state_node;
 }
 
+abstract_state_node_ptr apply_context::get_parent_node()const
+{
+   // This handles the genesis case
+   return _parent_state_node ? _parent_state_node : _current_state_node;
+}
+
 void apply_context::clear_state_node()
 {
    _current_state_node.reset();
+   _parent_state_node.reset();
 }
 
 void apply_context::set_block( const protocol::block& block )

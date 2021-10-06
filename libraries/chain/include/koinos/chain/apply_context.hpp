@@ -46,6 +46,7 @@ class apply_context
 
       void set_state_node( abstract_state_node_ptr );
       abstract_state_node_ptr get_state_node() const;
+      abstract_state_node_ptr get_parent_node() const;
       void clear_state_node();
 
       void set_block( const protocol::block& );
@@ -100,6 +101,7 @@ class apply_context
       std::vector< stack_frame >                _stack;
 
       abstract_state_node_ptr                   _current_state_node;
+      abstract_state_node_ptr                   _parent_state_node;
       std::string                               _pending_console_output;
       std::optional< crypto::public_key >       _key_auth;
 
