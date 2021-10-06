@@ -45,8 +45,10 @@ struct put_object_result
    bool             object_existed = false;
 };
 
+class abstract_state_node;
 class anonymous_state_node;
 
+using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
 
 /**
@@ -107,9 +109,10 @@ class abstract_state_node
        */
       anonymous_state_node_ptr create_anonymous_node();
 
-      virtual const state_node_id& id()const = 0;
-      virtual const state_node_id& parent_id()const = 0;
-      virtual uint64_t             revision()const = 0;
+      virtual const state_node_id&    id()const = 0;
+      virtual const state_node_id&    parent_id()const = 0;
+      virtual uint64_t                revision()const = 0;
+      virtual abstract_state_node_ptr get_parent()const = 0;
 
       friend class detail::database_impl;
 
@@ -119,17 +122,16 @@ class abstract_state_node
       std::unique_ptr< detail::state_node_impl > impl;
 };
 
-using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
-
 class anonymous_state_node final : public abstract_state_node, public std::enable_shared_from_this< anonymous_state_node >
 {
    public:
       anonymous_state_node();
       ~anonymous_state_node();
 
-      const state_node_id& id()const override;
-      const state_node_id& parent_id()const override;
-      uint64_t             revision()const override;
+      const state_node_id&    id()const override;
+      const state_node_id&    parent_id()const override;
+      uint64_t                revision()const override;
+      abstract_state_node_ptr get_parent()const override;
 
       void commit();
       void reset();
@@ -152,9 +154,10 @@ class state_node final : public abstract_state_node, public std::enable_shared_f
       state_node();
       ~state_node();
 
-      const state_node_id& id()const override;
-      const state_node_id& parent_id()const override;
-      uint64_t             revision()const override;
+      const state_node_id&    id()const override;
+      const state_node_id&    parent_id()const override;
+      uint64_t                revision()const override;
+      abstract_state_node_ptr get_parent()const override;
 
    protected:
       std::shared_ptr< abstract_state_node > shared_from_derived()override;

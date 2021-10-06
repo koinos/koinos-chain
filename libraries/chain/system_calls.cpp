@@ -175,15 +175,6 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
    auto setter = block_setter( context, block );
-   KOINOS_TODO( "Should this be a more specific exception?" );
-   KOINOS_ASSERT( block.id().size(), koinos::exception, "missing expected field in block: ${f}", ("f", "id") );
-   KOINOS_ASSERT( block.has_header(), koinos::exception, "missing expected field in block: ${f}", ("f", "header") );
-   KOINOS_ASSERT( block.header().previous().size(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "previous") );
-   KOINOS_ASSERT( block.header().height(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "height") );
-   KOINOS_ASSERT( block.header().timestamp(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "timestamp") );
-   KOINOS_ASSERT( block.active().size(), koinos::exception, "missing expected field: ${f}", ("f", "active") );
-   KOINOS_ASSERT( block.passive().size() == 0, koinos::exception, "unexpected value in field: ${f}", ("f", "passive") );
-   KOINOS_ASSERT( block.signature_data().size(), koinos::exception, "missing expected field: ${f}", ("f", "signature_data") );
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ).value() );
 
@@ -277,7 +268,8 @@ THUNK_DEFINE( void, apply_block,
    for ( const auto& tx : block.transactions() )
    {
       auto trx_node = block_node->create_anonymous_node();
-      context.set_state_node( trx_node );
+      // This sets the block parent as the parent node so that overrides are read from the current node
+      context.set_state_node( trx_node, context.get_parent_node() );
 
       try
       {
@@ -548,7 +540,8 @@ THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const
 
    check_db_permissions( context, _space );
 
-   auto state = context.get_state_node();
+   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
+
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    state_db::get_object_args get_args;
@@ -582,7 +575,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) spa
 
    check_db_permissions( context, _space );
 
-   auto state = context.get_state_node();
+   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::get_object_args get_args;
    get_args.space = _space;
@@ -615,7 +608,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const std::string&) spa
 
    check_db_permissions( context, _space );
 
-   auto state = context.get_state_node();
+   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::get_object_args get_args;
    get_args.space = _space;

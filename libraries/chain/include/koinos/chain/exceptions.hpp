@@ -46,6 +46,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, controller_exception )
 KOINOS_DECLARE_DERIVED_EXCEPTION( duplicate_trx_state, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( trx_state_error, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( timestamp_out_of_bounds, controller_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( missing_required_arguments, controller_exception );
 
 // Stack exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( stack_exception, chain_exception );

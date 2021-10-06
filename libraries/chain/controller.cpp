@@ -137,6 +137,15 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
+   KOINOS_ASSERT( request.block().id().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "id") );
+   KOINOS_ASSERT( request.block().has_header(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "header") );
+   KOINOS_ASSERT( request.block().header().previous().size(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "previous") );
+   KOINOS_ASSERT( request.block().header().height(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "height") );
+   KOINOS_ASSERT( request.block().header().timestamp(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "timestamp") );
+   KOINOS_ASSERT( request.block().active().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "active") );
+   KOINOS_ASSERT( request.block().passive().size() == 0, missing_required_arguments, "unexpected value in field in block: ${f}", ("f", "passive") );
+   KOINOS_ASSERT( request.block().signature_data().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
+
    static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
 
@@ -355,6 +364,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
+   KOINOS_ASSERT( request.transaction().id().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "id") );
+   KOINOS_ASSERT( request.transaction().active().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "active") );
+   KOINOS_ASSERT( request.transaction().passive().size() == 0, missing_required_arguments, "unexpected value in field in transaction: ${f}", ("f", "passive") );
+   KOINOS_ASSERT( request.transaction().signature_data().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
+
    std::string payer;
    uint64_t max_payer_rc;
    uint64_t trx_rc_limit;
@@ -571,6 +585,8 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
+   KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "contract_id") );
+
    state_db::state_node_ptr head_node;
 
    head_node = _db.get_head();
@@ -600,14 +616,16 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
+
+   KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "account") );
+
    apply_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_nonce"s ).digest(),
       .call_privilege = privilege::kernel_mode
    } );
-
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    ctx.set_state_node( _db.get_head() );
 
