@@ -166,15 +166,6 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
    auto setter = block_setter( context, block );
-   KOINOS_TODO( "Should this be a more specific exception?" );
-   KOINOS_ASSERT( block.id().size(), koinos::exception, "missing expected field in block: ${f}", ("f", "id") );
-   KOINOS_ASSERT( block.has_header(), koinos::exception, "missing expected field in block: ${f}", ("f", "header") );
-   KOINOS_ASSERT( block.header().previous().size(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "previous") );
-   KOINOS_ASSERT( block.header().height(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "height") );
-   KOINOS_ASSERT( block.header().timestamp(), koinos::exception, "missing expected field in block_header: ${f}", ("f", "timestamp") );
-   KOINOS_ASSERT( block.active().size(), koinos::exception, "missing expected field: ${f}", ("f", "active") );
-   KOINOS_ASSERT( block.passive().size() == 0, koinos::exception, "unexpected value in field: ${f}", ("f", "passive") );
-   KOINOS_ASSERT( block.signature_data().size(), koinos::exception, "missing expected field: ${f}", ("f", "signature_data") );
 
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
