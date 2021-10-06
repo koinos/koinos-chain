@@ -92,12 +92,27 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
 
 int64_t host_api::get_meter_ticks() const
 {
-   return _ctx.get_meter_ticks();
+   auto compute_bandwidth_remaining = _ctx.resource_meter().compute_bandwidth_remaining();
+
+   // If we have more ticks than fizzy can accept
+   if ( compute_bandwidth_remaining > std::numeric_limits< int64_t >::max() )
+      compute_bandwidth_remaining = std::numeric_limits< int64_t >::max();
+
+   int64_t ticks = compute_bandwidth_remaining;
+   return ticks;
 }
 
-void host_api::set_meter_ticks( int64_t meter_ticks )
+void host_api::use_meter_ticks( uint64_t meter_ticks )
 {
-   _ctx.set_meter_ticks( meter_ticks );
+   if ( meter_ticks > _ctx.resource_meter().compute_bandwidth_remaining() )
+   {
+      _ctx.resource_meter().use_compute_bandwidth( _ctx.resource_meter().compute_bandwidth_remaining() );
+      _ctx.resource_meter().use_compute_bandwidth( 1 );
+   }
+   else
+   {
+      _ctx.resource_meter().use_compute_bandwidth( meter_ticks );
+   }
 }
 
 } // koinos::chain

@@ -68,7 +68,6 @@ class controller_impl final
       std::shared_mutex                         _db_mutex;
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
-      int64_t                                   _max_read_cycles = KOINOS_MAX_METER_TICKS;
 
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
@@ -168,12 +167,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    {
       apply_context parent_ctx( _vm_backend );
 
-      // The following call to reset_meter_ticks() does not set an upper bound on the cycles that
-      // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
-      // system calls are overridden.  See issue #439.
-
-      parent_ctx.reset_meter_ticks( KOINOS_MAX_METER_TICKS );
-
       parent_ctx.push_frame( stack_frame {
          .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
          .call_privilege = privilege::kernel_mode
@@ -187,11 +180,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    }
 
    apply_context ctx( _vm_backend );
-
-   // The following call to reset_meter_ticks() does not set an upper bound on the cycles that
-   // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
-   // system calls are overridden.  See issue #439.
-   ctx.reset_meter_ticks( KOINOS_MAX_METER_TICKS );
 
    try
    {
@@ -251,7 +239,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          auto num_transactions = block.transactions_size();
 
          LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
-         LOG(info) << "Apply block ticks: " << KOINOS_MAX_METER_TICKS - ctx.get_meter_ticks();
       }
       else if ( block_height % index_message_interval == 0 )
       {
@@ -381,6 +368,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
    apply_context ctx( _vm_backend );
+
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -390,11 +378,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.set_state_node( pending_trx_node );
 
-      // The following call to reset_meter_ticks() does not set an upper bound on the cycles that
-      // can be used in the block.  Rather, it provides some initial cycles in case the subsequent
-      // system calls are overridden.  See issue #439.
-
-      ctx.reset_meter_ticks( KOINOS_MAX_METER_TICKS );
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
 
       payer = system_call::get_transaction_payer( ctx, transaction ).value();
       max_payer_resources = system_call::get_account_rc( ctx, payer ).value();
@@ -598,7 +582,11 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.set_state_node( head_node );
    ctx.set_read_only( true );
-   ctx.reset_meter_ticks( _max_read_cycles );
+
+   resource_limit_data rl;
+   rl.set_compute_bandwidth_limit( 10'000'000 );
+
+   ctx.resource_meter().set_resource_limit_data( rl );
 
    auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() ).value();
 

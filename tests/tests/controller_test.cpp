@@ -394,7 +394,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto op1 = active1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( converter::as< std::string >( contract_1_id ) );
    op1->set_bytecode( converter::as< std::string >( get_hello_wasm() ) );
-   active1.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   active1.set_resource_limit( 10'000'000 );
    trx1.set_active( converter::as< std::string >( active1 ) );
    trx1.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
    sign_transaction( trx1, key1 );
@@ -407,7 +407,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto op2 = active2.add_operations()->mutable_upload_contract();
    op2->set_contract_id( converter::as< std::string >( contract_2_id ) );
    op2->set_bytecode( converter::as< std::string >( get_contract_return_wasm() ) );
-   active2.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   active2.set_resource_limit( 10'000'000 );
    trx2.set_active( converter::as< std::string >( active2 ) );
    trx2.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
    sign_transaction( trx2, key2 );
@@ -420,7 +420,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto op3 = active3.add_operations()->mutable_upload_contract();
    op3->set_contract_id( converter::as< std::string >( contract_3_id ) );
    op3->set_bytecode( converter::as< std::string >( get_db_write_wasm() ) );
-   active3.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   active3.set_resource_limit( 10'000'000 );
    trx3.set_active( converter::as< std::string >( active3 ) );
    trx3.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx3.active() ) ) );
    sign_transaction( trx3, key3 );
@@ -491,7 +491,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    auto op1 = active1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( converter::as< std::string >( id ) );
    op1->set_bytecode( converter::as< std::string >( get_koin_wasm() ) );
-   active1.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   active1.set_resource_limit( 10'000'000 );
    trx1.set_active( converter::as< std::string >( active1 ) );
    trx1.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
    sign_transaction( trx1, contract_private_key );
@@ -507,7 +507,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    op2->set_contract_id( op1->contract_id() );
    op2->set_entry_point( 0xc2f82bdc );
    op2->set_args( mint_arg.SerializeAsString() );
-   active2.set_resource_limit( KOINOS_MAX_METER_TICKS );
+   active2.set_resource_limit( 10'000'000 );
    trx2.set_active( converter::as< std::string >( active2 ) );
    trx2.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
    sign_transaction( trx2, alice_private_key );

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/resources.hpp>
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/state_db/state_db.hpp>
 #include <koinos/vm_manager/vm_backend.hpp>
@@ -86,12 +87,7 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
-      void reset_meter_ticks( int64_t meter_ticks );
-      void set_meter_ticks( int64_t meter_ticks );
-      void use_meter_ticks( int64_t meter_ticks );
-
-      int64_t get_meter_ticks();
-      int64_t get_used_meter_ticks();
+      chain::resource_meter& resource_meter();
 
    private:
       friend struct frame_restorer;
@@ -111,6 +107,8 @@ class apply_context
 
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
+
+      chain::resource_meter                     _resource_meter;
 };
 
 struct frame_restorer
