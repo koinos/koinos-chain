@@ -20,6 +20,7 @@ for file in tests/*.cpp; do
       -I$CDT_INSTALL_PATH/include \
       -L$KOINOS_WASI_SDK_ROOT/share/wasi-sysroot/lib/wasm32-wasi \
       -I$KOINOS_WASI_SDK_ROOT/share/wasi-sysroot/include \
+      -lkoinos_proto_embedded \
       -lkoinos_api \
       -lkoinos_api_cpp \
       -lkoinos_wasi_api \
