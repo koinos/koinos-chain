@@ -6,6 +6,12 @@
 
 namespace koinos::chain {
 
+namespace compute_load {
+   constexpr uint64_t light  = 100;
+   constexpr uint64_t medium = 1000;
+   constexpr uint64_t heavy  = 10000;
+}
+
 class rc_session final
 {
 public:

@@ -34,7 +34,17 @@ uint64_t rc_session::used()
  * Resource meter
  */
 
-resource_meter::resource_meter() = default;
+resource_meter::resource_meter()
+{
+   resource_limit_data initial_rld;
+
+   initial_rld.set_disk_storage_limit( std::numeric_limits< uint64_t >::max() );
+   initial_rld.set_network_bandwidth_limit( std::numeric_limits< uint64_t >::max() );
+   initial_rld.set_compute_bandwidth_limit( std::numeric_limits< uint64_t >::max() );
+
+   set_resource_limit_data( initial_rld );
+}
+
 resource_meter::~resource_meter() = default;
 
 void resource_meter::set_resource_limit_data( const resource_limit_data& rld )
