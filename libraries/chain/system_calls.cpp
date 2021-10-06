@@ -262,7 +262,8 @@ THUNK_DEFINE( void, apply_block,
    for ( const auto& tx : block.transactions() )
    {
       auto trx_node = block_node->create_anonymous_node();
-      context.set_state_node( trx_node );
+      // This sets the block parent as the parent node so that overrides are read from the corrent node
+      context.set_state_node( trx_node, context.get_parent_node() );
 
       // At this point, ticks_used could potentially be very close to KOINOS_MAX_TICKS_PER_BLOCK.
       //

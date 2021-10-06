@@ -44,7 +44,7 @@ class apply_context
       void console_append( const std::string& val );
       std::string get_pending_console_output();
 
-      void set_state_node( abstract_state_node_ptr );
+      void set_state_node( abstract_state_node_ptr, abstract_state_node_ptr = abstract_state_node_ptr() );
       abstract_state_node_ptr get_state_node() const;
       abstract_state_node_ptr get_parent_node() const;
       void clear_state_node();

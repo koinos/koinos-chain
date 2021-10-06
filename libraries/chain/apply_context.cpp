@@ -23,10 +23,15 @@ std::string apply_context::get_pending_console_output()
    return buf;
 }
 
-void apply_context::set_state_node( abstract_state_node_ptr node )
+void apply_context::set_state_node( abstract_state_node_ptr node, abstract_state_node_ptr parent )
 {
    _current_state_node = node;
-   _parent_state_node = _current_state_node ? node->get_parent() : abstract_state_node_ptr();
+   if ( parent )
+      _parent_state_node = parent;
+   else if ( _current_state_node )
+      _parent_state_node = node->get_parent();
+   else
+      _parent_state_node.reset();
 }
 
 abstract_state_node_ptr apply_context::get_state_node()const
