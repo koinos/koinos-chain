@@ -185,6 +185,8 @@ THUNK_DEFINE( void, apply_block,
    KOINOS_ASSERT( block.passive().size() == 0, koinos::exception, "unexpected value in field: ${f}", ("f", "passive") );
    KOINOS_ASSERT( block.signature_data().size(), koinos::exception, "missing expected field: ${f}", ("f", "signature_data") );
 
+   context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ).value() );
+
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
    const crypto::multihash tx_root = converter::to< crypto::multihash >( active_data.transaction_merkle_root() );

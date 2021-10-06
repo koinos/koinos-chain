@@ -213,8 +213,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       ctx.set_state_node( block_node );
 
-      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
-
       system_call::apply_block(
          ctx,
          block,
