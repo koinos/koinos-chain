@@ -90,11 +90,12 @@ class fizzy_runner
       FizzyExecutionResult _invoke_system_call( const FizzyValue* args, FizzyExecutionContext* fizzy_context ) noexcept;
 
    private:
-      abstract_host_api& _hapi;
-      const FizzyModule* _module = nullptr;
-      FizzyInstance* _instance = nullptr;
+      abstract_host_api&     _hapi;
+      const FizzyModule*     _module = nullptr;
+      FizzyInstance*         _instance = nullptr;
       FizzyExecutionContext* _fizzy_context = nullptr;
-      std::exception_ptr _exception;
+      int64_t                _previous_ticks;
+      std::exception_ptr     _exception;
 };
 
 fizzy_runner::~fizzy_runner()
@@ -185,7 +186,7 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
 
       int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
       KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
-      _hapi.set_meter_ticks( *ticks );
+      _hapi.use_meter_ticks( uint64_t( _previous_ticks - *ticks ) );
 
       try
       {
@@ -196,7 +197,8 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
          _exception = std::current_exception();
       }
 
-      *ticks = _hapi.get_meter_ticks();
+      _previous_ticks = _hapi.get_meter_ticks();
+      *ticks = _previous_ticks;
    }
    catch ( ... )
    {
@@ -227,7 +229,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_system_call()" );
       int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
       KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
-      _hapi.set_meter_ticks( *ticks );
+      _hapi.use_meter_ticks( uint64_t( _previous_ticks - *ticks ) );
 
       try
       {
@@ -238,7 +240,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
          _exception = std::current_exception();
       }
 
-      *ticks = _hapi.get_meter_ticks();
+      _previous_ticks = _hapi.get_meter_ticks();
+      *ticks = _previous_ticks;
    }
    catch ( ... )
    {
@@ -252,7 +255,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 void fizzy_runner::call_start()
 {
    KOINOS_ASSERT( _fizzy_context == nullptr, runner_state_exception, "_fizzy_context was unexpectedly non-null" );
-   _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _hapi.get_meter_ticks() );
+   _previous_ticks = _hapi.get_meter_ticks();
+   _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _previous_ticks );
    KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "could not create execution context" );
 
    uint32_t start_func_idx = 0;
@@ -263,7 +267,7 @@ void fizzy_runner::call_start()
 
    int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
    KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
-   _hapi.set_meter_ticks( *ticks );
+   _hapi.use_meter_ticks( uint64_t( _previous_ticks - *ticks ) );
 
    if( _exception )
    {
@@ -274,10 +278,6 @@ void fizzy_runner::call_start()
 
    if( result.trapped )
    {
-      if( _hapi.get_meter_ticks() < 0 )
-      {
-         KOINOS_THROW( tick_meter_exception, "ran out of ticks" );
-      }
       KOINOS_THROW( wasm_trap_exception, "module exited due to trap" );
    }
 }

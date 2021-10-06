@@ -102,21 +102,16 @@ int64_t host_api::get_meter_ticks() const
    return ticks;
 }
 
-void host_api::set_meter_ticks( int64_t meter_ticks )
+void host_api::use_meter_ticks( uint64_t meter_ticks )
 {
-   if ( meter_ticks < 0 )
+   if ( meter_ticks > _ctx.resource_meter().compute_bandwidth_remaining() )
    {
       _ctx.resource_meter().use_compute_bandwidth( _ctx.resource_meter().compute_bandwidth_remaining() );
       _ctx.resource_meter().use_compute_bandwidth( 1 );
    }
    else
    {
-      // In the case where we've started out with more rc than possible ticks, we instead use max int64_t.
-      // This should prevent a user with an extraordinary amount of rc from not being able to transact after
-      // only using max int64_t worth of rc.
-      auto compute_remaining = _ctx.resource_meter().compute_bandwidth_remaining();
-      compute_remaining = compute_remaining > std::numeric_limits< int64_t >::max() ? std::numeric_limits< int64_t >::max() : compute_remaining;
-      _ctx.resource_meter().use_compute_bandwidth( compute_remaining - meter_ticks );
+      _ctx.resource_meter().use_compute_bandwidth( meter_ticks );
    }
 }
 
