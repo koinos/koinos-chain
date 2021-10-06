@@ -4,7 +4,7 @@
 #define KOINOS_SYSTEM_CALL_ID_prints 1
 
 extern "C" {
-   void invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+   uint32_t invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
 }
 
 void prints( char* msg )

@@ -110,7 +110,11 @@ fizzy_runner::~fizzy_runner()
    {
       if( _module != nullptr )
       {
-         fizzy_free_module( _module );
+         // While testing the changes for #400, I was getting malloc errors that resolved themselves
+         // by commenting out this line (freeing already freed memory). It would appear that fizzy_initialize
+         // takes ownership even on failure and this line is not needed.
+         // The bug I ran in to could be replicated via an uploaded contract and is therefore and attack vector.
+         // fizzy_free_module( _module );
       }
    }
    if( _fizzy_context != nullptr )
@@ -135,7 +139,7 @@ void fizzy_runner::instantiate_module()
 
    FizzyValueType invoke_thunk_arg_types[] = {FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32};
    size_t invoke_thunk_num_args = 5;
-   FizzyExternalFunction invoke_thunk_fn = {{ FizzyValueTypeVoid, invoke_thunk_arg_types, invoke_thunk_num_args }, invoke_thunk, this };
+   FizzyExternalFunction invoke_thunk_fn = {{ FizzyValueTypeI32, invoke_thunk_arg_types, invoke_thunk_num_args }, invoke_thunk, this };
 
    FizzyExternalFn invoke_system_call = [](void* voidptr_context, FizzyInstance* fizzy_instance, const FizzyValue* args, FizzyExecutionContext* fizzy_context) noexcept -> FizzyExecutionResult
    {
@@ -145,7 +149,7 @@ void fizzy_runner::instantiate_module()
 
    FizzyValueType invoke_system_call_arg_types[] = {FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32};
    size_t invoke_system_call_num_args = 5;
-   FizzyExternalFunction invoke_system_call_fn = {{ FizzyValueTypeVoid, invoke_system_call_arg_types, invoke_system_call_num_args }, invoke_system_call, this };
+   FizzyExternalFunction invoke_system_call_fn = {{ FizzyValueTypeI32, invoke_system_call_arg_types, invoke_system_call_num_args }, invoke_system_call, this };
 
    size_t num_host_funcs = 2;
    FizzyImportedFunction host_funcs[] = {{"env", "invoke_thunk", invoke_thunk_fn}, {"env", "invoke_system_call", invoke_system_call_fn}};
@@ -189,7 +193,8 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
 
       try
       {
-         _hapi.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
+         result.value.i32 = _hapi.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
+         result.has_value = true;
       }
       catch ( ... )
       {
@@ -231,7 +236,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
       try
       {
-         _hapi.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
+         result.value.i32 = _hapi.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
+         result.has_value = true;
       }
       catch ( ... )
       {

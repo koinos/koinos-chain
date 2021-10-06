@@ -646,7 +646,6 @@ BOOST_AUTO_TEST_CASE( token_tests )
    auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
    auto name = converter::to< koinos::contracts::token::name_return >( response.value() ).value();
    LOG(info) << name;
-   LOG(info) << ctx.get_pending_console_output();
    LOG(info) << "koin.name() opcode count: " << ctx.get_used_meter_ticks();
 
    ctx.reset_meter_ticks( KOINOS_MAX_METER_TICKS );

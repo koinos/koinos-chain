@@ -13,14 +13,15 @@ namespace koinos::chain {
 host_api::host_api( apply_context& ctx ) : _ctx( ctx ) {}
 host_api::~host_api() {}
 
-void host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges, "cannot be called directly from user mode" );
-   thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
-void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
+   uint32_t bytes_returned = 0;
    auto key = converter::as< std::string >( sid );
    std::string blob_target;
 
@@ -60,7 +61,7 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
             .call_privilege = _ctx.get_privilege(),
          },
          [&]() {
-            thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+            bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
          }
       );
    }
@@ -83,11 +84,14 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
       );
       KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
       std::memcpy( ret.data(), ret_ptr, ret.size() );
+      bytes_returned = ret.size();
    }
    else
    {
       KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", sid) );
    }
+
+   return bytes_returned;
 }
 
 int64_t host_api::get_meter_ticks() const
