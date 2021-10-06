@@ -296,7 +296,7 @@ THUNK_DEFINE( void, apply_block,
             context.resource_meter().network_bandwidth_used(),
             context.resource_meter().compute_bandwidth_used()
          ).value(),
-         koinos::exception,
+         unable_to_consume_resources,
          "unable to consume block resources"
       );
    }

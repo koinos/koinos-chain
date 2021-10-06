@@ -58,6 +58,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( compute_bandwidth_limit_exceeded, resource_exc
 KOINOS_DECLARE_DERIVED_EXCEPTION( disk_storage_limit_exceeded, resource_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_rc, resource_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( rc_overflow, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unable_to_consume_resources, resource_exception );
 
 // VM Exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
