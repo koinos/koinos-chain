@@ -668,7 +668,6 @@ THUNK_DEFINE_VOID( get_contract_args_return, get_contract_args )
 
 THUNK_DEFINE( void, set_contract_return, ((const std::string&) ret) )
 {
-   LOG(info) << to_hex( ret );
    context.set_contract_return( converter::to< std::vector< std::byte > >( ret ) );
 }
 

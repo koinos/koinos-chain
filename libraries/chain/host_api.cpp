@@ -21,9 +21,6 @@ uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, 
 
 uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
-   if ( sid == protocol::set_contract_return )
-      LOG(info) << to_hex( std::string( arg_ptr, arg_len ) );
-
    uint32_t bytes_returned = 0;
    auto key = converter::as< std::string >( sid );
    std::string blob_target;

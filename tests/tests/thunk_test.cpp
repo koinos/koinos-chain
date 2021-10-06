@@ -636,14 +636,6 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   koinos::contracts::token::name_return ret;
-   ret.set_value( "Test Koinos"s );
-   chain::set_contract_return_args res;
-   res.set_value( ret.SerializeAsString() );
-   LOG(info) << to_hex( res.SerializeAsString() );
-   // 0x0a0d0a0b54657374204b6f696e6f73
-   // 0x0a0d0a0b54657374204b6f696e6f73
-
    ctx.set_privilege( chain::privilege::user_mode );
 
    ctx.reset_meter_ticks( KOINOS_MAX_METER_TICKS );
