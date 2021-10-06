@@ -288,15 +288,17 @@ THUNK_DEFINE( void, apply_block,
          LOG(info) << "Transaction " << to_hex( tx.id() ) << " reverted with: " << e.what();
       }
 
-      KOINOS_ASSERT( context.get_meter_ticks() >= 0, per_block_tick_limit_exception, "per-block tick limit exceeded" );
+      KOINOS_ASSERT(
+         system_call::consume_block_resources(
+            context,
+            context.resource_meter().disk_storage_used(),
+            context.resource_meter().network_bandwidth_used(),
+            context.resource_meter().compute_bandwidth_used()
+         ).value(),
+         koinos::exception,
+         "unable to consume block resources"
+      );
    }
-
-   system_call::consume_block_resources(
-      context,
-      context.resource_meter().disk_storage_used(),
-      context.resource_meter().network_bandwidth_used(),
-      context.resource_meter().compute_bandwidth_used()
-   );
 }
 
 // RAII class to ensure apply context transaction state is consistent if there is an error applying
@@ -336,16 +338,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
-   int64_t pre_transaction_meter_ticks_used = context.get_used_meter_ticks();
-   int64_t pre_transaction_max_meter_ticks = pre_transaction_meter_ticks_used + context.get_meter_ticks();
-
    auto setter = transaction_setter( context, trx );
 
    protocol::active_transaction_data active_data;
    active_data.ParseFromString( trx.active() );
-
-   KOINOS_ASSERT( active_data.resource_limit() <= KOINOS_MAX_METER_TICKS, tick_max_too_high_exception, "tick max is too high" );
-   context.reset_meter_ticks( active_data.resource_limit() );
 
    std::string payer;
    auto exception = std::exception_ptr();
@@ -377,7 +373,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       // Next nonce should be the current nonce + 1
       update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
 
-      auto payer_consumed_rc = payer_session->close();
+      auto payer_consumed_rc = payer_session->used();
       system_call::consume_account_rc( context, payer, payer_consumed_rc );
    }
    catch ( ... )
@@ -386,12 +382,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       exception = std::current_exception();
    }
 
-   int64_t used_meter_ticks = context.get_used_meter_ticks();
-   context.reset_meter_ticks( pre_transaction_max_meter_ticks );
-   context.use_meter_ticks( pre_transaction_meter_ticks_used );
-   context.use_meter_ticks( used_meter_ticks );
 
-   LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
+   LOG(debug) << "(apply_transaction) transaction " << trx.id();
 
    // If there was an exception, rethrow it now.
    if ( exception )

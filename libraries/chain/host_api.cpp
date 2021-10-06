@@ -92,12 +92,32 @@ void host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len
 
 int64_t host_api::get_meter_ticks() const
 {
-   return _ctx.get_meter_ticks();
+   auto compute_bandwidth_remaining = _ctx.resource_meter().compute_bandwidth_remaining();
+
+   // If we have more ticks than fizzy can accept
+   if ( compute_bandwidth_remaining > std::numeric_limits< int64_t >::max() )
+      compute_bandwidth_remaining = std::numeric_limits< int64_t >::max();
+
+   int64_t ticks = compute_bandwidth_remaining;
+   return ticks;
 }
 
 void host_api::set_meter_ticks( int64_t meter_ticks )
 {
-   _ctx.set_meter_ticks( meter_ticks );
+   if ( meter_ticks < 0 )
+   {
+      _ctx.resource_meter().use_compute_bandwidth( _ctx.resource_meter().compute_bandwidth_remaining() );
+      _ctx.resource_meter().use_compute_bandwidth( 1 );
+   }
+   else
+   {
+      // In the case where we've started out with more rc than possible ticks, we instead use max int64_t.
+      // This should prevent a user with an extraordinary amount of mana from not being able to transact after
+      // only using max int64_t worth of rc.
+      auto compute_remaining = _ctx.resource_meter().compute_bandwidth_remaining();
+      compute_remaining = compute_remaining > std::numeric_limits< int64_t >::max() ? std::numeric_limits< int64_t >::max() : compute_remaining;
+      _ctx.resource_meter().use_compute_bandwidth( compute_remaining - meter_ticks );
+   }
 }
 
 } // koinos::chain

@@ -87,13 +87,6 @@ class apply_context
       void set_read_only( bool );
       bool is_read_only()const;
 
-      void reset_meter_ticks( int64_t meter_ticks );
-      void set_meter_ticks( int64_t meter_ticks );
-      void use_meter_ticks( int64_t meter_ticks );
-
-      int64_t get_meter_ticks();
-      int64_t get_used_meter_ticks();
-
       chain::resource_meter& resource_meter();
 
    private:

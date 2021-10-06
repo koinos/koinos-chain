@@ -12,8 +12,9 @@ public:
    rc_session( uint64_t begin_rc );
    ~rc_session();
 
-   void use_rc( uint64_t rc );
-   uint64_t close();
+   void use( uint64_t rc );
+   uint64_t remaining();
+   uint64_t used();
 
 private:
    uint64_t _begin_rc;
@@ -32,12 +33,15 @@ public:
 
    void use_disk_storage( uint64_t bytes );
    uint64_t disk_storage_used();
+   uint64_t disk_storage_remaining();
 
    void use_network_bandwidth( uint64_t bytes );
    uint64_t network_bandwidth_used();
+   uint64_t network_bandwidth_remaining();
 
    void use_compute_bandwidth( uint64_t ticks );
    uint64_t compute_bandwidth_used();
+   uint64_t compute_bandwidth_remaining();
 
 private:
    uint64_t _disk_storage_remaining      = 0;

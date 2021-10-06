@@ -160,35 +160,6 @@ bool apply_context::is_read_only()const
    return _read_only;
 }
 
-void apply_context::reset_meter_ticks( int64_t meter_ticks )
-{
-   KOINOS_ASSERT( meter_ticks >= 0, invalid_meter_ticks, "cannot set negative meter ticks" );
-   _meter_ticks = meter_ticks;
-   _start_meter_ticks = meter_ticks;
-}
-
-void apply_context::set_meter_ticks( int64_t meter_ticks )
-{
-   KOINOS_ASSERT( meter_ticks <= _meter_ticks, invalid_meter_ticks, "cannot add meter ticks" );
-   _meter_ticks = meter_ticks;
-}
-
-void apply_context::use_meter_ticks( int64_t meter_ticks )
-{
-   KOINOS_ASSERT( meter_ticks >= 0, invalid_meter_ticks, "cannot consume negative meter ticks" );
-   _meter_ticks -= meter_ticks;
-}
-
-int64_t apply_context::get_meter_ticks()
-{
-   return _meter_ticks;
-}
-
-int64_t apply_context::get_used_meter_ticks()
-{
-   return _start_meter_ticks - _meter_ticks;
-}
-
 resource_meter& apply_context::resource_meter()
 {
    return _resource_meter;
