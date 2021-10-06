@@ -356,8 +356,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    std::string payer;
-   uint64_t max_payer_resources;
-   uint64_t trx_resource_limit;
+   uint64_t max_payer_rc;
+   uint64_t trx_rc_limit;
 
    auto transaction    = request.transaction();
    auto transaction_id = to_hex( transaction.id() );
@@ -381,8 +381,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
 
       payer = system_call::get_transaction_payer( ctx, transaction ).value();
-      max_payer_resources = system_call::get_account_rc( ctx, payer ).value();
-      trx_resource_limit = system_call::get_transaction_resource_limit( ctx, transaction ).value();
+      max_payer_rc = system_call::get_account_rc( ctx, payer ).value();
+      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction ).value();
 
       system_call::apply_transaction( ctx, transaction );
 
@@ -392,8 +392,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          auto* check_pending = req.mutable_check_pending_account_resources();
 
          check_pending->set_payer( payer );
-         check_pending->set_max_payer_resources( max_payer_resources );
-         check_pending->set_trx_resource_limit( trx_resource_limit );
+         check_pending->set_max_payer_rc( max_payer_rc );
+         check_pending->set_rc_limit( trx_rc_limit );
 
          auto future = _client->rpc( service::mempool, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
 
@@ -414,7 +414,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
             *ta.mutable_transaction() = transaction;
             ta.set_payer( payer );
-            ta.set_max_payer_resources( max_payer_resources );
+            ta.set_max_payer_rc( max_payer_rc );
+            ta.set_rc_limit( trx_rc_limit );
             ta.set_height( ctx.get_state_node()->revision() );
 
             _client->broadcast( "koinos.transaction.accept", converter::as< std::string >( ta ) );

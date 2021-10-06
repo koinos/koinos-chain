@@ -541,7 +541,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    protocol::transaction transaction;
    protocol::active_transaction_data active;
-   active.set_resource_limit( 10'000 );
+   active.set_rc_limit( 10'000 );
    active.set_nonce( 0 );
    transaction.set_active( converter::as< std::string >( active ) );
    transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, active ) ) );
@@ -553,7 +553,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
-   active.set_resource_limit( 20'000 );
+   active.set_rc_limit( 20'000 );
    active.set_nonce( 0 );
    transaction.set_active( converter::as< std::string >( active ) );
    transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) );
@@ -576,7 +576,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
-   active.set_resource_limit( 30'000 );
+   active.set_rc_limit( 30'000 );
    transaction.set_active( converter::as< std::string >( active ) );
    transaction.set_id( converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, active ) ) );
    transaction.set_signature_data( converter::as< std::string >( key.sign_compact( converter::to< crypto::multihash >( transaction.id() ) ) ) );

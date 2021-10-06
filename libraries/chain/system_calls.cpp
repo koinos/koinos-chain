@@ -48,7 +48,7 @@ void register_thunks( thunk_dispatcher& td )
       (recover_public_key)
 
       (get_transaction_payer)
-      (get_transaction_resource_limit)
+      (get_transaction_rc_limit)
 
       (get_last_irreversible_block)
 
@@ -352,13 +352,13 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       payer = system_call::get_transaction_payer( context, trx ).value();
 
       auto payer_rc = system_call::get_account_rc( context, payer ).value();
-      KOINOS_ASSERT( payer_rc >= active_data.resource_limit(), insufficent_rc, "payer does not have the rc to cover transaction rc limit" );
+      KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficent_rc, "payer does not have the rc to cover transaction rc limit" );
 
       /**
        * While a reference to the payer_session remains alive, resource usage will be tallied
        * and charged to the current payer.
        */
-      auto payer_session = context.resource_meter().make_session( active_data.resource_limit() );
+      auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
 
       system_call::require_authority( context, payer );
       require_payer_transaction_nonce( context, payer, active_data.nonce() );
@@ -801,15 +801,15 @@ THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const proto
    return ret;
 }
 
-THUNK_DEFINE( get_transaction_resource_limit_result, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( get_transaction_rc_limit_result, get_transaction_rc_limit, ((const protocol::transaction&) transaction) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    protocol::active_transaction_data active_data;
    active_data.ParseFromString( transaction.active() );
 
-   get_transaction_resource_limit_result ret;
-   ret.set_value( active_data.resource_limit() );
+   get_transaction_rc_limit_result ret;
+   ret.set_value( active_data.rc_limit() );
    return ret;
 }
 
