@@ -174,7 +174,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
-      parent_ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( parent_ctx ).value() );
       auto head_info = system_call::get_head_info( parent_ctx ).value();
       parent_height = head_info.head_topology().height();
       time_lower_bound = head_info.head_block_time();
