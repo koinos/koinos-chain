@@ -280,18 +280,18 @@ THUNK_DEFINE( void, apply_block,
       {
          LOG(info) << "Transaction " << to_hex( tx.id() ) << " reverted with: " << e.what();
       }
-
-      KOINOS_ASSERT(
-         system_call::consume_block_resources(
-            context,
-            context.resource_meter().disk_storage_used(),
-            context.resource_meter().network_bandwidth_used(),
-            context.resource_meter().compute_bandwidth_used()
-         ).value(),
-         unable_to_consume_resources,
-         "unable to consume block resources"
-      );
    }
+
+   KOINOS_ASSERT(
+      system_call::consume_block_resources(
+         context,
+         context.resource_meter().disk_storage_used(),
+         context.resource_meter().network_bandwidth_used(),
+         context.resource_meter().compute_bandwidth_used()
+      ).value(),
+      unable_to_consume_resources,
+      "unable to consume block resources"
+   );
 }
 
 // RAII class to ensure apply context transaction state is consistent if there is an error applying

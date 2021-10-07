@@ -50,6 +50,7 @@ public:
    uint64_t compute_bandwidth_remaining();
 
 private:
+
    uint64_t _disk_storage_remaining      = 0;
    uint64_t _network_bandwidth_remaining = 0;
    uint64_t _compute_bandwidth_remaining = 0;
