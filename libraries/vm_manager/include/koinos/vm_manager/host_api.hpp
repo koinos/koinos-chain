@@ -18,7 +18,7 @@ class abstract_host_api
       virtual uint32_t invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) = 0;
       virtual uint32_t invoke_system_call( uint32_t xid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) = 0;
       virtual int64_t get_meter_ticks()const = 0;
-      virtual void set_meter_ticks( int64_t meter_ticks ) = 0;
+      virtual void use_meter_ticks( uint64_t meter_ticks ) = 0;
 };
 
 } // koinos::vm_manager

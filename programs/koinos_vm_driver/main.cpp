@@ -78,7 +78,10 @@ int main( int argc, char** argv, char** envp )
       LOG(info) << "Initialized " << vm_backend->backend_name() << " VM backend";
 
       chain::apply_context ctx( vm_backend );
-      ctx.reset_meter_ticks( vmap[ TICKS_OPTION ].as< int64_t >() );
+
+      auto rld = chain::system_call::get_resource_limits( ctx ).value();
+      rld.set_compute_bandwidth_limit( vmap[ TICKS_OPTION ].as< int64_t >() );
+      ctx.resource_meter().set_resource_limit_data( rld );
       chain::host_api hapi( ctx );
       vm_backend->run( hapi, contract_wasm.data(), contract_wasm.size() );
 

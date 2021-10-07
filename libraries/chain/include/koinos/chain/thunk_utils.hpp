@@ -17,8 +17,8 @@
 // 4. THUNK_DEFINE
 
 #define _THUNK_TYPE_SUFFIX _type
-#define _THUNK_ARGS_SUFFIX _args
-#define _THUNK_RET_SUFFIX  _return
+#define _THUNK_ARGS_SUFFIX _arguments
+#define _THUNK_RET_SUFFIX  _result
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
 data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( protocol::system_call_id::elem, thunk::elem );
@@ -283,7 +283,7 @@ namespace koinos::chain::detail {
       else if ( _target.has_system_call_bundle() )                                                                   \
       {                                                                                                              \
          const auto& _scb = _target.system_call_bundle();                                                            \
-         BOOST_PP_CAT( SYSCALL, _args ) _args;                                                                       \
+         BOOST_PP_CAT( SYSCALL, _THUNK_ARGS_SUFFIX ) _args;                                                          \
          BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
          std::string _ret_str;                                                                                       \
          with_stack_frame(                                                                                           \

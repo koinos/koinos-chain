@@ -12,8 +12,6 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 
-#define KOINOS_MAX_TICKS_PER_BLOCK (100 * int64_t(1000) * int64_t(1000))
-
 using namespace std::string_literals;
 
 namespace koinos::chain {
@@ -41,17 +39,16 @@ void register_thunks( thunk_dispatcher& td )
       (call_contract)
 
       (get_entry_point)
-      (get_contract_args_size)
-      (get_contract_args)
-      (set_contract_return)
+      (get_contract_arguments_size)
+      (get_contract_arguments)
+      (set_contract_result)
 
       (get_head_info)
       (hash)
       (recover_public_key)
 
       (get_transaction_payer)
-      (get_max_account_resources)
-      (get_transaction_resource_limit)
+      (get_transaction_rc_limit)
 
       (get_last_irreversible_block)
 
@@ -62,6 +59,11 @@ void register_thunks( thunk_dispatcher& td )
       (get_contract_id)
 
       (get_account_nonce)
+
+      (get_account_rc)
+      (consume_account_rc)
+      (get_resource_limits)
+      (consume_block_resources)
    )
 }
 
@@ -78,6 +80,7 @@ THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
    context.console_append( str );
 }
 
@@ -94,8 +97,10 @@ THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
+THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.c_str(), signature_data.size() );
@@ -113,13 +118,17 @@ THUNK_DEFINE( verify_block_signature_return, verify_block_signature, ((const std
       }
    );
 
-   verify_block_signature_return ret;
+   verify_block_signature_result ret;
    ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
    return ret;
 }
 
-THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
+THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
+   uint128_t compute_bandwidth = uint128_t( compute_load::light ) * hashes.size();
+   compute_bandwidth = compute_bandwidth > std::numeric_limits< uint64_t >::max() ? std::numeric_limits< uint64_t >::max() : compute_bandwidth;
+   context.resource_meter().use_compute_bandwidth( compute_bandwidth.convert_to< uint64_t >() );
+
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
@@ -130,7 +139,7 @@ THUNK_DEFINE( verify_merkle_root_return, verify_merkle_root, ((const std::string
 
    auto merkle_root = mtree.root()->hash();
 
-   verify_merkle_root_return ret;
+   verify_merkle_root_result ret;
    ret.set_value( merkle_root == root_hash );
    return ret;
 }
@@ -167,6 +176,8 @@ THUNK_DEFINE( void, apply_block,
 
    auto setter = block_setter( context, block );
 
+   context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ).value() );
+
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
    const crypto::multihash tx_root = converter::to< crypto::multihash >( active_data.transaction_merkle_root() );
@@ -176,10 +187,14 @@ THUNK_DEFINE( void, apply_block,
    std::vector< std::string > hashes;
    hashes.reserve( tx_count );
 
+   std::size_t transactions_bytes_size = 0;
    for ( const auto& trx : block.transactions() )
    {
+      transactions_bytes_size += trx.ByteSizeLong();
       hashes.emplace_back( converter::as< std::string >( crypto::hash( tx_root.code(), trx.active() ) ) );
    }
+
+   context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ).value(), transaction_root_mismatch, "transaction merkle root does not match" );
 
@@ -248,36 +263,25 @@ THUNK_DEFINE( void, apply_block,
    //                +----------------------+      +----------------------+
    //
 
-   auto block_node = context.get_state_node();
-
    for ( const auto& tx : block.transactions() )
    {
-      auto trx_node = block_node->create_anonymous_node();
-      // This sets the block parent as the parent node so that overrides are read from the current node
-      context.set_state_node( trx_node, context.get_parent_node() );
-
-      // At this point, ticks_used could potentially be very close to KOINOS_MAX_TICKS_PER_BLOCK.
-      //
-      // This means we might use up to one transaction's worth of ticks
-      // in excess of KOINOS_MAX_TICKS_PER_BLOCK determining that the block uses too many ticks.
-      //
-      // We could potentially have the per-transaction reset_meter_ticks() set a value that
-      // causes a transaction to terminate as soon as the block limit is exceeded, but this
-      // seems like this would add architectural complexity for the purpose of needlessly
-      // optimizing an unusual case.
-
       try
       {
          system_call::apply_transaction( context, tx );
-         trx_node->commit();
       }
-      catch ( const std::exception& e )
-      {
-         LOG(info) << "Transaction " << to_hex( tx.id() ) << " reverted with: " << e.what();
-      }
-
-      KOINOS_ASSERT( context.get_meter_ticks() >= 0, per_block_tick_limit_exception, "per-block tick limit exceeded" );
+      catch( const transaction_reverted& ) {} /* do nothing */
    }
+
+   KOINOS_ASSERT(
+      system_call::consume_block_resources(
+         context,
+         context.resource_meter().disk_storage_used(),
+         context.resource_meter().network_bandwidth_used(),
+         context.resource_meter().compute_bandwidth_used()
+      ).value(),
+      unable_to_consume_resources,
+      "unable to consume block resources"
+   );
 }
 
 // RAII class to ensure apply context transaction state is consistent if there is an error applying
@@ -316,25 +320,39 @@ inline void update_payer_transaction_nonce( apply_context& ctx, const std::strin
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   int64_t pre_transaction_meter_ticks_used = context.get_used_meter_ticks();
-   int64_t pre_transaction_max_meter_ticks = pre_transaction_meter_ticks_used + context.get_meter_ticks();
 
    auto setter = transaction_setter( context, trx );
 
    protocol::active_transaction_data active_data;
-   active_data.ParseFromString( trx.active() );
+   KOINOS_ASSERT(
+      active_data.ParseFromString( trx.active() ),
+      parse_failure,
+      "unable to parse transaction active data"
+   );
 
-   KOINOS_ASSERT( active_data.resource_limit() <= KOINOS_MAX_METER_TICKS, tick_max_too_high_exception, "tick max is too high" );
-   context.reset_meter_ticks( active_data.resource_limit() );
+   std::string payer = system_call::get_transaction_payer( context, trx ).value();
 
-   std::string payer;
-   auto exception = std::exception_ptr();
+   auto payer_rc = system_call::get_account_rc( context, payer ).value();
+   KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
+
+   /**
+    * While a reference to the payer_session remains alive, resource usage will be tallied
+    * and charged to the current payer.
+    */
+   auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
+
+   require_payer_transaction_nonce( context, payer, active_data.nonce() );
+   system_call::require_authority( context, payer );
+
+   auto block_node = context.get_state_node();
+   auto trx_node = block_node->create_anonymous_node();
+   context.set_state_node( trx_node, block_node->get_parent() );
+
+   std::exception_ptr reverted_exception_ptr;
 
    try
    {
-      payer = system_call::get_transaction_payer( context, trx ).value();
-      system_call::require_authority( context, payer );
-      require_payer_transaction_nonce( context, payer, active_data.nonce() );
+      context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
 
       for ( const auto& o : active_data.operations() )
       {
@@ -345,35 +363,49 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          else if ( o.has_set_system_call() )
             system_call::apply_set_system_call_operation( context, o.set_system_call() );
          else
-            KOINOS_THROW( koinos::exception, "unknown operation" );
+            KOINOS_THROW( unknown_operation, "unknown operation" );
       }
+
+      trx_node->commit();
    }
-   catch ( ... )
+   catch ( const block_resource_limit_exception& e )
    {
-      // Catch the exception and store it so we can do post transaction cleanup
-      exception = std::current_exception();
+      throw e;
+   }
+   catch ( const std::exception& e )
+   {
+      LOG(info) << "Transaction " << to_hex( trx.id() ) << " reverted with: " << e.what();
+      transaction_reverted tr( e.what() );
+      reverted_exception_ptr = std::make_exception_ptr( tr );
    }
 
-   int64_t used_meter_ticks = context.get_used_meter_ticks();
-   context.reset_meter_ticks( pre_transaction_max_meter_ticks );
-   context.use_meter_ticks( pre_transaction_meter_ticks_used );
-   context.use_meter_ticks( used_meter_ticks );
+   context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
    update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
 
-   LOG(debug) << "(apply_transaction) transaction " << trx.id() << " used ticks: " << context.get_used_meter_ticks();
+   auto payer_consumed_rc = payer_session->used();
+   payer_session.reset();
 
-   // If there was an exception, rethrow it now.
-   if ( exception )
+   KOINOS_ASSERT(
+      system_call::consume_account_rc( context, payer, payer_consumed_rc ).value(),
+      unable_to_consume_resources,
+      "unable to consume rc for payer: ${p}", ("p", to_hex( payer ) )
+   );
+
+   if ( reverted_exception_ptr )
    {
-      std::rethrow_exception( exception );
+      std::rethrow_exception( reverted_exception_ptr );
    }
+
+   LOG(debug) << "(apply_transaction) transaction " << trx.id();
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    protocol::active_transaction_data active_data;
    active_data.ParseFromString( context.get_transaction().active() );
@@ -396,6 +428,8 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    with_stack_frame(
       context,
       stack_frame {
@@ -411,6 +445,8 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+
+   context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
    crypto::multihash chain_id;
 
@@ -476,9 +512,12 @@ void check_db_permissions( const apply_context& context, const state_db::object_
    }
 }
 
-THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const std::string&) key, (const std::string&) obj) )
+THUNK_DEFINE( put_object_result, put_object, ((const std::string&) space, (const std::string&) key, (const std::string&) obj) )
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
+
+   context.resource_meter().use_disk_storage( obj.size() );
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
@@ -497,13 +536,15 @@ THUNK_DEFINE( put_object_return, put_object, ((const std::string&) space, (const
    state_db::put_object_result put_res;
    state->put_object( put_res, put_args );
 
-   put_object_return ret;
+   put_object_result ret;
    ret.set_value( put_res.object_existed );
    return ret;
 }
 
-THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
+
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
 
@@ -530,13 +571,15 @@ THUNK_DEFINE( get_object_return, get_object, ((const std::string&) space, (const
    else
       object_buffer.clear();
 
-   get_object_return ret;
+   get_object_result ret;
    ret.set_value( converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
-THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
+
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
 
@@ -561,13 +604,15 @@ THUNK_DEFINE( get_next_object_return, get_next_object, ((const std::string&) spa
    else
       object_buffer.clear();
 
-   get_next_object_return ret;
+   get_next_object_result ret;
    ret.set_value( converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
-THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
+
    const auto _space = converter::as< state_db::object_space >( space );
    const auto _key   = converter::as< state_db::object_key >( key );
 
@@ -592,13 +637,15 @@ THUNK_DEFINE( get_prev_object_return, get_prev_object, ((const std::string&) spa
    else
       object_buffer.clear();
 
-   get_prev_object_return ret;
+   get_prev_object_result ret;
    ret.set_value( converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
-THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
+THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
+
    // We need to be in kernel mode to read the contract data
    std::string bytecode;
    with_stack_frame(
@@ -633,39 +680,49 @@ THUNK_DEFINE( call_contract_return, call_contract, ((const std::string&) contrac
       throw;
    }
 
-   call_contract_return ret;
+   call_contract_result ret;
    ret.set_value( converter::to< std::string >( context.pop_frame().call_return ) );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_entry_point_return, get_entry_point )
+THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
 {
-   get_entry_point_return ret;
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   get_entry_point_result ret;
    ret.set_value( context.get_contract_entry_point() );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_contract_args_size_return, get_contract_args_size )
+THUNK_DEFINE_VOID( get_contract_arguments_size_result, get_contract_arguments_size )
 {
-   get_contract_args_size_return ret;
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   get_contract_arguments_size_result ret;
    ret.set_value( (uint32_t)context.get_contract_call_args().size() );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_contract_args_return, get_contract_args )
+THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
 {
-   get_contract_args_return ret;
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   get_contract_arguments_result ret;
    ret.set_value( converter::as< std::string >( context.get_contract_call_args() ) );
    return ret;
 }
 
-THUNK_DEFINE( void, set_contract_return, ((const std::string&) ret) )
+THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    context.set_contract_return( converter::to< std::vector< std::byte > >( ret ) );
 }
 
-THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
+THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
+
    auto head = context.get_state_node();
 
    chain::head_info hi;
@@ -685,14 +742,16 @@ THUNK_DEFINE_VOID( get_head_info_return, get_head_info )
       hi.set_head_block_time( time );
    }
 
-   get_head_info_return ret;
+   get_head_info_result ret;
    auto* v = ret.mutable_value();
    *v = hi;
    return ret;
 }
 
-THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
+THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    auto multicodec = static_cast< crypto::multicodec >( id );
    switch ( multicodec )
    {
@@ -709,13 +768,15 @@ THUNK_DEFINE( hash_return, hash, ((uint64_t) id, (const std::string&) obj, (uint
    }
    auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
-   hash_return ret;
+   hash_result ret;
    ret.set_value( converter::as< std::string >( hash ) );
    return ret;
 }
 
-THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
+THUNK_DEFINE( recover_public_key_result, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
    crypto::recoverable_signature signature = converter::as< crypto::recoverable_signature >( signature_data );
 
@@ -725,53 +786,53 @@ THUNK_DEFINE( recover_public_key_return, recover_public_key, ((const std::string
    KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
    auto address = pub_key.to_address_bytes();
-   recover_public_key_return ret;
+   recover_public_key_result ret;
    ret.set_value( address );
    return ret;
 }
 
-THUNK_DEFINE( get_transaction_payer_return, get_transaction_payer, ((const protocol::transaction&) transaction) )
+THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    std::string account = system_call::recover_public_key( context, transaction.signature_data(), converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) ).value();
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
 
-   get_transaction_payer_return ret;
+   get_transaction_payer_result ret;
    ret.set_value( account );
    return ret;
 }
 
-THUNK_DEFINE( get_max_account_resources_return, get_max_account_resources, ((const std::string&) account) )
+THUNK_DEFINE( get_transaction_rc_limit_result, get_transaction_rc_limit, ((const protocol::transaction&) transaction) )
 {
-   uint64_t max_resources = 10'000'000;
-   get_max_account_resources_return ret;
-   ret.set_value( max_resources );
-   return ret;
-}
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-THUNK_DEFINE( get_transaction_resource_limit_return, get_transaction_resource_limit, ((const protocol::transaction&) transaction) )
-{
    protocol::active_transaction_data active_data;
    active_data.ParseFromString( transaction.active() );
 
-   get_transaction_resource_limit_return ret;
-   ret.set_value( active_data.resource_limit() );
+   get_transaction_rc_limit_result ret;
+   ret.set_value( active_data.rc_limit() );
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_last_irreversible_block_return, get_last_irreversible_block )
+THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_block )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    auto head = context.get_state_node();
 
-   get_last_irreversible_block_return ret;
+   get_last_irreversible_block_result ret;
    ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
 
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_caller_return, get_caller )
+THUNK_DEFINE_VOID( get_caller_result, get_caller )
 {
-   get_caller_return ret;
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   get_caller_result ret;
    auto frame0 = context.pop_frame(); // get_caller frame
    auto frame1 = context.pop_frame(); // contract frame
    ret.set_caller( converter::as< std::string >( context.get_caller() ) );
@@ -781,15 +842,19 @@ THUNK_DEFINE_VOID( get_caller_return, get_caller )
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_transaction_signature_return, get_transaction_signature )
+THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
 {
-   get_transaction_signature_return ret;
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   get_transaction_signature_result ret;
    ret.set_value( context.get_transaction().signature_data() );
    return ret;
 }
 
 THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
    std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) ).value();
 
@@ -800,24 +865,80 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    );
 }
 
-THUNK_DEFINE_VOID( get_contract_id_return, get_contract_id )
+THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
 {
-   get_contract_id_return ret;
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   get_contract_id_result ret;
    ret.set_value( converter::as< std::string >( context.get_caller() ) );
    return ret;
 }
 
-THUNK_DEFINE( get_account_nonce_return, get_account_nonce, ((const std::string&) account ) )
+THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&) account ) )
 {
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    auto obj = system_call::get_object( context, database::space::kernel, database::key::transaction_nonce( account ) ).value();
 
-   get_account_nonce_return ret;
+   get_account_nonce_result ret;
 
    if ( obj.size() > 0 )
       ret.set_value( converter::to< uint64_t >( obj ) );
    else
       ret.set_value( 0 );
 
+   return ret;
+}
+
+THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )
+{
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   uint64_t max_resources = 10'000'000;
+   get_account_rc_result ret;
+   ret.set_value( max_resources );
+   return ret;
+}
+
+THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
+{
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   consume_account_rc_result ret;
+   ret.set_value( true );
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
+{
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   resource_limit_data rd;
+
+   rd.set_disk_storage_cost( 10 );
+   rd.set_disk_storage_limit( 102'400 );
+
+   rd.set_network_bandwidth_cost( 5 );
+   rd.set_network_bandwidth_limit( 1'048'576 );
+
+   rd.set_compute_bandwidth_cost( 1 );
+   rd.set_compute_bandwidth_limit( 100'000'000 );
+
+   get_resource_limits_result ret;
+   *ret.mutable_value() = rd;
+   return ret;
+}
+
+THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
+{
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+
+   LOG(info) << "Consumed disk storage: " << disk;
+   LOG(info) << "Consumed network bandwidth: " << network;
+   LOG(info) << "Consumed compute bandwidth: " << compute;
+
+   consume_block_resources_result ret;
+   ret.set_value( true );
    return ret;
 }
 

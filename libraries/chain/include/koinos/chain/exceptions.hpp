@@ -15,7 +15,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_buffer_size, database_exception );
 
 // Operation exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( operation_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( reserved_operation_exception, operation_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_operation, operation_exception );
 
 // System call exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( system_call_exception, chain_exception );
@@ -37,6 +37,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unimplemented_feature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( thunk_not_found, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( read_only_context, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reverted, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
@@ -54,11 +55,19 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( stack_overflow, stack_exception );
 
 // Resource exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( resource_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( tick_max_too_high_exception, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( per_block_tick_limit_exception, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_meter_ticks, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_rc, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unable_to_consume_resources, resource_exception );
 
-// VM Exceptions
+// Block resource exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_resource_limit_exception, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( network_bandwidth_limit_exceeded, block_resource_limit_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( compute_bandwidth_limit_exceeded, block_resource_limit_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( disk_storage_limit_exceeded, block_resource_limit_exception );
+
+// VM exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
+
+// Parse exception
+KOINOS_DECLARE_DERIVED_EXCEPTION( parse_failure, chain_exception );
 
 } // koinos::chain
