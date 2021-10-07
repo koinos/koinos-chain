@@ -326,7 +326,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    protocol::active_transaction_data active_data;
    KOINOS_ASSERT(
       active_data.ParseFromString( trx.active() ),
-      koinos::exception,
+      parse_failure,
       "unable to parse transaction active data"
    );
 
@@ -368,7 +368,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       trx_node->commit();
    }
-   catch ( const block_resource_limit_exceeded& e )
+   catch ( const block_resource_limit_exception& e )
    {
       throw e;
    }
