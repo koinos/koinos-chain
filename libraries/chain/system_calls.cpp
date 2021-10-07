@@ -314,11 +314,7 @@ inline void require_payer_transaction_nonce( apply_context& ctx, const std::stri
 
 inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   KOINOS_ASSERT(
-      system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) ).value(),
-      nonce_update_failure,
-      "unable to update payer nonce for: ${p}", ("p", payer)
-   );
+   system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
