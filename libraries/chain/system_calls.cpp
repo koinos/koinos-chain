@@ -507,6 +507,7 @@ void check_db_permissions( const apply_context& context, const state_db::object_
       }
       else
       {
+         LOG(info) << to_hex( converter::as< std::string >( space ) ) << ", " << to_hex( converter::as< std::string >( caller ) );
          KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
       }
    }
@@ -737,9 +738,18 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    }
    else
    {
-      auto val = system_call::get_object( context, database::space::kernel, database::key::head_block_time ).value();
-      uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
-      hi.set_head_block_time( time );
+      with_stack_frame(
+         context,
+         stack_frame {
+            .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
+            .call_privilege = privilege::kernel_mode,
+         },
+         [&]() {
+            auto val = system_call::get_object( context, database::space::kernel, database::key::head_block_time ).value();
+            uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
+            hi.set_head_block_time( time );
+         }
+      );
    }
 
    get_head_info_result ret;
