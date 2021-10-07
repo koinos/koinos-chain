@@ -31,12 +31,14 @@ class controller final
          uint64_t index_to = 0,
          std::chrono::system_clock::time_point now = std::chrono::system_clock::now()
       );
-      rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request&  );
-      rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request&  = {} );
-      rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request&   = {} );
-      rpc::chain::get_fork_heads_response     get_fork_heads(     const rpc::chain::get_fork_heads_request& = {} );
-      rpc::chain::read_contract_response      read_contract(      const rpc::chain::read_contract_request& );
-      rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
+      rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
+      rpc::chain::get_head_info_response get_head_info( const rpc::chain::get_head_info_request&  = {} );
+      rpc::chain::get_chain_id_response get_chain_id( const rpc::chain::get_chain_id_request&   = {} );
+      rpc::chain::get_fork_heads_response get_fork_heads( const rpc::chain::get_fork_heads_request& = {} );
+      rpc::chain::read_contract_response read_contract( const rpc::chain::read_contract_request& );
+      rpc::chain::get_account_nonce_response get_account_nonce( const rpc::chain::get_account_nonce_request& );
+      rpc::chain::get_account_rc_response get_account_rc( const rpc::chain::get_account_rc_request& );
+      rpc::chain::get_resource_limits_response get_resource_limits( const rpc::chain::get_resource_limits_request& );
 
    private:
       std::unique_ptr< detail::controller_impl > _my;

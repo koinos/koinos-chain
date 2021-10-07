@@ -56,12 +56,15 @@ class controller_impl final
          uint64_t index_to,
          std::chrono::system_clock::time_point now
       );
+
       rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
-      rpc::chain::get_head_info_response      get_head_info(      const rpc::chain::get_head_info_request& );
-      rpc::chain::get_chain_id_response       get_chain_id(       const rpc::chain::get_chain_id_request& );
-      rpc::chain::get_fork_heads_response     get_fork_heads(     const rpc::chain::get_fork_heads_request& );
-      rpc::chain::read_contract_response      read_contract(      const rpc::chain::read_contract_request & );
-      rpc::chain::get_account_nonce_response  get_account_nonce(  const rpc::chain::get_account_nonce_request& );
+      rpc::chain::get_head_info_response get_head_info( const rpc::chain::get_head_info_request& );
+      rpc::chain::get_chain_id_response get_chain_id( const rpc::chain::get_chain_id_request& );
+      rpc::chain::get_fork_heads_response get_fork_heads( const rpc::chain::get_fork_heads_request& );
+      rpc::chain::read_contract_response read_contract( const rpc::chain::read_contract_request& );
+      rpc::chain::get_account_nonce_response get_account_nonce( const rpc::chain::get_account_nonce_request& );
+      rpc::chain::get_account_rc_response get_account_rc( const rpc::chain::get_account_rc_request& );
+      rpc::chain::get_resource_limits_response get_resource_limits( const rpc::chain::get_resource_limits_request& );
 
    private:
       state_db::database                        _db;
@@ -564,6 +567,48 @@ fork_data controller_impl::get_fork_data_lockless()
    return fdata;
 }
 
+rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( const rpc::chain::get_resource_limits_request& )
+{
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
+
+   apply_context ctx( _vm_backend );
+   ctx.push_frame( stack_frame {
+      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_resource_limits"s ).digest(),
+      .call_privilege = privilege::kernel_mode
+   } );
+
+   ctx.set_state_node( _db.get_head() );
+
+   auto value = system_call::get_resource_limits( ctx ).value();
+
+   rpc::chain::get_resource_limits_response resp;
+   *resp.mutable_resource_limit_data() = value;
+
+   return resp;
+}
+
+rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::chain::get_account_rc_request& request )
+{
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
+
+   KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "payer") );
+
+   apply_context ctx( _vm_backend );
+   ctx.push_frame( stack_frame {
+      .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_rc"s ).digest(),
+      .call_privilege = privilege::kernel_mode
+   } );
+
+   ctx.set_state_node( _db.get_head() );
+
+   auto value = system_call::get_account_rc( ctx, request.account() ).value();
+
+   rpc::chain::get_account_rc_response resp;
+   resp.set_rc( value );
+
+   return resp;
+}
+
 rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::chain::get_fork_heads_request& )
 {
    rpc::chain::get_fork_heads_response resp;
@@ -689,6 +734,16 @@ rpc::chain::read_contract_response controller::read_contract( const rpc::chain::
 rpc::chain::get_account_nonce_response controller::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
    return _my->get_account_nonce( request );
+}
+
+rpc::chain::get_account_rc_response controller::get_account_rc( const rpc::chain::get_account_rc_request& request )
+{
+   return _my->get_account_rc( request );
+}
+
+rpc::chain::get_resource_limits_response controller::get_resource_limits( const rpc::chain::get_resource_limits_request& request )
+{
+   return _my->get_resource_limits( request );
 }
 
 } // koinos::chain
