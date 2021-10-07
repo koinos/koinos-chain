@@ -916,7 +916,7 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
    resource_limit_data rd;
 
    rd.set_disk_storage_cost( 10 );
-   rd.set_disk_storage_limit( 102'400 );
+   rd.set_disk_storage_limit( 204'800 );
 
    rd.set_network_bandwidth_cost( 5 );
    rd.set_network_bandwidth_limit( 1'048'576 );
