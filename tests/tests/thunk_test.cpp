@@ -791,7 +791,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    auto compute_bandwidth_remaining = ctx.resource_meter().compute_bandwidth_remaining();
 
    auto session = ctx.resource_meter().make_session( 1'000'000 );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficent_rc );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficient_rc );
    BOOST_REQUIRE_EQUAL( session->used(), 1'000'000 );
    BOOST_REQUIRE_EQUAL( session->remaining(), 0 );
    session.reset();

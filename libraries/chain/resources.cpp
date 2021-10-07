@@ -16,7 +16,7 @@ rc_session::~rc_session() = default;
 
 void rc_session::use( uint64_t rc )
 {
-   KOINOS_ASSERT( rc <= _end_rc, insufficent_rc, "insufficent rc" );
+   KOINOS_ASSERT( rc <= _end_rc, insufficient_rc, "insufficent rc" );
    _end_rc -= rc;
 }
 
@@ -69,7 +69,7 @@ void resource_meter::use_disk_storage( uint64_t bytes )
    if ( auto session = _session.lock() )
    {
       uint128_t rc_cost = uint128_t( bytes ) * _resource_limit_data.disk_storage_cost();
-      KOINOS_ASSERT( rc_cost <= std::numeric_limits< uint64_t >::max(), rc_overflow, "rc overflow" );
+      KOINOS_ASSERT( rc_cost <= std::numeric_limits< uint64_t >::max(), insufficient_rc, "rc overflow" );
       session->use( rc_cost.convert_to< uint64_t >() );
    }
 
@@ -103,7 +103,7 @@ void resource_meter::use_network_bandwidth( uint64_t bytes )
    if ( auto session = _session.lock() )
    {
       uint128_t rc_cost = uint128_t( bytes ) * _resource_limit_data.network_bandwidth_cost();
-      KOINOS_ASSERT( rc_cost <= std::numeric_limits< uint64_t >::max(), rc_overflow, "rc overflow" );
+      KOINOS_ASSERT( rc_cost <= std::numeric_limits< uint64_t >::max(), insufficient_rc, "rc overflow" );
       session->use( rc_cost.convert_to< uint64_t >() );
    }
 
@@ -137,7 +137,7 @@ void resource_meter::use_compute_bandwidth( uint64_t ticks )
    if ( auto session = _session.lock() )
    {
       uint128_t rc_cost = uint128_t( ticks ) * _resource_limit_data.compute_bandwidth_cost();
-      KOINOS_ASSERT( rc_cost <= std::numeric_limits< uint64_t >::max(), rc_overflow, "rc overflow" );
+      KOINOS_ASSERT( rc_cost <= std::numeric_limits< uint64_t >::max(), insufficient_rc, "rc overflow" );
       session->use( rc_cost.convert_to< uint64_t >() );
    }
 

@@ -263,23 +263,13 @@ THUNK_DEFINE( void, apply_block,
    //                +----------------------+      +----------------------+
    //
 
-   auto block_node = context.get_state_node();
-
    for ( const auto& tx : block.transactions() )
    {
-      auto trx_node = block_node->create_anonymous_node();
-      // This sets the block parent as the parent node so that overrides are read from the current node
-      context.set_state_node( trx_node, context.get_parent_node() );
-
       try
       {
          system_call::apply_transaction( context, tx );
-         trx_node->commit();
       }
-      catch ( const std::exception& e )
-      {
-         LOG(info) << "Transaction " << to_hex( tx.id() ) << " reverted with: " << e.what();
-      }
+      catch( const transaction_reverted& ) {} /* do nothing */
    }
 
    KOINOS_ASSERT(
@@ -324,7 +314,11 @@ inline void require_payer_transaction_nonce( apply_context& ctx, const std::stri
 
 inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) );
+   KOINOS_ASSERT(
+      system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) ).value(),
+      nonce_update_failure,
+      "unable to update payer nonce for: ${p}", ("p", payer)
+   );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -334,27 +328,34 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    auto setter = transaction_setter( context, trx );
 
    protocol::active_transaction_data active_data;
-   active_data.ParseFromString( trx.active() );
+   KOINOS_ASSERT(
+      active_data.ParseFromString( trx.active() ),
+      koinos::exception,
+      "unable to parse transaction active data"
+   );
 
-   std::string payer;
-   auto exception = std::exception_ptr();
+   std::string payer = system_call::get_transaction_payer( context, trx ).value();
+
+   auto payer_rc = system_call::get_account_rc( context, payer ).value();
+   KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
+
+   /**
+    * While a reference to the payer_session remains alive, resource usage will be tallied
+    * and charged to the current payer.
+    */
+   auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
+
+   require_payer_transaction_nonce( context, payer, active_data.nonce() );
+   system_call::require_authority( context, payer );
+
+   auto block_node = context.get_state_node();
+   auto trx_node = block_node->create_anonymous_node();
+   context.set_state_node( trx_node, block_node->get_parent() );
+
+   std::exception_ptr reverted_exception_ptr;
 
    try
    {
-      payer = system_call::get_transaction_payer( context, trx ).value();
-
-      auto payer_rc = system_call::get_account_rc( context, payer ).value();
-      KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficent_rc, "payer does not have the rc to cover transaction rc limit" );
-
-      /**
-       * While a reference to the payer_session remains alive, resource usage will be tallied
-       * and charged to the current payer.
-       */
-      auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
-
-      system_call::require_authority( context, payer );
-      require_payer_transaction_nonce( context, payer, active_data.nonce() );
-
       context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
 
       for ( const auto& o : active_data.operations() )
@@ -366,29 +367,42 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          else if ( o.has_set_system_call() )
             system_call::apply_set_system_call_operation( context, o.set_system_call() );
          else
-            KOINOS_THROW( koinos::exception, "unknown operation" );
+            KOINOS_THROW( unknown_operation, "unknown operation" );
       }
 
-      // Next nonce should be the current nonce + 1
-      update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
-
-      auto payer_consumed_rc = payer_session->used();
-      system_call::consume_account_rc( context, payer, payer_consumed_rc );
+      trx_node->commit();
    }
-   catch ( ... )
+   catch ( const block_resource_limit_exceeded& e )
    {
-      // Catch the exception and store it so we can do post transaction cleanup
-      exception = std::current_exception();
+      throw e;
+   }
+   catch ( const std::exception& e )
+   {
+      LOG(info) << "Transaction " << to_hex( trx.id() ) << " reverted with: " << e.what();
+      transaction_reverted tr( e.what() );
+      reverted_exception_ptr = std::make_exception_ptr( tr );
    }
 
+   context.set_state_node( block_node );
+
+   // Next nonce should be the current nonce + 1
+   update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
+
+   auto payer_consumed_rc = payer_session->used();
+   payer_session.reset();
+
+   KOINOS_ASSERT(
+      system_call::consume_account_rc( context, payer, payer_consumed_rc ).value(),
+      unable_to_consume_resources,
+      "unable to consume rc for payer: ${p}", ("p", to_hex( payer ) )
+   );
+
+   if ( reverted_exception_ptr )
+   {
+      std::rethrow_exception( reverted_exception_ptr );
+   }
 
    LOG(debug) << "(apply_transaction) transaction " << trx.id();
-
-   // If there was an exception, rethrow it now.
-   if ( exception )
-   {
-      std::rethrow_exception( exception );
-   }
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )

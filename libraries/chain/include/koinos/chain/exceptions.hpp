@@ -15,7 +15,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_buffer_size, database_exception );
 
 // Operation exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( operation_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( reserved_operation_exception, operation_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_operation, operation_exception );
 
 // System call exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( system_call_exception, chain_exception );
@@ -37,6 +37,8 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unimplemented_feature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( thunk_not_found, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( read_only_context, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reverted, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( nonce_update_failure, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
@@ -54,14 +56,17 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( stack_overflow, stack_exception );
 
 // Resource exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( resource_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( network_bandwidth_limit_exceeded, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( compute_bandwidth_limit_exceeded, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( disk_storage_limit_exceeded, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_rc, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( rc_overflow, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_rc, resource_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unable_to_consume_resources, resource_exception );
+
+// Block resource exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_resource_limit_exceeded, resource_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( network_bandwidth_limit_exceeded, block_resource_limit_exceeded );
+KOINOS_DECLARE_DERIVED_EXCEPTION( compute_bandwidth_limit_exceeded, block_resource_limit_exceeded );
+KOINOS_DECLARE_DERIVED_EXCEPTION( disk_storage_limit_exceeded, block_resource_limit_exceeded );
 
 // VM Exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
+
 
 } // koinos::chain
