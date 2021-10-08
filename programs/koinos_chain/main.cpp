@@ -160,6 +160,16 @@ void attach_request_handler(
                      *resp.mutable_get_account_nonce() = controller.get_account_nonce( args.get_account_nonce() );
                      break;
                   }
+                  case rpc::chain::chain_request::RequestCase::kGetAccountRc:
+                  {
+                     *resp.mutable_get_account_rc() = controller.get_account_rc( args.get_account_rc() );
+                     break;
+                  }
+                  case rpc::chain::chain_request::RequestCase::kGetResourceLimits:
+                  {
+                     *resp.mutable_get_resource_limits() = controller.get_resource_limits( args.get_resource_limits() );
+                     break;
+                  }
                   default:
                   {
                      resp.mutable_error()->set_message( "Error: attempted to call unknown rpc" );

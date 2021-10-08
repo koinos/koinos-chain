@@ -507,6 +507,7 @@ void check_db_permissions( const apply_context& context, const state_db::object_
       }
       else
       {
+         LOG(info) << to_hex( converter::as< std::string >( space ) ) << ", " << to_hex( converter::as< std::string >( caller ) );
          KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
       }
    }
@@ -737,9 +738,18 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    }
    else
    {
-      auto val = system_call::get_object( context, database::space::kernel, database::key::head_block_time ).value();
-      uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
-      hi.set_head_block_time( time );
+      with_stack_frame(
+         context,
+         stack_frame {
+            .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
+            .call_privilege = privilege::kernel_mode,
+         },
+         [&]() {
+            auto val = system_call::get_object( context, database::space::kernel, database::key::head_block_time ).value();
+            uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
+            hi.set_head_block_time( time );
+         }
+      );
    }
 
    get_head_info_result ret;
@@ -835,10 +845,25 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    get_caller_result ret;
    auto frame0 = context.pop_frame(); // get_caller frame
    auto frame1 = context.pop_frame(); // contract frame
-   ret.set_caller( converter::as< std::string >( context.get_caller() ) );
-   ret.set_caller_privilege( context.get_caller_privilege() );
+   std::exception_ptr e;
+
+   try
+   {
+      ret.set_caller( converter::as< std::string >( context.get_caller() ) );
+      ret.set_caller_privilege( context.get_caller_privilege() );
+   }
+   catch( ... )
+   {
+      e = std::current_exception();
+   }
+
    context.push_frame( std::move( frame1 ) );
    context.push_frame( std::move( frame0 ) );
+
+   if ( e )
+   {
+      std::rethrow_exception( e );
+   }
    return ret;
 }
 
@@ -916,7 +941,7 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
    resource_limit_data rd;
 
    rd.set_disk_storage_cost( 10 );
-   rd.set_disk_storage_limit( 102'400 );
+   rd.set_disk_storage_limit( 204'800 );
 
    rd.set_network_bandwidth_cost( 5 );
    rd.set_network_bandwidth_limit( 1'048'576 );
@@ -932,10 +957,6 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   LOG(info) << "Consumed disk storage: " << disk;
-   LOG(info) << "Consumed network bandwidth: " << network;
-   LOG(info) << "Consumed compute bandwidth: " << compute;
 
    consume_block_resources_result ret;
    ret.set_value( true );
