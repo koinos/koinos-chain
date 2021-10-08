@@ -145,6 +145,11 @@ void database_impl::open( const std::filesystem::path& p, const std::any& o, std
 
 void database_impl::close()
 {
+   _path = std::filesystem::path();
+   _options = std::any();
+   _init_func = nullptr;
+
+   _fork_heads.clear();
    _root.reset();
    _head.reset();
    _index.clear();
