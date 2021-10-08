@@ -845,10 +845,25 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    get_caller_result ret;
    auto frame0 = context.pop_frame(); // get_caller frame
    auto frame1 = context.pop_frame(); // contract frame
-   ret.set_caller( converter::as< std::string >( context.get_caller() ) );
-   ret.set_caller_privilege( context.get_caller_privilege() );
+   std::exception_ptr e;
+
+   try
+   {
+      ret.set_caller( converter::as< std::string >( context.get_caller() ) );
+      ret.set_caller_privilege( context.get_caller_privilege() );
+   }
+   catch( ... )
+   {
+      e = std::current_exception();
+   }
+
    context.push_frame( std::move( frame1 ) );
    context.push_frame( std::move( frame0 ) );
+
+   if ( e )
+   {
+      std::rethrow_exception( e );
+   }
    return ret;
 }
 
@@ -942,10 +957,6 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   LOG(info) << "Consumed disk storage: " << disk;
-   LOG(info) << "Consumed network bandwidth: " << network;
-   LOG(info) << "Consumed compute bandwidth: " << compute;
 
    consume_block_resources_result ret;
    ret.set_value( true );

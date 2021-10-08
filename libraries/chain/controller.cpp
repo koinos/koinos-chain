@@ -251,6 +251,11 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          auto num_transactions = block.transactions_size();
 
          LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
+
+         auto disk = ctx.resource_meter().disk_storage_used();
+         auto network = ctx.resource_meter().network_bandwidth_used();
+         auto compute = ctx.resource_meter().compute_bandwidth_used();
+         LOG(info) << "Consumed resources: " << disk << " disk, " << network << " network, " << compute << " compute";
       }
       else if ( block_height % index_message_interval == 0 )
       {
@@ -446,11 +451,26 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    catch( const std::exception& e )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
+      auto output = ctx.get_pending_console_output();
+
+      if ( output.length() > 0 )
+      {
+         LOG(info) << "Output:\n" << output;
+      }
+
       throw;
    }
    catch( ... )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
+
+      auto output = ctx.get_pending_console_output();
+
+      if ( output.length() > 0 )
+      {
+         LOG(info) << "Output:\n" << output;
+      }
+
       throw;
    }
 
