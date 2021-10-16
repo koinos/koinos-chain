@@ -4,8 +4,8 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
-
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/conversion.hpp>
@@ -510,8 +510,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    state_db::get_object_result result;
    state_db::get_object_args   args;
-   args.space    = converter::as< state_db::object_space >( database::space::kernel );
-   args.key      = converter::as< state_db::object_key >( database::key::chain_id );
+   args.space    = converter::as< state_db::object_space >( state::space::meta() );
+   args.key      = converter::as< state_db::object_key >( state::key::chain_id );
    args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
    args.buf_size = chain_id_stream.vector().size();
 

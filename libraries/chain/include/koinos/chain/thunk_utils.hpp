@@ -241,9 +241,9 @@ namespace koinos::chain::detail {
          [&]() {                                                                                                     \
             _blob_target = thunk::get_object(                                                                        \
                context,                                                                                              \
-               database::space::system_call_dispatch,                                                                \
+               state::space::system_call_dispatch(),                                                                 \
                _key,                                                                                                 \
-               database::system_call_dispatch::max_object_size                                                       \
+               state::system_call_dispatch::max_object_size                                                          \
             ).value();                                                                                               \
          }                                                                                                           \
       );                                                                                                             \

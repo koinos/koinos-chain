@@ -13,6 +13,7 @@
 
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/exception.hpp>
 #include <koinos/mq/client.hpp>
@@ -561,7 +562,7 @@ int main( int argc, char** argv )
       LOG(info) << "Genesis authority: " << genesis_address;
 
       chain::genesis_data genesis_data;
-      genesis_data[ { converter::as< state_db::object_space >( koinos::chain::database::space::kernel ), converter::as< state_db::object_key >( koinos::chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { converter::as< state_db::object_space >( chain::state::space::meta() ), converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );

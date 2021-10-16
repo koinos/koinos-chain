@@ -2,11 +2,13 @@
 #include <string>
 
 #include <google/protobuf/message.h>
+#include <google/protobuf/util/message_differencer.h>
 
 #include <koinos/bigint.hpp>
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/host_api.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -67,15 +69,6 @@ void register_thunks( thunk_dispatcher& td )
    )
 }
 
-KOINOS_TODO( "Should this be a thunk?" );
-KOINOS_TODO( "This is called on every database access. Can we optimize away the conversion because it is done all the time?" );
-bool is_system_space( const state_db::object_space& space_id )
-{
-   return space_id == converter::as< state_db::object_space >( database::space::contract ) ||
-          space_id == converter::as< state_db::object_space >( database::space::system_call_dispatch ) ||
-          space_id == converter::as< state_db::object_space >( database::space::kernel );
-}
-
 THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
@@ -113,7 +106,7 @@ THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::get_object( context, database::space::kernel, database::key::chain_id ).value();
+         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id ).value();
          chain_id = converter::to< crypto::multihash >( obj );
       }
    );
@@ -143,24 +136,6 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    ret.set_value( merkle_root == root_hash );
    return ret;
 }
-
-// RAII class to ensure apply context block state is consistent if there is an error applying
-// the block.
-struct block_setter
-{
-   block_setter( apply_context& context, const protocol::block& block ) :
-      ctx( context )
-   {
-      ctx.set_block( block );
-   }
-
-   ~block_setter()
-   {
-      ctx.clear_block();
-   }
-
-   apply_context& ctx;
-};
 
 THUNK_DEFINE( void, apply_block,
    (
@@ -200,7 +175,7 @@ THUNK_DEFINE( void, apply_block,
 
    /*
     * The PoW implementation of verify_block_signature has side effects. While this is the case, we should never
-    * skip it. We either need to remove this flag or redesign our system call arhictecture the prevent
+    * skip it. We either need to remove this flag or redesign our system call architecture the prevent
     * side effects within verify_block_signature. (Issue 408)
     */
    KOINOS_TODO( "Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)" )
@@ -210,7 +185,7 @@ THUNK_DEFINE( void, apply_block,
       KOINOS_ASSERT( system_call::verify_block_signature( context, converter::as< std::string >( block_hash ), block.active(), block.signature_data() ).value(), invalid_block_signature, "block signature does not match" );
    }
 
-   system_call::put_object( context, database::space::kernel, database::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
+   system_call::put_object( context, state::space::meta(), state::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
 
    // Check passive Merkle root
    if( check_passive_data )
@@ -284,39 +259,6 @@ THUNK_DEFINE( void, apply_block,
    );
 }
 
-// RAII class to ensure apply context transaction state is consistent if there is an error applying
-// the transaction.
-struct transaction_setter
-{
-   transaction_setter( apply_context& context, const protocol::transaction& trx ) :
-      ctx( context )
-   {
-      ctx.set_transaction( trx );
-   }
-
-   ~transaction_setter()
-   {
-      ctx.clear_transaction();
-   }
-
-   apply_context& ctx;
-};
-
-inline void require_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
-{
-   auto account_nonce = system_call::get_account_nonce( ctx, payer ).value();
-   KOINOS_ASSERT(
-      account_nonce == nonce,
-      chain::chain_exception,
-      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", nonce)("e", account_nonce)
-   );
-}
-
-inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
-{
-   system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) );
-}
-
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
@@ -341,7 +283,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     */
    auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
 
-   require_payer_transaction_nonce( context, payer, active_data.nonce() );
+   state::assert_transaction_nonce( context, payer, active_data.nonce() );
    system_call::require_authority( context, payer );
 
    auto block_node = context.get_state_node();
@@ -382,7 +324,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
-   update_payer_transaction_nonce( context, payer, active_data.nonce() + 1 );
+   state::update_transaction_nonce( context, payer, active_data.nonce() + 1 );
 
    auto payer_consumed_rc = payer_session->used();
    payer_session.reset();
@@ -421,7 +363,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_id)("signer_hash", signer_hash)
    );
 
-   system_call::put_object( context, database::space::contract, o.contract_id(), o.bytecode() );
+   system_call::put_object( context, state::space::contract(), o.contract_id(), o.bytecode() );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -457,7 +399,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::get_object( context, database::space::kernel, database::key::chain_id ).value();
+         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id ).value();
          chain_id = converter::to< crypto::multihash >( obj );
       }
    );
@@ -475,7 +417,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    if ( o.target().has_system_call_bundle() )
    {
       auto contract_id = converter::to< crypto::multihash >( o.target().system_call_bundle().contract_id() );
-      auto contract = system_call::get_object( context, database::space::contract, converter::as< std::string >( contract_id ) ).value();
+      auto contract = system_call::get_object( context, state::space::contract(), converter::as< std::string >( contract_id ) ).value();
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
@@ -492,47 +434,25 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   system_call::put_object( context, database::space::system_call_dispatch, converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), converter::as< std::string >( o.target() ) );
+   system_call::put_object( context, state::space::system_call_dispatch(), converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), converter::as< std::string >( o.target() ) );
 }
 
-void check_db_permissions( const apply_context& context, const state_db::object_space& space )
-{
-   auto privilege = context.get_privilege();
-   auto caller = converter::to< state_db::object_space >( context.get_caller() );
-   if ( space != caller )
-   {
-      if ( context.get_privilege() == privilege::kernel_mode )
-      {
-         KOINOS_ASSERT( is_system_space( space ), insufficient_privileges, "privileged code can only accessed system space" );
-      }
-      else
-      {
-         LOG(info) << to_hex( converter::as< std::string >( space ) ) << ", " << to_hex( converter::as< std::string >( caller ) );
-         KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
-      }
-   }
-}
-
-THUNK_DEFINE( put_object_result, put_object, ((const std::string&) space, (const std::string&) key, (const std::string&) obj) )
+THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
    KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
 
    context.resource_meter().use_disk_storage( obj.size() );
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
-   const auto _obj   = converter::as< state_db::object_value >( obj );
-
-   check_db_permissions( context, _space );
+   state::assert_permissions( context, space );
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::put_object_args put_args;
-   put_args.space = _space;
-   put_args.key = _key;
-   put_args.buf = _obj.data();
-   put_args.object_size = _obj.size();
+   put_args.space = converter::as< state_db::object_space >( space );
+   put_args.key = converter::as< state_db::object_key >( key );
+   put_args.buf = reinterpret_cast< const std::byte* >( obj.data() );
+   put_args.object_size = obj.size();
 
    state_db::put_object_result put_res;
    state->put_object( put_res, put_args );
@@ -542,23 +462,20 @@ THUNK_DEFINE( put_object_result, put_object, ((const std::string&) space, (const
    return ret;
 }
 
-THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
+   state::assert_permissions( context, space );
 
-   check_db_permissions( context, _space );
-
-   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
+   abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
 
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    state_db::get_object_args get_args;
-   get_args.space = _space;
-   get_args.key = _key;
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
+   get_args.space = converter::as< state_db::object_space >( space );
+   get_args.key = converter::as< state_db::object_key >( key );
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : state::max_object_size;
 
    state_db::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
@@ -577,21 +494,18 @@ THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const
    return ret;
 }
 
-THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
+   state::assert_permissions( context, space );
 
-   check_db_permissions( context, _space );
-
-   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
+   abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::get_object_args get_args;
-   get_args.space = _space;
-   get_args.key = _key;
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
+   get_args.space = converter::as< state_db::object_space >( space );
+   get_args.key = converter::as< state_db::object_key >( key );
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : state::max_object_size;
 
    state_db::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
@@ -610,21 +524,18 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) spa
    return ret;
 }
 
-THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const std::string&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) space, (const std::string&) key, (uint32_t) object_size_hint) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
+   state::assert_permissions( context, space );
 
-   check_db_permissions( context, _space );
-
-   abstract_state_node_ptr state = space == database::space::system_call_dispatch ? context.get_parent_node() : context.get_state_node();
+   abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    state_db::get_object_args get_args;
-   get_args.space = _space;
-   get_args.key = _key;
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : database::max_object_size;
+   get_args.space = converter::as< state_db::object_space >( space );
+   get_args.key = converter::as< state_db::object_key >( key );
+   get_args.buf_size = object_size_hint > 0 ? object_size_hint : state::max_object_size;
 
    state_db::object_value object_buffer;
    object_buffer.resize( get_args.buf_size );
@@ -657,7 +568,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
       },
       [&]()
       {
-         bytecode = system_call::get_object( context, database::space::contract, contract_id ).value();
+         bytecode = system_call::get_object( context, state::space::contract(), contract_id ).value();
          KOINOS_ASSERT( bytecode.size(), invalid_contract, "contract does not exist" );
       }
    );
@@ -745,7 +656,7 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
             .call_privilege = privilege::kernel_mode,
          },
          [&]() {
-            auto val = system_call::get_object( context, database::space::kernel, database::key::head_block_time ).value();
+            auto val = system_call::get_object( context, state::space::meta(), state::key::head_block_time ).value();
             uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
             hi.set_head_block_time( time );
          }
@@ -903,7 +814,7 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   auto obj = system_call::get_object( context, database::space::kernel, database::key::transaction_nonce( account ) ).value();
+   auto obj = system_call::get_object( context, state::space::meta(), state::key::transaction_nonce( account ) ).value();
 
    get_account_nonce_result ret;
 
