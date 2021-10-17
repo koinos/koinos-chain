@@ -760,8 +760,8 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
    try
    {
-      ret.set_caller( converter::as< std::string >( context.get_caller() ) );
-      ret.set_caller_privilege( context.get_caller_privilege() );
+      ret.mutable_value()->set_caller( converter::as< std::string >( context.get_caller() ) );
+      ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
    }
    catch( ... )
    {
