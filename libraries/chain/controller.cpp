@@ -186,7 +186,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
-      auto head_info = system_call::get_head_info( parent_ctx ).value();
+      auto head_info = system_call::get_head_info( parent_ctx );
       parent_height = head_info.head_topology().height();
       time_lower_bound = head_info.head_block_time();
    }
@@ -270,7 +270,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      auto lib = system_call::get_last_irreversible_block( ctx ).value();
+      auto lib = system_call::get_last_irreversible_block( ctx );
 
       _db.finalize_node( block_node->id() );
 
@@ -400,11 +400,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.set_state_node( pending_trx_node );
 
-      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
 
-      payer = system_call::get_transaction_payer( ctx, transaction ).value();
-      max_payer_rc = system_call::get_account_rc( ctx, payer ).value();
-      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction ).value();
+      payer = system_call::get_transaction_payer( ctx, transaction );
+      max_payer_rc = system_call::get_account_rc( ctx, payer );
+      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction );
 
       system_call::apply_transaction( ctx, transaction );
 
@@ -489,7 +489,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
    ctx.set_state_node( _db.get_head() );
 
-   auto head_info = system_call::get_head_info( ctx ).value();
+   auto head_info = system_call::get_head_info( ctx );
    block_topology topo = head_info.head_topology();
 
    rpc::chain::get_head_info_response resp;
@@ -556,13 +556,13 @@ fork_data controller_impl::get_fork_data_lockless()
    ctx.set_state_node( _db.get_root() );
    fork_heads = _db.get_fork_heads();
 
-   auto head_info = system_call::get_head_info( ctx ).value();
+   auto head_info = system_call::get_head_info( ctx );
    fdata.second = head_info.head_topology();
 
    for ( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
-      auto head_info = system_call::get_head_info( ctx ).value();
+      auto head_info = system_call::get_head_info( ctx );
       fdata.first.emplace_back( std::move( head_info.head_topology() ) );
    }
 
@@ -599,7 +599,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 
    ctx.set_state_node( _db.get_head() );
 
-   auto value = system_call::get_resource_limits( ctx ).value();
+   auto value = system_call::get_resource_limits( ctx );
 
    rpc::chain::get_resource_limits_response resp;
    *resp.mutable_resource_limit_data() = value;
@@ -621,7 +621,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
 
    ctx.set_state_node( _db.get_head() );
 
-   auto value = system_call::get_account_rc( ctx, request.account() ).value();
+   auto value = system_call::get_account_rc( ctx, request.account() );
 
    rpc::chain::get_account_rc_response resp;
    resp.set_rc( value );
@@ -670,7 +670,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.resource_meter().set_resource_limit_data( rl );
 
-   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() ).value();
+   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() );
 
    rpc::chain::read_contract_response resp;
    resp.set_result( result );
@@ -694,7 +694,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
    ctx.set_state_node( _db.get_head() );
 
-   auto nonce = system_call::get_account_nonce( ctx, request.account() ).value();
+   auto nonce = system_call::get_account_nonce( ctx, request.account() );
 
    rpc::chain::get_account_nonce_response resp;
    resp.set_nonce( nonce );

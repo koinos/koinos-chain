@@ -106,7 +106,7 @@ THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id ).value();
+         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id );
          chain_id = converter::to< crypto::multihash >( obj );
       }
    );
@@ -151,7 +151,7 @@ THUNK_DEFINE( void, apply_block,
 
    auto setter = block_setter( context, block );
 
-   context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ).value() );
+   context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
 
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
@@ -171,7 +171,7 @@ THUNK_DEFINE( void, apply_block,
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
 
-   KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ).value(), transaction_root_mismatch, "transaction merkle root does not match" );
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
 
    /*
     * The PoW implementation of verify_block_signature has side effects. While this is the case, we should never
@@ -182,7 +182,7 @@ THUNK_DEFINE( void, apply_block,
    // if( check_block_signature )
    {
       crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
-      KOINOS_ASSERT( system_call::verify_block_signature( context, converter::as< std::string >( block_hash ), block.active(), block.signature_data() ).value(), invalid_block_signature, "block signature does not match" );
+      KOINOS_ASSERT( system_call::verify_block_signature( context, converter::as< std::string >( block_hash ), block.active(), block.signature_data() ), invalid_block_signature, "block signature does not match" );
    }
 
    system_call::put_object( context, state::space::meta(), state::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
@@ -216,7 +216,7 @@ THUNK_DEFINE( void, apply_block,
          passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
       }
 
-      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), passives ).value(), passive_root_mismatch, "passive merkle root does not match" );
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), passives ), passive_root_mismatch, "passive merkle root does not match" );
    }
 
    //
@@ -253,7 +253,7 @@ THUNK_DEFINE( void, apply_block,
          context.resource_meter().disk_storage_used(),
          context.resource_meter().network_bandwidth_used(),
          context.resource_meter().compute_bandwidth_used()
-      ).value(),
+      ),
       unable_to_consume_resources,
       "unable to consume block resources"
    );
@@ -272,9 +272,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       "unable to parse transaction active data"
    );
 
-   std::string payer = system_call::get_transaction_payer( context, trx ).value();
+   std::string payer = system_call::get_transaction_payer( context, trx );
 
-   auto payer_rc = system_call::get_account_rc( context, payer ).value();
+   auto payer_rc = system_call::get_account_rc( context, payer );
    KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
 
    /**
@@ -330,7 +330,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    payer_session.reset();
 
    KOINOS_ASSERT(
-      system_call::consume_account_rc( context, payer, payer_consumed_rc ).value(),
+      system_call::consume_account_rc( context, payer, payer_consumed_rc ),
       unable_to_consume_resources,
       "unable to consume rc for payer: ${p}", ("p", to_hex( payer ) )
    );
@@ -353,7 +353,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    active_data.ParseFromString( context.get_transaction().active() );
 
    auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
-   auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( tx_id ) ).value();
+   auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), converter::as< std::string >( tx_id ) );
    auto signer_hash = crypto::hash( crypto::multicodec::ripemd_160, sig_account );
    auto contract_id = converter::to< crypto::multihash >( o.contract_id() );
 
@@ -399,7 +399,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id ).value();
+         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id );
          chain_id = converter::to< crypto::multihash >( obj );
       }
    );
@@ -417,7 +417,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    if ( o.target().has_system_call_bundle() )
    {
       auto contract_id = converter::to< crypto::multihash >( o.target().system_call_bundle().contract_id() );
-      auto contract = system_call::get_object( context, state::space::contract(), converter::as< std::string >( contract_id ) ).value();
+      auto contract = system_call::get_object( context, state::space::contract(), converter::as< std::string >( contract_id ) );
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
@@ -568,7 +568,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
       },
       [&]()
       {
-         bytecode = system_call::get_object( context, state::space::contract(), contract_id ).value();
+         bytecode = system_call::get_object( context, state::space::contract(), contract_id );
          KOINOS_ASSERT( bytecode.size(), invalid_contract, "contract does not exist" );
       }
    );
@@ -656,7 +656,7 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
             .call_privilege = privilege::kernel_mode,
          },
          [&]() {
-            auto val = system_call::get_object( context, state::space::meta(), state::key::head_block_time ).value();
+            auto val = system_call::get_object( context, state::space::meta(), state::key::head_block_time );
             uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
             hi.set_head_block_time( time );
          }
@@ -716,7 +716,7 @@ THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const proto
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   std::string account = system_call::recover_public_key( context, transaction.signature_data(), converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) ).value();
+   std::string account = system_call::recover_public_key( context, transaction.signature_data(), converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) );
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
 
@@ -792,7 +792,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
-   std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) ).value();
+   std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) );
 
    KOINOS_ASSERT(
       account == sig_account,
@@ -814,7 +814,7 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   auto obj = system_call::get_object( context, state::space::meta(), state::key::transaction_nonce( account ) ).value();
+   auto obj = system_call::get_object( context, state::space::meta(), state::key::transaction_nonce( account ) );
 
    get_account_nonce_result ret;
 
