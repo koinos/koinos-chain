@@ -66,7 +66,7 @@ void assert_permissions( const apply_context& context, const object_space& space
 
 void assert_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   auto account_nonce = system_call::get_account_nonce( ctx, payer ).value();
+   auto account_nonce = system_call::get_account_nonce( ctx, payer );
    KOINOS_ASSERT(
       account_nonce == nonce,
       chain::chain_exception,
