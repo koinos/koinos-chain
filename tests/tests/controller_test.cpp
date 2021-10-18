@@ -13,7 +13,6 @@
 
 #include <mira/database_configuration.hpp>
 
-//#include <koinos/tests/koin.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
 #include <koinos/tests/wasm/hello.hpp>
@@ -477,9 +476,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-#pragma message( "Remove after updating contracts" )
-#if 0
-BOOST_AUTO_TEST_CAS E( transaction_reversion_test )
+BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 { try {
    BOOST_TEST_MESSAGE( "Upload KOIN contract and attempt to mint to Alice" );
 
@@ -552,6 +549,5 @@ BOOST_AUTO_TEST_CAS E( transaction_reversion_test )
    BOOST_REQUIRE_EQUAL( bal_ret.value(), 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()

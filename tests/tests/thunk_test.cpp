@@ -619,9 +619,7 @@ BOOST_AUTO_TEST_CASE( get_contract_id_test )
    BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id_bytes.begin() ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-#pragma message( "Remove after updating contracts" )
-#if 0
-BOOST_AUTO_TEST_CAS E( token_tests )
+BOOST_AUTO_TEST_CASE( token_tests )
 { try {
    using namespace koinos;
 
@@ -643,20 +641,20 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    ctx.set_privilege( chain::privilege::user_mode );
 
    auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
-   auto name = converter::to< koinos::contracts::token::name_result >( response.value() ).value();
-   LOG(info) << name;
+   auto name = converter::to< koinos::contracts::token::name_result >( response );
+   LOG(info) << name.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x7e794b24, "" );
-   auto symbol = converter::to< koinos::contracts::token::symbol_result >( response.value() ).value();
-   LOG(info) << symbol;
+   auto symbol = converter::to< koinos::contracts::token::symbol_result >( response );
+   LOG(info) << symbol.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x59dc15ce, "" );
-   auto decimals = converter::to< koinos::contracts::token::decimals_result >( response.value() ).value();
-   LOG(info) << (uint32_t)decimals;
+   auto decimals = converter::to< koinos::contracts::token::decimals_result >( response );
+   LOG(info) << decimals.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
-   auto supply = converter::to< koinos::contracts::token::total_supply_result >( response.value() ).value();
-   LOG(info) << "KOIN supply: " << supply;
+   auto supply = converter::to< koinos::contracts::token::total_supply_result >( response );
+   LOG(info) << "KOIN supply: " << supply.value();
 
    auto alice_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
@@ -667,13 +665,13 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    koinos::contracts::token::balance_of_arguments balance_of_args;
    balance_of_args.set_owner( converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
-   auto balance = converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
-   LOG(info) << "'alice' balance: " << balance;
+   auto balance = converter::to< koinos::contracts::token::balance_of_result >( response );
+   LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
-   balance = converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
-   LOG(info) << "'bob' balance: " << balance;
+   balance = converter::to< koinos::contracts::token::balance_of_result >( response );
+   LOG(info) << "'bob' balance: " << balance.value();
 
    ctx.get_pending_console_output();
 
@@ -683,30 +681,30 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    mint_args.set_value( 100 );
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, converter::as< std::string >( mint_args ) );
-   auto success = converter::to< koinos::contracts::token::mint_result >( response.value() ).value();
-   BOOST_REQUIRE( !success );
+   auto success = converter::to< koinos::contracts::token::mint_result >( response );
+   BOOST_REQUIRE( !success.value() );
 
    ctx.set_privilege( chain::privilege::kernel_mode );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, converter::as< std::string >( mint_args ) );
-   success = converter::to< koinos::contracts::token::mint_result >( response.value() ).value();
-   BOOST_REQUIRE( success );
+   success = converter::to< koinos::contracts::token::mint_result >( response );
+   BOOST_REQUIRE( success.value() );
 
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
-   balance = converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'alice' balance: " << balance;
+   LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
-   balance = converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'bob' balance: " << balance;
+   LOG(info) << "'bob' balance: " << balance.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
-   supply = converter::to< koinos::contracts::token::total_supply_result >( response.value() ).value();
-   LOG(info) << "KOIN supply: " << supply;
+   supply = converter::to< koinos::contracts::token::total_supply_result >( response );
+   LOG(info) << "KOIN supply: " << supply.value();
 
    LOG(info) << "Transfer from 'alice' to 'bob'";
    koinos::contracts::token::transfer_arguments transfer_args;
@@ -738,24 +736,24 @@ BOOST_AUTO_TEST_CAS E( token_tests )
    ctx.set_transaction( trx );
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, converter::as< std::string >( transfer_args ) );
-   success = converter::to< koinos::contracts::token::transfer_result >( response.value() ).value();
-   BOOST_REQUIRE( success );
+   auto xfer_result = converter::to< koinos::contracts::token::transfer_result >( response );
+   BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
-   balance = converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'alice' balance: " << balance;
+   LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, converter::as< std::string >( balance_of_args ) );
-   balance = converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'bob' balance: " << balance;
+   LOG(info) << "'bob' balance: " << balance.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
-   supply = converter::to< koinos::contracts::token::total_supply_result >( response.value() ).value();
-   LOG(info) << "KOIN supply: " << supply;
+   supply = converter::to< koinos::contracts::token::total_supply_result >( response );
+   LOG(info) << "KOIN supply: " << supply.value();
 }
 catch( const koinos::vm_manager::vm_exception& e )
 {
@@ -763,7 +761,6 @@ catch( const koinos::vm_manager::vm_exception& e )
    BOOST_FAIL("VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#endif
 
 BOOST_AUTO_TEST_CASE( tick_limit )
 { try {
