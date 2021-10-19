@@ -6,13 +6,13 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/crypto/elliptic.hpp>
 
 #include <mira/database_configuration.hpp>
 
-//#include <koinos/tests/koin.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
 #include <koinos/tests/wasm/hello.hpp>
@@ -46,7 +46,7 @@ struct controller_fixture
 
       chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { converter::as< state_db::object_space >( chain::database::space::kernel ), converter::as< state_db::object_key >( chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { converter::as< state_db::object_space >( chain::state::space::meta() ), converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
 
       _controller.open( _state_dir, database_config, genesis_data, false );
    }

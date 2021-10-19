@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 
 #include <koinos/exception.hpp>
 #include <koinos/crypto/multihash.hpp>

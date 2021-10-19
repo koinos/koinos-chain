@@ -10,6 +10,8 @@
 #include <koinos/conversion.hpp>
 #include <koinos/util.hpp>
 
+#include <type_traits>
+
 // This file exposes seven public macros for consumption
 // 1. SYSTEM_CALL_DEFAULTS
 // 2. THUNK_REGISTER
@@ -26,17 +28,25 @@ data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THU
 #define THUNK_REGISTER( dispatcher, args )                        \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
 
-
-
 #define VA_ARGS(...) , ##__VA_ARGS__
 
-#define THUNK_DECLARE(return_type, name, ...)                                          \
-   namespace thunk { return_type name( apply_context& VA_ARGS(__VA_ARGS__) ); }        \
-   namespace system_call { return_type name( apply_context& VA_ARGS(__VA_ARGS__) ); }
+#define THUNK_DECLARE(return_type, name, ...)                                      \
+   namespace thunk { return_type name( apply_context& VA_ARGS(__VA_ARGS__) ); }    \
+   namespace system_call {                                                         \
+   BOOST_PP_IF(                                                                    \
+      _THUNK_IS_VOID(return_type),                                                 \
+      void,                                                                        \
+      std::remove_reference_t< decltype( std::declval< return_type >().value() ) > \
+   ) name( apply_context& VA_ARGS(__VA_ARGS__) ); }
 
-#define THUNK_DECLARE_VOID(return_type, name)                                          \
-   namespace thunk { return_type name( apply_context& ); }                             \
-   namespace system_call { return_type name( apply_context& ); }
+#define THUNK_DECLARE_VOID(return_type, name)                                      \
+   namespace thunk { return_type name( apply_context& ); }                         \
+   namespace system_call {                                                         \
+   BOOST_PP_IF(                                                                    \
+      _THUNK_IS_VOID(return_type),                                                 \
+      void,                                                                        \
+      std::remove_reference_t< decltype( std::declval<return_type>().value() ) >   \
+   ) name( apply_context& ); }
 
 #define _THUNK_RET_TYPE_void 1)(1
 #define _THUNK_IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(_THUNK_RET_TYPE_,type))),2)
@@ -224,7 +234,12 @@ namespace koinos::chain::detail {
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    }                                                                                                                 \
    namespace system_call {                                                                                           \
-   RETURN_TYPE SYSCALL( apply_context& context ARGS )                                                                \
+   auto SYSCALL( apply_context& context ARGS ) ->                                                                    \
+      BOOST_PP_IF(                                                                                                   \
+         _THUNK_IS_VOID(RETURN_TYPE),                                                                                \
+         void,                                                                                                       \
+         std::remove_reference_t< decltype( std::declval<RETURN_TYPE>().value() ) >                                  \
+      )                                                                                                              \
    {                                                                                                                 \
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
@@ -241,9 +256,9 @@ namespace koinos::chain::detail {
          [&]() {                                                                                                     \
             _blob_target = thunk::get_object(                                                                        \
                context,                                                                                              \
-               database::space::system_call_dispatch,                                                                \
+               state::space::system_call_dispatch(),                                                                 \
                _key,                                                                                                 \
-               database::system_call_dispatch::max_object_size                                                       \
+               state::system_call_dispatch::max_object_size                                                          \
             ).value();                                                                                               \
          }                                                                                                           \
       );                                                                                                             \
@@ -306,7 +321,7 @@ namespace koinos::chain::detail {
          KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
       }                                                                                                              \
                                                                                                                      \
-      BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret;)                                                         \
+      BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret.value();)                                                 \
    }                                                                                                                 \
    }                                                                                                                 \
    namespace thunk {                                                                                                 \
