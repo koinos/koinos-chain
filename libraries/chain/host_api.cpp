@@ -2,6 +2,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/log.hpp>
@@ -33,9 +34,9 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
       [&]() {
          blob_target = thunk::get_object(
             _ctx,
-            database::space::system_call_dispatch,
+            state::space::system_call_dispatch(),
             key,
-            database::system_call_dispatch::max_object_size
+            state::system_call_dispatch::max_object_size
          ).value();
       }
    );

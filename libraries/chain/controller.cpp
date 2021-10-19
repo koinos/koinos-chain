@@ -4,8 +4,8 @@
 #include <koinos/chain/apply_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
-
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
@@ -187,7 +187,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
-      auto head_info = system_call::get_head_info( parent_ctx ).value();
+      auto head_info = system_call::get_head_info( parent_ctx );
       parent_height = head_info.head_topology().height();
       time_lower_bound = head_info.head_block_time();
    }
@@ -271,7 +271,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Output:\n" << output;
       }
 
-      auto lib = system_call::get_last_irreversible_block( ctx ).value();
+      auto lib = system_call::get_last_irreversible_block( ctx );
 
       _db.finalize_node( block_node->id() );
 
@@ -401,13 +401,17 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.set_state_node( pending_trx_node );
 
-      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ).value() );
+      payer = system_call::get_transaction_payer( ctx, transaction );
+      max_payer_rc = system_call::get_account_rc( ctx, payer );
+      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction );
 
-      payer = system_call::get_transaction_payer( ctx, transaction ).value();
-      max_payer_rc = system_call::get_account_rc( ctx, payer ).value();
-      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction ).value();
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
 
       system_call::apply_transaction( ctx, transaction );
+
+      uint64_t disk_storage_used = ctx.resource_meter().disk_storage_used();
+      uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
+      uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
       if ( _client && _client->is_running() )
       {
@@ -440,6 +444,9 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
             ta.set_max_payer_rc( max_payer_rc );
             ta.set_rc_limit( trx_rc_limit );
             ta.set_height( ctx.get_state_node()->revision() );
+            ta.set_disk_storage_used( disk_storage_used );
+            ta.set_network_bandwidth_used( network_bandwidth_used );
+            ta.set_compute_bandwidth_used( compute_bandwidth_used );
 
             _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
          }
@@ -490,7 +497,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
    ctx.set_state_node( _db.get_head() );
 
-   auto head_info = system_call::get_head_info( ctx ).value();
+   auto head_info = system_call::get_head_info( ctx );
    block_topology topo = head_info.head_topology();
 
    rpc::chain::get_head_info_response resp;
@@ -511,8 +518,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    state_db::get_object_result result;
    state_db::get_object_args   args;
-   args.space    = util::converter::as< state_db::object_space >( database::space::kernel );
-   args.key      = util::converter::as< state_db::object_key >( database::key::chain_id );
+   args.space    = util::converter::as< state_db::object_space >( state::space::meta() );
+   args.key      = util::converter::as< state_db::object_key >( state::key::chain_id );
    args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
    args.buf_size = chain_id_stream.vector().size();
 
@@ -557,13 +564,13 @@ fork_data controller_impl::get_fork_data_lockless()
    ctx.set_state_node( _db.get_root() );
    fork_heads = _db.get_fork_heads();
 
-   auto head_info = system_call::get_head_info( ctx ).value();
+   auto head_info = system_call::get_head_info( ctx );
    fdata.second = head_info.head_topology();
 
    for ( auto& fork : fork_heads )
    {
       ctx.set_state_node( fork );
-      auto head_info = system_call::get_head_info( ctx ).value();
+      auto head_info = system_call::get_head_info( ctx );
       fdata.first.emplace_back( std::move( head_info.head_topology() ) );
    }
 
@@ -600,7 +607,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 
    ctx.set_state_node( _db.get_head() );
 
-   auto value = system_call::get_resource_limits( ctx ).value();
+   auto value = system_call::get_resource_limits( ctx );
 
    rpc::chain::get_resource_limits_response resp;
    *resp.mutable_resource_limit_data() = value;
@@ -622,7 +629,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
 
    ctx.set_state_node( _db.get_head() );
 
-   auto value = system_call::get_account_rc( ctx, request.account() ).value();
+   auto value = system_call::get_account_rc( ctx, request.account() );
 
    rpc::chain::get_account_rc_response resp;
    resp.set_rc( value );
@@ -671,7 +678,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.resource_meter().set_resource_limit_data( rl );
 
-   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() ).value();
+   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() );
 
    rpc::chain::read_contract_response resp;
    resp.set_result( result );
@@ -695,7 +702,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
    ctx.set_state_node( _db.get_head() );
 
-   auto nonce = system_call::get_account_nonce( ctx, request.account() ).value();
+   auto nonce = system_call::get_account_nonce( ctx, request.account() );
 
    rpc::chain::get_account_nonce_response resp;
    resp.set_nonce( nonce );

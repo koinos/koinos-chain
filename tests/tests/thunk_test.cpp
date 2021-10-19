@@ -14,6 +14,7 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/crypto/elliptic.hpp>
@@ -53,7 +54,7 @@ struct thunk_fixture
 
       chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { util::converter::as< state_db::object_space >( chain::database::space::kernel ), util::converter::as< state_db::object_key >( chain::database::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { util::converter::as< state_db::object_space >( chain::state::space::meta() ), util::converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
 
       db.open( temp, cfg, [&]( state_db::state_node_ptr root )
       {
@@ -86,7 +87,7 @@ struct thunk_fixture
          .call_privilege = chain::privilege::kernel_mode
       } );
 
-      ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ).value() );
+      ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
 
       vm_backend->initialize();
    }
@@ -150,10 +151,10 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_REQUIRE(
       chain::system_call::put_object(
          ctx,
-         chain::database::space::kernel,
-         chain::database::key::chain_id,
+         chain::state::space::meta(),
+         chain::state::key::chain_id,
          object_data
-      ).value() == true
+      ) == true
    );
 
    auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
@@ -161,10 +162,10 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
-   BOOST_REQUIRE_THROW( chain::system_call::put_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_next_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_prev_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::put_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_next_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_prev_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
 
    ctx.set_state_node( node );
 
@@ -172,58 +173,58 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ), object_data ).value() == false );
-   auto obj_blob = chain::system_call::get_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ) ).value();
+   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ), object_data ) == false );
+   auto obj_blob = chain::system_call::get_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( object_data == "object1" );
 
    BOOST_TEST_MESSAGE( "Testing getting a non-existent object" );
 
-   obj_blob = chain::system_call::get_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 2 ) ).value();
+   obj_blob = chain::system_call::get_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 2 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test iteration" );
 
    object_data = "object2"s;
-   chain::system_call::put_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 2 ), object_data );
+   chain::system_call::put_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 2 ), object_data );
    object_data = "object3"s;
-   chain::system_call::put_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 3 ), object_data );
+   chain::system_call::put_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 3 ), object_data );
 
-   obj_blob = chain::system_call::get_next_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 2 ), 8 ).value();
+   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 2 ), 8 );
    BOOST_REQUIRE( obj_blob == "object3" );
 
-   obj_blob = chain::system_call::get_prev_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 2 ), 8 ).value();
+   obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 2 ), 8 );
    BOOST_REQUIRE( obj_blob == "object1" );
 
    BOOST_TEST_MESSAGE( "Test iterator overrun" );
 
-   obj_blob = chain::system_call::get_next_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 3 ) ).value();
+   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 3 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_next_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 4 ) ).value();
+   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 4 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_prev_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ) ).value();
+   obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_prev_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 0 ) ).value();
+   obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 0 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    object_data = "space1.object1"s;
-   chain::system_call::put_object( ctx, chain::database::space::contract, util::converter::as< std::string >( 1 ), object_data );
-   obj_blob = chain::system_call::get_next_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 3 ) ).value();
+   chain::system_call::put_object( ctx, chain::state::space::contract(), util::converter::as< std::string >( 1 ), object_data );
+   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 3 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_next_object( ctx, chain::database::space::contract, util::converter::as< std::string >( 1 ) ).value();
+   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::contract(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_prev_object( ctx, chain::database::space::contract, util::converter::as< std::string >( 1 ) ).value();
+   obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::contract(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test object modification" );
    object_data = "object1.1"s;
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ), object_data ).value() == true );
-   obj_blob = chain::system_call::get_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ), 10 ).value();
+   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ), object_data ) == true );
+   obj_blob = chain::system_call::get_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ), 10 );
    BOOST_REQUIRE( obj_blob == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ), object_data ).value() == true );
-   obj_blob = chain::system_call::get_object( ctx, chain::database::space::kernel, util::converter::as< std::string >( 1 ), 10 ).value();
+   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ), object_data ) == true );
+   obj_blob = chain::system_call::get_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 1 ), 10 );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -246,10 +247,10 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto stored_bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::contract, util::converter::as< std::string>( contract_id ), op.bytecode().size() );
+   auto stored_bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), util::converter::as< std::string>( contract_id ), op.bytecode().size() );
 
-   BOOST_REQUIRE( stored_bytecode.value().size() == op.bytecode().size() );
-   BOOST_REQUIRE( std::memcmp( stored_bytecode.value().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( stored_bytecode.size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( stored_bytecode.c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
@@ -266,7 +267,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    auto contract_ret = koinos::chain::system_call::call_contract(ctx, op.contract_id(), 0, "echo");
 
-   BOOST_REQUIRE_EQUAL( contract_ret.value(), "echo" );
+   BOOST_REQUIRE_EQUAL( contract_ret, "echo" );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -331,10 +332,10 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Fetch the created call bundle from the database and check it
    // The call bundle should be read from the parent context
-   auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::system_call_dispatch, util::converter::as< std::string >( set_op.call_id() ) ).value() );
+   auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ) );
    BOOST_REQUIRE( !call_target.has_system_call_bundle() );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
-   call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::database::space::system_call_dispatch, util::converter::as< std::string >( set_op.call_id() ) ).value() );
+   call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ) );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
    BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
    BOOST_REQUIRE( call_target.system_call_bundle().entry_point() == set_op.target().system_call_bundle().entry_point() );
@@ -407,19 +408,19 @@ BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
 { try {
    BOOST_TEST_MESSAGE( "get_head_info thunk test" );
 
-   BOOST_CHECK_EQUAL( chain::system_call::get_head_info( ctx ).value().head_topology().height(), 1 );
+   BOOST_CHECK_EQUAL( chain::system_call::get_head_info( ctx ).head_topology().height(), 1 );
 
    koinos::protocol::block block;
    block.mutable_header()->set_timestamp( 1000 );
    ctx.set_block( block );
 
-   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).value().head_block_time() == block.header().timestamp() );
+   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).head_block_time() == block.header().timestamp() );
 
    ctx.clear_block();
 
-   chain::system_call::put_object( ctx, chain::database::space::kernel, chain::database::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
+   chain::system_call::put_object( ctx, chain::state::space::meta(), chain::state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
-   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).value().head_block_time() == block.header().timestamp() );
+   BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).head_block_time() == block.header().timestamp() );
 
    // Test exception when null state pointer is passed
    ctx.set_state_node( std::shared_ptr< chain::abstract_state_node >() );
@@ -433,7 +434,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    std::string test_string = "hash::string";
 
-   auto thunk_hash  = util::converter::to< crypto::multihash >( chain::system_call::hash( ctx, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), test_string ).value() );
+   auto thunk_hash  = util::converter::to< crypto::multihash >( chain::system_call::hash( ctx, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), test_string ) );
    auto native_hash = crypto::hash( crypto::multicodec::sha2_256, test_string );
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
@@ -445,7 +446,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    std::string blob;
    block_topology.SerializeToString( &blob );
-   thunk_hash = util::converter::to< crypto::multihash >( chain::system_call::hash( ctx, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), blob ).value() );
+   thunk_hash = util::converter::to< crypto::multihash >( chain::system_call::hash( ctx, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), blob ) );
    native_hash = crypto::hash( crypto::multicodec::sha2_256, block_topology );
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
@@ -471,14 +472,14 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 
    for( uint64_t i = 0; i < chain::default_irreversible_threshold; i++ )
    {
-      auto lib = chain::system_call::get_last_irreversible_block( ctx ).value();
+      auto lib = chain::system_call::get_last_irreversible_block( ctx );
       BOOST_REQUIRE_EQUAL( lib, 0 );
 
       db.finalize_node( ctx.get_state_node()->id() );
       ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), crypto::hash( crypto::multicodec::sha2_256, i ) ) );
    }
 
-   auto lib = chain::system_call::get_last_irreversible_block( ctx ).value();
+   auto lib = chain::system_call::get_last_irreversible_block( ctx );
    BOOST_REQUIRE_EQUAL( lib, 1 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -552,8 +553,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    transaction.set_signature_data( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
    chain::system_call::apply_transaction( ctx, transaction );
-   auto payer = chain::system_call::get_transaction_payer( ctx, transaction ).value();
-   auto next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
+   auto payer = chain::system_call::get_transaction_payer( ctx, transaction );
+   auto next_nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
@@ -565,7 +566,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
@@ -576,7 +577,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    chain::system_call::apply_transaction( ctx, transaction );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
@@ -587,7 +588,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( next_nonce, 2 );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
@@ -598,7 +599,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    chain::system_call::apply_transaction( ctx, transaction );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer ).value();
+   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( next_nonce, 3 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -613,8 +614,8 @@ BOOST_AUTO_TEST_CASE( get_contract_id_test )
 
    auto id = chain::system_call::get_contract_id( ctx );
 
-   BOOST_REQUIRE( contract_id.size() == id.value().size() );
-   auto id_bytes = util::converter::as< std::vector< std::byte > >( id.value() );
+   BOOST_REQUIRE( contract_id.size() == id.size() );
+   auto id_bytes = util::converter::as< std::vector< std::byte > >( id );
    BOOST_REQUIRE( std::equal( contract_id.begin(), contract_id.end(), id_bytes.begin() ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -640,20 +641,20 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_privilege( chain::privilege::user_mode );
 
    auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
-   auto name = util::converter::to< koinos::contracts::token::name_result >( response.value() ).value();
-   LOG(info) << name;
+   auto name = util::converter::to< koinos::contracts::token::name_result >( response );
+   LOG(info) << name.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x7e794b24, "" );
-   auto symbol = util::converter::to< koinos::contracts::token::symbol_result >( response.value() ).value();
-   LOG(info) << symbol;
+   auto symbol = util::converter::to< koinos::contracts::token::symbol_result >( response );
+   LOG(info) << symbol.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x59dc15ce, "" );
-   auto decimals = util::converter::to< koinos::contracts::token::decimals_result >( response.value() ).value();
-   LOG(info) << (uint32_t)decimals;
+   auto decimals = util::converter::to< koinos::contracts::token::decimals_result >( response );
+   LOG(info) << decimals.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
-   auto supply = util::converter::to< koinos::contracts::token::total_supply_result >( response.value() ).value();
-   LOG(info) << "KOIN supply: " << supply;
+   auto supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
+   LOG(info) << "KOIN supply: " << supply.value();
 
    auto alice_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
@@ -664,13 +665,13 @@ BOOST_AUTO_TEST_CASE( token_tests )
    koinos::contracts::token::balance_of_arguments balance_of_args;
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
-   auto balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
-   LOG(info) << "'alice' balance: " << balance;
+   auto balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
-   LOG(info) << "'bob' balance: " << balance;
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   LOG(info) << "'bob' balance: " << balance.value();
 
    ctx.get_pending_console_output();
 
@@ -680,30 +681,30 @@ BOOST_AUTO_TEST_CASE( token_tests )
    mint_args.set_value( 100 );
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
-   auto success = util::converter::to< koinos::contracts::token::mint_result >( response.value() ).value();
-   BOOST_REQUIRE( !success );
+   auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
+   BOOST_REQUIRE( !success.value() );
 
    ctx.set_privilege( chain::privilege::kernel_mode );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
-   success = util::converter::to< koinos::contracts::token::mint_result >( response.value() ).value();
-   BOOST_REQUIRE( success );
+   success = util::converter::to< koinos::contracts::token::mint_result >( response );
+   BOOST_REQUIRE( success.value() );
 
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'alice' balance: " << balance;
+   LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'bob' balance: " << balance;
+   LOG(info) << "'bob' balance: " << balance.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
-   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response.value() ).value();
-   LOG(info) << "KOIN supply: " << supply;
+   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
+   LOG(info) << "KOIN supply: " << supply.value();
 
    LOG(info) << "Transfer from 'alice' to 'bob'";
    koinos::contracts::token::transfer_arguments transfer_args;
@@ -735,24 +736,24 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_transaction( trx );
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
-   success = util::converter::to< koinos::contracts::token::transfer_result >( response.value() ).value();
-   BOOST_REQUIRE( success );
+   auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response );
+   BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'alice' balance: " << balance;
+   LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.value() ).value();
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
-   LOG(info) << "'bob' balance: " << balance;
+   LOG(info) << "'bob' balance: " << balance.value();
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
-   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response.value() ).value();
-   LOG(info) << "KOIN supply: " << supply;
+   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
+   LOG(info) << "KOIN supply: " << supply.value();
 }
 catch( const koinos::vm_manager::vm_exception& e )
 {
@@ -778,7 +779,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
    chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto stored_bytecode = chain::system_call::get_object( ctx, koinos::chain::database::space::contract, op.contract_id(), op.bytecode().size() ).value();
+   auto stored_bytecode = chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), op.contract_id(), op.bytecode().size() );
 
    BOOST_REQUIRE( stored_bytecode.size() == op.bytecode().size() );
    BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), op.bytecode().data(), op.bytecode().size() ) == 0 );
@@ -799,7 +800,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    BOOST_REQUIRE_EQUAL( ctx.resource_meter().compute_bandwidth_remaining(), compute_bandwidth_remaining - 1'000'000 );
 
    // We lower the compute bandwidth block-wide so the test doesn't take long
-   auto rl = chain::system_call::get_resource_limits( ctx ).value();
+   auto rl = chain::system_call::get_resource_limits( ctx );
    rl.set_compute_bandwidth_limit( 1'000'000 );
    ctx.resource_meter().set_resource_limit_data( rl );
 

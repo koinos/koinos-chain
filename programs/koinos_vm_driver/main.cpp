@@ -79,7 +79,7 @@ int main( int argc, char** argv, char** envp )
 
       chain::apply_context ctx( vm_backend );
 
-      auto rld = chain::system_call::get_resource_limits( ctx ).value();
+      auto rld = chain::system_call::get_resource_limits( ctx );
       rld.set_compute_bandwidth_limit( vmap[ TICKS_OPTION ].as< int64_t >() );
       ctx.resource_meter().set_resource_limit_data( rld );
       chain::host_api hapi( ctx );
