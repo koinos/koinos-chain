@@ -8,15 +8,15 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <koinos/conversion.hpp>
-
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>
 
 #include <koinos/state_db/state_db.hpp>
 
-#include <koinos/util.hpp>
+#include <koinos/util/conversion.hpp>
+#include <koinos/util/hex.hpp>
+#include <koinos/util/services.hpp>
 
 #include <koinos/vm_manager/vm_backend.hpp>
 
@@ -36,6 +36,7 @@
 namespace koinos::chain {
 
 using namespace std::string_literals;
+using namespace std::chrono_literals;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 using fork_data    = std::pair< std::vector< block_topology >, block_topology >;
@@ -159,9 +160,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    state_db::state_node_ptr block_node;
 
    auto block        = request.block();
-   auto block_id     = converter::to< crypto::multihash >( block.id() );
+   auto block_id     = util::converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
-   auto parent_id    = converter::to< crypto::multihash >( block.header().previous() );
+   auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
    block_node        = _db.get_node( block_id );
 
    if ( block_node ) return {}; // Block has been applied
@@ -232,12 +233,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          request.verify_block_signature(),
          request.verify_transaction_signature() );
 
-      if ( _client && _client->is_connected() )
+      if ( _client && _client->is_running() )
       {
          rpc::block_store::block_store_request req;
          req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
 
-         auto future = _client->rpc( service::block_store, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
+         auto future = _client->rpc( util::service::block_store, util::converter::as< std::string >( req ), 750ms, mq::retry_policy::none );
 
          rpc::block_store::block_store_response resp;
          resp.ParseFromString( future.get() );
@@ -282,14 +283,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
-      if ( _client && _client->is_connected() )
+      if ( _client && _client->is_running() )
       {
          try
          {
             broadcast::block_irreversible bc;
             bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
-            _client->broadcast( "koinos.block.irreversible", converter::as< std::string >( bc ) );
+            _client->broadcast( "koinos.block.irreversible", util::converter::as< std::string >( bc ) );
          }
          catch ( const std::exception& e )
          {
@@ -302,7 +303,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
             ba.mutable_block()->CopyFrom( block );
 
-            _client->broadcast( "koinos.block.accept", converter::as< std::string >( ba ) );
+            _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
          }
          catch ( const std::exception& e )
          {
@@ -320,7 +321,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
                *head = fork_head;
             }
 
-            _client->broadcast( "koinos.block.forks", converter::as< std::string >( fh ) );
+            _client->broadcast( "koinos.block.forks", util::converter::as< std::string >( fh ) );
          }
          catch ( const std::exception& e )
          {
@@ -382,7 +383,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    uint64_t trx_rc_limit;
 
    auto transaction    = request.transaction();
-   auto transaction_id = to_hex( transaction.id() );
+   auto transaction_id = util::to_hex( transaction.id() );
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
@@ -412,7 +413,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
-      if ( _client && _client->is_connected() )
+      if ( _client && _client->is_running() )
       {
          rpc::mempool::mempool_request req;
          auto* check_pending = req.mutable_check_pending_account_resources();
@@ -421,7 +422,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          check_pending->set_max_payer_rc( max_payer_rc );
          check_pending->set_rc_limit( trx_rc_limit );
 
-         auto future = _client->rpc( service::mempool, converter::as< std::string >( req ), 750 /* ms */, mq::retry_policy::none );
+         auto future = _client->rpc( util::service::mempool, util::converter::as< std::string >( req ), 750ms, mq::retry_policy::none );
 
          rpc::mempool::mempool_response resp;
          resp.ParseFromString( future.get() );
@@ -432,7 +433,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
-      if ( _client && _client->is_connected() )
+      if ( _client && _client->is_running() )
       {
          try
          {
@@ -447,7 +448,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
             ta.set_network_bandwidth_used( network_bandwidth_used );
             ta.set_compute_bandwidth_used( compute_bandwidth_used );
 
-            _client->broadcast( "koinos.transaction.accept", converter::as< std::string >( ta ) );
+            _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
          }
          catch ( const std::exception& e )
          {
@@ -517,8 +518,8 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 
    state_db::get_object_result result;
    state_db::get_object_args   args;
-   args.space    = converter::as< state_db::object_space >( state::space::meta() );
-   args.key      = converter::as< state_db::object_key >( state::key::chain_id );
+   args.space    = util::converter::as< state_db::object_space >( state::space::meta() );
+   args.key      = util::converter::as< state_db::object_key >( state::key::chain_id );
    args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
    args.buf_size = chain_id_stream.vector().size();
 
@@ -537,7 +538,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
    LOG(debug) << "get_chain_id: " << chain_id;
 
    rpc::chain::get_chain_id_response resp;
-   resp.set_chain_id( converter::as< std::string >( chain_id ) );
+   resp.set_chain_id( util::converter::as< std::string >( chain_id ) );
 
    return resp;
 }

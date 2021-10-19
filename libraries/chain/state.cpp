@@ -76,7 +76,7 @@ void assert_permissions( const apply_context& context, const object_space& space
 {
    auto privilege = context.get_privilege();
    auto caller = context.get_caller();
-   if ( converter::to< std::vector< std::byte > >( space.zone() ) != caller )
+   if ( util::converter::to< std::vector< std::byte > >( space.zone() ) != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
       {
@@ -84,7 +84,6 @@ void assert_permissions( const apply_context& context, const object_space& space
       }
       else
       {
-         LOG(info) << to_hex( converter::as< std::string >( space ) ) << ", " << to_hex( converter::as< std::string >( caller ) );
          KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
       }
    }

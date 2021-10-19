@@ -5,9 +5,8 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <koinos/conversion.hpp>
 #include <koinos/log.hpp>
-#include <koinos/util.hpp>
+#include <koinos/util/conversion.hpp>
 
 namespace koinos::chain {
 
@@ -23,7 +22,7 @@ uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, 
 uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
    uint32_t bytes_returned = 0;
-   auto key = converter::as< std::string >( sid );
+   auto key = util::converter::as< std::string >( sid );
    std::string blob_target;
 
    with_stack_frame(
@@ -69,7 +68,7 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
    else if ( target.has_system_call_bundle() )
    {
       const auto& scb = target.system_call_bundle();
-      KOINOS_TODO( "Brainstorm how to avoid arg/ret copy and validate pointers" );
+      #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
       std::string args( arg_ptr, arg_len );
       std::string ret;
       with_stack_frame(

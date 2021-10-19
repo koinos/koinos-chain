@@ -9,9 +9,8 @@
 #include <koinos/bigint.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/common.pb.h>
-#include <koinos/conversion.hpp>
 #include <koinos/state_db/state_db_types.hpp>
-#include <koinos/util.hpp>
+#include <koinos/util/conversion.hpp>
 
 namespace koinos::chain::state {
 
@@ -40,8 +39,8 @@ const object_space transaction_nonce();
 
 namespace key {
 
-const auto head_block_time = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
-const auto chain_id        = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
+const auto head_block_time = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
+const auto chain_id        = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
 
 } // key
 
