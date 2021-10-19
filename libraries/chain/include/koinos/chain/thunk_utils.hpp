@@ -7,8 +7,7 @@
 
 #include <koinos/protocol/system_call_ids.pb.h>
 
-#include <koinos/conversion.hpp>
-#include <koinos/util.hpp>
+#include <koinos/util/conversion.hpp>
 
 // This file exposes seven public macros for consumption
 // 1. SYSTEM_CALL_DEFAULTS
@@ -229,7 +228,7 @@ namespace koinos::chain::detail {
                                                                                                                      \
       uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
                                                                                                                      \
-      auto _key = converter::as< std::string >( _sid );                                                              \
+      auto _key = util::converter::as< std::string >( _sid );                                                        \
       std::string _blob_target;                                                                                      \
                                                                                                                      \
       with_stack_frame(                                                                                              \

@@ -18,11 +18,15 @@
 #include <koinos/mq/client.hpp>
 #include <koinos/mq/request_handler.hpp>
 #include <koinos/log.hpp>
-#include <koinos/util.hpp>
 
 #include <koinos/broadcast/broadcast.pb.h>
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>
+
+#include <koinos/util/base58.hpp>
+#include <koinos/util/conversion.hpp>
+#include <koinos/util/random.hpp>
+#include <koinos/util/services.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -104,7 +108,7 @@ void attach_request_handler(
    mq::error_code ec = mq::error_code::success;
 
    ec = mq_reqhandler.add_rpc_handler(
-      service::chain,
+      util::service::chain,
       [&]( const std::string& msg ) -> std::string
       {
          rpc::chain::chain_request args;
@@ -202,7 +206,6 @@ void attach_request_handler(
 
          std::string r;
          resp.SerializeToString( &r );
-         LOG(debug) << to_hex( r );
          return r;
       }
    );
@@ -344,7 +347,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
       req.mutable_get_highest_block();
       std::string req_str;
       req.SerializeToString( &req_str );
-      auto future = mq_client->rpc( service::block_store, req_str );
+      auto future = mq_client->rpc( util::service::block_store, req_str );
 
       rpc::block_store::block_store_response resp;
       block_topology target_head;
@@ -402,7 +405,7 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
             by_height_req->set_return_receipt( false );
 
             req.SerializeToString( &req_str );
-            rpc_queue.push_back( mq_client->rpc( service::block_store, req_str ) );
+            rpc_queue.push_back( mq_client->rpc( util::service::block_store, req_str ) );
             last_height += batch_size;
          }
 
@@ -450,7 +453,7 @@ int main( int argc, char** argv )
       options.add_options()
          (HELP_OPTION            ",h", "Print this help message and exit")
          (VERSION_OPTION         ",v", "Print version string and exit")
-         (BASEDIR_OPTION         ",d", program_options::value< std::string >()->default_value( get_default_base_directory().string() ),
+         (BASEDIR_OPTION         ",d", program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ),
             "Koinos base directory")
          (AMQP_OPTION            ",a", program_options::value< std::string >(), "AMQP server URL")
          (LOG_LEVEL_OPTION       ",l", program_options::value< std::string >(), "The log filtering level")
@@ -499,17 +502,17 @@ int main( int argc, char** argv )
       {
          config = YAML::LoadFile( yaml_config );
          global_config = config[ "global" ];
-         chain_config = config[ service::chain ];
+         chain_config = config[ util::service::chain ];
       }
 
       std::string amqp_url      = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
       std::string log_level     = get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-      std::string instance_id   = get_option< std::string >( INSTANCE_ID_OPTION, random_alphanumeric( 5 ), args, chain_config, global_config );
+      std::string instance_id   = get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
       auto statedir             = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
       auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
       auto genesis_key_file     = std::filesystem::path( get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config ) );
 
-      koinos::initialize_logging( service::chain, instance_id, log_level, basedir / service::chain );
+      koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain );
 
       if ( config.IsNull() )
       {
@@ -517,13 +520,13 @@ int main( int argc, char** argv )
       }
 
       if ( statedir.is_relative() )
-         statedir = basedir / service::chain / statedir;
+         statedir = basedir / util::service::chain / statedir;
 
       if ( !std::filesystem::exists( statedir ) )
          std::filesystem::create_directories( statedir );
 
       if ( database_config_path.is_relative() )
-         database_config_path = basedir / service::chain / database_config_path;
+         database_config_path = basedir / util::service::chain / database_config_path;
 
       if ( !std::filesystem::exists( database_config_path ) )
          write_default_database_config( database_config_path );
@@ -542,7 +545,7 @@ int main( int argc, char** argv )
       }
 
       if ( genesis_key_file.is_relative() )
-         genesis_key_file = basedir / service::chain / genesis_key_file;
+         genesis_key_file = basedir / util::service::chain / genesis_key_file;
 
       KOINOS_ASSERT(
          std::filesystem::exists( genesis_key_file ),
@@ -555,13 +558,15 @@ int main( int argc, char** argv )
       std::getline( ifs, genesis_address );
       ifs.close();
 
-      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, from_hex( genesis_address ) );
+      std::vector< std::byte > genesis_address_bytes;
+      util::decode_base58( genesis_address, genesis_address_bytes );
+      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_address_bytes );
 
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Genesis authority: " << genesis_address;
 
       chain::genesis_data genesis_data;
-      genesis_data[ { converter::as< state_db::object_space >( koinos::chain::database::space::kernel ), converter::as< state_db::object_key >( koinos::chain::database::key::chain_id ) } ] = converter::as< std::vector< std::byte > >( chain_id );
+      genesis_data[ { util::converter::as< state_db::object_space >( koinos::chain::database::space::kernel ), util::converter::as< state_db::object_key >( koinos::chain::database::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
 
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
@@ -569,14 +574,16 @@ int main( int argc, char** argv )
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
 
-      LOG(info) << "Connecting AMQP client...";
-      auto ec = mq_client->connect( amqp_url );
-      if ( ec != mq::error_code::success )
+      try {
+         LOG(info) << "Connecting AMQP client...";
+         mq_client->connect( amqp_url );
+         LOG(info) << "Established AMQP client connection to the server";
+      }
+      catch ( std::exception& e )
       {
-         LOG(error) << "Failed to connect AMQP client to server" ;
+         LOG(error) << "Failed to connect AMQP client to server, " << e.what();
          exit( EXIT_FAILURE );
       }
-      LOG(info) << "Established AMQP client connection to the server";
 
       {
          LOG(info) << "Attempting to connect to block_store...";
@@ -584,7 +591,7 @@ int main( int argc, char** argv )
          req.mutable_reserved();
          std::string s;
          req.SerializeToString( &s );
-         mq_client->rpc( service::block_store, s ).get();
+         mq_client->rpc( util::service::block_store, s ).get();
          LOG(info) << "Established connection to block_store";
       }
 
@@ -594,7 +601,7 @@ int main( int argc, char** argv )
          req.mutable_reserved();
          std::string s;
          req.SerializeToString( &s );
-         mq_client->rpc( service::mempool, s ).get();
+         mq_client->rpc( util::service::mempool, s ).get();
          LOG(info) << "Established connection to mempool";
       }
 

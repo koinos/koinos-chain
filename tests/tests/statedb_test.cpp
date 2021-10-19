@@ -1,7 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include <koinos/bigint.hpp>
-#include <koinos/conversion.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/exception.hpp>
@@ -9,6 +8,7 @@
 #include <koinos/state_db/detail/objects.hpp>
 #include <koinos/state_db/detail/state_delta.hpp>
 #include <koinos/state_db/state_db.hpp>
+#include <koinos/util/conversion.hpp>
 
 #include <mira/database_configuration.hpp>
 
@@ -77,7 +77,7 @@ typedef mira::multi_index_adapter<
 
 crypto::multihash test_block::get_id() const
 {
-   return crypto::hash( crypto::multicodec::sha2_256, converter::to< crypto::multihash >( previous ), height, nonce );
+   return crypto::hash( crypto::multicodec::sha2_256, util::converter::to< crypto::multihash >( previous ), height, nonce );
 }
 
 namespace koinos {
@@ -126,7 +126,7 @@ BOOST_FIXTURE_TEST_SUITE( state_db_tests, state_db_fixture )
 BOOST_AUTO_TEST_CASE( basic_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = converter::as< object_space >( 0 );
+   object_space space = util::converter::as< object_space >( 0 );
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    vectorstream vs;
    to_binary( vs, book_a );
    put_args.space = space;
-   put_args.key = converter::as< object_key >( book_a.id );
+   put_args.key = util::converter::as< object_key >( book_a.id );
    put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    put_args.object_size = vs.vector().size();
 
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    get_object_args get_args;
    get_object_result get_res;
    get_args.space = space;
-   get_args.key = converter::as< object_key >( book_a.id );
+   get_args.key = util::converter::as< object_key >( book_a.id );
    get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    get_args.buf_size = vs.vector().size();
 
@@ -275,7 +275,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    for( uint64_t i = 1; i <= 2000; ++i )
    {
-      b.previous = converter::as< std::string >( prev_id );
+      b.previous = util::converter::as< std::string >( prev_id );
       b.height = i;
       id = b.get_id();
 
@@ -313,10 +313,10 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    crypto::multihash block_2000_id = id;
 
    BOOST_TEST_MESSAGE( "Test discard" );
-   b.previous = converter::as< std::string >( db.get_head()->id() );
+   b.previous = util::converter::as< std::string >( db.get_head()->id() );
    b.height = db.get_head()->revision() + 1;
    id = b.get_id();
-   db.create_writable_node( converter::to< crypto::multihash >( b.previous ), id );
+   db.create_writable_node( util::converter::to< crypto::multihash >( b.previous ), id );
    auto new_block = db.get_node( id );
    BOOST_REQUIRE( new_block );
 
@@ -361,7 +361,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    for ( uint64_t i = 1; i <= 5; ++i )
    {
-      b.previous = converter::as< std::string >( prev_id );
+      b.previous = util::converter::as< std::string >( prev_id );
       b.height = fork_node->revision() + i;
       id = b.get_id();
 
@@ -381,7 +381,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
                   ( fork_heads[1]->id() == db.get_head()->id() && fork_heads[0]->id() == id ) );
    auto old_head_id = db.get_head()->id();
 
-   b.previous = converter::as< std::string >( prev_id );
+   b.previous = util::converter::as< std::string >( prev_id );
    b.height = head_rev + 1;
    id = b.get_id();
 
@@ -1445,7 +1445,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
 BOOST_AUTO_TEST_CASE( reset_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = converter::as< object_space >( 0 );
+   object_space space = util::converter::as< object_space >( 0 );
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -1460,7 +1460,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    vectorstream vs;
    to_binary( vs, book_a );
    put_args.space = space;
-   put_args.key = converter::as< object_key >( book_a.id );
+   put_args.key = util::converter::as< object_key >( book_a.id );
    put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    put_args.object_size = vs.vector().size();
 
@@ -1479,7 +1479,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    get_object_args get_args;
    get_object_result get_res;
    get_args.space = space;
-   get_args.key = converter::as< object_key >( book_a.id );
+   get_args.key = util::converter::as< object_key >( book_a.id );
    get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    get_args.buf_size = vs.vector().size();
 
@@ -1495,7 +1495,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
 BOOST_AUTO_TEST_CASE( anonymous_node_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = converter::as< object_space >( 0 );
+   object_space space = util::converter::as< object_space >( 0 );
    book book_a;
    book_a.id = 1;
    book_a.a = 3;
@@ -1510,7 +1510,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    vectorstream vs;
    to_binary( vs, book_a );
    put_args.space = space;
-   put_args.key = converter::as< object_key >( book_a.id );
+   put_args.key = util::converter::as< object_key >( book_a.id );
    put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    put_args.object_size = vs.vector().size();
 
@@ -1524,7 +1524,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    get_object_args get_args;
    get_object_result get_res;
    get_args.space = space;
-   get_args.key = converter::as< object_key >( book_a.id );
+   get_args.key = util::converter::as< object_key >( book_a.id );
    get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
    get_args.buf_size = vs.vector().size();
 

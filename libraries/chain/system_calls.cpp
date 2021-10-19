@@ -11,6 +11,9 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
+#include <koinos/util/base58.hpp>
+#include <koinos/util/conversion.hpp>
+#include <koinos/util/hex.hpp>
 
 using namespace std::string_literals;
 
@@ -67,13 +70,13 @@ void register_thunks( thunk_dispatcher& td )
    )
 }
 
-KOINOS_TODO( "Should this be a thunk?" );
-KOINOS_TODO( "This is called on every database access. Can we optimize away the conversion because it is done all the time?" );
+#pragma message "TODO: Should this be a thunk?"
+#pragma message "TODO: This is called on every database access. Can we optimize away the conversion because it is done all the time?"
 bool is_system_space( const state_db::object_space& space_id )
 {
-   return space_id == converter::as< state_db::object_space >( database::space::contract ) ||
-          space_id == converter::as< state_db::object_space >( database::space::system_call_dispatch ) ||
-          space_id == converter::as< state_db::object_space >( database::space::kernel );
+   return space_id == util::converter::as< state_db::object_space >( database::space::contract ) ||
+          space_id == util::converter::as< state_db::object_space >( database::space::system_call_dispatch ) ||
+          space_id == util::converter::as< state_db::object_space >( database::space::kernel );
 }
 
 THUNK_DEFINE_BEGIN();
@@ -104,7 +107,7 @@ THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.c_str(), signature_data.size() );
-   crypto::multihash block_id = converter::to< crypto::multihash >( id );
+   crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
 
    with_stack_frame(
       context,
@@ -114,7 +117,7 @@ THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std
       },
       [&]() {
          auto obj = system_call::get_object( context, database::space::kernel, database::key::chain_id ).value();
-         chain_id = converter::to< crypto::multihash >( obj );
+         chain_id = util::converter::to< crypto::multihash >( obj );
       }
    );
 
@@ -132,9 +135,9 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
-   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return converter::to< crypto::multihash >( s ); } );
+   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return util::converter::to< crypto::multihash >( s ); } );
 
-   auto root_hash = converter::to< crypto::multihash >( root );
+   auto root_hash = util::converter::to< crypto::multihash >( root );
    auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
 
    auto merkle_root = mtree.root()->hash();
@@ -170,7 +173,7 @@ THUNK_DEFINE( void, apply_block,
       (bool) check_transaction_signatures)
    )
 {
-   KOINOS_TODO( "Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms" );
+   #pragma message "TODO: Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms"
 
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
@@ -180,7 +183,7 @@ THUNK_DEFINE( void, apply_block,
 
    protocol::active_block_data active_data;
    active_data.ParseFromString( block.active() );
-   const crypto::multihash tx_root = converter::to< crypto::multihash >( active_data.transaction_merkle_root() );
+   const crypto::multihash tx_root = util::converter::to< crypto::multihash >( active_data.transaction_merkle_root() );
    size_t tx_count = block.transactions_size();
 
    // Check transaction Merkle root
@@ -191,7 +194,7 @@ THUNK_DEFINE( void, apply_block,
    for ( const auto& trx : block.transactions() )
    {
       transactions_bytes_size += trx.ByteSizeLong();
-      hashes.emplace_back( converter::as< std::string >( crypto::hash( tx_root.code(), trx.active() ) ) );
+      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.active() ) ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
@@ -203,14 +206,14 @@ THUNK_DEFINE( void, apply_block,
     * skip it. We either need to remove this flag or redesign our system call arhictecture the prevent
     * side effects within verify_block_signature. (Issue 408)
     */
-   KOINOS_TODO( "Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)" )
+   #pragma message "TODO: Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)"
    // if( check_block_signature )
    {
       crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
-      KOINOS_ASSERT( system_call::verify_block_signature( context, converter::as< std::string >( block_hash ), block.active(), block.signature_data() ).value(), invalid_block_signature, "block signature does not match" );
+      KOINOS_ASSERT( system_call::verify_block_signature( context, util::converter::as< std::string >( block_hash ), block.active(), block.signature_data() ).value(), invalid_block_signature, "block signature does not match" );
    }
 
-   system_call::put_object( context, database::space::kernel, database::key::head_block_time, converter::as< std::string >( block.header().timestamp() ) );
+   system_call::put_object( context, database::space::kernel, database::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
    // Check passive Merkle root
    if( check_passive_data )
@@ -227,18 +230,18 @@ THUNK_DEFINE( void, apply_block,
       // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
       // during the block building process.
 
-      KOINOS_TODO( "Can we optimize away the string copies?" );
-      auto passive_root = converter::to< crypto::multihash >( active_data.passive_data_merkle_root() );
+      #pragma message "TODO: Can we optimize away the string copies?"
+      auto passive_root = util::converter::to< crypto::multihash >( active_data.passive_data_merkle_root() );
       std::vector< std::string > passives;
       passives.reserve( 2 * ( block.transactions().size() + 1 ) );
 
-      passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
-      passives.emplace_back( converter::as< std::string >( crypto::multihash::empty( passive_root.code() ) ) );
+      passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
+      passives.emplace_back( util::converter::as< std::string >( crypto::multihash::empty( passive_root.code() ) ) );
 
       for ( const auto& trx : block.transactions() )
       {
-         passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), trx.passive() ) ) );
-         passives.emplace_back( converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
+         passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), trx.passive() ) ) );
+         passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
       }
 
       KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), passives ).value(), passive_root_mismatch, "passive merkle root does not match" );
@@ -314,7 +317,7 @@ inline void require_payer_transaction_nonce( apply_context& ctx, const std::stri
 
 inline void update_payer_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
 {
-   system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) );
+   system_call::put_object( ctx, database::space::kernel, database::key::transaction_nonce( payer ), util::converter::as< std::string >( nonce ) );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -374,7 +377,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    }
    catch ( const std::exception& e )
    {
-      LOG(info) << "Transaction " << to_hex( trx.id() ) << " reverted with: " << e.what();
+      LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << e.what();
       transaction_reverted tr( e.what() );
       reverted_exception_ptr = std::make_exception_ptr( tr );
    }
@@ -390,7 +393,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    KOINOS_ASSERT(
       system_call::consume_account_rc( context, payer, payer_consumed_rc ).value(),
       unable_to_consume_resources,
-      "unable to consume rc for payer: ${p}", ("p", to_hex( payer ) )
+      "unable to consume rc for payer: ${p}", ("p", util::encode_base58( util::converter::as< std::vector< std::byte > >( payer ) ) );
    );
 
    if ( reverted_exception_ptr )
@@ -411,9 +414,9 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    active_data.ParseFromString( context.get_transaction().active() );
 
    auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
-   auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( tx_id ) ).value();
+   auto sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), util::converter::as< std::string >( tx_id ) ).value();
    auto signer_hash = crypto::hash( crypto::multicodec::ripemd_160, sig_account );
-   auto contract_id = converter::to< crypto::multihash >( o.contract_id() );
+   auto contract_id = util::converter::to< crypto::multihash >( o.contract_id() );
 
    KOINOS_ASSERT(
       signer_hash == contract_id,
@@ -458,7 +461,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       },
       [&]() {
          auto obj = system_call::get_object( context, database::space::kernel, database::key::chain_id ).value();
-         chain_id = converter::to< crypto::multihash >( obj );
+         chain_id = util::converter::to< crypto::multihash >( obj );
       }
    );
 
@@ -467,19 +470,21 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    std::memcpy( sig.data(), tx.signature_data().c_str(), tx.signature_data().size() );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
 
    if ( o.target().has_system_call_bundle() )
    {
-      auto contract_id = converter::to< crypto::multihash >( o.target().system_call_bundle().contract_id() );
-      auto contract = system_call::get_object( context, database::space::contract, converter::as< std::string >( contract_id ) ).value();
+      const auto& contract_id_str = o.target().system_call_bundle().contract_id();
+      auto contract_id = util::converter::to< crypto::multihash >( contract_id_str );
+      auto contract = system_call::get_object( context, database::space::contract, util::converter::as< std::string >( contract_id ) ).value();
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << to_hex( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
+
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::encode_base58( util::converter::as< std::vector< std::byte > >( contract_id_str ) ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else if ( o.target().thunk_id() )
    {
@@ -492,13 +497,13 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   system_call::put_object( context, database::space::system_call_dispatch, converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), converter::as< std::string >( o.target() ) );
+   system_call::put_object( context, database::space::system_call_dispatch, util::converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
 }
 
 void check_db_permissions( const apply_context& context, const state_db::object_space& space )
 {
    auto privilege = context.get_privilege();
-   auto caller = converter::to< state_db::object_space >( context.get_caller() );
+   auto caller = util::converter::to< state_db::object_space >( context.get_caller() );
    if ( space != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
@@ -507,7 +512,6 @@ void check_db_permissions( const apply_context& context, const state_db::object_
       }
       else
       {
-         LOG(info) << to_hex( converter::as< std::string >( space ) ) << ", " << to_hex( converter::as< std::string >( caller ) );
          KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
       }
    }
@@ -520,9 +524,9 @@ THUNK_DEFINE( put_object_result, put_object, ((const std::string&) space, (const
    context.resource_meter().use_disk_storage( obj.size() );
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
-   const auto _obj   = converter::as< state_db::object_value >( obj );
+   const auto _space = util::converter::as< state_db::object_space >( space );
+   const auto _key   = util::converter::as< state_db::object_key >( key );
+   const auto _obj   = util::converter::as< state_db::object_value >( obj );
 
    check_db_permissions( context, _space );
 
@@ -546,8 +550,8 @@ THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
+   const auto _space = util::converter::as< state_db::object_space >( space );
+   const auto _key   = util::converter::as< state_db::object_key >( key );
 
    check_db_permissions( context, _space );
 
@@ -573,7 +577,7 @@ THUNK_DEFINE( get_object_result, get_object, ((const std::string&) space, (const
       object_buffer.clear();
 
    get_object_result ret;
-   ret.set_value( converter::to< std::string >( object_buffer ) );
+   ret.set_value( util::converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
@@ -581,8 +585,8 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) spa
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
+   const auto _space = util::converter::as< state_db::object_space >( space );
+   const auto _key   = util::converter::as< state_db::object_key >( key );
 
    check_db_permissions( context, _space );
 
@@ -606,7 +610,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const std::string&) spa
       object_buffer.clear();
 
    get_next_object_result ret;
-   ret.set_value( converter::to< std::string >( object_buffer ) );
+   ret.set_value( util::converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
@@ -614,8 +618,8 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const std::string&) spa
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   const auto _space = converter::as< state_db::object_space >( space );
-   const auto _key   = converter::as< state_db::object_key >( key );
+   const auto _space = util::converter::as< state_db::object_space >( space );
+   const auto _key   = util::converter::as< state_db::object_key >( key );
 
    check_db_permissions( context, _space );
 
@@ -639,7 +643,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const std::string&) spa
       object_buffer.clear();
 
    get_prev_object_result ret;
-   ret.set_value( converter::to< std::string >( object_buffer ) );
+   ret.set_value( util::converter::to< std::string >( object_buffer ) );
    return ret;
 }
 
@@ -663,9 +667,9 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    );
 
    context.push_frame( stack_frame {
-      .call = converter::as< std::vector< std::byte > >( contract_id ),
+      .call = util::converter::as< std::vector< std::byte > >( contract_id ),
       .call_privilege = context.get_privilege(),
-      .call_args = converter::as< std::vector< std::byte > >( args ),
+      .call_args = util::converter::as< std::vector< std::byte > >( args ),
       .entry_point = entry_point
    } );
 
@@ -682,7 +686,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    }
 
    call_contract_result ret;
-   ret.set_value( converter::to< std::string >( context.pop_frame().call_return ) );
+   ret.set_value( util::converter::to< std::string >( context.pop_frame().call_return ) );
    return ret;
 }
 
@@ -709,7 +713,7 @@ THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_contract_arguments_result ret;
-   ret.set_value( converter::as< std::string >( context.get_contract_call_args() ) );
+   ret.set_value( util::converter::as< std::string >( context.get_contract_call_args() ) );
    return ret;
 }
 
@@ -717,7 +721,7 @@ THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   context.set_contract_return( converter::to< std::vector< std::byte > >( ret ) );
+   context.set_contract_return( util::converter::to< std::vector< std::byte > >( ret ) );
 }
 
 THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
@@ -727,8 +731,8 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    auto head = context.get_state_node();
 
    chain::head_info hi;
-   hi.mutable_head_topology()->set_id( converter::as< std::string >( head->id() ) );
-   hi.mutable_head_topology()->set_previous( converter::as< std::string >( head->parent_id() ) );
+   hi.mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
+   hi.mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
    hi.mutable_head_topology()->set_height( head->revision() );
    hi.set_last_irreversible_block( get_last_irreversible_block( context ).value() );
 
@@ -746,7 +750,7 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
          },
          [&]() {
             auto val = system_call::get_object( context, database::space::kernel, database::key::head_block_time ).value();
-            uint64_t time = val.size() > 0 ? converter::to< uint64_t >( val ) : 0;
+            uint64_t time = val.size() > 0 ? util::converter::to< uint64_t >( val ) : 0;
             hi.set_head_block_time( time );
          }
       );
@@ -779,7 +783,7 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
    auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
    hash_result ret;
-   ret.set_value( converter::as< std::string >( hash ) );
+   ret.set_value( util::converter::as< std::string >( hash ) );
    return ret;
 }
 
@@ -788,11 +792,11 @@ THUNK_DEFINE( recover_public_key_result, recover_public_key, ((const std::string
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
-   crypto::recoverable_signature signature = converter::as< crypto::recoverable_signature >( signature_data );
+   crypto::recoverable_signature signature = util::converter::as< crypto::recoverable_signature >( signature_data );
 
    KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "signature must be canonical" );
 
-   auto pub_key = crypto::public_key::recover( signature, converter::to< crypto::multihash >( digest ) );
+   auto pub_key = crypto::public_key::recover( signature, util::converter::to< crypto::multihash >( digest ) );
    KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
    auto address = pub_key.to_address_bytes();
@@ -805,7 +809,7 @@ THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const proto
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   std::string account = system_call::recover_public_key( context, transaction.signature_data(), converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) ).value();
+   std::string account = system_call::recover_public_key( context, transaction.signature_data(), util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) ).value();
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
 
@@ -849,8 +853,8 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
    try
    {
-      ret.set_caller( converter::as< std::string >( context.get_caller() ) );
-      ret.set_caller_privilege( context.get_caller_privilege() );
+      ret.mutable_value()->set_caller( util::converter::as< std::string >( context.get_caller() ) );
+      ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
    }
    catch( ... )
    {
@@ -881,7 +885,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
-   std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), converter::as< std::string >( digest ) ).value();
+   std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), util::converter::as< std::string >( digest ) ).value();
 
    KOINOS_ASSERT(
       account == sig_account,
@@ -895,7 +899,7 @@ THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_contract_id_result ret;
-   ret.set_value( converter::as< std::string >( context.get_caller() ) );
+   ret.set_value( util::converter::as< std::string >( context.get_caller() ) );
    return ret;
 }
 
@@ -908,7 +912,7 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
    get_account_nonce_result ret;
 
    if ( obj.size() > 0 )
-      ret.set_value( converter::to< uint64_t >( obj ) );
+      ret.set_value( util::converter::to< uint64_t >( obj ) );
    else
       ret.set_value( 0 );
 
