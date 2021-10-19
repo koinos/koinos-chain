@@ -6,7 +6,9 @@ namespace koinos::chain::state {
 
 namespace space {
 
-const object_space contract()
+namespace detail {
+
+const object_space make_contract()
 {
    object_space s;
    s.set_system( true );
@@ -15,7 +17,7 @@ const object_space contract()
    return s;
 }
 
-const object_space system_call_dispatch()
+const object_space make_system_call_dispatch()
 {
    object_space s;
    s.set_system( true );
@@ -24,7 +26,7 @@ const object_space system_call_dispatch()
    return s;
 }
 
-const object_space meta()
+const object_space make_meta()
 {
    object_space s;
    s.set_system( true );
@@ -33,18 +35,42 @@ const object_space meta()
    return s;
 }
 
-} // space
-
-namespace key {
-
-std::string transaction_nonce( const std::string& payer )
+const object_space make_transaction_nonce()
 {
-   auto payer_key = converter::to< uint160_t >( payer );
-   auto trx_nonce_key = converter::to< uint64_t >( crypto::hash( crypto::multicodec::ripemd_160, std::string( "object_key::nonce" ) ).digest() );
-   return converter::as< std::string >( payer_key, trx_nonce_key );
+   object_space s;
+   s.set_system( true );
+   s.set_zone( zone::kernel );
+   s.set_id( std::underlying_type_t< id >( id::transaction_nonce ) );
+   return s;
 }
 
-} // key
+} // detail
+
+const object_space contract()
+{
+   static auto s = detail::make_contract();
+   return s;
+}
+
+const object_space system_call_dispatch()
+{
+   static auto s = detail::make_system_call_dispatch();
+   return s;
+}
+
+const object_space meta()
+{
+   static auto s = detail::make_meta();
+   return s;
+}
+
+const object_space transaction_nonce()
+{
+   static auto s = detail::make_transaction_nonce();
+   return s;
+}
+
+} // space
 
 void assert_permissions( const apply_context& context, const object_space& space )
 {
@@ -62,21 +88,6 @@ void assert_permissions( const apply_context& context, const object_space& space
          KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
       }
    }
-}
-
-void assert_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
-{
-   auto account_nonce = system_call::get_account_nonce( ctx, payer );
-   KOINOS_ASSERT(
-      account_nonce == nonce,
-      chain::chain_exception,
-      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", nonce)("e", account_nonce)
-   );
-}
-
-void update_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce )
-{
-   system_call::put_object( ctx, state::space::meta(), state::key::transaction_nonce( payer ), converter::as< std::string >( nonce ) );
 }
 
 } // koinos::chain::state

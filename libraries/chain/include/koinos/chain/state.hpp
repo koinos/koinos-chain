@@ -25,7 +25,8 @@ enum class id : uint32_t
 {
    meta,
    system_call_dispatch,
-   contract
+   contract,
+   transaction_nonce
 };
 
 namespace space {
@@ -33,15 +34,14 @@ namespace space {
 const object_space contract();
 const object_space system_call_dispatch();
 const object_space meta();
+const object_space transaction_nonce();
 
 } // space
 
 namespace key {
 
-const auto head_block_time   = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
-const auto chain_id          = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
-
-std::string transaction_nonce( const std::string& payer );
+const auto head_block_time = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
+const auto chain_id        = converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
 
 } // key
 
@@ -55,8 +55,5 @@ constexpr uint32_t max_object_size = 512;
 constexpr uint32_t max_object_size = 1024 * 1024; // 1 MB
 
 void assert_permissions( const apply_context& context, const object_space& space );
-
-void assert_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce );
-void update_transaction_nonce( apply_context& ctx, const std::string& payer, uint64_t nonce );
 
 } // koinos::chain::state

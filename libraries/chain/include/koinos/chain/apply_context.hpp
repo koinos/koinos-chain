@@ -144,40 +144,4 @@ void with_stack_frame( apply_context& ctx, stack_frame&& f, Lambda&& l )
    l();
 }
 
-// RAII class to ensure apply context block state is consistent if there is an error applying
-// the block.
-struct block_setter
-{
-   block_setter( apply_context& context, const protocol::block& block ) :
-      ctx( context )
-   {
-      ctx.set_block( block );
-   }
-
-   ~block_setter()
-   {
-      ctx.clear_block();
-   }
-
-   apply_context& ctx;
-};
-
-// RAII class to ensure apply context transaction state is consistent if there is an error applying
-// the transaction.
-struct transaction_setter
-{
-   transaction_setter( apply_context& context, const protocol::transaction& trx ) :
-      ctx( context )
-   {
-      ctx.set_transaction( trx );
-   }
-
-   ~transaction_setter()
-   {
-      ctx.clear_transaction();
-   }
-
-   apply_context& ctx;
-};
-
 } // koinos::chain

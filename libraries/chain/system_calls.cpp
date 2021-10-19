@@ -69,6 +69,42 @@ void register_thunks( thunk_dispatcher& td )
    )
 }
 
+// RAII class to ensure apply context block state is consistent if there is an error applying
+// the block.
+struct block_setter
+{
+   block_setter( apply_context& context, const protocol::block& block ) :
+      ctx( context )
+   {
+      ctx.set_block( block );
+   }
+
+   ~block_setter()
+   {
+      ctx.clear_block();
+   }
+
+   apply_context& ctx;
+};
+
+// RAII class to ensure apply context transaction state is consistent if there is an error applying
+// the transaction.
+struct transaction_setter
+{
+   transaction_setter( apply_context& context, const protocol::transaction& trx ) :
+      ctx( context )
+   {
+      ctx.set_transaction( trx );
+   }
+
+   ~transaction_setter()
+   {
+      ctx.clear_transaction();
+   }
+
+   apply_context& ctx;
+};
+
 THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, prints, ((const std::string&) str) )
@@ -283,7 +319,13 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     */
    auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
 
-   state::assert_transaction_nonce( context, payer, active_data.nonce() );
+   auto account_nonce = system_call::get_account_nonce( context, payer );
+   KOINOS_ASSERT(
+      account_nonce == active_data.nonce(),
+      chain::chain_exception,
+      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", active_data.nonce())("e", account_nonce)
+   );
+
    system_call::require_authority( context, payer );
 
    auto block_node = context.get_state_node();
@@ -324,7 +366,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
-   state::update_transaction_nonce( context, payer, active_data.nonce() + 1 );
+   system_call::put_object( context, state::space::transaction_nonce(), payer, converter::as< std::string >( active_data.nonce() + 1 ) );
 
    auto payer_consumed_rc = payer_session->used();
    payer_session.reset();
@@ -814,7 +856,7 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   auto obj = system_call::get_object( context, state::space::meta(), state::key::transaction_nonce( account ) );
+   auto obj = system_call::get_object( context, state::space::transaction_nonce(), account );
 
    get_account_nonce_result ret;
 
