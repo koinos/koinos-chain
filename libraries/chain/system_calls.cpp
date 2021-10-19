@@ -451,7 +451,7 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
    state_db::put_object_args put_args;
    put_args.space = converter::as< state_db::object_space >( space );
    put_args.key = converter::as< state_db::object_key >( key );
-   put_args.buf = reinterpret_cast< const std::byte* >( obj.data() );
+   put_args.buf = obj.size() ? reinterpret_cast< const std::byte* >( obj.data() ) : nullptr;
    put_args.object_size = obj.size();
 
    state_db::put_object_result put_res;

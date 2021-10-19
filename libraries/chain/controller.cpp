@@ -400,13 +400,17 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.set_state_node( pending_trx_node );
 
-      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
-
       payer = system_call::get_transaction_payer( ctx, transaction );
       max_payer_rc = system_call::get_account_rc( ctx, payer );
       trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction );
 
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
+
       system_call::apply_transaction( ctx, transaction );
+
+      uint64_t disk_storage_used = ctx.resource_meter().disk_storage_used();
+      uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
+      uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
       if ( _client && _client->is_connected() )
       {
@@ -439,6 +443,9 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
             ta.set_max_payer_rc( max_payer_rc );
             ta.set_rc_limit( trx_rc_limit );
             ta.set_height( ctx.get_state_node()->revision() );
+            ta.set_disk_storage_used( disk_storage_used );
+            ta.set_network_bandwidth_used( network_bandwidth_used );
+            ta.set_compute_bandwidth_used( compute_bandwidth_used );
 
             _client->broadcast( "koinos.transaction.accept", converter::as< std::string >( ta ) );
          }

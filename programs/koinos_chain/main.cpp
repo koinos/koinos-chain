@@ -50,8 +50,6 @@
 using namespace boost;
 using namespace koinos;
 
-constexpr uint32_t MAX_AMQP_CONNECT_SLEEP_MS = 30000;
-
 const std::string& version_string()
 {
    static std::string v_str = "Koinos chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
