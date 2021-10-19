@@ -26,6 +26,7 @@
 
 #include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
+#include <koinos/util/options.hpp>
 #include <koinos/util/random.hpp>
 #include <koinos/util/services.hpp>
 
@@ -424,26 +425,6 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
    }
 }
 
-template< typename T >
-T get_option(
-   std::string key,
-   T default_value,
-   const program_options::variables_map& cli_args,
-   const YAML::Node& service_config = YAML::Node(),
-   const YAML::Node& global_config = YAML::Node() )
-{
-   if ( cli_args.count( key ) )
-      return cli_args[ key ].as< T >();
-
-   if ( service_config && service_config[ key ] )
-      return service_config[ key ].as< T >();
-
-   if ( global_config && global_config[ key ] )
-      return global_config[ key ].as< T >();
-
-   return std::move( default_value );
-}
-
 int main( int argc, char** argv )
 {
    try
@@ -504,12 +485,12 @@ int main( int argc, char** argv )
          chain_config = config[ util::service::chain ];
       }
 
-      std::string amqp_url      = get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
-      std::string log_level     = get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-      std::string instance_id   = get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
-      auto statedir             = std::filesystem::path( get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
-      auto database_config_path = std::filesystem::path( get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
-      auto genesis_key_file     = std::filesystem::path( get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config ) );
+      std::string amqp_url      = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      std::string log_level     = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      std::string instance_id   = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
+      auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config ) );
+      auto database_config_path = std::filesystem::path( util::get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config ) );
+      auto genesis_key_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config ) );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain );
 
