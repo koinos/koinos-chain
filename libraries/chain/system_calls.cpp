@@ -132,7 +132,7 @@ THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std
 
    crypto::multihash chain_id;
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), signature_data.c_str(), signature_data.size() );
+   std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = converter::to< crypto::multihash >( id );
 
    with_stack_frame(
@@ -448,7 +448,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature_data().c_str(), tx.signature_data().size() );
+   std::memcpy( sig.data(), tx.signature_data().data(), std::min( sig.size(), tx.signature_data().size() ) );
 
    KOINOS_ASSERT(
       chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
