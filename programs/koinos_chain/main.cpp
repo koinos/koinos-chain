@@ -599,6 +599,7 @@ int main( int argc, char** argv )
       {
          LOG(info) << "Caught signal, shutting down...";
          request_handler.stop();
+         mq_client->disconnect();
       } );
 
       io_service.run();
