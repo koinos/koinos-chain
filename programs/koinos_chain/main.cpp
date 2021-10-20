@@ -550,7 +550,7 @@ int main( int argc, char** argv )
       genesis_data[ { util::converter::as< state_db::object_space >( chain::state::space::meta() ), util::converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
 
       chain::controller controller;
-      controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
+      controller.open( statedir, database_config, genesis_data, reset );
 
       auto mq_client = std::make_shared< mq::client >();
       auto request_handler = mq::request_handler();
