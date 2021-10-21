@@ -45,6 +45,7 @@
 #define LOG_LEVEL_DEFAULT        "info"
 #define INSTANCE_ID_OPTION       "instance-id"
 #define STATEDIR_OPTION          "statedir"
+#define JOBS_OPTION              "jobs"
 #define STATEDIR_DEFAULT         "blockchain"
 #define DATABASE_CONFIG_OPTION   "database-config"
 #define DATABASE_CONFIG_DEFAULT  "database.cfg"
@@ -84,30 +85,12 @@ void write_default_database_config( const std::filesystem::path& p )
    config_file << mira::utilities::default_database_configuration();
 }
 
-void attach_client(
-   chain::controller& controller,
-   std::shared_ptr< mq::client > mq_client,
-   const std::string& amqp_url )
-{
-   try
-   {
-      controller.set_client( mq_client );
-   }
-   catch( std::exception& e )
-   {
-      LOG(error) << "Error connecting to AMQP server: " << e.what();
-      exit( EXIT_FAILURE );
-   }
-}
-
 void attach_request_handler(
    chain::controller& controller,
    mq::request_handler& mq_reqhandler,
    const std::string& amqp_url )
 {
-   mq::error_code ec = mq::error_code::success;
-
-   ec = mq_reqhandler.add_rpc_handler(
+   mq_reqhandler.add_rpc_handler(
       util::service::chain,
       [&]( const std::string& msg ) -> std::string
       {
@@ -210,13 +193,7 @@ void attach_request_handler(
       }
    );
 
-   if ( ec != mq::error_code::success )
-   {
-      LOG(error) << "Unable to register MQ RPC handler";
-      exit( EXIT_FAILURE );
-   }
-
-   ec = mq_reqhandler.add_broadcast_handler(
+   mq_reqhandler.add_broadcast_handler(
       "koinos.block.accept",
       [&]( const std::string& msg )
       {
@@ -247,22 +224,9 @@ void attach_request_handler(
       }
    );
 
-   if ( ec != mq::error_code::success )
-   {
-      LOG(error) << "Unable to register block broadcast handler";
-      exit( EXIT_FAILURE );
-   }
-
    LOG(info) << "Connecting AMQP request handler...";
-   ec = mq_reqhandler.connect( amqp_url );
-   if ( ec != mq::error_code::success )
-   {
-      LOG(error) << "Failed to connect request handler to AMQP server";
-      exit( EXIT_FAILURE );
-   }
+   mq_reqhandler.connect( amqp_url );
    LOG(info) << "Established request handler connection to the AMQP server";
-
-   mq_reqhandler.start();
 }
 
 
@@ -438,6 +402,7 @@ int main( int argc, char** argv )
          (AMQP_OPTION            ",a", program_options::value< std::string >(), "AMQP server URL")
          (LOG_LEVEL_OPTION       ",l", program_options::value< std::string >(), "The log filtering level")
          (INSTANCE_ID_OPTION     ",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
+         (JOBS_OPTION            ",j", program_options::value< uint64_t    >(), "The number of worker jobs")
          (GENESIS_KEY_FILE_OPTION",g", program_options::value< std::string >(), "The genesis key file")
          (STATEDIR_OPTION            , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
@@ -492,8 +457,11 @@ int main( int argc, char** argv )
       auto database_config_path = std::filesystem::path( util::get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config, global_config ) );
       auto genesis_key_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config, global_config ) );
       auto reset                = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
+      auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain );
+
+      KOINOS_ASSERT( jobs > 0, koinos::exception, "jobs must be greater than 0" );
 
       if ( config.IsNull() )
       {
@@ -545,6 +513,7 @@ int main( int argc, char** argv )
 
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Genesis authority: " << genesis_address;
+      LOG(info) << "Number of jobs: " << jobs;
 
       chain::genesis_data genesis_data;
       genesis_data[ { util::converter::as< state_db::object_space >( chain::state::space::meta() ), util::converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
@@ -552,72 +521,72 @@ int main( int argc, char** argv )
       chain::controller controller;
       controller.open( statedir, database_config, genesis_data, args[ RESET_OPTION ].as< bool >() );
 
+      asio::io_context main_context, work_context;
       auto mq_client = std::make_shared< mq::client >();
-      auto request_handler = mq::request_handler();
+      auto request_handler = mq::request_handler( work_context );
 
-      try {
-         LOG(info) << "Connecting AMQP client...";
-         mq_client->connect( amqp_url );
-         LOG(info) << "Established AMQP client connection to the server";
-      }
-      catch ( std::exception& e )
-      {
-         LOG(error) << "Failed to connect AMQP client to server, " << e.what();
-         exit( EXIT_FAILURE );
-      }
+      LOG(info) << "Connecting AMQP client...";
+      mq_client->connect( amqp_url );
+      LOG(info) << "Established AMQP client connection to the server";
 
-      {
-         LOG(info) << "Attempting to connect to block_store...";
-         rpc::block_store::block_store_request req;
-         req.mutable_reserved();
-         std::string s;
-         req.SerializeToString( &s );
-         mq_client->rpc( util::service::block_store, s ).get();
-         LOG(info) << "Established connection to block_store";
-      }
+      std::string result;
 
-      {
-         LOG(info) << "Attempting to connect to mempool...";
-         rpc::mempool::mempool_request req;
-         req.mutable_reserved();
-         std::string s;
-         req.SerializeToString( &s );
-         mq_client->rpc( util::service::mempool, s ).get();
-         LOG(info) << "Established connection to mempool";
-      }
+      LOG(info) << "Attempting to connect to block_store...";
+      rpc::block_store::block_store_request b_req;
+      b_req.mutable_reserved();
+      b_req.SerializeToString( &result );
+      mq_client->rpc( util::service::block_store, result ).get();
+      LOG(info) << "Established connection to block_store";
+
+      result.clear();
+
+      LOG(info) << "Attempting to connect to mempool...";
+      rpc::mempool::mempool_request m_req;
+      m_req.mutable_reserved();
+      m_req.SerializeToString( &result );
+      mq_client->rpc( util::service::mempool, result ).get();
+      LOG(info) << "Established connection to mempool";
 
       index( controller, mq_client );
+      controller.set_client( mq_client );
 
-      attach_client( controller, mq_client, amqp_url );
       attach_request_handler( controller, request_handler, amqp_url );
       LOG(info) << "Listening for requests over AMQP";
 
-      asio::io_service io_service;
-      asio::signal_set signals( io_service, SIGINT, SIGTERM );
+      asio::signal_set signals( main_context, SIGINT, SIGTERM );
 
       signals.async_wait( [&]( const system::error_code& err, int num )
       {
          LOG(info) << "Caught signal, shutting down...";
-         request_handler.stop();
+         work_context.stop();
+         main_context.stop();
          mq_client->disconnect();
       } );
 
-      io_service.run();
+      std::vector< std::thread > threads;
+      for ( std::size_t i = 0; i < jobs; i++ )
+         threads.emplace_back( [&]() { work_context.run(); } );
+
+      main_context.run();
+
+      for ( auto& t : threads )
+         t.join();
+
       LOG(info) << "Shut down successfully";
 
       return EXIT_SUCCESS;
    }
    catch ( const boost::exception& e )
    {
-      LOG(fatal) << boost::diagnostic_information( e ) << std::endl;
+      LOG(fatal) << boost::diagnostic_information( e );
    }
    catch ( const std::exception& e )
    {
-      LOG(fatal) << e.what() << std::endl;
+      LOG(fatal) << e.what();
    }
    catch ( ... )
    {
-      LOG(fatal) << "Unknown exception" << std::endl;
+      LOG(fatal) << "Unknown exception";
    }
 
    return EXIT_FAILURE;
