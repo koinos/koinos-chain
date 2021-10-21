@@ -377,7 +377,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    KOINOS_ASSERT(
       system_call::consume_account_rc( context, payer, payer_consumed_rc ),
       unable_to_consume_resources,
-      "unable to consume rc for payer: ${p}", ("p", util::encode_base58( util::converter::as< std::vector< std::byte > >( payer ) ) );
+      "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
    );
 
    if ( reverted_exception_ptr )
@@ -468,7 +468,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::encode_base58( util::converter::as< std::vector< std::byte > >( contract_id_str ) ) << " at entry point " << o.target().system_call_bundle().entry_point();
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( contract_id_str ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else if ( o.target().thunk_id() )
    {

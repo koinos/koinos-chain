@@ -507,8 +507,7 @@ int main( int argc, char** argv )
       std::getline( ifs, genesis_address );
       ifs.close();
 
-      std::vector< std::byte > genesis_address_bytes;
-      util::decode_base58( genesis_address, genesis_address_bytes );
+      auto genesis_address_bytes = util::from_base58< std::string >( genesis_address );
       crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_address_bytes );
 
       LOG(info) << "Chain ID: " << chain_id;
