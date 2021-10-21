@@ -74,15 +74,15 @@ void register_thunks( thunk_dispatcher& td )
 
 // RAII class to ensure apply context block state is consistent if there is an error applying
 // the block.
-struct block_setter
+struct block_guard
 {
-   block_setter( apply_context& context, const protocol::block& block ) :
+   block_guard( apply_context& context, const protocol::block& block ) :
       ctx( context )
    {
       ctx.set_block( block );
    }
 
-   ~block_setter()
+   ~block_guard()
    {
       ctx.clear_block();
    }
@@ -92,15 +92,15 @@ struct block_setter
 
 // RAII class to ensure apply context transaction state is consistent if there is an error applying
 // the transaction.
-struct transaction_setter
+struct transaction_guard
 {
-   transaction_setter( apply_context& context, const protocol::transaction& trx ) :
+   transaction_guard( apply_context& context, const protocol::transaction& trx ) :
       ctx( context )
    {
       ctx.set_transaction( trx );
    }
 
-   ~transaction_setter()
+   ~transaction_guard()
    {
       ctx.clear_transaction();
    }
@@ -188,7 +188,7 @@ THUNK_DEFINE( void, apply_block,
 
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
-   auto setter = block_setter( context, block );
+   block_guard guard( context, block );
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
 
@@ -302,7 +302,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
 
-   auto setter = transaction_setter( context, trx );
+   transaction_guard guard( context, trx );
 
    protocol::active_transaction_data active_data;
    KOINOS_ASSERT(
