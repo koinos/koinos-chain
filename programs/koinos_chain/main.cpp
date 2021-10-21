@@ -456,7 +456,7 @@ int main( int argc, char** argv )
       auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
       auto database_config_path = std::filesystem::path( util::get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config, global_config ) );
       auto genesis_key_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config, global_config ) );
-      auto reset                = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
+      auto reset                = util::get_flag( RESET_OPTION, false, args, chain_config, global_config );
       auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain );
