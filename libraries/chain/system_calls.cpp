@@ -399,13 +399,11 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
    auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( tx_id ) );
-   auto signer_hash = crypto::hash( crypto::multicodec::ripemd_160, sig_account );
-   auto contract_id = util::converter::to< crypto::multihash >( o.contract_id() );
 
    KOINOS_ASSERT(
-      signer_hash == contract_id,
+      sig_account == o.contract_id(),
       invalid_signature,
-      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", contract_id)("signer_hash", signer_hash)
+      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
    );
 
    system_call::put_object( context, state::space::contract(), o.contract_id(), o.bytecode() );

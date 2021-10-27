@@ -388,9 +388,8 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    koinos::protocol::transaction trx1;
    koinos::protocol::active_transaction_data active1;
 
-   auto contract_1_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key1.get_public_key().to_address_bytes() );
    auto op1 = active1.add_operations()->mutable_upload_contract();
-   op1->set_contract_id( util::converter::as< std::string >( contract_1_id ) );
+   op1->set_contract_id( util::converter::as< std::string >( key1.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_hello_wasm() ) );
    active1.set_rc_limit( 10'000'000 );
    trx1.set_active( util::converter::as< std::string >( active1 ) );
@@ -401,9 +400,8 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    koinos::protocol::transaction trx2;
    koinos::protocol::active_transaction_data active2;
 
-   auto contract_2_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key2.get_public_key().to_address_bytes() );
    auto op2 = active2.add_operations()->mutable_upload_contract();
-   op2->set_contract_id( util::converter::as< std::string >( contract_2_id ) );
+   op2->set_contract_id( util::converter::as< std::string >( key2.get_public_key().to_address_bytes() ) );
    op2->set_bytecode( util::converter::as< std::string >( get_contract_return_wasm() ) );
    active2.set_rc_limit( 10'000'000 );
    trx2.set_active( util::converter::as< std::string >( active2 ) );
@@ -414,9 +412,8 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    koinos::protocol::transaction trx3;
    koinos::protocol::active_transaction_data active3;
 
-   auto contract_3_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, key3.get_public_key().to_address_bytes() );
    auto op3 = active3.add_operations()->mutable_upload_contract();
-   op3->set_contract_id( util::converter::as< std::string >( contract_3_id ) );
+   op3->set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
    op3->set_bytecode( util::converter::as< std::string >( get_db_write_wasm() ) );
    active3.set_rc_limit( 10'000'000 );
    trx3.set_active( util::converter::as< std::string >( active3 ) );
@@ -447,7 +444,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    BOOST_TEST_MESSAGE( "Test read contract logs" );
 
    koinos::rpc::chain::read_contract_request request;
-   request.set_contract_id( util::converter::as< std::string >( contract_1_id ) );
+   request.set_contract_id( util::converter::as< std::string >( key1.get_public_key().to_address_bytes() ) );
    request.set_entry_point( 0 );
 
    auto response = _controller.read_contract( request );
@@ -457,7 +454,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
    BOOST_TEST_MESSAGE( "Test read contract return" );
 
-   request.set_contract_id( util::converter::as< std::string >( contract_2_id ) );
+   request.set_contract_id( util::converter::as< std::string >( key2.get_public_key().to_address_bytes() ) );
    request.set_args( "echo" );
 
    response = _controller.read_contract( request );
@@ -469,7 +466,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
    BOOST_TEST_MESSAGE( "Test read contract db write" );
 
-   request.set_contract_id( util::converter::as< std::string >( contract_3_id ) );
+   request.set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
    BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -485,9 +482,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    koinos::protocol::active_transaction_data active1;
 
    // Upload the KOIN contract
-   auto id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, contract_private_key.get_public_key().to_address_bytes() );
    auto op1 = active1.add_operations()->mutable_upload_contract();
-   op1->set_contract_id( util::converter::as< std::string >( id ) );
+   op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
    active1.set_rc_limit( 10'000'000 );
    trx1.set_active( util::converter::as< std::string >( active1 ) );
