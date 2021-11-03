@@ -1,5 +1,7 @@
 #include <koinos/vm_manager/fizzy/module_cache.hpp>
 
+#include <koinos/log.hpp>
+
 #include <koinos/exception.hpp>
 
 namespace koinos::vm_manager::fizzy {
@@ -21,7 +23,7 @@ const FizzyModule* module_cache::get_module( const std::string& id )
       return nullptr;
 
    // Erase the entry from the list and push front
-   itr->second.second->erase();
+   _lru_list.erase( itr->second.second );
    _lru_list.push_front( id );
    auto module_ptr = itr->second.first;
    _module_map[ id ] = std::make_pair( module_ptr, _lru_list.begin() );

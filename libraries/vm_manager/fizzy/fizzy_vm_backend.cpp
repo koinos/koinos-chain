@@ -15,7 +15,7 @@ namespace koinos::vm_manager::fizzy {
 
 namespace constants {
    constexpr uint32_t    fizzy_max_call_depth = 251;
-   constexpr std::size_t module_cache_size    = 3;
+   constexpr std::size_t module_cache_size    = 32;
 }
 
 /**
