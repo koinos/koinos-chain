@@ -406,7 +406,11 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
    );
 
-   system_call::put_object( context, state::space::contract(), o.contract_id(), o.bytecode() );
+   contract_data cd;
+   cd.set_hash( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) ) );
+   cd.set_wasm( o.bytecode() );
+
+   system_call::put_object( context, state::space::contract(), o.contract_id(), util::converter::as< std::string >( cd ) );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -604,7 +608,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    // We need to be in kernel mode to read the contract data
-   std::string bytecode;
+   contract_data cd;
    with_stack_frame(
       context,
       stack_frame {
@@ -613,8 +617,9 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
       },
       [&]()
       {
-         bytecode = system_call::get_object( context, state::space::contract(), contract_id );
-         KOINOS_ASSERT( bytecode.size(), invalid_contract, "contract does not exist" );
+         auto cd_bytes = system_call::get_object( context, state::space::contract(), contract_id );
+         KOINOS_ASSERT( cd_bytes.size(), invalid_contract, "contract does not exist" );
+         cd = util::converter::to< contract_data >( cd_bytes );
       }
    );
 
@@ -629,7 +634,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
 
    try
    {
-      context.get_backend()->run( hapi, bytecode.data(), bytecode.size() );
+      context.get_backend()->run( hapi, cd );
    }
    catch( const exit_success& ) {}
    catch( ... ) {

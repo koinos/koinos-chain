@@ -1,6 +1,9 @@
 #pragma once
 
+#include <koinos/vm_manager/fizzy/module_cache.hpp>
 #include <koinos/vm_manager/vm_backend.hpp>
+
+#include <koinos/chain/chain.pb.h>
 
 #include <string>
 
@@ -18,7 +21,10 @@ class fizzy_vm_backend : public vm_backend
       virtual std::string backend_name();
       virtual void initialize();
 
-      virtual void run( abstract_host_api& hapi, char* bytecode_data, size_t bytecode_size );
+      virtual void run( abstract_host_api& hapi, const chain::contract_data& cd );
+
+   private:
+      module_cache _cache;
 };
 
 } // koinos::vm_manager::fizzy

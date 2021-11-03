@@ -31,6 +31,8 @@
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
 
+#include <koinos/util/hex.hpp>
+
 using namespace koinos;
 using namespace std::string_literals;
 
@@ -245,10 +247,10 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto stored_bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), util::converter::as< std::string>( contract_address ), op.bytecode().size() );
+   auto cd = util::converter::to< chain::contract_data >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), util::converter::as< std::string>( contract_address ) ) );
 
-   BOOST_REQUIRE( stored_bytecode.size() == op.bytecode().size() );
-   BOOST_REQUIRE( std::memcmp( stored_bytecode.c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( cd.wasm().size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( cd.wasm().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
@@ -773,10 +775,10 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
    chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto stored_bytecode = chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), op.contract_id(), op.bytecode().size() );
+   auto cd = util::converter::to< chain::contract_data >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), util::converter::as< std::string>( op.contract_id() ) ) );
 
-   BOOST_REQUIRE( stored_bytecode.size() == op.bytecode().size() );
-   BOOST_REQUIRE( std::memcmp( stored_bytecode.data(), op.bytecode().data(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( cd.wasm().size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( cd.wasm().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
 
    koinos::protocol::call_contract_operation op2;
    op2.set_contract_id( op.contract_id() );
