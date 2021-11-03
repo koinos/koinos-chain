@@ -301,6 +301,7 @@ THUNK_DEFINE( void, apply_block,
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
 
    transaction_guard guard( context, trx );
 
@@ -391,6 +392,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
@@ -412,6 +414,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -430,6 +433,7 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
    KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
@@ -825,6 +829,8 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
 THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
 {
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_transaction_signature_result ret;
@@ -834,6 +840,8 @@ THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
 
 THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
+   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
