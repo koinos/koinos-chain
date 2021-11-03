@@ -1,5 +1,7 @@
 #include <koinos/vm_manager/fizzy/module_cache.hpp>
 
+#include <koinos/exception.hpp>
+
 namespace koinos::vm_manager::fizzy {
 
 module_cache::module_cache( std::size_t size ) : _cache_size( size ) {}
@@ -24,7 +26,10 @@ const FizzyModule* module_cache::get_module( const std::string& id )
    auto module_ptr = itr->second.first;
    _module_map[ id ] = std::make_pair( module_ptr, _lru_list.begin() );
 
-   return fizzy_clone_module( module_ptr );
+   auto cloned_module = fizzy_clone_module( module_ptr );
+   KOINOS_ASSERT( cloned_module, koinos::exception, "" );
+
+   return cloned_module;
 }
 
 void module_cache::put_module( const std::string& id, const FizzyModule* module )
@@ -36,7 +41,11 @@ void module_cache::put_module( const std::string& id, const FizzyModule* module 
       _lru_list.pop_back();
    }
 
-   _module_map[ id ] = std::make_pair( fizzy_clone_module( module ), _lru_list.begin() );
+   _lru_list.push_front( id );
+
+   auto cloned_module = fizzy_clone_module( module );
+   KOINOS_ASSERT( cloned_module, koinos::exception, "" );
+   _module_map[ id ] = std::make_pair( cloned_module, _lru_list.begin() );
 }
 
 } // koinos::vm_manager::fizzy
