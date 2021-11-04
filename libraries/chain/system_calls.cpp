@@ -497,17 +497,15 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
 
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
-   state_db::put_object_args put_args;
-   put_args.space = util::converter::as< state_db::object_space >( space );
-   put_args.key = util::converter::as< state_db::object_key >( key );
-   put_args.buf = obj.size() ? reinterpret_cast< const std::byte* >( obj.data() ) : nullptr;
-   put_args.object_size = obj.size();
-
-   state_db::put_object_result put_res;
-   state->put_object( put_res, put_args );
+   auto val = util::converter::as< state_db::object_value >( obj );
 
    put_object_result ret;
-   ret.set_value( put_res.object_existed );
+   ret.set_value(
+      state->put_object(
+         util::converter::as< state_db::object_space >( space ),
+         util::converter::as< state_db::object_key >( key ),
+         val.size() ? &val : nullptr ) );
+
    return ret;
 }
 
@@ -521,25 +519,17 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   state_db::get_object_args get_args;
-   get_args.space = util::converter::as< state_db::object_space >( space );
-   get_args.key = util::converter::as< state_db::object_key >( key );
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : state::max_object_size;
-
-   state_db::object_value object_buffer;
-   object_buffer.resize( get_args.buf_size );
-   get_args.buf = object_buffer.data();
-
-   state_db::get_object_result get_res;
-   state->get_object( get_res, get_args );
-
-   if( get_res.key == get_args.key && get_res.size > 0 )
-      object_buffer.resize( get_res.size );
-   else
-      object_buffer.clear();
+   const auto result = state->get_object(
+      util::converter::as< state_db::object_space >( space ),
+      util::converter::as< state_db::object_key >( key ) );
 
    get_object_result ret;
-   ret.set_value( util::converter::to< std::string >( object_buffer ) );
+
+   if( result )
+   {
+      ret.set_value( result->data(), result->size() );
+   }
+
    return ret;
 }
 
@@ -551,25 +541,19 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
 
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
-   state_db::get_object_args get_args;
-   get_args.space = util::converter::as< state_db::object_space >( space );
-   get_args.key = util::converter::as< state_db::object_key >( key );
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : state::max_object_size;
-
-   state_db::object_value object_buffer;
-   object_buffer.resize( get_args.buf_size );
-   get_args.buf = object_buffer.data();
 
    state_db::get_object_result get_res;
-   state->get_next_object( get_res, get_args );
-
-   if( get_res.size > 0 )
-      object_buffer.resize( get_res.size );
-   else
-      object_buffer.clear();
+   const auto [result, next_key] = state->get_next_object(
+      util::converter::as< state_db::object_space >( space ),
+      util::converter::as< state_db::object_key >( key ) );
 
    get_next_object_result ret;
-   ret.set_value( util::converter::to< std::string >( object_buffer ) );
+
+   if( result )
+   {
+      ret.set_value( result->data(), result->size() );
+   }
+
    return ret;
 }
 
@@ -581,25 +565,19 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
-   state_db::get_object_args get_args;
-   get_args.space = util::converter::as< state_db::object_space >( space );
-   get_args.key = util::converter::as< state_db::object_key >( key );
-   get_args.buf_size = object_size_hint > 0 ? object_size_hint : state::max_object_size;
-
-   state_db::object_value object_buffer;
-   object_buffer.resize( get_args.buf_size );
-   get_args.buf = object_buffer.data();
 
    state_db::get_object_result get_res;
-   state->get_prev_object( get_res, get_args );
-
-   if( get_res.size > 0 )
-      object_buffer.resize( get_res.size );
-   else
-      object_buffer.clear();
+   const auto [result, next_key] = state->get_prev_object(
+      util::converter::as< state_db::object_space >( space ),
+      util::converter::as< state_db::object_key >( key ) );
 
    get_prev_object_result ret;
-   ret.set_value( util::converter::to< std::string >( object_buffer ) );
+
+   if( result )
+   {
+      ret.set_value( result->data(), result->size() );
+   }
+
    return ret;
 }
 

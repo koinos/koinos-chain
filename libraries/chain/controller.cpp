@@ -101,20 +101,12 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
    {
       for ( const auto& entry : data )
       {
-         state_db::put_object_args put_args;
-         put_args.space = entry.first.first;
-         put_args.key = entry.first.second;
-         put_args.buf = entry.second.data();
-         put_args.object_size = entry.second.size();
-
-         state_db::put_object_result put_res;
-         root->put_object( put_res, put_args );
-
          KOINOS_ASSERT(
-            !put_res.object_existed,
+            !root->put_object( entry.first.first, entry.first.second, &entry.second ),
             koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
+
       }
       LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
    } );
@@ -511,34 +503,14 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   boost::interprocess::basic_ivectorstream< std::vector< char > > chain_id_stream;
-   std::vector< char > chain_id_vector;
-   chain_id_vector.resize( 128 );
-   chain_id_stream.swap_vector( chain_id_vector );
+   auto result = _db.get_head()->get_object( util::converter::as< state_db::object_space >( state::space::meta() ), util::converter::as< state_db::object_key >( state::key::chain_id ) );
 
-   state_db::get_object_result result;
-   state_db::get_object_args   args;
-   args.space    = util::converter::as< state_db::object_space >( state::space::meta() );
-   args.key      = util::converter::as< state_db::object_key >( state::key::chain_id );
-   args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
-   args.buf_size = chain_id_stream.vector().size();
+   KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
 
-   state_db::state_node_ptr head;
-
-   head = _db.get_head();
-
-   head->get_object( result, args );
-
-   KOINOS_ASSERT( result.key == args.key, retrieval_failure, "unable to retrieve chain id" );
-   KOINOS_ASSERT( result.size <= args.buf_size, insufficent_buffer_size, "chain id buffer overflow" );
-
-   crypto::multihash chain_id;
-   from_binary( chain_id_stream, chain_id );
-
-   LOG(debug) << "get_chain_id: " << chain_id;
+   LOG(debug) << "get_chain_id: " << util::converter::to< crypto::multihash >( *result );
 
    rpc::chain::get_chain_id_response resp;
-   resp.set_chain_id( util::converter::as< std::string >( chain_id ) );
+   resp.set_chain_id( result->data(), result->size() );
 
    return resp;
 }
