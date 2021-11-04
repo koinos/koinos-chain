@@ -20,6 +20,8 @@ else
       TAG="latest"
    fi
 
+   echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
+
    cp -R ~/.ccache ./.ccache
    docker build . -t koinos-chain-ccache --target builder
    docker build . -t koinos/koinos-chain:$TAG
