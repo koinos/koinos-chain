@@ -209,12 +209,12 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    object_data = "space1.object1"s;
-   chain::system_call::put_object( ctx, chain::state::space::contract(), util::converter::as< std::string >( 1 ), object_data );
+   chain::system_call::put_object( ctx, chain::state::space::contract_bytecode(), util::converter::as< std::string >( 1 ), object_data );
    obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 3 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::contract(), util::converter::as< std::string >( 1 ) );
+   obj_blob = chain::system_call::get_next_object( ctx, chain::state::space::contract_bytecode(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
-   obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::contract(), util::converter::as< std::string >( 1 ) );
+   obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::contract_bytecode(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( obj_blob.size() == 0 );
 
    BOOST_TEST_MESSAGE( "Test object modification" );
@@ -247,10 +247,12 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto cd = util::converter::to< chain::contract_data >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), util::converter::as< std::string>( contract_address ) ) );
+   auto bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
+   auto hash = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_hash(), op.contract_id() );
 
-   BOOST_REQUIRE( cd.wasm().size() == op.bytecode().size() );
-   BOOST_REQUIRE( std::memcmp( cd.wasm().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( bytecode.size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( bytecode.c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( hash == util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, bytecode ) ) );
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
@@ -775,10 +777,12 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
    chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto cd = util::converter::to< chain::contract_data >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract(), util::converter::as< std::string>( op.contract_id() ) ) );
+   auto bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
+   auto hash = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_hash(), op.contract_id() );
 
-   BOOST_REQUIRE( cd.wasm().size() == op.bytecode().size() );
-   BOOST_REQUIRE( std::memcmp( cd.wasm().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( bytecode.size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( bytecode.c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( hash == util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, bytecode ) ) );
 
    koinos::protocol::call_contract_operation op2;
    op2.set_contract_id( op.contract_id() );

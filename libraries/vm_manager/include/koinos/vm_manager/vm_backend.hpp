@@ -1,6 +1,5 @@
 #pragma once
 
-#include <koinos/chain/chain.pb.h>
 #include <koinos/vm_manager/host_api.hpp>
 
 #include <memory>
@@ -31,7 +30,7 @@ class vm_backend
       /**
        * Run some bytecode.
        */
-      virtual void run( abstract_host_api&, const chain::contract_data& ) = 0;
+      virtual void run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id = std::string() ) = 0;
 };
 
 /**

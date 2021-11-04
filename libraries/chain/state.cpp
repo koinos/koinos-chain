@@ -8,12 +8,21 @@ namespace space {
 
 namespace detail {
 
-const object_space make_contract()
+const object_space make_contract_bytecode()
 {
    object_space s;
    s.set_system( true );
    s.set_zone( zone::kernel );
-   s.set_id( std::underlying_type_t< id >( id::contract ) );
+   s.set_id( std::underlying_type_t< id >( id::contract_bytecode ) );
+   return s;
+}
+
+const object_space make_contract_hash()
+{
+   object_space s;
+   s.set_system( true );
+   s.set_zone( zone::kernel );
+   s.set_id( std::underlying_type_t< id >( id::contract_hash ) );
    return s;
 }
 
@@ -46,9 +55,15 @@ const object_space make_transaction_nonce()
 
 } // detail
 
-const object_space contract()
+const object_space contract_bytecode()
 {
-   static auto s = detail::make_contract();
+   static auto s = detail::make_contract_bytecode();
+   return s;
+}
+
+const object_space contract_hash()
+{
+   static auto s = detail::make_contract_hash();
    return s;
 }
 

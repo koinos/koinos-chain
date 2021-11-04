@@ -24,13 +24,15 @@ enum class id : uint32_t
 {
    meta,
    system_call_dispatch,
-   contract,
+   contract_bytecode,
+   contract_hash,
    transaction_nonce
 };
 
 namespace space {
 
-const object_space contract();
+const object_space contract_bytecode();
+const object_space contract_hash();
 const object_space system_call_dispatch();
 const object_space meta();
 const object_space transaction_nonce();

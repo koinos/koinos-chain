@@ -1,8 +1,7 @@
-#include <koinos/chain/chain.pb.h>
-
 #include <fizzy/fizzy.h>
 
 #include <list>
+#include <map>
 
 namespace koinos::vm_manager::fizzy {
 

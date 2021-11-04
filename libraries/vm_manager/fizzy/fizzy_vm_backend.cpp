@@ -292,14 +292,22 @@ void fizzy_runner::call_start()
    }
 }
 
-void fizzy_vm_backend::run( abstract_host_api& hapi, const chain::contract_data& cd )
+void fizzy_vm_backend::run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id )
 {
+   const FizzyModule* module_ptr = nullptr;
 
-   auto module_ptr = _cache.get_module( cd.hash() );
-   if ( !module_ptr )
+   if ( id.size() )
    {
-      module_ptr = parse_bytecode( cd.wasm().data(), cd.wasm().size() );
-      _cache.put_module( cd.hash(), module_ptr );
+      module_ptr = _cache.get_module( id );
+      if ( !module_ptr )
+      {
+         module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
+         _cache.put_module( id, module_ptr );
+      }
+   }
+   else
+   {
+      module_ptr = module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
    }
 
    fizzy_runner runner(hapi, module_ptr );

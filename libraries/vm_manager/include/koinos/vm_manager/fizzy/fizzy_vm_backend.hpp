@@ -21,7 +21,7 @@ class fizzy_vm_backend : public vm_backend
       virtual std::string backend_name();
       virtual void initialize();
 
-      virtual void run( abstract_host_api& hapi, const chain::contract_data& cd );
+      virtual void run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id = std::string() );
 
    private:
       module_cache _cache;

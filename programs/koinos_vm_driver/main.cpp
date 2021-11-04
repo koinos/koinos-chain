@@ -67,7 +67,7 @@ int main( int argc, char** argv, char** envp )
          contract_file = std::filesystem::current_path() / contract_file;
 
       std::ifstream ifs( contract_file );
-      std::string contract_wasm( ( std::istreambuf_iterator< char >( ifs ) ), ( std::istreambuf_iterator< char >() ) );
+      std::string bytecode( ( std::istreambuf_iterator< char >( ifs ) ), ( std::istreambuf_iterator< char >() ) );
 
       std::string vm_backend_name = vmap[ VM_OPTION ].as< std::string >();
 
@@ -84,11 +84,7 @@ int main( int argc, char** argv, char** envp )
       ctx.resource_meter().set_resource_limit_data( rld );
       chain::host_api hapi( ctx );
 
-      chain::contract_data cd;
-      cd.set_wasm( std::move( contract_wasm ) );
-      cd.set_hash( std::string() );
-
-      vm_backend->run( hapi, cd );
+      vm_backend->run( hapi, bytecode );
 
       auto output = ctx.get_pending_console_output();
 
