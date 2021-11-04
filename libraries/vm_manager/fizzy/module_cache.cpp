@@ -1,8 +1,5 @@
 #include <koinos/vm_manager/fizzy/module_cache.hpp>
-
-#include <koinos/log.hpp>
-
-#include <koinos/exception.hpp>
+#include <koinos/vm_manager/fizzy/exceptions.hpp>
 
 namespace koinos::vm_manager::fizzy {
 
