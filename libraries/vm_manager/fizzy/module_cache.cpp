@@ -29,14 +29,14 @@ const FizzyModule* module_cache::get_module( const std::string& id )
    _module_map[ id ] = std::make_pair( module_ptr, _lru_list.begin() );
 
    auto cloned_module = fizzy_clone_module( module_ptr );
-   KOINOS_ASSERT( cloned_module, koinos::exception, "" );
+   KOINOS_ASSERT( cloned_module, module_clone_exception, "failed to clone module" );
 
    return cloned_module;
 }
 
 void module_cache::put_module( const std::string& id, const FizzyModule* module )
 {
-   // If the cache is pull, remove the last entry from the map and pop back
+   // If the cache is full, remove the last entry from the map and pop back
    if ( _lru_list.size() >= _cache_size )
    {
       _module_map.erase( _lru_list.back() );
@@ -46,7 +46,7 @@ void module_cache::put_module( const std::string& id, const FizzyModule* module 
    _lru_list.push_front( id );
 
    auto cloned_module = fizzy_clone_module( module );
-   KOINOS_ASSERT( cloned_module, koinos::exception, "" );
+   KOINOS_ASSERT( cloned_module, module_clone_exception, "failed to clone module" );
    _module_map[ id ] = std::make_pair( cloned_module, _lru_list.begin() );
 }
 
