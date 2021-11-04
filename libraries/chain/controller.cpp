@@ -101,20 +101,7 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
    {
       for ( const auto& entry : data )
       {
-         state_db::put_object_args put_args;
-         put_args.space = entry.first.first;
-         put_args.key = entry.first.second;
-         put_args.buf = entry.second.data();
-         put_args.object_size = entry.second.size();
-
-         state_db::put_object_result put_res;
-         root->put_object( put_res, put_args );
-
-         KOINOS_ASSERT(
-            !put_res.object_existed,
-            koinos::chain::unexpected_state,
-            "encountered unexpected object in initial state"
-         );
+         root->put_object( entry.first.first, entry.first.second, &entry.second );
       }
       LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
    } );
@@ -516,21 +503,13 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
    chain_id_vector.resize( 128 );
    chain_id_stream.swap_vector( chain_id_vector );
 
-   state_db::get_object_result result;
-   state_db::get_object_args   args;
-   args.space    = util::converter::as< state_db::object_space >( state::space::meta() );
-   args.key      = util::converter::as< state_db::object_key >( state::key::chain_id );
-   args.buf      = const_cast< std::byte* >( reinterpret_cast< const std::byte* >( chain_id_stream.vector().data() ) );
-   args.buf_size = chain_id_stream.vector().size();
-
    state_db::state_node_ptr head;
 
    head = _db.get_head();
 
-   head->get_object( result, args );
+   auto result = head->get_object( util::converter::as< state_db::object_space >( state::space::meta() ), util::converter::as< state_db::object_key >( state::key::chain_id ) );
 
-   KOINOS_ASSERT( result.key == args.key, retrieval_failure, "unable to retrieve chain id" );
-   KOINOS_ASSERT( result.size <= args.buf_size, insufficent_buffer_size, "chain id buffer overflow" );
+   KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
 
    crypto::multihash chain_id;
    from_binary( chain_id_stream, chain_id );

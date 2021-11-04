@@ -43,6 +43,8 @@ using state_multi_index_type = boost::multi_index_container<
 using state_delta_type = state_delta< state_object_index >;
 using state_delta_ptr = std::shared_ptr< state_delta_type >;
 
+const object_key null_key = object_key();
+
 /**
  * Private implementation of state_node interface.
  *
@@ -55,10 +57,10 @@ class state_node_impl final
       state_node_impl() {}
       ~state_node_impl() {}
 
-      void get_object( get_object_result& result, const get_object_args& args )const;
-      void get_next_object( get_object_result& result, const get_object_args& args )const;
-      void get_prev_object( get_object_result& result, const get_object_args& args )const;
-      void put_object( put_object_result& result, const put_object_args& args );
+      const object_value* get_object( const object_space& space, const object_key& key )const;
+      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
+      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
+      void put_object( const object_space& space, const object_key& key, const object_value* val );
       bool is_empty()const;
 
       state_delta_ptr   _state;
@@ -341,86 +343,56 @@ bool database_impl::is_open()const
    return (bool)_root && (bool)_head;
 }
 
-void state_node_impl::get_object( get_object_result& result, const get_object_args& args )const
+const object_value* state_node_impl::get_object( const object_space& space, const object_key& key )const
 {
    auto idx = merge_index< state_object_index, by_key >( _state );
-   auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
+   auto pobj = idx.find( boost::make_tuple( space, key ) );
    if( pobj != nullptr )
    {
-      result.key = pobj->key;
-      result.size = pobj->value.size();
-      if( (args.buf != nullptr) && (args.buf_size > 0) )
-      {
-         uint64_t size = std::min( uint64_t( result.size ), args.buf_size );
-         std::memcpy( args.buf, pobj->value.data(), size );
-      }
+      return &pobj->value;
    }
-   else
-   {
-      result.key = object_key();
-      result.size = -1;
-   }
+
+   return nullptr;
 }
 
-void state_node_impl::get_next_object( get_object_result& result, const get_object_args& args )const
+std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key )const
 {
    auto idx = merge_index< state_object_index, by_key >( _state );
-   auto it = idx.upper_bound( boost::make_tuple( args.space, args.key ) );
-   if( (it != idx.end()) && (it->space == args.space) )
+   auto it = idx.upper_bound( boost::make_tuple( space, key ) );
+   if( ( it != idx.end() ) && ( it->space == space ) )
    {
-      result.key = it->key;
-      result.size = it->value.size();
-      if( (args.buf != nullptr) && (args.buf_size > 0) )
-      {
-         uint64_t size = std::min( uint64_t( result.size ), args.buf_size );
-         std::memcpy( args.buf, it->value.data(), size );
-      }
+      return std::make_pair< const object_value*, const object_key& >( &it->value, it->key );
    }
-   else
-   {
-      result.key = object_key();
-      result.size = -1;
-   }
+
+   return std::make_pair< const object_value*, const object_key& >( nullptr, null_key );
 }
 
-void state_node_impl::get_prev_object( get_object_result& result, const get_object_args& args )const
+std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key )const
 {
    auto idx = merge_index< state_object_index, by_key >( _state );
-   auto it = idx.lower_bound( boost::make_tuple( args.space, args.key ) );
+   auto it = idx.lower_bound( boost::make_tuple( space, key ) );
    if( it != idx.begin() )
    {
       --it;
-      if( it->space == args.space )
-      {
-         result.key = it->key;
-         result.size = it->value.size();
-         if( (args.buf != nullptr) && (args.buf_size > 0) )
-         {
-            uint64_t size = std::min( uint64_t( result.size ), args.buf_size );
-            std::memcpy( args.buf, it->value.data(), size );
-         }
-         return;
-      }
+      return std::make_pair< const object_value*, const object_key& >( &it->value, it->key );
    }
-   result.key = object_key();
-   result.size = -1;
+
+   return std::make_pair< const object_value*, const object_key& >( nullptr, null_key );
 }
 
-void state_node_impl::put_object( put_object_result& result, const put_object_args& args )
+void state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
    KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
    auto idx = merge_index< state_object_index, by_key >( _state );
-   auto pobj = idx.find( boost::make_tuple( args.space, args.key ) );
+   auto pobj = idx.find( boost::make_tuple( space, key ) );
    if( pobj != nullptr )
    {
-      result.object_existed = true;
-      if( args.buf != nullptr )
+      if( val != nullptr )
       {
          // exist -> exist, modify()
          _state->modify( *pobj, [&]( state_object& obj )
          {
-            obj.value.resize( args.object_size );
-            std::memcpy( obj.value.data(), args.buf, args.object_size );
+            obj.value = *val;
          });
       }
       else
@@ -429,24 +401,15 @@ void state_node_impl::put_object( put_object_result& result, const put_object_ar
          _state->erase( *pobj );
       }
    }
-   else
+   else if( val != nullptr )
    {
-      result.object_existed = false;
-      if( args.buf != nullptr )
+      // dne - exist, create()
+      _state->emplace( [&]( state_object& obj )
       {
-         // dne - exist, create()
-         _state->emplace( [&]( state_object& obj )
-         {
-            obj.space = args.space;
-            obj.key = args.key;
-            obj.value.resize( args.object_size );
-            std::memcpy( obj.value.data(), args.buf, args.object_size );
-         });
-      }
-      else
-      {
-         // dne -> dne, do nothing
-      }
+         obj.space = space;
+         obj.key = key;
+         obj.value = *val;
+      });
    }
 }
 
@@ -460,24 +423,24 @@ bool state_node_impl::is_empty()const
 abstract_state_node::abstract_state_node() : impl( new detail::state_node_impl() ) {}
 abstract_state_node::~abstract_state_node() {}
 
-void abstract_state_node::get_object( get_object_result& result, const get_object_args& args )const
+const object_value* abstract_state_node::get_object( const object_space& space, const object_key& key )const
 {
-   impl->get_object( result, args );
+   return impl->get_object( space, key );
 }
 
-void abstract_state_node::get_next_object( get_object_result& result, const get_object_args& args )const
+std::pair< const object_value*, const object_key& > abstract_state_node::get_next_object( const object_space& space, const object_key& key )const
 {
-   impl->get_next_object( result, args );
+   return impl->get_next_object( space, key );
 }
 
-void abstract_state_node::get_prev_object( get_object_result& result, const get_object_args& args )const
+std::pair< const object_value*, const object_key& > abstract_state_node::get_prev_object( const object_space& space, const object_key& key )const
 {
-   impl->get_prev_object( result, args );
+   return impl->get_prev_object( space, key );
 }
 
-void abstract_state_node::put_object( put_object_result& result, const put_object_args& args )
+void abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
-   impl->put_object( result, args );
+   impl->put_object( space, key, val );
 }
 
 bool abstract_state_node::is_writable()const

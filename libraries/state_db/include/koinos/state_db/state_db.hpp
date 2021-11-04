@@ -68,7 +68,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      void get_object( get_object_result& result, const get_object_args& args )const;
+      const object_value* get_object( const object_space& space, const object_key& key )const;
 
       /**
        * Get the next object.
@@ -78,7 +78,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_next_object( get_object_result& result, const get_object_args& args )const;
+      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
 
       /**
        * Get the previous object.
@@ -88,7 +88,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      void get_prev_object( get_object_result& result, const get_object_args& args )const;
+      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
 
       /**
        * Write an object into the state_node.
@@ -97,7 +97,7 @@ class abstract_state_node
        * - If object exists, object is overwritten.
        * - If buf == nullptr, object is deleted.
        */
-      void put_object( put_object_result& result, const put_object_args& args );
+      void put_object( const object_space& space, const object_key& key, const object_value* val );
 
       /**
        * Return true if the node is writable.
