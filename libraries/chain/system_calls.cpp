@@ -506,7 +506,7 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
       state->put_object(
          util::converter::as< state_db::object_space >( space ),
          util::converter::as< state_db::object_key >( key ),
-         val.size() ? &val : nullptr ) );
+         val.size() ? &val : nullptr ) != val.size() );
 
    return ret;
 }
