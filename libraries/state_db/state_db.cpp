@@ -361,10 +361,10 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
    auto it = idx.upper_bound( boost::make_tuple( space, key ) );
    if( ( it != idx.end() ) && ( it->space == space ) )
    {
-      return std::make_pair< const object_value*, const object_key& >( &it->value, it->key );
+      return { &it->value, it->key };
    }
 
-   return std::make_pair< const object_value*, const object_key& >( nullptr, null_key );
+   return { nullptr, null_key };
 }
 
 std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key )const
@@ -376,11 +376,11 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
       --it;
       if( it->space == space )
       {
-         return std::make_pair< const object_value*, const object_key& >( &it->value, it->key );
+         return { &it->value, it->key };
       }
    }
 
-   return std::make_pair< const object_value*, const object_key& >( nullptr, null_key );
+   return { nullptr, null_key };
 }
 
 bool state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
