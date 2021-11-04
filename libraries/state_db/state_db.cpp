@@ -60,7 +60,7 @@ class state_node_impl final
       const object_value* get_object( const object_space& space, const object_key& key )const;
       std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
       std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
-      void put_object( const object_space& space, const object_key& key, const object_value* val );
+      bool put_object( const object_space& space, const object_key& key, const object_value* val );
       bool is_empty()const;
 
       state_delta_ptr   _state;
@@ -374,13 +374,16 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
    if( it != idx.begin() )
    {
       --it;
-      return std::make_pair< const object_value*, const object_key& >( &it->value, it->key );
+      if( it->space == space )
+      {
+         return std::make_pair< const object_value*, const object_key& >( &it->value, it->key );
+      }
    }
 
    return std::make_pair< const object_value*, const object_key& >( nullptr, null_key );
 }
 
-void state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
+bool state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
    KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
    auto idx = merge_index< state_object_index, by_key >( _state );
@@ -400,6 +403,8 @@ void state_node_impl::put_object( const object_space& space, const object_key& k
          // exist -> dne, remove()
          _state->erase( *pobj );
       }
+
+      return true;
    }
    else if( val != nullptr )
    {
@@ -411,6 +416,8 @@ void state_node_impl::put_object( const object_space& space, const object_key& k
          obj.value = *val;
       });
    }
+
+   return false;
 }
 
 bool state_node_impl::is_empty()const
@@ -438,9 +445,9 @@ std::pair< const object_value*, const object_key& > abstract_state_node::get_pre
    return impl->get_prev_object( space, key );
 }
 
-void abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
+bool abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
-   impl->put_object( space, key, val );
+   return impl->put_object( space, key, val );
 }
 
 bool abstract_state_node::is_writable()const

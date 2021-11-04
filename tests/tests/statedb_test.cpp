@@ -135,40 +135,17 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
-
-   put_object_args put_args;
-   put_object_result put_res;
-   vectorstream vs;
-   to_binary( vs, book_a );
-   put_args.space = space;
-   put_args.key = util::converter::as< object_key >( book_a.id );
-   put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   put_args.object_size = vs.vector().size();
-
-   state_1->put_object( put_res, put_args );
-   BOOST_REQUIRE( !put_res.object_existed );
-
-   std::vector< char > other_buf;
-   // More than enough space...
-   other_buf.resize( 1024 );
-   vs.swap_vector( other_buf );
-   get_object_args get_args;
-   get_object_result get_res;
-   get_args.space = space;
-   get_args.key = util::converter::as< object_key >( book_a.id );
-   get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   get_args.buf_size = vs.vector().size();
+   auto book_a_id = util::converter::as< object_key >( book_a.id );
+   auto book_value = util::converter::as< object_value >( book_a );
+   BOOST_REQUIRE( !state_1->put_object( space, book_a_id, &book_value ) );
 
    // Book should not exist on older state node
-   db.get_root()->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == object_key() );
-   BOOST_REQUIRE_EQUAL( get_res.size, -1 );
+   BOOST_REQUIRE( db.get_root()->get_object( space, book_a_id ) == nullptr );
 
-   state_1->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   from_binary( vs, get_book );
+   auto ptr = state_1->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
@@ -177,22 +154,13 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    book_a.a = 5;
    book_a.b = 6;
-   vs.swap_vector( other_buf );
-   to_binary( vs, book_a );
-   put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   put_args.object_size = vs.vector().size();
+   book_value = util::converter::as< object_value >( book_a );
+   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) );
 
-   state_1->put_object( put_res, put_args );
-   BOOST_REQUIRE( put_res.object_existed );
+   ptr = state_1->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
-   vs.swap_vector( other_buf );
-   get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-
-   state_1->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   from_binary( vs, get_book );
-
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
@@ -203,62 +171,44 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    db.finalize_node( state_1->id() );
 
-   vs.swap_vector( other_buf );
-   put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   BOOST_REQUIRE_THROW( state_1->put_object( put_res, put_args ), node_finalized );
+
+   BOOST_REQUIRE_THROW( state_1->put_object( space, book_a_id, &book_value ), node_finalized );
 
    state_2 = db.create_writable_node( state_1->id(), state_id );
    book_a.a = 7;
    book_a.b = 8;
-   to_binary( vs, book_a );
-   put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   state_2->put_object( put_res, put_args );
-   BOOST_REQUIRE( put_res.object_existed );
+   book_value = util::converter::as< object_value >( book_a );
+   BOOST_REQUIRE( state_2->put_object( space, book_a_id, &book_value ) );
 
-   vs.swap_vector( other_buf );
-   get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
+   ptr = state_2->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
-   state_2->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   from_binary( vs, get_book );
-
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
 
-   vs.seekp( 0 );
-   vs.seekg( 0 );
-   state_1->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   from_binary( vs, get_book );
+   ptr = state_1->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, 5 );
    BOOST_REQUIRE_EQUAL( get_book.b, 6 );
 
    BOOST_TEST_MESSAGE( "Erasing book" );
-   put_args.buf = nullptr;
-   put_args.object_size = 0;
-   state_2->put_object( put_res, put_args );
-   BOOST_REQUIRE( put_res.object_existed );
+   BOOST_REQUIRE( state_2->put_object( space, book_a_id, nullptr ) );
 
-   state_2->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == object_key() );
-   BOOST_REQUIRE( get_res.size == -1 );
+   BOOST_REQUIRE( !state_2->get_object( space, book_a_id ) );
 
    db.discard_node( state_2->id() );
    state_2 = db.get_node( state_2->id() );
    BOOST_REQUIRE( !state_2 );
 
-   vs.seekp( 0 );
-   vs.seekg( 0 );
-   state_1->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)other_buf.size() );
-   from_binary( vs, get_book );
+   ptr = state_1->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, 5 );
    BOOST_REQUIRE_EQUAL( get_book.b, 6 );
@@ -1454,39 +1404,18 @@ BOOST_AUTO_TEST_CASE( reset_test )
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+   auto book_a_id = util::converter::as< object_key >( book_a.id );
+   auto book_value = util::converter::as< object_value >( book_a );
 
-   put_object_args put_args;
-   put_object_result put_res;
-   vectorstream vs;
-   to_binary( vs, book_a );
-   put_args.space = space;
-   put_args.key = util::converter::as< object_key >( book_a.id );
-   put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   put_args.object_size = vs.vector().size();
-
-   state_1->put_object( put_res, put_args );
-   BOOST_REQUIRE( !put_res.object_existed );
+   BOOST_REQUIRE( !state_1->put_object( space, book_a_id, &book_value ) );
    state_1.reset();
 
    BOOST_TEST_MESSAGE( "Resetting database" );
    db.reset();
    auto head = db.get_head();
 
-   std::vector< char > other_buf;
-   // More than enough space...
-   other_buf.resize( 1024 );
-   vs.swap_vector( other_buf );
-   get_object_args get_args;
-   get_object_result get_res;
-   get_args.space = space;
-   get_args.key = util::converter::as< object_key >( book_a.id );
-   get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   get_args.buf_size = vs.vector().size();
-
    // Book should not exist on reset db
-   head->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == object_key() );
-   BOOST_REQUIRE_EQUAL( get_res.size, -1 );
+   BOOST_REQUIRE( !head->get_object( space, book_a_id ) );
    BOOST_REQUIRE( head->id() == crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
    BOOST_REQUIRE( head->revision() == 0 );
 
@@ -1504,35 +1433,15 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+   auto book_a_id = util::converter::as< object_key >( book_a.id );
+   auto book_value = util::converter::as< object_value >( book_a );
 
-   put_object_args put_args;
-   put_object_result put_res;
-   vectorstream vs;
-   to_binary( vs, book_a );
-   put_args.space = space;
-   put_args.key = util::converter::as< object_key >( book_a.id );
-   put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   put_args.object_size = vs.vector().size();
+   BOOST_REQUIRE( !state_1->put_object( space, book_a_id, &book_value ) );
 
-   state_1->put_object( put_res, put_args );
-   BOOST_REQUIRE( !put_res.object_existed );
+   auto ptr = state_1->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
-   std::vector< char > other_buf;
-   // More than enough space...
-   other_buf.resize( 1024 );
-   vs.swap_vector( other_buf );
-   get_object_args get_args;
-   get_object_result get_res;
-   get_args.space = space;
-   get_args.key = util::converter::as< object_key >( book_a.id );
-   get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-   get_args.buf_size = vs.vector().size();
-
-   state_1->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   from_binary( vs, get_book );
-
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
@@ -1549,34 +1458,21 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
 
       book_a.a = 5;
       book_a.b = 6;
-      vs.swap_vector( other_buf );
-      to_binary( vs, book_a );
-      put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-      put_args.object_size = vs.vector().size();
+      book_value = util::converter::as< object_value >( book_a );
+      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) );
 
-      anon_state->put_object( put_res, put_args );
-      BOOST_REQUIRE( put_res.object_existed );
+      ptr = state_1->get_object( space, book_a_id );
+      BOOST_REQUIRE( ptr );
 
-      vs.swap_vector( other_buf );
-      get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-
-      state_1->get_object( get_res, get_args );
-      BOOST_REQUIRE( get_res.key == get_args.key );
-      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-      from_binary( vs, get_book );
-
+      get_book = util::converter::to< book >( *ptr );
       BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
       BOOST_REQUIRE_EQUAL( get_book.a, 3 );
       BOOST_REQUIRE_EQUAL( get_book.b, 4 );
 
-      vs.swap_vector( other_buf );
-      get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
+      ptr = anon_state->get_object( space, book_a_id );
+      BOOST_REQUIRE( ptr );
 
-      anon_state->get_object( get_res, get_args );
-      BOOST_REQUIRE( get_res.key == get_args.key );
-      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-      from_binary( vs, get_book );
-
+      get_book = util::converter::to< book >( *ptr );
       BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
       BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
       BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
@@ -1592,33 +1488,21 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
 
       book_a.a = 5;
       book_a.b = 6;
-      to_binary( vs, book_a );
-      put_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-      put_args.object_size = vs.vector().size();
+      book_value = util::converter::as< object_value >( book_a );
+      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) );
 
-      anon_state->put_object( put_res, put_args );
-      BOOST_REQUIRE( put_res.object_existed );
+      ptr = state_1->get_object( space, book_a_id );
+      BOOST_REQUIRE( ptr );
 
-      vs.swap_vector( other_buf );
-      get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
-
-      state_1->get_object( get_res, get_args );
-      BOOST_REQUIRE( get_res.key == get_args.key );
-      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-      from_binary( vs, get_book );
-
+      get_book = util::converter::to< book >( *ptr );
       BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
       BOOST_REQUIRE_EQUAL( get_book.a, 3 );
       BOOST_REQUIRE_EQUAL( get_book.b, 4 );
 
-      vs.swap_vector( other_buf );
-      get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
+      ptr = anon_state->get_object( space, book_a_id );
+      BOOST_REQUIRE( ptr );
 
-      anon_state->get_object( get_res, get_args );
-      BOOST_REQUIRE( get_res.key == get_args.key );
-      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-      from_binary( vs, get_book );
-
+      get_book = util::converter::to< book >( *ptr );
       BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
       BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
       BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
@@ -1626,27 +1510,19 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
       BOOST_TEST_MESSAGE( "Committing anonymous node" );
       anon_state->commit();
 
-      vs.swap_vector( other_buf );
-      get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
+      ptr = state_1->get_object( space, book_a_id );
+      BOOST_REQUIRE( ptr );
 
-      state_1->get_object( get_res, get_args );
-      BOOST_REQUIRE( get_res.key == get_args.key );
-      BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-      from_binary( vs, get_book );
-
+      get_book = util::converter::to< book >( *ptr );
       BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
       BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
       BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
    }
 
-   vs.swap_vector( other_buf );
-   get_args.buf = reinterpret_cast< std::byte* >( const_cast< char* >( vs.vector().data() ) );
+   ptr = state_1->get_object( space, book_a_id );
+   BOOST_REQUIRE( ptr );
 
-   state_1->get_object( get_res, get_args );
-   BOOST_REQUIRE( get_res.key == get_args.key );
-   BOOST_REQUIRE( get_res.size == (int64_t)put_args.object_size );
-   from_binary( vs, get_book );
-
+   get_book = util::converter::to< book >( *ptr );
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );

@@ -60,17 +60,11 @@ struct thunk_fixture
       {
          for ( const auto& entry : genesis_data )
          {
-            state_db::put_object_args put_args;
-            put_args.space = entry.first.first;
-            put_args.key = entry.first.second;
-            put_args.buf = entry.second.data();
-            put_args.object_size = entry.second.size();
-
-            state_db::put_object_result put_res;
-            root->put_object( put_res, put_args );
+            auto value = util::converter::as< state_db::object_value >( entry.second );
+            auto res = root->put_object( entry.first.first, entry.first.second, &value );
 
             KOINOS_ASSERT(
-               !put_res.object_existed,
+               !res,
                chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
@@ -193,6 +187,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
    BOOST_REQUIRE( obj_blob == "object3" );
 
    obj_blob = chain::system_call::get_prev_object( ctx, chain::state::space::meta(), util::converter::as< std::string >( 2 ), 8 );
+   LOG(info) << obj_blob;
    BOOST_REQUIRE( obj_blob == "object1" );
 
    BOOST_TEST_MESSAGE( "Test iterator overrun" );

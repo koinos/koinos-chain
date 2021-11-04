@@ -495,14 +495,13 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    auto val = util::converter::as< state_db::object_value >( obj );
 
-   state_db::put_object_result put_res;
-   state->put_object(
-      util::converter::as< state_db::object_space >( space ),
-      util::converter::as< state_db::object_key >( key ),
-      val.size() ? &val : nullptr );
-
    put_object_result ret;
-   ret.set_value( true /* this is a dumb response*/ );
+   ret.set_value(
+      state->put_object(
+         util::converter::as< state_db::object_space >( space ),
+         util::converter::as< state_db::object_key >( key ),
+         val.size() ? &val : nullptr ) );
+
    return ret;
 }
 
@@ -524,7 +523,7 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
    if( result )
    {
-      ret.set_value( util::converter::to< std::string >( *result ) );
+      ret.set_value( result->data(), result->size() );
    }
 
    return ret;
@@ -548,7 +547,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
 
    if( result )
    {
-      ret.set_value( util::converter::to< std::string >( *result ) );
+      ret.set_value( result->data(), result->size() );
    }
 
    return ret;
@@ -564,7 +563,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    state_db::get_object_result get_res;
-   const auto [result, next_key] = state->get_next_object(
+   const auto [result, next_key] = state->get_prev_object(
       util::converter::as< state_db::object_space >( space ),
       util::converter::as< state_db::object_key >( key ) );
 
@@ -572,7 +571,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 
    if( result )
    {
-      ret.set_value( util::converter::to< std::string >( *result ) );
+      ret.set_value( result->data(), result->size() );
    }
 
    return ret;

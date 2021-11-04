@@ -97,7 +97,7 @@ class abstract_state_node
        * - If object exists, object is overwritten.
        * - If buf == nullptr, object is deleted.
        */
-      void put_object( const object_space& space, const object_key& key, const object_value* val );
+      bool put_object( const object_space& space, const object_key& key, const object_value* val );
 
       /**
        * Return true if the node is writable.

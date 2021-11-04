@@ -498,26 +498,14 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   boost::interprocess::basic_ivectorstream< std::vector< char > > chain_id_stream;
-   std::vector< char > chain_id_vector;
-   chain_id_vector.resize( 128 );
-   chain_id_stream.swap_vector( chain_id_vector );
-
-   state_db::state_node_ptr head;
-
-   head = _db.get_head();
-
-   auto result = head->get_object( util::converter::as< state_db::object_space >( state::space::meta() ), util::converter::as< state_db::object_key >( state::key::chain_id ) );
+   auto result = _db.get_head()->get_object( util::converter::as< state_db::object_space >( state::space::meta() ), util::converter::as< state_db::object_key >( state::key::chain_id ) );
 
    KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
 
-   crypto::multihash chain_id;
-   from_binary( chain_id_stream, chain_id );
-
-   LOG(debug) << "get_chain_id: " << chain_id;
+   LOG(debug) << "get_chain_id: " << util::converter::to< crypto::multihash >( *result );
 
    rpc::chain::get_chain_id_response resp;
-   resp.set_chain_id( util::converter::as< std::string >( chain_id ) );
+   resp.set_chain_id( result->data(), result->size() );
 
    return resp;
 }
