@@ -2,6 +2,7 @@
 
 #include <list>
 #include <map>
+#include <string>
 
 namespace koinos::vm_manager::fizzy {
 
