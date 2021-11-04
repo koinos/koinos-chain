@@ -30,7 +30,7 @@ class vm_backend
       /**
        * Run some bytecode.
        */
-      virtual void run( abstract_host_api&, char* bytecode_data, size_t bytecode_size ) = 0;
+      virtual void run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id = std::string() ) = 0;
 };
 
 /**

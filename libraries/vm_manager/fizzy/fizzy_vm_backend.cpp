@@ -11,9 +11,12 @@
 #include <string>
 #include <iostream>
 
-#define FIZZY_MAX_CALL_DEPTH   251
-
 namespace koinos::vm_manager::fizzy {
+
+namespace constants {
+   constexpr uint32_t    fizzy_max_call_depth = 251;
+   constexpr std::size_t module_cache_size    = 32;
+}
 
 /**
  * Convert a pointer from inside the VM to a native pointer.
@@ -43,7 +46,8 @@ char* resolve_ptr( FizzyInstance* fizzy_instance, uint32_t ptr, uint32_t size )
    return mem_data + ptr;
 }
 
-fizzy_vm_backend::fizzy_vm_backend() {}
+fizzy_vm_backend::fizzy_vm_backend() :
+   _cache( constants::module_cache_size ) {}
 fizzy_vm_backend::~fizzy_vm_backend() {}
 
 std::string fizzy_vm_backend::backend_name()
@@ -79,10 +83,10 @@ std::string fizzy_error_code_name(FizzyErrorCode code) noexcept
 class fizzy_runner
 {
    public:
-      fizzy_runner( abstract_host_api& h ) : _hapi(h) {}
+      fizzy_runner( abstract_host_api& h, const FizzyModule* m ) : _hapi(h), _module(m) {}
       ~fizzy_runner();
 
-      void parse_bytecode( char* bytecode_data, size_t bytecode_size );
+      const FizzyModule* parse_bytecode( const char* bytecode_data, size_t bytecode_size );
       void instantiate_module();
       void call_start();
 
@@ -122,12 +126,12 @@ fizzy_runner::~fizzy_runner()
       fizzy_free_execution_context(_fizzy_context);
 }
 
-void fizzy_runner::parse_bytecode( char* bytecode_data, size_t bytecode_size )
+const FizzyModule* parse_bytecode( const char* bytecode_data, size_t bytecode_size )
 {
    KOINOS_ASSERT( bytecode_data != nullptr, fizzy_returned_null_exception, "fizzy_instance was unexpectedly null pointer" );
-   KOINOS_ASSERT( _module == nullptr, runner_state_exception, "_module was unexpectedly non-null" );
-   _module = fizzy_parse((uint8_t *) bytecode_data, bytecode_size, nullptr);
-   KOINOS_ASSERT( _module != nullptr, module_parse_exception, "could not parse fizzy module" );
+   auto module_ptr = fizzy_parse(reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, nullptr);
+   KOINOS_ASSERT( module_ptr != nullptr, module_parse_exception, "could not parse fizzy module" );
+   return module_ptr;
 }
 
 void fizzy_runner::instantiate_module()
@@ -262,7 +266,7 @@ void fizzy_runner::call_start()
 {
    KOINOS_ASSERT( _fizzy_context == nullptr, runner_state_exception, "_fizzy_context was unexpectedly non-null" );
    _previous_ticks = _hapi.get_meter_ticks();
-   _fizzy_context = fizzy_create_metered_execution_context( FIZZY_MAX_CALL_DEPTH, _previous_ticks );
+   _fizzy_context = fizzy_create_metered_execution_context( constants::fizzy_max_call_depth, _previous_ticks );
    KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "could not create execution context" );
 
    uint32_t start_func_idx = 0;
@@ -288,10 +292,25 @@ void fizzy_runner::call_start()
    }
 }
 
-void fizzy_vm_backend::run( abstract_host_api& hapi, char* bytecode_data, size_t bytecode_size )
+void fizzy_vm_backend::run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id )
 {
-   fizzy_runner runner(hapi);
-   runner.parse_bytecode( bytecode_data, bytecode_size );
+   const FizzyModule* module_ptr = nullptr;
+
+   if ( id.size() )
+   {
+      module_ptr = _cache.get_module( id );
+      if ( !module_ptr )
+      {
+         module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
+         _cache.put_module( id, module_ptr );
+      }
+   }
+   else
+   {
+      module_ptr = module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
+   }
+
+   fizzy_runner runner(hapi, module_ptr );
    runner.instantiate_module();
    runner.call_start();
 }

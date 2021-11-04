@@ -5,6 +5,7 @@ add_library(koinos_vm_manager_lib
             vm_backend.cpp
 
             fizzy/fizzy_vm_backend.cpp
+            fizzy/module_cache.cpp
 
             ${HEADERS})
 target_link_libraries(koinos_vm_manager_lib Koinos::exception Koinos::log Koinos::util fizzy::fizzy)
