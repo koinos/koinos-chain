@@ -557,9 +557,15 @@ int main( int argc, char** argv )
       signals.async_wait( [&]( const system::error_code& err, int num )
       {
          LOG(info) << "Caught signal, shutting down...";
-         work_context.stop();
-         main_context.stop();
-         mq_client->disconnect();
+         boost::asio::post(
+            main_context,
+            [&]()
+            {
+               work_context.stop();
+               main_context.stop();
+               mq_client->disconnect();
+            }
+         );
       } );
 
       std::vector< std::thread > threads;
