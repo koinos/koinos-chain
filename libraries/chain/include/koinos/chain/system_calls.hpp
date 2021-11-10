@@ -98,4 +98,6 @@ THUNK_DECLARE( consume_account_rc_result, consume_account_rc, const std::string&
 THUNK_DECLARE_VOID( get_resource_limits_result, get_resource_limits );
 THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t disk, uint64_t network, uint64_t compute );
 
+THUNK_DECLARE( void, event, const std::string& name, const std::string& data );
+
 } // koinos::chain

@@ -142,6 +142,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    KOINOS_ASSERT( request.block().passive().size() == 0, missing_required_arguments, "unexpected value in field in block: ${f}", ("f", "passive") );
    KOINOS_ASSERT( request.block().signature_data().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
 
+   rpc::chain::submit_block_response resp;
+
    static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
 
@@ -239,16 +241,27 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          KOINOS_ASSERT( resp.has_add_block(), koinos::exception, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
+      uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
+      uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
+      uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
+
+      protocol::block_receipt receipt;
+      *receipt.mutable_block() = block;
+      receipt.set_compute_bandwidth_used( compute_bandwidth_used );
+      receipt.set_disk_storage_used( disk_storage_used );
+      receipt.set_network_bandwidth_used( network_bandwidth_used );
+
+      for ( auto& event : ctx.events() )
+         *receipt.add_events() = event;
+
+      *resp.mutable_receipt() = receipt;
+
       if ( !index_to )
       {
          auto num_transactions = block.transactions_size();
 
          LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
-
-         auto disk = ctx.resource_meter().disk_storage_used();
-         auto network = ctx.resource_meter().network_bandwidth_used();
-         auto compute = ctx.resource_meter().compute_bandwidth_used();
-         LOG(info) << "Consumed resources: " << disk << " disk, " << network << " network, " << compute << " compute";
+         LOG(info) << "Consumed resources: " << disk_storage_used << " disk, " << network_bandwidth_used << " network, " << compute_bandwidth_used << " compute";
       }
       else if ( block_height % index_message_interval == 0 )
       {
@@ -292,8 +305,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          try
          {
             broadcast::block_accepted ba;
-
-            ba.mutable_block()->CopyFrom( block );
+            *ba.mutable_receipt() = receipt;
 
             _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
          }
@@ -321,7 +333,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
    }
-   catch( const std::exception& e )
+   catch ( const std::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
 
@@ -339,7 +351,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       throw;
    }
-   catch( ... )
+   catch ( ... )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
 
@@ -358,7 +370,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       throw;
    }
 
-   return {};
+   return resp;
 }
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
@@ -369,6 +381,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    KOINOS_ASSERT( request.transaction().active().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "active") );
    KOINOS_ASSERT( request.transaction().passive().size() == 0, missing_required_arguments, "unexpected value in field in transaction: ${f}", ("f", "passive") );
    KOINOS_ASSERT( request.transaction().signature_data().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
+
+   rpc::chain::submit_transaction_response resp;
 
    std::string payer;
    uint64_t max_payer_rc;
@@ -401,7 +415,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       system_call::apply_transaction( ctx, transaction );
 
-      uint64_t disk_storage_used = ctx.resource_meter().disk_storage_used();
+      uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
@@ -425,20 +439,28 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
+      protocol::transaction_receipt receipt;
+      *receipt.mutable_transaction() = transaction;
+      receipt.set_payer( payer );
+      receipt.set_max_payer_rc( max_payer_rc );
+      receipt.set_rc_limit( trx_rc_limit );
+      receipt.set_height( ctx.get_state_node()->revision() );
+      receipt.set_disk_storage_used( disk_storage_used );
+      receipt.set_network_bandwidth_used( network_bandwidth_used );
+      receipt.set_compute_bandwidth_used( compute_bandwidth_used );
+
+      for ( auto& event : ctx.events() )
+         *receipt.add_events() = event;
+
+      *resp.mutable_receipt() = receipt;
+
       if ( _client && _client->is_running() )
       {
          try
          {
             broadcast::transaction_accepted ta;
 
-            *ta.mutable_transaction() = transaction;
-            ta.set_payer( payer );
-            ta.set_max_payer_rc( max_payer_rc );
-            ta.set_rc_limit( trx_rc_limit );
-            ta.set_height( ctx.get_state_node()->revision() );
-            ta.set_disk_storage_used( disk_storage_used );
-            ta.set_network_bandwidth_used( network_bandwidth_used );
-            ta.set_compute_bandwidth_used( compute_bandwidth_used );
+            *ta.mutable_receipt() = receipt;
 
             _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
          }
@@ -474,7 +496,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       throw;
    }
 
-   return {};
+   return resp;
 }
 
 rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::chain::get_head_info_request& )

@@ -69,6 +69,8 @@ void register_thunks( thunk_dispatcher& td )
       (consume_account_rc)
       (get_resource_limits)
       (consume_block_resources)
+
+      (event)
    )
 }
 
@@ -908,6 +910,19 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
    consume_block_resources_result ret;
    ret.set_value( true );
    return ret;
+}
+
+THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data) )
+{
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+   context.resource_meter().use_network_bandwidth( context.get_caller().size() + name.size() + data.size() );
+
+   protocol::event_data ev;
+   ev.set_source( util::converter::as< std::string >( context.get_caller() ) );
+   ev.set_name( name );
+   ev.set_data( data );
+
+   context.push_event( std::move( ev ) );
 }
 
 THUNK_DEFINE_END();

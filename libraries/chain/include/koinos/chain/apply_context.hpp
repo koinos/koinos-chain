@@ -90,6 +90,9 @@ class apply_context
 
       chain::resource_meter& resource_meter();
 
+      void push_event( protocol::event_data&& ev );
+      const std::vector< protocol::event_data >& events();
+
    private:
       friend struct frame_restorer;
 
@@ -111,6 +114,7 @@ class apply_context
       const protocol::transaction*              _trx = nullptr;
 
       chain::resource_meter                     _resource_meter;
+      std::vector< protocol::event_data >       _events;
 };
 
 struct frame_restorer

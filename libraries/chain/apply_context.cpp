@@ -178,4 +178,14 @@ resource_meter& apply_context::resource_meter()
    return _resource_meter;
 }
 
+void apply_context::push_event( protocol::event_data&& ev )
+{
+   _events.emplace_back( std::move( ev ) );
+}
+
+const std::vector< protocol::event_data >& apply_context::events()
+{
+   return _events;
+}
+
 } // koinos::chain
