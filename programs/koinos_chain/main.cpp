@@ -207,7 +207,7 @@ void attach_request_handler(
          try
          {
             rpc::chain::submit_block_request sub_block;
-            sub_block.set_allocated_block( bam.mutable_receipt()->release_block() );
+            sub_block.set_allocated_block( bam.release_block() );
             sub_block.set_verify_passive_data( false );
             sub_block.set_verify_block_signature( true );
             sub_block.set_verify_transaction_signature( false );
