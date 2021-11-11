@@ -60,7 +60,7 @@ class state_node_impl final
       const object_value* get_object( const object_space& space, const object_key& key )const;
       std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
       std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
-      bool put_object( const object_space& space, const object_key& key, const object_value* val );
+      int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
       bool is_empty()const;
 
       state_delta_ptr   _state;
@@ -383,13 +383,16 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
    return { nullptr, null_key };
 }
 
-bool state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
+int32_t state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
+   int32_t bytes_used = val != nullptr ? val->size() : 0;
    KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
    auto idx = merge_index< state_object_index, by_key >( _state );
    auto pobj = idx.find( boost::make_tuple( space, key ) );
    if( pobj != nullptr )
    {
+      bytes_used -= pobj->value.size();
+
       if( val != nullptr )
       {
          // exist -> exist, modify()
@@ -403,8 +406,6 @@ bool state_node_impl::put_object( const object_space& space, const object_key& k
          // exist -> dne, remove()
          _state->erase( *pobj );
       }
-
-      return true;
    }
    else if( val != nullptr )
    {
@@ -417,7 +418,7 @@ bool state_node_impl::put_object( const object_space& space, const object_key& k
       });
    }
 
-   return false;
+   return bytes_used;
 }
 
 bool state_node_impl::is_empty()const
@@ -445,7 +446,7 @@ std::pair< const object_value*, const object_key& > abstract_state_node::get_pre
    return impl->get_prev_object( space, key );
 }
 
-bool abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
+int32_t abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
    return impl->put_object( space, key, val );
 }

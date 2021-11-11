@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
    auto book_a_id = util::converter::as< object_key >( book_a.id );
    auto book_value = util::converter::as< object_value >( book_a );
-   BOOST_REQUIRE( !state_1->put_object( space, book_a_id, &book_value ) );
+   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == book_value.size() );
 
    // Book should not exist on older state node
    BOOST_REQUIRE( db.get_root()->get_object( space, book_a_id ) == nullptr );
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.a = 5;
    book_a.b = 6;
    book_value = util::converter::as< object_value >( book_a );
-   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) );
+   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == 0 );
 
    ptr = state_1->get_object( space, book_a_id );
    BOOST_REQUIRE( ptr );
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    book_a.a = 7;
    book_a.b = 8;
    book_value = util::converter::as< object_value >( book_a );
-   BOOST_REQUIRE( state_2->put_object( space, book_a_id, &book_value ) );
+   BOOST_REQUIRE( state_2->put_object( space, book_a_id, &book_value ) == 0 );
 
    ptr = state_2->get_object( space, book_a_id );
    BOOST_REQUIRE( ptr );
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_REQUIRE_EQUAL( get_book.b, 6 );
 
    BOOST_TEST_MESSAGE( "Erasing book" );
-   BOOST_REQUIRE( state_2->put_object( space, book_a_id, nullptr ) );
+   BOOST_REQUIRE( state_2->put_object( space, book_a_id, nullptr ) == -1 * book_value.size() );
 
    BOOST_REQUIRE( !state_2->get_object( space, book_a_id ) );
 
@@ -1407,7 +1407,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    auto book_a_id = util::converter::as< object_key >( book_a.id );
    auto book_value = util::converter::as< object_value >( book_a );
 
-   BOOST_REQUIRE( !state_1->put_object( space, book_a_id, &book_value ) );
+   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == book_value.size() );
    state_1.reset();
 
    BOOST_TEST_MESSAGE( "Resetting database" );
@@ -1436,7 +1436,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    auto book_a_id = util::converter::as< object_key >( book_a.id );
    auto book_value = util::converter::as< object_value >( book_a );
 
-   BOOST_REQUIRE( !state_1->put_object( space, book_a_id, &book_value ) );
+   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == book_value.size() );
 
    auto ptr = state_1->get_object( space, book_a_id );
    BOOST_REQUIRE( ptr );
@@ -1459,7 +1459,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
       book_a.a = 5;
       book_a.b = 6;
       book_value = util::converter::as< object_value >( book_a );
-      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) );
+      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) == 0 );
 
       ptr = state_1->get_object( space, book_a_id );
       BOOST_REQUIRE( ptr );
@@ -1489,7 +1489,7 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
       book_a.a = 5;
       book_a.b = 6;
       book_value = util::converter::as< object_value >( book_a );
-      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) );
+      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) == 0 );
 
       ptr = state_1->get_object( space, book_a_id );
       BOOST_REQUIRE( ptr );

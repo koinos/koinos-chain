@@ -102,11 +102,10 @@ void controller_impl::open( const std::filesystem::path& p, const std::any& o, c
       for ( const auto& entry : data )
       {
          KOINOS_ASSERT(
-            !root->put_object( entry.first.first, entry.first.second, &entry.second ),
+            root->put_object( entry.first.first, entry.first.second, &entry.second ) == entry.second.size(),
             koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
-
       }
       LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
    } );
