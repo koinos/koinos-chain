@@ -4,6 +4,7 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/exception.hpp>
+#include <koinos/state_db/backends/rocksdb/rocksdb_backend.hpp>
 #include <koinos/state_db/detail/merge_iterator.hpp>
 #include <koinos/state_db/detail/objects.hpp>
 #include <koinos/state_db/detail/state_delta.hpp>
@@ -24,6 +25,7 @@ using state_db::detail::merge_index;
 using state_db::detail::state_delta;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
+using namespace std::string_literals;
 
 struct test_block
 {
@@ -1526,6 +1528,75 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
    BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
    BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
+{ try {
+   koinos::state_db::backends::rocksdb::rocksdb_backend backend;
+
+   auto itr = backend.begin();
+   BOOST_CHECK( itr == backend.end() );
+
+   auto foo_key = std::make_pair< std::string, std::string >( "foo", "1" );
+   BOOST_CHECK( backend.put( foo_key, "bar" ) );
+   itr = backend.begin();
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   auto alice_key = std::make_pair< std::string, std::string >( "alice", "1" );
+   BOOST_CHECK( backend.put( alice_key, "bob" ) );
+
+   itr = backend.begin();
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bob" );
+
+   ++itr;
+   BOOST_CHECK( *itr == "bar" );
+
+   ++itr;
+   BOOST_CHECK( itr == backend.end() );
+
+   --itr;
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   auto charlie_key = std::make_pair< std::string, std::string >( "charlie", "1" );
+   itr = backend.lower_bound( charlie_key );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   itr = backend.lower_bound( foo_key );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   itr = backend.upper_bound( alice_key );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   BOOST_CHECK( backend.put( foo_key, "blob" ) );
+   itr = backend.find( foo_key );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "blob" );
+
+   --itr;
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bob" );
+
+   BOOST_CHECK( backend.erase( foo_key ) );
+
+   itr = backend.begin();
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bob" );
+
+   itr = backend.find( foo_key );
+   BOOST_CHECK( itr == backend.end() );
+
+   BOOST_CHECK( !backend.erase( foo_key ) );
+
+   BOOST_CHECK( backend.erase( alice_key ) );
+   itr = backend.end();
+   BOOST_CHECK( itr == backend.end() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

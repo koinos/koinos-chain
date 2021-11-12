@@ -544,7 +544,6 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   state_db::get_object_result get_res;
    const auto [result, next_key] = state->get_next_object(
       util::converter::as< state_db::object_space >( space ),
       util::converter::as< state_db::object_key >( key ) );
@@ -568,7 +567,6 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   state_db::get_object_result get_res;
    const auto [result, next_key] = state->get_prev_object(
       util::converter::as< state_db::object_space >( space ),
       util::converter::as< state_db::object_key >( key ) );

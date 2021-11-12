@@ -13,37 +13,12 @@
 namespace koinos::state_db {
 
 namespace detail {
+
 class database_impl;
 class state_node_impl;
 class anonymous_state_node_impl;
-}
 
-struct get_object_args
-{
-   object_space     space;
-   object_key       key;
-   std::byte*       buf = nullptr;
-   uint64_t         buf_size = 0;
-};
-
-struct get_object_result
-{
-   object_key       key;
-   int64_t          size = 0;
-};
-
-struct put_object_args
-{
-   object_space     space;
-   object_key       key;
-   const std::byte* buf = nullptr;    // null -> delete object
-   uint64_t         object_size = 0;
-};
-
-struct put_object_result
-{
-   bool             object_existed = false;
-};
+} // detail
 
 class abstract_state_node;
 class anonymous_state_node;
