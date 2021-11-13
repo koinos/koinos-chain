@@ -11,6 +11,7 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/util/base58.hpp>
@@ -323,7 +324,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     * While a reference to the payer_session remains alive, resource usage will be tallied
     * and charged to the current payer.
     */
-   auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
+   auto payer_session = context.make_session( active_data.rc_limit() );
 
    auto account_nonce = system_call::get_account_nonce( context, payer );
    KOINOS_ASSERT(
@@ -374,7 +375,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    // Next nonce should be the current nonce + 1
    system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( active_data.nonce() + 1 ) );
 
-   auto payer_consumed_rc = payer_session->used();
+   auto payer_consumed_rc = payer_session->used_rc();
    payer_session.reset();
 
    KOINOS_ASSERT(
@@ -922,7 +923,7 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
    ev.set_name( name );
    ev.set_data( data );
 
-   context.push_event( std::move( ev ) );
+   context.event_recorder().push_event( std::move( ev ) );
 }
 
 THUNK_DEFINE_END();

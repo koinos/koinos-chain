@@ -246,11 +246,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
       protocol::block_receipt receipt;
+      receipt.set_id( block.id() );
       receipt.set_compute_bandwidth_used( compute_bandwidth_used );
       receipt.set_disk_storage_used( disk_storage_used );
       receipt.set_network_bandwidth_used( network_bandwidth_used );
 
-      for ( auto& event : ctx.events() )
+      for ( auto& event : ctx.event_recorder().events() )
          *receipt.add_events() = event;
 
       *resp.mutable_receipt() = receipt;
@@ -440,6 +441,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
       protocol::transaction_receipt receipt;
+      receipt.set_id( transaction.id() );
       receipt.set_payer( payer );
       receipt.set_max_payer_rc( max_payer_rc );
       receipt.set_rc_limit( trx_rc_limit );
@@ -447,7 +449,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       receipt.set_network_bandwidth_used( network_bandwidth_used );
       receipt.set_compute_bandwidth_used( compute_bandwidth_used );
 
-      for ( auto& event : ctx.events() )
+      for ( auto& event : ctx.event_recorder().events() )
          *receipt.add_events() = event;
 
       *resp.mutable_receipt() = receipt;

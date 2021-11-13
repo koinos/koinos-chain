@@ -178,14 +178,17 @@ resource_meter& apply_context::resource_meter()
    return _resource_meter;
 }
 
-void apply_context::push_event( protocol::event_data&& ev )
+event_recorder& apply_context::event_recorder()
 {
-   _events.emplace_back( std::move( ev ) );
+   return _event_recorder;
 }
 
-const std::vector< protocol::event_data >& apply_context::events()
+std::shared_ptr< session > apply_context::make_session( uint64_t rc )
 {
-   return _events;
+   auto session = std::make_shared< chain::session >( rc );
+   resource_meter().set_session( session );
+   event_recorder().set_session( session );
+   return session;
 }
 
 } // koinos::chain
