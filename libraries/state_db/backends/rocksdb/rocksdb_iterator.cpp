@@ -63,6 +63,8 @@ abstract_iterator& rocksdb_iterator::operator--()
    else
    {
       _iter->Prev();
+
+      KOINOS_ASSERT( _iter->status().ok(), koinos::exception, "" );
    }
 
    update_cache_value();
@@ -82,18 +84,25 @@ std::unique_ptr< abstract_iterator > rocksdb_iterator::copy()const
 
 void rocksdb_iterator::update_cache_value()
 {
-   auto key_slice = _iter->key();
-   std::string key( key_slice.data(), key_slice.size() );
-   std::lock_guard< std::mutex > lock( _cache->get_mutex() );
-   auto ptr = _cache->get( key );
-
-   if ( !ptr )
+   if ( valid() )
    {
-      auto value_slice = _iter->value();
-      ptr = _cache->put( key, std::string( value_slice.data(), value_slice.size() ) );
-   }
+      auto key_slice = _iter->key();
+      std::string key( key_slice.data(), key_slice.size() );
+      std::lock_guard< std::mutex > lock( _cache->get_mutex() );
+      auto ptr = _cache->get( key );
 
-   _cache_value = ptr;
+      if ( !ptr )
+      {
+         auto value_slice = _iter->value();
+         ptr = _cache->put( key, std::string( value_slice.data(), value_slice.size() ) );
+      }
+
+      _cache_value = ptr;
+   }
+   else
+   {
+      _cache_value.reset();
+   }
 }
 
 } // koinos::state_db::backends::rocksdb

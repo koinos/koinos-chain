@@ -1,14 +1,8 @@
 #pragma once
 
-#include <koinos/state_db/backends/iterator.hpp>
-
-#include <string>
+#include <koinos/state_db/backends/types.hpp>
 
 namespace koinos::state_db::backends {
-
-namespace detail {
-   using value_type = std::string;
-} // detail
 
 class iterator;
 

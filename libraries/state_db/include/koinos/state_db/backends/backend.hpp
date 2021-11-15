@@ -2,16 +2,14 @@
 
 #include <koinos/state_db/backends/iterator.hpp>
 
-#include <string>
-
 namespace koinos::state_db::backends {
 
 class abstract_backend
 {
    public:
-      using key_type   = std::pair< std::string, std::string >;
-      using value_type = std::string;
-      using size_type  = std::size_t;
+      using key_type   = detail::key_type;
+      using value_type = detail::value_type;
+      using size_type  = detail::size_type;
 
       virtual ~abstract_backend() {};
 
@@ -19,11 +17,10 @@ class abstract_backend
       virtual iterator end() = 0;
 
       virtual bool put( const key_type& k, const value_type& v ) = 0;
-      virtual bool erase( const key_type& k ) = 0;
+      virtual void erase( const key_type& k ) = 0;
 
       virtual iterator find( const key_type& k ) = 0;
       virtual iterator lower_bound( const key_type& k ) = 0;
-      virtual iterator upper_bound( const key_type& k ) = 0;
 };
 
 } // koinos::state_db::backends

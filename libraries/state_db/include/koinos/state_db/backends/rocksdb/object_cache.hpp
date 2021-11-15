@@ -1,5 +1,7 @@
 #pragma once
 
+#include <koinos/state_db/backends/types.hpp>
+
 #include <rocksdb/slice.h>
 
 #include <list>
@@ -12,8 +14,8 @@ namespace koinos::state_db::backends::rocksdb {
 class object_cache
 {
    public:
-      using key_type       = std::string;
-      using value_type     = std::string;
+      using key_type       = detail::key_type;
+      using value_type     = detail::value_type;
 
    private:
       using lru_list_type  = std::list< key_type >;

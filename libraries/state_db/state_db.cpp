@@ -358,8 +358,13 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
 std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key )const
 {
    auto idx = merge_index< state_object_index, by_key >( _state );
-   auto it = idx.upper_bound( boost::make_tuple( space, key ) );
-   if( ( it != idx.end() ) && ( it->space == space ) )
+   auto it = idx.lower_bound( boost::make_tuple( space, key ) );
+   if ( it != idx.end() )
+   {
+      it++;
+   }
+
+   if( it != idx.end() && it->space == space )
    {
       return { &it->value, it->key };
    }

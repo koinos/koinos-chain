@@ -36,8 +36,8 @@ class rocksdb_iterator final : public abstract_iterator
       std::shared_ptr< ::rocksdb::DB >                _db;
       std::unique_ptr< ::rocksdb::Iterator >          _iter;
       std::shared_ptr< const ::rocksdb::ReadOptions > _opts;
-      std::shared_ptr< object_cache >               _cache;
-      std::shared_ptr< const value_type >           _cache_value;
+      std::shared_ptr< object_cache >                 _cache;
+      std::shared_ptr< const value_type >             _cache_value;
 };
 
 } // koinos::state_db::backends::rocksdb

@@ -27,12 +27,11 @@ class rocksdb_backend final : public abstract_backend {
 
       // Modifiers
       virtual bool put( const key_type& k, const value_type& v );
-      virtual bool erase( const key_type& k );
+      virtual void erase( const key_type& k );
 
       // Lookup
       virtual iterator find( const key_type& k );
       virtual iterator lower_bound( const key_type& k );
-      virtual iterator upper_bound( const key_type& k );
 
    private:
       std::shared_ptr< ::rocksdb::DB >          _db;

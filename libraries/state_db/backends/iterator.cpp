@@ -30,7 +30,7 @@ iterator& iterator::operator++()
 
 iterator& iterator::operator--()
 {
-   KOINOS_ASSERT( valid(), koinos::exception, "" );
+   //KOINOS_ASSERT( valid(), koinos::exception, "" );
 
    --(*_itr);
    return *this;

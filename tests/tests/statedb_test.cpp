@@ -106,6 +106,8 @@ struct state_db_fixture
 {
    state_db_fixture()
    {
+      initialize_logging( "koinos_test", {}, "info" );
+
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       std::filesystem::create_directory( temp );
       std::any cfg = mira::utilities::default_database_configuration();
@@ -115,6 +117,7 @@ struct state_db_fixture
 
    ~state_db_fixture()
    {
+      boost::log::core::get()->remove_all_sinks();
       db.close();
       std::filesystem::remove_all( temp );
    }
@@ -1538,14 +1541,12 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    auto itr = backend.begin();
    BOOST_CHECK( itr == backend.end() );
 
-   auto foo_key = std::make_pair< std::string, std::string >( "foo", "1" );
-   BOOST_CHECK( backend.put( foo_key, "bar" ) );
+   BOOST_CHECK( backend.put( "foo", "bar" ) );
    itr = backend.begin();
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bar" );
 
-   auto alice_key = std::make_pair< std::string, std::string >( "alice", "1" );
-   BOOST_CHECK( backend.put( alice_key, "bob" ) );
+   BOOST_CHECK( backend.put( "alice", "bob" ) );
 
    itr = backend.begin();
    BOOST_CHECK( itr != backend.end() );
@@ -1561,21 +1562,16 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bar" );
 
-   auto charlie_key = std::make_pair< std::string, std::string >( "charlie", "1" );
-   itr = backend.lower_bound( charlie_key );
+   itr = backend.lower_bound( "charlie" );
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bar" );
 
-   itr = backend.lower_bound( foo_key );
+   itr = backend.lower_bound( "foo" );
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bar" );
 
-   itr = backend.upper_bound( alice_key );
-   BOOST_CHECK( itr != backend.end() );
-   BOOST_CHECK( *itr == "bar" );
-
-   BOOST_CHECK( backend.put( foo_key, "blob" ) );
-   itr = backend.find( foo_key );
+   BOOST_CHECK( backend.put( "foo", "blob" ) );
+   itr = backend.find( "foo" );
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "blob" );
 
@@ -1583,18 +1579,18 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bob" );
 
-   BOOST_CHECK( backend.erase( foo_key ) );
+   backend.erase( "foo" );
 
    itr = backend.begin();
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bob" );
 
-   itr = backend.find( foo_key );
+   itr = backend.find( "foo" );
    BOOST_CHECK( itr == backend.end() );
 
-   BOOST_CHECK( !backend.erase( foo_key ) );
+   backend.erase( "foo" );
 
-   BOOST_CHECK( backend.erase( alice_key ) );
+   backend.erase( "alice" );
    itr = backend.end();
    BOOST_CHECK( itr == backend.end() );
 
