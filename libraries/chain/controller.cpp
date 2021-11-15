@@ -1,7 +1,7 @@
 #include <koinos/block_store/block_store.pb.h>
 #include <koinos/broadcast/broadcast.pb.h>
 
-#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
@@ -172,7 +172,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    // than the parent block timestamp.
    if ( block_node && !parent_id.is_zero() )
    {
-      apply_context parent_ctx( _vm_backend );
+      execution_context parent_ctx( _vm_backend, intent::read_only );
 
       parent_ctx.push_frame( stack_frame {
          .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
@@ -186,7 +186,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       time_lower_bound = head_info.head_block_time();
    }
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend, intent::block_application );
 
    try
    {
@@ -397,7 +397,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    auto pending_trx_node = _db.get_head()->create_anonymous_node();
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend, intent::transaction_application );
 
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
@@ -504,7 +504,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -547,7 +547,7 @@ fork_data controller_impl::get_fork_data()
 fork_data controller_impl::get_fork_data_lockless()
 {
    fork_data fdata;
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_fork_data"s ).digest(),
@@ -594,7 +594,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_resource_limits"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -616,7 +616,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
 
    KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "payer") );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_rc"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -659,14 +659,13 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    head_node = _db.get_head();
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "read_contract"s ).digest(),
       .call_privilege = privilege::kernel_mode,
    } );
 
    ctx.set_state_node( head_node );
-   ctx.set_read_only( true );
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( 10'000'000 );
@@ -688,7 +687,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
    KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "account") );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_nonce"s ).digest(),

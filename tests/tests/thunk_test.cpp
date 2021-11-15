@@ -9,7 +9,7 @@
 #include <koinos/log.hpp>
 
 #include <koinos/chain/controller.hpp>
-#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/host_api.hpp>
@@ -41,7 +41,7 @@ struct thunk_fixture
 {
    thunk_fixture() :
       vm_backend( koinos::vm_manager::get_vm_backend() ),
-      ctx( vm_backend ),
+      ctx( vm_backend, chain::intent::block_application ),
       host( ctx )
    {
       KOINOS_ASSERT( vm_backend, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
@@ -132,7 +132,7 @@ struct thunk_fixture
    std::filesystem::path temp;
    koinos::state_db::database db;
    std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
-   koinos::chain::apply_context ctx;
+   koinos::chain::execution_context ctx;
    koinos::chain::host_api host;
    koinos::crypto::private_key _signing_private_key;
 };
@@ -453,7 +453,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
-   ctx.set_in_user_code( true );
+   ctx.set_user_code( true );
    BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{}, false, false, false ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
@@ -499,7 +499,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
 
-   for ( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
+   for ( int i = 2; i <= chain::execution_context::stack_limit; i++ )
    {
       ctx.push_frame( chain::stack_frame{ .call = crypto::hash( crypto::multicodec::ripemd_160, "call"s + std::to_string( i ) ).digest() } );
    }

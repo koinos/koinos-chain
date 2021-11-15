@@ -17,7 +17,7 @@
 
 namespace koinos::chain {
 
-class apply_context;
+class execution_context;
 class thunk_dispatcher;
 
 void register_thunks( thunk_dispatcher& td );

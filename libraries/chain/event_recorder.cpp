@@ -9,6 +9,8 @@ void event_recorder::set_session( std::shared_ptr< abstract_event_session > s )
 
 void event_recorder::push_event( protocol::event_data&& ev )
 {
+   ev.set_sequence( _seq_no );
+
    if ( auto session = _session.lock() )
    {
       session->push_event( std::move( ev ) );
@@ -17,6 +19,8 @@ void event_recorder::push_event( protocol::event_data&& ev )
    {
       _events.emplace_back( std::move( ev ) );
    }
+
+   _seq_no++;
 }
 
 const std::vector< protocol::event_data >& event_recorder::events()

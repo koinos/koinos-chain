@@ -18,6 +18,7 @@ public:
 private:
    std::weak_ptr< abstract_event_session > _session;
    std::vector< protocol::event_data >     _events;
+   uint32_t                                _seq_no = 0;
 };
 
 } // koinos::chain

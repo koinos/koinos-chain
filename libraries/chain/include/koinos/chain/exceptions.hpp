@@ -70,4 +70,8 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
 // Parse exception
 KOINOS_DECLARE_DERIVED_EXCEPTION( parse_failure, chain_exception );
 
+// Intent exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( intent_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_intent, intent_exception );
+
 } // koinos::chain

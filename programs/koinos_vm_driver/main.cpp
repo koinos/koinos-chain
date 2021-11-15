@@ -77,7 +77,7 @@ int main( int argc, char** argv, char** envp )
       vm_backend->initialize();
       LOG(info) << "Initialized " << vm_backend->backend_name() << " VM backend";
 
-      chain::apply_context ctx( vm_backend );
+      chain::execution_context ctx( vm_backend );
 
       auto rld = chain::system_call::get_resource_limits( ctx );
       rld.set_compute_bandwidth_limit( vmap[ TICKS_OPTION ].as< int64_t >() );

@@ -87,7 +87,7 @@ const object_space transaction_nonce()
 
 } // space
 
-void assert_permissions( const apply_context& context, const object_space& space )
+void assert_permissions( const execution_context& context, const object_space& space )
 {
    auto privilege = context.get_privilege();
    auto caller = context.get_caller();
