@@ -42,6 +42,7 @@ class iterator final
       const value_type* operator->()const;
 
       const key_type& key()const;
+      const value_type& value()const;
 
       iterator& operator++();
       iterator& operator--();

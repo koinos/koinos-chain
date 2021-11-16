@@ -67,6 +67,12 @@ void object_cache::remove( const ::rocksdb::Slice& k )
    remove( std::string( k.data(), k.size() ) );
 }
 
+void object_cache::clear()
+{
+   _object_map.clear();
+   _lru_list.clear();
+}
+
 std::mutex& object_cache::get_mutex()
 {
    return _mutex;

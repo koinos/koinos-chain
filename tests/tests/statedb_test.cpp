@@ -12,8 +12,6 @@
 #include <koinos/state_db/state_db.hpp>
 #include <koinos/util/conversion.hpp>
 
-#include <mira/database_configuration.hpp>
-
 #include <boost/container/deque.hpp>
 #include <boost/interprocess/streams/vectorstream.hpp>
 
@@ -111,9 +109,8 @@ struct state_db_fixture
 
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       std::filesystem::create_directory( temp );
-      std::any cfg = mira::utilities::default_database_configuration();
 
-      db.open( temp, cfg );
+      db.open( temp );
    }
 
    ~state_db_fixture()

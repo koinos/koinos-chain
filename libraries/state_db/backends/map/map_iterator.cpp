@@ -18,6 +18,12 @@ const map_iterator::value_type& map_iterator::operator*()const
    return (*_itr)->second;
 }
 
+const map_iterator::key_type& map_iterator::key()const
+{
+   KOINOS_ASSERT( valid(), koinos::exception, "" );
+   return (*_itr)->first;
+}
+
 abstract_iterator& map_iterator::operator++()
 {
    KOINOS_ASSERT( valid(), koinos::exception, "" );

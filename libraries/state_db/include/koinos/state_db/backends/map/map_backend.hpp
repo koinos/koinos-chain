@@ -21,6 +21,9 @@ class map_backend final : public abstract_backend {
       // Modifiers
       virtual void put( const key_type& k, const value_type& v );
       virtual void erase( const key_type& k );
+      virtual void clear();
+
+      virtual size_type size()const;
 
       // Lookup
       virtual iterator find( const key_type& k );

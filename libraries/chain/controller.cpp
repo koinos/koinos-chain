@@ -49,7 +49,7 @@ class controller_impl final
       controller_impl();
       ~controller_impl();
 
-      void open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
       rpc::chain::submit_block_response submit_block(
@@ -93,11 +93,11 @@ controller_impl::~controller_impl()
    _db.close();
 }
 
-void controller_impl::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const genesis_data& data, bool reset )
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
-   _db.open( p, o, [&]( state_db::state_node_ptr root )
+   _db.open( p, [&]( state_db::state_node_ptr root )
    {
       for ( const auto& entry : data )
       {
@@ -687,9 +687,9 @@ controller::controller() : _my( std::make_unique< detail::controller_impl >() ) 
 
 controller::~controller() = default;
 
-void controller::open( const std::filesystem::path& p, const std::any& o, const genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const genesis_data& data, bool reset )
 {
-   _my->open( p, o, data, reset );
+   _my->open( p, data, reset );
 }
 
 void controller::set_client( std::shared_ptr< mq::client > c )

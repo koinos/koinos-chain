@@ -6,6 +6,7 @@
 
 #include <rocksdb/db.h>
 
+#include <filesystem>
 #include <string>
 #include <utility>
 
@@ -20,11 +21,11 @@ class rocksdb_backend final : public abstract_backend {
       rocksdb_backend();
       virtual ~rocksdb_backend();
 
-      // bool open( std::filesystem::path& p );
-      // size_type revision();
-      // void set_revision( size_type );
-      // void clear();
-      // void wipe();
+      void open( const std::filesystem::path& p );
+      void close();
+
+      size_type revision()const;
+      void set_revision( size_type rev );
 
       // Iterators
       virtual iterator begin();
@@ -33,16 +34,24 @@ class rocksdb_backend final : public abstract_backend {
       // Modifiers
       virtual void put( const key_type& k, const value_type& v );
       virtual void erase( const key_type& k );
+      virtual void clear();
+
+      virtual size_type size()const;
 
       // Lookup
       virtual iterator find( const key_type& k );
       virtual iterator lower_bound( const key_type& k );
 
    private:
-      std::shared_ptr< ::rocksdb::DB >          _db;
-      ::rocksdb::WriteOptions                   _wopts;
-      std::shared_ptr< ::rocksdb::ReadOptions > _ropts;
-      std::shared_ptr< object_cache >           _cache;
+      bool maybe_create_columns( const std::filesystem::path& p );
+
+      std::shared_ptr< ::rocksdb::DB >              _db;
+      std::vector< ::rocksdb::ColumnFamilyHandle* > _handles;
+      ::rocksdb::WriteOptions                       _wopts;
+      std::shared_ptr< ::rocksdb::ReadOptions >     _ropts;
+      std::shared_ptr< object_cache >               _cache;
+      size_type                                     _size = 0;
+      size_type                                     _revision = 0;
 };
 
 } // koinos::state_db::backends::rocksdb

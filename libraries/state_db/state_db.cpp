@@ -1,20 +1,40 @@
 
-#include <koinos/state_db/detail/objects.hpp>
+#include <koinos/chain/chain.pb.h>
+#include <koinos/exception.hpp>
+#include <koinos/state_db/state_db.hpp>
 #include <koinos/state_db/detail/merge_iterator.hpp>
 #include <koinos/state_db/detail/state_delta.hpp>
-
-#include <koinos/exception.hpp>
-
-#include <koinos/state_db/state_db.hpp>
+#include <koinos/util/conversion.hpp>
 
 #include <cstring>
 #include <deque>
 #include <optional>
+#include <unordered_set>
 #include <utility>
 
-namespace koinos::state_db {
+namespace std {
+   template<>
+   struct hash< koinos::crypto::multihash >
+   {
+      std::size_t operator()( const koinos::crypto::multihash& mh )const
+      {
+         static const std::hash< std::string > hash_fn;
+         return hash_fn( koinos::util::converter::as< std::string >( mh ) );
+      }
+   };
 
-using boost::container::flat_set;
+}
+
+namespace koinos::chain {
+   bool operator==( const object_space& lhs, const object_space& rhs )
+   {
+      return lhs.system() == rhs.system()
+         && lhs.zone() == rhs.zone()
+         && lhs.id() == rhs.id();
+   }
+}
+
+namespace koinos::state_db {
 
 namespace detail {
 
@@ -40,8 +60,7 @@ using state_multi_index_type = boost::multi_index_container<
    >
 >;
 
-using state_delta_type = state_delta< state_object_index >;
-using state_delta_ptr = std::shared_ptr< state_delta_type >;
+using state_delta_ptr = std::shared_ptr< state_delta >;
 
 const object_key null_key = object_key();
 
@@ -61,7 +80,7 @@ class state_node_impl final
       std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
       std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
       int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
-      bool is_empty()const;
+      //bool is_empty()const;
 
       state_delta_ptr   _state;
       bool              _is_writable = true;
@@ -81,7 +100,7 @@ class database_impl final
       database_impl() {}
       ~database_impl() { close(); }
 
-      void open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
+      void open( const std::filesystem::path& p, std::function< void( state_node_ptr ) > init = nullptr );
       void close();
 
       void reset();
@@ -90,7 +109,7 @@ class database_impl final
       state_node_ptr get_node( const state_node_id& node_id )const;
       state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
       void finalize_node( const state_node_id& node );
-      void discard_node( const state_node_id& node, const flat_set< state_node_id >& whitelist );
+      void discard_node( const state_node_id& node, const std::unordered_set< state_node_id >& whitelist );
       void commit_node( const state_node_id& node );
 
       state_node_ptr get_head()const;
@@ -100,7 +119,6 @@ class database_impl final
       bool is_open()const;
 
       std::filesystem::path                     _path;
-      std::any                                  _options;
       std::function< void( state_node_ptr ) >   _init_func = nullptr;
 
       state_multi_index_type                    _index;
@@ -121,16 +139,16 @@ void database_impl::reset()
    // Wipe and start over from empty database!
    _root->impl->_state->clear();
    close();
-   open( _path, _options, _init_func );
+   open( _path, _init_func );
 }
 
-void database_impl::open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
+void database_impl::open( const std::filesystem::path& p, std::function< void( state_node_ptr ) > init )
 {
    auto root = std::make_shared< state_node >();
-   root->impl->_state = std::make_shared< state_delta_type >( p, o );
+   root->impl->_state = std::make_shared< state_delta >( p );
    _init_func = init;
 
-   if ( !root->revision() && root->impl->is_empty() && _init_func )
+   if ( !root->revision() && root->impl->_state->is_empty() == 0 && _init_func )
    {
       init( root );
    }
@@ -141,7 +159,6 @@ void database_impl::open( const std::filesystem::path& p, const std::any& o, std
    _fork_heads.insert_or_assign( _head->id(), _head );
 
    _path = p;
-   _options = o;
 }
 
 void database_impl::close()
@@ -211,7 +228,7 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
    if( parent_state != _index.end() && !(*parent_state)->is_writable() )
    {
       auto node = std::make_shared< state_node >();
-      node->impl->_state = std::make_shared< state_delta_type >( (*parent_state)->impl->_state, new_id );
+      node->impl->_state = std::make_shared< state_delta >( (*parent_state)->impl->_state, new_id );
       node->impl->_is_writable = true;
       if( _index.insert( node ).second )
          return node;
@@ -242,7 +259,7 @@ void database_impl::finalize_node( const state_node_id& node_id )
    _fork_heads.insert_or_assign( node->id(), node );
 }
 
-void database_impl::discard_node( const state_node_id& node_id, const flat_set< state_node_id >& whitelist )
+void database_impl::discard_node( const state_node_id& node_id, const std::unordered_set< state_node_id >& whitelist )
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    auto node = get_node( node_id );
@@ -304,7 +321,7 @@ void database_impl::commit_node( const state_node_id& node_id )
    auto node = get_node( node_id );
    KOINOS_ASSERT( node, illegal_argument, "node ${n} not found", ("n", node_id) );
 
-   flat_set< state_node_id > whitelist{ node->id() };
+   std::unordered_set< state_node_id > whitelist{ node->id() };
 
    auto old_root = _root;
    _root = node;
@@ -345,11 +362,17 @@ bool database_impl::is_open()const
 
 const object_value* state_node_impl::get_object( const object_space& space, const object_key& key )const
 {
-   auto idx = merge_index< state_object_index, by_key >( _state );
-   auto pobj = idx.find( boost::make_tuple( space, key ) );
+   chain::database_key db_key;
+   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   db_key.set_key( key );
+   auto key_string = util::converter::as< std::string >( db_key );
+
+   auto idx = merge_index( _state );
+   auto pobj = idx.find( key_string );
+
    if( pobj != nullptr )
    {
-      return &pobj->value;
+      return pobj;
    }
 
    return nullptr;
@@ -357,16 +380,27 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
 
 std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key )const
 {
-   auto idx = merge_index< state_object_index, by_key >( _state );
-   auto it = idx.lower_bound( boost::make_tuple( space, key ) );
+   chain::database_key db_key;
+   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   db_key.set_key( key );
+   auto key_string = util::converter::as< std::string >( db_key );
+
+   auto idx = merge_index( _state );
+   auto it = idx.lower_bound( key_string );
+
    if ( it != idx.end() )
    {
       it++;
    }
 
-   if( it != idx.end() && it->space == space )
+   if( it != idx.end() )
    {
-      return { &it->value, it->key };
+      chain::database_key next_key = util::converter::to< chain::database_key >( it.key() );
+
+      if ( next_key.space() == db_key.space() )
+      {
+         return { &*it, it.key() };
+      }
    }
 
    return { nullptr, null_key };
@@ -374,14 +408,22 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
 
 std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key )const
 {
-   auto idx = merge_index< state_object_index, by_key >( _state );
-   auto it = idx.lower_bound( boost::make_tuple( space, key ) );
+   chain::database_key db_key;
+   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   db_key.set_key( key );
+   auto key_string = util::converter::as< std::string >( db_key );
+
+   auto idx = merge_index( _state );
+   auto it = idx.lower_bound( key_string );
+
    if( it != idx.begin() )
    {
       --it;
-      if( it->space == space )
+      chain::database_key next_key = util::converter::to< chain::database_key >( it.key() );
+
+      if ( next_key.space() == db_key.space() )
       {
-         return { &it->value, it->key };
+         return { &*it, it.key() };
       }
    }
 
@@ -392,44 +434,36 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
 {
    int32_t bytes_used = val != nullptr ? val->size() : 0;
    KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
-   auto idx = merge_index< state_object_index, by_key >( _state );
-   auto pobj = idx.find( boost::make_tuple( space, key ) );
-   if( pobj != nullptr )
-   {
-      bytes_used -= pobj->value.size();
 
-      if( val != nullptr )
-      {
-         // exist -> exist, modify()
-         _state->modify( *pobj, [&]( state_object& obj )
-         {
-            obj.value = *val;
-         });
-      }
-      else
-      {
-         // exist -> dne, remove()
-         _state->erase( *pobj );
-      }
-   }
-   else if( val != nullptr )
+   chain::database_key db_key;
+   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   db_key.set_key( key );
+   auto key_string = util::converter::as< std::string >( db_key );
+
+   auto idx = merge_index( _state );
+   auto pobj = idx.find( key_string );
+
+   if ( val != nullptr )
    {
-      // dne - exist, create()
-      _state->emplace( [&]( state_object& obj )
+      _state->put( key_string, *val );
+   }
+   else
+   {
+      if ( pobj != nullptr )
       {
-         obj.space = space;
-         obj.key = key;
-         obj.value = *val;
-      });
+         bytes_used -= pobj->size();
+      }
+
+      _state->erase( key_string );
    }
 
    return bytes_used;
 }
 
-bool state_node_impl::is_empty()const
-{
-   return _state->is_empty();
-}
+//bool state_node_impl::is_empty()const
+//{
+//   return _state->is_empty();
+//}
 
 } // detail
 
@@ -465,7 +499,7 @@ anonymous_state_node_ptr abstract_state_node::create_anonymous_node()
 {
    auto anonymous_node = std::make_shared< anonymous_state_node >();
    anonymous_node->parent = shared_from_derived();
-   anonymous_node->impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
+   anonymous_node->impl->_state = std::make_shared< detail::state_delta >( impl->_state );
    return anonymous_node;
 }
 
@@ -538,7 +572,7 @@ void anonymous_state_node::commit()
 
 void anonymous_state_node::reset()
 {
-   impl->_state = std::make_shared< detail::state_delta_type >( impl->_state );
+   impl->_state = std::make_shared< detail::state_delta >( impl->_state );
 }
 
 abstract_state_node_ptr anonymous_state_node::shared_from_derived()
@@ -550,9 +584,9 @@ abstract_state_node_ptr anonymous_state_node::shared_from_derived()
 database::database() : impl( new detail::database_impl() ) {}
 database::~database() {}
 
-void database::open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init )
+void database::open( const std::filesystem::path& p, std::function< void( state_node_ptr ) > init )
 {
-   impl->open( p, o, init );
+   impl->open( p, init );
 }
 
 void database::close()
@@ -598,7 +632,7 @@ void database::finalize_node( const state_node_id& node_id )
 
 void database::discard_node( const state_node_id& node_id )
 {
-   static const flat_set< state_node_id > whitelist;
+   static const std::unordered_set< state_node_id > whitelist;
    impl->discard_node( node_id, whitelist );
 }
 

@@ -30,8 +30,6 @@
 #include <koinos/util/random.hpp>
 #include <koinos/util/services.hpp>
 
-#include <mira/database_configuration.hpp>
-
 #define KOINOS_MAJOR_VERSION "0"
 #define KOINOS_MINOR_VERSION "1"
 #define KOINOS_PATCH_VERSION "0"
@@ -47,8 +45,6 @@
 #define STATEDIR_OPTION          "statedir"
 #define JOBS_OPTION              "jobs"
 #define STATEDIR_DEFAULT         "blockchain"
-#define DATABASE_CONFIG_OPTION   "database-config"
-#define DATABASE_CONFIG_DEFAULT  "database.cfg"
 #define RESET_OPTION             "reset"
 #define GENESIS_KEY_FILE_OPTION  "genesis-key"
 #define GENESIS_KEY_FILE_DEFAULT "genesis.pub"
@@ -76,13 +72,6 @@ void splash()
    const char* launch_message = "          ...launching network";
    std::cout.write( launch_message, std::strlen( launch_message ) );
    std::cout << std::endl << std::flush;
-}
-
-void write_default_database_config( const std::filesystem::path& p )
-{
-   LOG(info) << "Writing database configuration: " << p.string();
-   std::ofstream config_file( p, std::ios::binary );
-   config_file << mira::utilities::default_database_configuration();
 }
 
 void attach_request_handler(
@@ -406,8 +395,6 @@ int main( int argc, char** argv )
          (GENESIS_KEY_FILE_OPTION",g", program_options::value< std::string >(), "The genesis key file")
          (STATEDIR_OPTION            , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
-         (DATABASE_CONFIG_OPTION     , program_options::value< std::string >(),
-            "The location of the database configuration file (absolute path or relative to basedir/chain)")
          (RESET_OPTION               , program_options::bool_switch()->default_value(false), "Reset the database");
 
       program_options::variables_map args;
@@ -454,7 +441,6 @@ int main( int argc, char** argv )
       std::string log_level     = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
       std::string instance_id   = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
       auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
-      auto database_config_path = std::filesystem::path( util::get_option< std::string >( DATABASE_CONFIG_OPTION, DATABASE_CONFIG_DEFAULT, args, chain_config, global_config ) );
       auto genesis_key_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config, global_config ) );
       auto reset                = util::get_flag( RESET_OPTION, false, args, chain_config, global_config );
       auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
@@ -473,25 +459,6 @@ int main( int argc, char** argv )
 
       if ( !std::filesystem::exists( statedir ) )
          std::filesystem::create_directories( statedir );
-
-      if ( database_config_path.is_relative() )
-         database_config_path = basedir / util::service::chain / database_config_path;
-
-      if ( !std::filesystem::exists( database_config_path ) )
-         write_default_database_config( database_config_path );
-
-      nlohmann::json database_config;
-
-      try
-      {
-         std::ifstream config_file( database_config_path, std::ios::binary );
-         config_file >> database_config;
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Error while parsing database configuration: " << e.what();
-         exit( EXIT_FAILURE );
-      }
 
       if ( genesis_key_file.is_relative() )
          genesis_key_file = basedir / util::service::chain / genesis_key_file;
@@ -515,10 +482,11 @@ int main( int argc, char** argv )
       LOG(info) << "Number of jobs: " << jobs;
 
       chain::genesis_data genesis_data;
+      chain::database_key chain_id_key;
       genesis_data[ { util::converter::as< state_db::object_space >( chain::state::space::meta() ), util::converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
 
       chain::controller controller;
-      controller.open( statedir, database_config, genesis_data, reset );
+      controller.open( statedir, genesis_data, reset );
 
       asio::io_context main_context, work_context;
       auto mq_client = std::make_shared< mq::client >();

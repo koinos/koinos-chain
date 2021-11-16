@@ -182,7 +182,7 @@ class database final
       /**
        * Open the database.
        */
-      void open( const std::filesystem::path& p, const std::any& o, std::function< void( state_node_ptr ) > init = nullptr );
+      void open( const std::filesystem::path& p, std::function< void( state_node_ptr ) > init = nullptr );
 
       /**
        * Close the database.

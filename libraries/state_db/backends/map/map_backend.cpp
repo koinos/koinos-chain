@@ -26,6 +26,16 @@ void map_backend::erase( const key_type& k )
    _map.erase( k );
 }
 
+void map_backend::clear()
+{
+   _map.clear();
+}
+
+map_backend::size_type map_backend::size()const
+{
+   return _map.size();
+}
+
 iterator map_backend::find( const key_type& k )
 {
    return iterator( std::make_unique< map_iterator >( std::make_unique< map_iterator::iterator_impl >( _map.find( k ) ), _map ) );

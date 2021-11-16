@@ -22,6 +22,8 @@ class rocksdb_iterator final : public abstract_iterator
 
       virtual const value_type& operator*()const;
 
+      virtual const key_type& key()const;
+
       virtual abstract_iterator& operator++();
       virtual abstract_iterator& operator--();
 
@@ -38,6 +40,7 @@ class rocksdb_iterator final : public abstract_iterator
       std::shared_ptr< const ::rocksdb::ReadOptions > _opts;
       std::shared_ptr< object_cache >                 _cache;
       std::shared_ptr< const value_type >             _cache_value;
+      std::shared_ptr< const key_type >               _key;
 };
 
 } // koinos::state_db::backends::rocksdb

@@ -20,6 +20,16 @@ const iterator::value_type* iterator::operator->()const
    return &(**this);
 }
 
+const iterator::key_type& iterator::key()const
+{
+   return _itr->key();
+}
+
+const iterator::value_type& iterator::value()const
+{
+   return **this;
+}
+
 iterator& iterator::operator++()
 {
    KOINOS_ASSERT( valid(), koinos::exception, "" );

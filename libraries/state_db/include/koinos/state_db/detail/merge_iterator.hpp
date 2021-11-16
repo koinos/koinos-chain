@@ -18,7 +18,7 @@ namespace koinos::state_db::detail {
 
    class merge_iterator :
       public boost::bidirectional_iterator_helper<
-         typename merge_iterator,
+         merge_iterator,
          typename state_delta::value_type,
          std::size_t,
          const typename state_delta::value_type*,
@@ -35,34 +35,34 @@ namespace koinos::state_db::detail {
          struct iterator_wrapper
          {
             iterator_wrapper( iterator_type&& i, uint64_t r, const backend_type b ) :
-               _itr( std::move( i ) ),
-               _revision( r ),
-               _backend( b )
+               itr( std::move( i ) ),
+               revision( r ),
+               backend( b )
             {}
 
             iterator_wrapper( iterator_wrapper&& i ) :
-               _itr( std::move( i._itr ) ),
-               _revision( i._revision ),
-               _backend( i._backend )
+               itr( std::move( i.itr ) ),
+               revision( i.revision ),
+               backend( i.backend )
             {}
 
             iterator_wrapper( const iterator_wrapper& i ) :
-               _itr( i._itr ),
-               _revision( i._revision ),
-               _backend( i._backend )
+               itr( i.itr ),
+               revision( i.revision ),
+               backend( i.backend )
             {}
 
-            iterator_type      _itr;
-            uint64_t           _revision;
-            const backend_type _backend;
+            iterator_type      itr;
+            uint64_t           revision;
+            const backend_type backend;
 
             const iterator_wrapper& self() const { return *this; }
-            bool valid() const { return _itr != _backend->end(); }
+            bool valid() const { return itr != backend->end(); }
          };
 
-         // Uses _revision as a tiebreaker only for when both iterators are invalid
+         // Uses revision as a tiebreaker only for when both iterators are invalid
          // to enforce a total ordering on this comparator. The composite key on
-         // _revision is still needed for the case when iterators are valid and equal.
+         // revision is still needed for the case when iterators are valid and equal.
          // (i.e. lhs < rhs == false && rhs < lhs == false )
          struct iterator_compare_less
          {
@@ -71,11 +71,11 @@ namespace koinos::state_db::detail {
                bool lh_valid = lhs.valid();
                bool rh_valid = rhs.valid();
 
-               if ( !lh_valid && !rh_valid ) return lhs._revision > rhs._revision;
+               if ( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
                if ( !lh_valid ) return false;
                if ( !rh_valid ) return true;
 
-               return lhs.itr.key() < rhs._itr.key();
+               return lhs.itr.key() < rhs.itr.key();
             }
          };
 
@@ -86,11 +86,11 @@ namespace koinos::state_db::detail {
                bool lh_valid = lhs.valid();
                bool rh_valid = rhs.valid();
 
-               if ( !lh_valid && !rh_valid ) return lhs._revision > rhs._revision;
+               if ( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
                if ( !lh_valid ) return false;
                if ( !rh_valid ) return true;
 
-               return rhs._itr.key() < lhs._itr.key();
+               return rhs.itr.key() < lhs.itr.key();
             }
          };
 
@@ -98,26 +98,26 @@ namespace koinos::state_db::detail {
          struct by_reverse_order_revision;
          struct by_revision;
 
-         typedef multi_index_container<
+         using iter_revision_index_type = multi_index_container<
             iterator_wrapper,
             indexed_by<
                ordered_unique< tag< by_order_revision >,
                   composite_key< iterator_wrapper,
                      const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
-                     member< iterator_wrapper, uint64_t, &iterator_wrapper::_revision >
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
                   >,
                   composite_key_compare< iterator_compare_less, std::greater< uint64_t > >
                >,
                ordered_unique< tag< by_reverse_order_revision >,
                   composite_key< iterator_wrapper,
                      const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
-                     member< iterator_wrapper, uint64_t, &iterator_wrapper::_revision >
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
                   >,
                   composite_key_compare< iterator_compare_greater, std::greater< uint64_t > >
                >,
-               ordered_unique< tag< by_revision >, member< iterator_wrapper, uint64_t, &iterator_wrapper::_revision > >
+               ordered_unique< tag< by_revision >, member< iterator_wrapper, uint64_t, &iterator_wrapper::revision > >
             >
-         > iter_revision_index_type;
+         >;
 
          iter_revision_index_type      _itr_revision_index;
          std::deque< state_delta_ptr > _delta_deque;
@@ -135,9 +135,9 @@ namespace koinos::state_db::detail {
 
                _itr_revision_index.emplace(
                   iterator_wrapper(
-                     std::move( init( current_delta->_backend ) ),
+                     std::move( init( current_delta->backend() ) ),
                      current_delta->revision(),
-                     current_delta->indices() )
+                     current_delta->backend()
                   )
                );
 
@@ -177,9 +177,9 @@ namespace koinos::state_db::detail {
 
             if ( !my_begin->valid() && !other_begin->valid() ) return true;
             if ( !my_begin->valid() || !other_begin->valid() ) return false;
-            if ( my_begin->_revision != other_begin->_revision ) return false;
+            if ( my_begin->revision != other_begin->revision ) return false;
 
-            return my_begin->_itr == other_begin->_itr;
+            return my_begin->itr == other_begin->itr;
          }
 
          merge_iterator& operator ++()
@@ -188,7 +188,7 @@ namespace koinos::state_db::detail {
 
             if ( first_itr->valid() )
             {
-               _itr_revision_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.iter); } );
+               _itr_revision_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.itr); } );
                resolve_conflicts();
             }
 
@@ -206,11 +206,11 @@ namespace koinos::state_db::detail {
 
             auto head_itr = order_idx.begin();
             // composite keys do not have default initializers, so we need to store them as a pointer
-            std::optional< const key_type& > head_key;
+            std::optional< key_type > head_key;
 
             if( head_itr->valid() )
             {
-               head_key = head_itd->_itr.key();
+               head_key = head_itr->itr.key();
             }
 
             /* We are grabbing the current head value.
@@ -221,28 +221,28 @@ namespace koinos::state_db::detail {
             for( auto rev_itr = rev_idx.begin(); rev_itr != rev_idx.end(); ++rev_itr )
             {
                // Only decrement iterators that have modified objects
-               if( rev_itr->_backend->size() )
+               if( rev_itr->backend->size() )
                {
-                  auto begin = rev_itr->_backend->begin();
+                  auto begin = rev_itr->backend->begin();
 
                   if( !head_key )
                   {
                      // If there was no valid key, then bring back each iterator once, it is gauranteed to be less than the
                      // current value (end()).
-                     _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                     _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.itr); } );
                   }
                   else
                   {
                      // Do an initial decrement if the iterator currently points to end()
                      if( !rev_itr->valid() )
                      {
-                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.itr); } );
                      }
 
                      // Decrement back to the first key that is less than the head key
-                     while( rev_itr->_itr.key() >= *head_key && rev_itr->_itr != begin )
+                     while( rev_itr->itr.key() >= *head_key && rev_itr->itr != begin )
                      {
-                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.itr); } );
                      }
                   }
 
@@ -250,13 +250,13 @@ namespace koinos::state_db::detail {
                   // might have been modified in a later index. We need to continue decrementing until we have a valid key.
                   bool dirty = true;
 
-                  while( dirty && rev_itr->valid() && rev_itr->_itr != begin )
+                  while( dirty && rev_itr->valid() && rev_itr->itr != begin )
                   {
                      dirty = is_dirty( rev_itr );
 
                      if( dirty )
                      {
-                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *(rev_itr) ), [](iterator_wrapper& i ){ --(i.iter); } );
+                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *(rev_itr) ), [](iterator_wrapper& i ){ --(i.itr); } );
                      }
                   }
                }
@@ -273,7 +273,7 @@ namespace koinos::state_db::detail {
                if( head_key )
                {
                   while( least_itr != rev_order_idx.end() && least_itr->valid()
-                     && ( is_dirty( least_itr ) || lead_itr->_itr.key() >= *head_key ) )
+                     && ( is_dirty( least_itr ) || least_itr->itr.key() >= *head_key ) )
                   {
                      ++least_itr;
                   }
@@ -291,7 +291,7 @@ namespace koinos::state_db::detail {
                // to become the head.
                while( least_itr != rev_order_idx.end() && least_itr->valid() )
                {
-                  _itr_revision_index.modify( _itr_revision_index.iterator_to( *(least_itr--) ), [](iterator_wrapper& i ){ ++(i.iter); } );
+                  _itr_revision_index.modify( _itr_revision_index.iterator_to( *(least_itr--) ), [](iterator_wrapper& i ){ ++(i.itr); } );
                   ++least_itr;
                }
 
@@ -308,20 +308,25 @@ namespace koinos::state_db::detail {
 
          const value_type& operator*()const
          {
-            return _itr_revision_index.begin()->_itr.operator *();
+            return _itr_revision_index.begin()->itr.operator *();
          }
 
          const value_type* operator->()const
          {
-            return _itr_revision_index.begin()->_itr.operator ->();
+            return _itr_revision_index.begin()->itr.operator ->();
+         }
+
+         const key_type& key()const
+         {
+            return _itr_revision_index.begin()->itr.key();
          }
 
          merge_iterator& operator =( const merge_iterator& other )
          {
             KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
             KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques." );
-            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots" );
-            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads" );
+            KOINOS_ASSERT( (*_delta_deque.begin())->id() == (*other._delta_deque.begin())->id(), internal_error, "Cannot assign merge iterators with different roots" );
+            KOINOS_ASSERT( (*_delta_deque.rbegin())->id() == (*other._delta_deque.rbegin())->id(), internal_error, "Cannot assign merge iterators with different heads" );
 
             _itr_revision_index = other._itr_revision_index;
 
@@ -332,8 +337,8 @@ namespace koinos::state_db::detail {
          {
             KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
             KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques." );
-            KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots" );
-            KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads" );
+            KOINOS_ASSERT( (*_delta_deque.begin())->id() == (*other._delta_deque.begin())->id(), internal_error, "Cannot assign merge iterators with different roots" );
+            KOINOS_ASSERT( (*_delta_deque.rbegin())->id() == (*other._delta_deque.rbegin())->id(), internal_error, "Cannot assign merge iterators with different heads" );
 
             _itr_revision_index = std::move( other._itr_revision_index );
 
@@ -341,13 +346,14 @@ namespace koinos::state_db::detail {
          }
 
       private:
-         bool is_dirty( iterator_wrapper itr )
+         template< typename ItrType >
+         bool is_dirty( ItrType itr )
          {
             bool dirty = false;
 
-            for( int i = _delta_deque.size() - 1; itr->_revision < _delta_deque[i]->revision() && !dirty; --i )
+            for( int i = _delta_deque.size() - 1; itr->revision < _delta_deque[i]->revision() && !dirty; --i )
             {
-               dirty = _delta_deque[i]->is_modified( itr->iter->id );
+               dirty = _delta_deque[i]->is_modified( itr->itr.key() );
             }
 
             return dirty;
@@ -364,7 +370,7 @@ namespace koinos::state_db::detail {
 
                if( dirty )
                {
-                  _itr_revision_index.modify( first_itr, [](iterator_wrapper& i ){ ++(i.iter); } );
+                  _itr_revision_index.modify( first_itr, [](iterator_wrapper& i ){ ++(i.itr); } );
                }
 
                first_itr = _itr_revision_index.begin();
@@ -378,13 +384,13 @@ namespace koinos::state_db::detail {
          }
    };
 
-   template< typename MultiIndexType, typename IndexedByType >
    class merge_index
    {
       public:
-         using backend_type     = backends::abstract_backend;
+         using backend_type     = std::shared_ptr< backends::abstract_backend >;
          using state_delta_type = state_delta;
          using key_type         = state_delta::key_type;
+         using value_type       = state_delta::value_type;
 
          std::shared_ptr< state_delta_type > _head;
 
@@ -394,33 +400,30 @@ namespace koinos::state_db::detail {
 
          merge_iterator begin() const
          {
-            return merge_iterator( _head, [&]( backend_type& backend )
+            return merge_iterator( _head, [&]( const backend_type& backend )
             {
-               return backend.begin();
+               return backend->begin();
             });
          }
 
          merge_iterator end() const
          {
-            return merge_iterator( _head, [&]( backend_type& backend )
+            return merge_iterator( _head, [&]( const backend_type& backend )
             {
-               return backend.end();
+               return backend->end();
             });
          }
 
-         merge_iterator find( const key_type& key ) const
+         const value_type* find( const key_type& key ) const
          {
-            return merge_iterator( _head, [&]( backend_type& backend )
-            {
-               return backend.find( key );
-            });
+            return _head->find( key );
          }
 
          merge_iterator lower_bound( const key_type& key ) const
          {
-            return merge_iterator( _head, [&]( backend_type& backend )
+            return merge_iterator( _head, [&]( const backend_type& backend )
             {
-               return backend.lower_bound( key );
+               return backend->lower_bound( key );
             });
          }
    };

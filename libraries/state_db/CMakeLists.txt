@@ -5,6 +5,9 @@ file(GLOB HEADERS
      "include/koinos/state_db/backends/rocksdb/*.hpp")
 add_library(koinos_state_db
             state_db.cpp
+            detail/state_delta.cpp
+            detail/merge_iterator.cpp
+            backends/backend.cpp
             backends/iterator.cpp
             backends/map/map_backend.cpp
             backends/map/map_iterator.cpp

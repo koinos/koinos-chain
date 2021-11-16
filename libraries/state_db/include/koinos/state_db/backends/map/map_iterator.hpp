@@ -20,6 +20,8 @@ class map_iterator final : public abstract_iterator
 
       virtual const value_type& operator*()const;
 
+      virtual const key_type& key()const;
+
       virtual abstract_iterator& operator++();
       virtual abstract_iterator& operator--();
 

@@ -18,8 +18,10 @@ class abstract_backend
 
       virtual void put( const key_type& k, const value_type& v ) = 0;
       virtual void erase( const key_type& k ) = 0;
+      virtual void clear() = 0;
 
-      // virtual size_type size();
+      virtual size_type size()const = 0;
+      bool empty()const;
 
       virtual iterator find( const key_type& k ) = 0;
       virtual iterator lower_bound( const key_type& k ) = 0;

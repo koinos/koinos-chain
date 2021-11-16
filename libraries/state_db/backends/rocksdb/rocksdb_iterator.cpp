@@ -41,6 +41,18 @@ const rocksdb_iterator::value_type& rocksdb_iterator::operator*()const
    return *_cache_value;
 }
 
+const rocksdb_iterator::key_type& rocksdb_iterator::key()const
+{
+   KOINOS_ASSERT( valid(), koinos::exception, "" );
+
+   if ( !_key )
+   {
+      const_cast< rocksdb_iterator* >( this )->update_cache_value();
+   }
+
+   return *_key;
+}
+
 abstract_iterator& rocksdb_iterator::operator++()
 {
    KOINOS_ASSERT( valid(), koinos::exception, "" );
@@ -87,21 +99,23 @@ void rocksdb_iterator::update_cache_value()
    if ( valid() )
    {
       auto key_slice = _iter->key();
-      std::string key( key_slice.data(), key_slice.size() );
+      auto key = std::make_shared< std::string >( key_slice.data(), key_slice.size() );
       std::lock_guard< std::mutex > lock( _cache->get_mutex() );
-      auto ptr = _cache->get( key );
+      auto ptr = _cache->get( *key );
 
       if ( !ptr )
       {
          auto value_slice = _iter->value();
-         ptr = _cache->put( key, std::string( value_slice.data(), value_slice.size() ) );
+         ptr = _cache->put( *key, std::string( value_slice.data(), value_slice.size() ) );
       }
 
       _cache_value = ptr;
+      _key = key;
    }
    else
    {
       _cache_value.reset();
+      _key.reset();
    }
 }
 

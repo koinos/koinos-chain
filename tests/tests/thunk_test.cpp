@@ -21,8 +21,6 @@
 
 #include <koinos/vm_manager/exceptions.hpp>
 
-#include <mira/database_configuration.hpp>
-
 #include <koinos/contracts/token/token.pb.h>
 
 #include <koinos/tests/wasm/contract_return.hpp>
@@ -49,7 +47,6 @@ struct thunk_fixture
 
       temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
       std::filesystem::create_directory( temp );
-      std::any cfg = mira::utilities::default_database_configuration();
 
       auto seed = "test seed"s;
       _signing_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, seed ) );
@@ -58,7 +55,7 @@ struct thunk_fixture
       auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address_bytes() );
       genesis_data[ { util::converter::as< state_db::object_space >( chain::state::space::meta() ), util::converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = util::converter::as< std::vector< std::byte > >( chain_id );
 
-      db.open( temp, cfg, [&]( state_db::state_node_ptr root )
+      db.open( temp, [&]( state_db::state_node_ptr root )
       {
          for ( const auto& entry : genesis_data )
          {

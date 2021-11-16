@@ -10,8 +10,8 @@ namespace koinos::state_db {
 
 using state_node_id = crypto::multihash;
 using object_space  = std::array< std::byte, 32 >;
-using object_key    = std::array< std::byte, 32 >;
-using object_value  = std::vector< std::byte >;
+using object_key    = std::string;
+using object_value  = std::string;
 
 KOINOS_DECLARE_EXCEPTION( state_db_exception );
 

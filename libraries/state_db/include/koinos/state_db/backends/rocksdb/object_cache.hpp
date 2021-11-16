@@ -47,6 +47,8 @@ class object_cache
       void remove( const key_type& k );
       void remove( const ::rocksdb::Slice& k );
 
+      void clear();
+
       std::mutex& get_mutex();
 };
 
