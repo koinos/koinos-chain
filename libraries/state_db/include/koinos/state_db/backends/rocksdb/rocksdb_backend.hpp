@@ -20,6 +20,12 @@ class rocksdb_backend final : public abstract_backend {
       rocksdb_backend();
       virtual ~rocksdb_backend();
 
+      // bool open( std::filesystem::path& p );
+      // size_type revision();
+      // void set_revision( size_type );
+      // void clear();
+      // void wipe();
+
       // Iterators
       virtual iterator begin();
       virtual iterator end();

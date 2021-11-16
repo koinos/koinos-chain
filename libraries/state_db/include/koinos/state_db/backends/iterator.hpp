@@ -9,11 +9,14 @@ class iterator;
 class abstract_iterator
 {
    public:
+      using key_type   = detail::key_type;
       using value_type = detail::value_type;
 
       virtual ~abstract_iterator() {};
 
       virtual const value_type& operator*()const = 0;
+
+      virtual const key_type& key()const = 0;
 
       virtual abstract_iterator& operator++() = 0;
       virtual abstract_iterator& operator--() = 0;
@@ -28,6 +31,7 @@ class abstract_iterator
 class iterator final
 {
    public:
+      using key_type   = detail::key_type;
       using value_type = detail::value_type;
 
       iterator( std::unique_ptr< abstract_iterator > );
@@ -36,6 +40,8 @@ class iterator final
 
       const value_type& operator*()const;
       const value_type* operator->()const;
+
+      const key_type& key()const;
 
       iterator& operator++();
       iterator& operator--();

@@ -2,8 +2,6 @@
 
 #include <koinos/state_db/detail/state_delta.hpp>
 
-#include <boost/container/deque.hpp>
-
 #include <boost/iterator/zip_iterator.hpp>
 
 #include <boost/multi_index_container.hpp>
@@ -12,62 +10,59 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
+#include <deque>
+
 namespace koinos::state_db::detail {
 
    using namespace boost::multi_index;
 
-   template< typename MultiIndexType, typename IndexedByType >
    class merge_iterator :
       public boost::bidirectional_iterator_helper<
-         merge_iterator< MultiIndexType, IndexedByType >,
-         typename MultiIndexType::value_type,
+         typename merge_iterator,
+         typename state_delta::value_type,
          std::size_t,
-         const typename MultiIndexType::value_type*,
-         const typename MultiIndexType::value_type& >
+         const typename state_delta::value_type*,
+         const typename state_delta::value_type& >
    {
       public:
-         typedef typename MultiIndexType::value_type                                      value_type;
+         using key_type   = state_delta::key_type;
+         using value_type = state_delta::value_type;
       private:
-         typedef decltype( ((MultiIndexType*)nullptr)->template get< IndexedByType >() )  by_index_type;
-         typedef typename by_index_type::iter_type                                        iter_type;
-         typedef typename by_index_type::bmic_type::key_type                              key_type;
-         typedef typename by_index_type::bmic_type::key_from_value                        key_from_value_type;
-         typedef typename by_index_type::bmic_type::key_compare                           key_compare_type;
-         typedef typename by_index_type::bmic_type::value_compare                         value_compare_type;
-         typedef state_delta< MultiIndexType >                                            state_delta_type;
-         typedef std::shared_ptr< state_delta_type >                                      state_delta_ptr;
+         using iterator_type   = backends::iterator;
+         using backend_type    = std::shared_ptr< backends::abstract_backend >;
+         using state_delta_ptr = std::shared_ptr< state_delta >;
 
          struct iterator_wrapper
          {
-            iterator_wrapper( iter_type&& i, uint64_t r, const std::shared_ptr< MultiIndexType > idx ) :
-               iter( std::move( i ) ),
-               revision( r ),
-               index( idx )
+            iterator_wrapper( iterator_type&& i, uint64_t r, const backend_type b ) :
+               _itr( std::move( i ) ),
+               _revision( r ),
+               _backend( b )
             {}
 
             iterator_wrapper( iterator_wrapper&& i ) :
-               iter( std::move( i.iter ) ),
-               revision( i.revision ),
-               index( i.index )
+               _itr( std::move( i._itr ) ),
+               _revision( i._revision ),
+               _backend( i._backend )
             {}
 
             iterator_wrapper( const iterator_wrapper& i ) :
-               iter( i.iter ),
-               revision( i.revision ),
-               index( i.index )
+               _itr( i._itr ),
+               _revision( i._revision ),
+               _backend( i._backend )
             {}
 
-            iter_type                                 iter;
-            uint64_t                                  revision;
-            const std::shared_ptr< MultiIndexType >   index;
+            iterator_type      _itr;
+            uint64_t           _revision;
+            const backend_type _backend;
 
             const iterator_wrapper& self() const { return *this; }
-            bool valid() const { return iter != index->template get< IndexedByType >().end(); }
+            bool valid() const { return _itr != _backend->end(); }
          };
 
-         // Uses revision as a tiebreaker only for when both iterators are invalid
+         // Uses _revision as a tiebreaker only for when both iterators are invalid
          // to enforce a total ordering on this comparator. The composite key on
-         // revision is still needed for the case when iterators are valid and equal.
+         // _revision is still needed for the case when iterators are valid and equal.
          // (i.e. lhs < rhs == false && rhs < lhs == false )
          struct iterator_compare_less
          {
@@ -76,15 +71,11 @@ namespace koinos::state_db::detail {
                bool lh_valid = lhs.valid();
                bool rh_valid = rhs.valid();
 
-               if( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
-               if( !lh_valid ) return false;
-               if( !rh_valid ) return true;
+               if ( !lh_valid && !rh_valid ) return lhs._revision > rhs._revision;
+               if ( !lh_valid ) return false;
+               if ( !rh_valid ) return true;
 
-               // Indirection is normally a const method. However, because the rocksdb_iterator may
-               // need to go to cache, internal state is updated and the operator is not const.
-               // The value returned is always the same, even if internal state is updated, so this is safe.
-               return value_compare_type()( *const_cast< iter_type& >(lhs.iter),
-                                       *const_cast< iter_type& >(rhs.iter) );
+               return lhs.itr.key() < rhs._itr.key();
             }
          };
 
@@ -95,12 +86,11 @@ namespace koinos::state_db::detail {
                bool lh_valid = lhs.valid();
                bool rh_valid = rhs.valid();
 
-               if( !lh_valid && !rh_valid ) return lhs.revision > rhs.revision;
-               if( !lh_valid ) return false;
-               if( !rh_valid ) return true;
+               if ( !lh_valid && !rh_valid ) return lhs._revision > rhs._revision;
+               if ( !lh_valid ) return false;
+               if ( !rh_valid ) return true;
 
-               return value_compare_type()( *const_cast< iter_type& >(rhs.iter),
-                                       *const_cast< iter_type& >(lhs.iter) );
+               return rhs._itr.key() < lhs._itr.key();
             }
          };
 
@@ -108,30 +98,29 @@ namespace koinos::state_db::detail {
          struct by_reverse_order_revision;
          struct by_revision;
 
-
          typedef multi_index_container<
             iterator_wrapper,
             indexed_by<
                ordered_unique< tag< by_order_revision >,
                   composite_key< iterator_wrapper,
                      const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
-                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::_revision >
                   >,
                   composite_key_compare< iterator_compare_less, std::greater< uint64_t > >
                >,
                ordered_unique< tag< by_reverse_order_revision >,
                   composite_key< iterator_wrapper,
                      const_mem_fun< iterator_wrapper, const iterator_wrapper&, &iterator_wrapper::self >,
-                     member< iterator_wrapper, uint64_t, &iterator_wrapper::revision >
+                     member< iterator_wrapper, uint64_t, &iterator_wrapper::_revision >
                   >,
                   composite_key_compare< iterator_compare_greater, std::greater< uint64_t > >
                >,
-               ordered_unique< tag< by_revision >, member< iterator_wrapper, uint64_t, &iterator_wrapper::revision > >
+               ordered_unique< tag< by_revision >, member< iterator_wrapper, uint64_t, &iterator_wrapper::_revision > >
             >
          > iter_revision_index_type;
 
-         iter_revision_index_type                     _iter_rev_index;
-         boost::container::deque< state_delta_ptr >   _delta_deque;
+         iter_revision_index_type      _itr_revision_index;
+         std::deque< state_delta_ptr > _delta_deque;
 
       public:
          template< typename Initializer >
@@ -144,13 +133,13 @@ namespace koinos::state_db::detail {
             {
                _delta_deque.push_front( current_delta );
 
-               const auto& by_index = current_delta->indices()->template get< IndexedByType >();
-               iterator_wrapper undo_itr(
-                  std::move( init( by_index ) ),
-                  current_delta->revision(),
-                  current_delta->indices() );
-
-               _iter_rev_index.emplace( std::move( undo_itr ) );
+               _itr_revision_index.emplace(
+                  iterator_wrapper(
+                     std::move( init( current_delta->_backend ) ),
+                     current_delta->revision(),
+                     current_delta->indices() )
+                  )
+               );
 
                current_delta = current_delta->parent();
             } while( current_delta );
@@ -158,17 +147,17 @@ namespace koinos::state_db::detail {
             resolve_conflicts();
          }
 
-         merge_iterator( const boost::container::deque< state_delta_ptr >& deque ) :
+         merge_iterator( const std::deque< state_delta_ptr >& deque ) :
             _delta_deque( deque )
          {}
 
          merge_iterator( const merge_iterator& other ) :
-            _iter_rev_index( other._iter_rev_index ),
+            _itr_revision_index( other._itr_revision_index ),
             _delta_deque( other._delta_deque )
          {}
 
          merge_iterator( merge_iterator&& other ) :
-            _iter_rev_index( std::move( other._iter_rev_index ) ),
+            _itr_revision_index( std::move( other._itr_revision_index ) ),
             _delta_deque( other._delta_deque )
          {}
 
@@ -179,27 +168,27 @@ namespace koinos::state_db::detail {
             // If both iterators are empty, they are true.
             // But we use empty merge iterators as an optimization for an end itertor.
             // So if one is empty, and the other is all end iterators, they are also equal.
-            if( _iter_rev_index.size() == 0 && other._iter_rev_index.size() == 0 ) return true;
-            else if( _iter_rev_index.size() == 0 ) return other.is_end();
-            else if( other._iter_rev_index.size() == 0 ) return is_end();
+            if ( _itr_revision_index.size() == 0 && other._itr_revision_index.size() == 0 ) return true;
+            else if ( _itr_revision_index.size() == 0 ) return other.is_end();
+            else if ( other._itr_revision_index.size() == 0 ) return is_end();
 
-            auto my_begin = _iter_rev_index.begin();
-            auto other_begin = other._iter_rev_index.begin();
+            auto my_begin = _itr_revision_index.begin();
+            auto other_begin = other._itr_revision_index.begin();
 
-            if( !my_begin->valid() && !other_begin->valid() ) return true;
-            if( !my_begin->valid() || !other_begin->valid() ) return false;
-            if( my_begin->revision != other_begin->revision ) return false;
+            if ( !my_begin->valid() && !other_begin->valid() ) return true;
+            if ( !my_begin->valid() || !other_begin->valid() ) return false;
+            if ( my_begin->_revision != other_begin->_revision ) return false;
 
-            return my_begin->iter == other_begin->iter;
+            return my_begin->_itr == other_begin->_itr;
          }
 
          merge_iterator& operator ++()
          {
-            auto first_itr = _iter_rev_index.begin();
+            auto first_itr = _itr_revision_index.begin();
 
-            if( first_itr->valid() )
+            if ( first_itr->valid() )
             {
-               _iter_rev_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.iter); } );
+               _itr_revision_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.iter); } );
                resolve_conflicts();
             }
 
@@ -208,55 +197,52 @@ namespace koinos::state_db::detail {
 
          merge_iterator operator ++(int)const
          {
-            return ++(merge_iterator( *this ));
+            return ++( merge_iterator( *this ) );
          }
 
          merge_iterator& operator --()
          {
-            const auto& order_idx = _iter_rev_index.template get< by_order_revision >();
+            const auto& order_idx = _itr_revision_index.template get< by_order_revision >();
 
             auto head_itr = order_idx.begin();
             // composite keys do not have default initializers, so we need to store them as a pointer
-            std::unique_ptr< key_type > head_key;
-
-            key_from_value_type key_from_value;
-            key_compare_type    key_compare;
+            std::optional< const key_type& > head_key;
 
             if( head_itr->valid() )
             {
-               head_key = std::make_unique< key_type >( key_from_value( *(head_itr->iter) ) );
+               head_key = head_itd->_itr.key();
             }
 
             /* We are grabbing the current head value.
              * Then iterate over all other iterators and rewind them until they have a value less
              * than the current value. One of those values is what we want to decrement to.
              */
-            const auto& rev_idx = _iter_rev_index.template get< by_revision >();
+            const auto& rev_idx = _itr_revision_index.template get< by_revision >();
             for( auto rev_itr = rev_idx.begin(); rev_itr != rev_idx.end(); ++rev_itr )
             {
                // Only decrement iterators that have modified objects
-               if( rev_itr->index->size() )
+               if( rev_itr->_backend->size() )
                {
-                  auto begin = rev_itr->index->template get< IndexedByType >().begin();
+                  auto begin = rev_itr->_backend->begin();
 
                   if( !head_key )
                   {
                      // If there was no valid key, then bring back each iterator once, it is gauranteed to be less than the
                      // current value (end()).
-                     _iter_rev_index.modify( _iter_rev_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                     _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
                   }
                   else
                   {
                      // Do an initial decrement if the iterator currently points to end()
                      if( !rev_itr->valid() )
                      {
-                        _iter_rev_index.modify( _iter_rev_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
                      }
 
                      // Decrement back to the first key that is less than the head key
-                     while( !key_compare( key_from_value( *(rev_itr->iter) ), *head_key ) && rev_itr->iter != begin )
+                     while( rev_itr->_itr.key() >= *head_key && rev_itr->_itr != begin )
                      {
-                        _iter_rev_index.modify( _iter_rev_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
+                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *rev_itr ), [&]( iterator_wrapper& i ){ --(i.iter); } );
                      }
                   }
 
@@ -264,19 +250,19 @@ namespace koinos::state_db::detail {
                   // might have been modified in a later index. We need to continue decrementing until we have a valid key.
                   bool dirty = true;
 
-                  while( dirty && rev_itr->valid() && rev_itr->iter != begin )
+                  while( dirty && rev_itr->valid() && rev_itr->_itr != begin )
                   {
                      dirty = is_dirty( rev_itr );
 
                      if( dirty )
                      {
-                        _iter_rev_index.modify( _iter_rev_index.iterator_to( *(rev_itr) ), [](iterator_wrapper& i ){ --(i.iter); } );
+                        _itr_revision_index.modify( _itr_revision_index.iterator_to( *(rev_itr) ), [](iterator_wrapper& i ){ --(i.iter); } );
                      }
                   }
                }
             }
 
-            const auto& rev_order_idx = _iter_rev_index.template get< by_reverse_order_revision >();
+            const auto& rev_order_idx = _itr_revision_index.template get< by_reverse_order_revision >();
             auto least_itr = rev_order_idx.begin();
 
             if( _delta_deque.size() > 1 )
@@ -287,7 +273,7 @@ namespace koinos::state_db::detail {
                if( head_key )
                {
                   while( least_itr != rev_order_idx.end() && least_itr->valid()
-                     && ( is_dirty( least_itr ) || !key_compare( key_from_value( *(least_itr->iter) ), *head_key ) ) )
+                     && ( is_dirty( least_itr ) || lead_itr->_itr.key() >= *head_key ) )
                   {
                      ++least_itr;
                   }
@@ -305,7 +291,7 @@ namespace koinos::state_db::detail {
                // to become the head.
                while( least_itr != rev_order_idx.end() && least_itr->valid() )
                {
-                  _iter_rev_index.modify( _iter_rev_index.iterator_to( *(least_itr--) ), [](iterator_wrapper& i ){ ++(i.iter); } );
+                  _itr_revision_index.modify( _itr_revision_index.iterator_to( *(least_itr--) ), [](iterator_wrapper& i ){ ++(i.iter); } );
                   ++least_itr;
                }
 
@@ -322,12 +308,12 @@ namespace koinos::state_db::detail {
 
          const value_type& operator*()const
          {
-            return _iter_rev_index.begin()->iter.operator *();
+            return _itr_revision_index.begin()->_itr.operator *();
          }
 
          const value_type* operator->()const
          {
-            return _iter_rev_index.begin()->iter.operator ->();
+            return _itr_revision_index.begin()->_itr.operator ->();
          }
 
          merge_iterator& operator =( const merge_iterator& other )
@@ -337,7 +323,7 @@ namespace koinos::state_db::detail {
             KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots" );
             KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads" );
 
-            _iter_rev_index = other._iter_rev_index;
+            _itr_revision_index = other._itr_revision_index;
 
             return *this;
          }
@@ -349,18 +335,17 @@ namespace koinos::state_db::detail {
             KOINOS_ASSERT( _delta_deque.begin()->id() == _delta_deque.begin()->id(), internal_error, "Cannot assign merge iterators with different roots" );
             KOINOS_ASSERT( _delta_deque.rbegin()->id() == _delta_deque.rbegin()->id(), internal_error, "Cannot assign merge iterators with different heads" );
 
-            _iter_rev_index = std::move( other._iter_rev_index );
+            _itr_revision_index = std::move( other._itr_revision_index );
 
             return *this;
          }
 
       private:
-         template< typename IterType >
-         bool is_dirty( IterType itr )
+         bool is_dirty( iterator_wrapper itr )
          {
             bool dirty = false;
 
-            for( int i = _delta_deque.size() - 1; itr->revision < _delta_deque[i]->revision() && !dirty; --i )
+            for( int i = _delta_deque.size() - 1; itr->_revision < _delta_deque[i]->revision() && !dirty; --i )
             {
                dirty = _delta_deque[i]->is_modified( itr->iter->id );
             }
@@ -370,7 +355,7 @@ namespace koinos::state_db::detail {
 
          void resolve_conflicts()
          {
-            auto first_itr = _iter_rev_index.begin();
+            auto first_itr = _itr_revision_index.begin();
             bool dirty = true;
 
             while( dirty && first_itr->valid() )
@@ -379,16 +364,16 @@ namespace koinos::state_db::detail {
 
                if( dirty )
                {
-                  _iter_rev_index.modify( first_itr, [](iterator_wrapper& i ){ ++(i.iter); } );
+                  _itr_revision_index.modify( first_itr, [](iterator_wrapper& i ){ ++(i.iter); } );
                }
 
-               first_itr = _iter_rev_index.begin();
+               first_itr = _itr_revision_index.begin();
             }
          }
 
          bool is_end() const
          {
-            return std::all_of( _iter_rev_index.begin(), _iter_rev_index.end(),
+            return std::all_of( _itr_revision_index.begin(), _itr_revision_index.end(),
                []( auto& i ){ return !i.valid(); } );
          }
    };
@@ -397,11 +382,9 @@ namespace koinos::state_db::detail {
    class merge_index
    {
       public:
-         typedef MultiIndexType                                                        index_type;
-         typedef state_delta< index_type >                                             state_delta_type;
-         typedef decltype( ((index_type*)nullptr)->template get< IndexedByType >() )   by_index_type;
-         typedef typename index_type::value_type                                       value_type;
-         typedef merge_iterator< index_type, IndexedByType >                           iterator_type;
+         using backend_type     = backends::abstract_backend;
+         using state_delta_type = state_delta;
+         using key_type         = state_delta::key_type;
 
          std::shared_ptr< state_delta_type > _head;
 
@@ -409,62 +392,35 @@ namespace koinos::state_db::detail {
             _head( head )
          {}
 
-         template< typename CompatibleKey >
-         iterator_type lower_bound( CompatibleKey&& key ) const
+         merge_iterator begin() const
          {
-            return iterator_type( _head, [&]( by_index_type& idx )
+            return merge_iterator( _head, [&]( backend_type& backend )
             {
-               return idx.lower_bound( key );
+               return backend.begin();
             });
          }
 
-         template< typename CompatibleKey >
-         iterator_type upper_bound( CompatibleKey&& key ) const
+         merge_iterator end() const
          {
-            return iterator_type( _head, [&]( by_index_type& idx )
+            return merge_iterator( _head, [&]( backend_type& backend )
             {
-               return idx.upper_bound( key );
+               return backend.end();
             });
          }
 
-         template< typename CompatibleKey >
-         std::pair< iterator_type, iterator_type > equal_range( CompatibleKey&& key ) const
+         merge_iterator find( const key_type& key ) const
          {
-            return std::make_pair< iterator_type, iterator_type >(
-               lower_bound( key ), upper_bound( key ) );
-         }
-
-         iterator_type begin() const
-         {
-            return iterator_type( _head, [&]( by_index_type& idx )
+            return merge_iterator( _head, [&]( backend_type& backend )
             {
-               return idx.begin();
+               return backend.find( key );
             });
          }
 
-         iterator_type end() const
+         merge_iterator lower_bound( const key_type& key ) const
          {
-            return iterator_type();
-         }
-
-         template< typename CompatibleKey >
-         const value_type* find( CompatibleKey& key ) const
-         {
-            return _head->template find< IndexedByType >( key );
-         }
-
-         template< typename CompatibleKey >
-         const value_type* find( CompatibleKey&& key ) const
-         {
-            return _head->template find< IndexedByType >( key );
-         }
-
-         iterator_type iterator_to( const value_type& v ) const
-         {
-            return iterator_type( _head, [&]( by_index_type& idx )
+            return merge_iterator( _head, [&]( backend_type& backend )
             {
-               auto itr = idx.iterator_to( v );
-               return itr != idx.end() ? itr : idx.upper_bound( v );
+               return backend.lower_bound( key );
             });
          }
    };
