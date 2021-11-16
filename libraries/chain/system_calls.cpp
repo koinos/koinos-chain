@@ -421,6 +421,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    switch ( context.intent() )
    {
    case intent::block_application:
+      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ), unexpected_receipt, "expected block receipt with block application intent" );
       *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
       break;
    case intent::transaction_application:

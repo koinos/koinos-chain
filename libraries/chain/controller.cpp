@@ -245,6 +245,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
+      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ), unexpected_receipt, "expected block receipt" );
       *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
 
       if ( !index_to )
@@ -431,6 +432,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
+      KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt, "expected transaction receipt" );
       *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
 
       if ( _client && _client->is_running() )

@@ -536,6 +536,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 { try {
    using namespace koinos;
 
+   ctx.set_intent( chain::intent::transaction_application );
+
    BOOST_TEST_MESSAGE( "Test transaction nonce" );
 
    auto key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "alpha bravo charlie delta"s ) );
