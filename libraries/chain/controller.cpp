@@ -245,16 +245,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
-      protocol::block_receipt receipt;
-      receipt.set_id( block.id() );
-      receipt.set_compute_bandwidth_used( compute_bandwidth_used );
-      receipt.set_disk_storage_used( disk_storage_used );
-      receipt.set_network_bandwidth_used( network_bandwidth_used );
-
-      for ( auto& event : ctx.event_recorder().events() )
-         *receipt.add_events() = event;
-
-      *resp.mutable_receipt() = receipt;
+      *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
 
       if ( !index_to )
       {
@@ -306,7 +297,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          {
             broadcast::block_accepted ba;
             *ba.mutable_block() = block;
-            *ba.mutable_receipt() = receipt;
+            *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
 
             _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
          }
@@ -440,19 +431,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
-      protocol::transaction_receipt receipt;
-      receipt.set_id( transaction.id() );
-      receipt.set_payer( payer );
-      receipt.set_max_payer_rc( max_payer_rc );
-      receipt.set_rc_limit( trx_rc_limit );
-      receipt.set_disk_storage_used( disk_storage_used );
-      receipt.set_network_bandwidth_used( network_bandwidth_used );
-      receipt.set_compute_bandwidth_used( compute_bandwidth_used );
-
-      for ( auto& event : ctx.event_recorder().events() )
-         *receipt.add_events() = event;
-
-      *resp.mutable_receipt() = receipt;
+      *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
 
       if ( _client && _client->is_running() )
       {
@@ -460,7 +439,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          {
             broadcast::transaction_accepted ta;
             *ta.mutable_transaction() = transaction;
-            *ta.mutable_receipt() = receipt;
+            *ta.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
             ta.set_height( ctx.get_state_node()->revision() );
 
             _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );

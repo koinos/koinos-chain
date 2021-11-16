@@ -321,6 +321,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    transaction_guard guard( context, trx );
 
+   protocol::transaction_receipt receipt;
+
    protocol::active_transaction_data active_data;
    KOINOS_ASSERT(
       active_data.ParseFromString( trx.active() ),
@@ -332,6 +334,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    auto payer_rc = system_call::get_account_rc( context, payer );
    KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
+
+   auto start_disk_used    = context.resource_meter().disk_storage_used();
+   auto start_network_used = context.resource_meter().network_bandwidth_used();
+   auto start_compute_used = context.resource_meter().compute_bandwidth_used();
 
    /**
     * While a reference to the payer_session remains alive, resource usage will be tallied
@@ -353,6 +359,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.set_state_node( trx_node, block_node->get_parent() );
 
    std::exception_ptr reverted_exception_ptr;
+
+   receipt.set_id( trx.id() );
+   receipt.set_payer( payer );
+   receipt.set_max_payer_rc( payer_rc );
+   receipt.set_rc_limit( active_data.rc_limit() );
+   receipt.set_reverted( false );
 
    try
    {
@@ -381,21 +393,43 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << e.what();
       transaction_reverted tr( e.what() );
       reverted_exception_ptr = std::make_exception_ptr( tr );
+      receipt.set_reverted( true );
    }
 
    context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
    system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( active_data.nonce() + 1 ) );
+   auto used_rc = payer_session->used_rc();
 
-   auto payer_consumed_rc = payer_session->used_rc();
+   receipt.set_rc_used( used_rc );
+   receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() - start_disk_used );
+   receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() - start_network_used );
+   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() - start_compute_used );
+
+   for ( auto& e : payer_session->events() )
+      *receipt.add_events() = e;
+
    payer_session.reset();
 
    KOINOS_ASSERT(
-      system_call::consume_account_rc( context, payer, payer_consumed_rc ),
+      system_call::consume_account_rc( context, payer, used_rc ),
       unable_to_consume_resources,
       "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
    );
+
+   switch ( context.intent() )
+   {
+   case intent::block_application:
+      *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
+      break;
+   case intent::transaction_application:
+      context.receipt() = receipt;
+      break;
+   default:
+      KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
+      break;
+   }
 
    if ( reverted_exception_ptr )
    {
@@ -926,7 +960,7 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
    return ret;
 }
 
-THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data) )
+THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
    context.resource_meter().use_network_bandwidth( context.get_caller().size() + name.size() + data.size() );
@@ -935,6 +969,9 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
    ev.set_source( util::converter::as< std::string >( context.get_caller() ) );
    ev.set_name( name );
    ev.set_data( data );
+
+   for ( auto& imp : impacted )
+      *ev.add_impacted() = imp;
 
    context.event_recorder().push_event( std::move( ev ) );
 }
