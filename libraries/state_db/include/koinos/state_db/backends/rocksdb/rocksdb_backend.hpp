@@ -11,7 +11,6 @@
 
 namespace koinos::state_db::backends::rocksdb {
 
-// rocksmap is a RocksDB based map implementation for Koinos.
 class rocksdb_backend final : public abstract_backend {
    public:
       using key_type   = abstract_backend::key_type;
@@ -26,7 +25,7 @@ class rocksdb_backend final : public abstract_backend {
       virtual iterator end();
 
       // Modifiers
-      virtual bool put( const key_type& k, const value_type& v );
+      virtual void put( const key_type& k, const value_type& v );
       virtual void erase( const key_type& k );
 
       // Lookup

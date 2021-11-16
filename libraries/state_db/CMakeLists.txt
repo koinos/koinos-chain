@@ -6,6 +6,8 @@ file(GLOB HEADERS
 add_library(koinos_state_db
             state_db.cpp
             backends/iterator.cpp
+            backends/map/map_backend.cpp
+            backends/map/map_iterator.cpp
             backends/rocksdb/rocksdb_backend.cpp
             backends/rocksdb/rocksdb_iterator.cpp
             backends/rocksdb/object_cache.cpp

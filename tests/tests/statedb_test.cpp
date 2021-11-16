@@ -4,6 +4,7 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/exception.hpp>
+#include <koinos/state_db/backends/map/map_backend.hpp>
 #include <koinos/state_db/backends/rocksdb/rocksdb_backend.hpp>
 #include <koinos/state_db/detail/merge_iterator.hpp>
 #include <koinos/state_db/detail/objects.hpp>
@@ -1541,12 +1542,12 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    auto itr = backend.begin();
    BOOST_CHECK( itr == backend.end() );
 
-   BOOST_CHECK( backend.put( "foo", "bar" ) );
+   backend.put( "foo", "bar" );
    itr = backend.begin();
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bar" );
 
-   BOOST_CHECK( backend.put( "alice", "bob" ) );
+   backend.put( "alice", "bob" );
 
    itr = backend.begin();
    BOOST_CHECK( itr != backend.end() );
@@ -1570,7 +1571,69 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "bar" );
 
-   BOOST_CHECK( backend.put( "foo", "blob" ) );
+   backend.put( "foo", "blob" );
+   itr = backend.find( "foo" );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "blob" );
+
+   --itr;
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bob" );
+
+   backend.erase( "foo" );
+
+   itr = backend.begin();
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bob" );
+
+   itr = backend.find( "foo" );
+   BOOST_CHECK( itr == backend.end() );
+
+   backend.erase( "foo" );
+
+   backend.erase( "alice" );
+   itr = backend.end();
+   BOOST_CHECK( itr == backend.end() );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( map_backend_test )
+{ try {
+   koinos::state_db::backends::map::map_backend backend;
+
+   auto itr = backend.begin();
+   BOOST_CHECK( itr == backend.end() );
+
+   backend.put( "foo", "bar" );
+   itr = backend.begin();
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   backend.put( "alice", "bob" );
+
+   itr = backend.begin();
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bob" );
+
+   ++itr;
+   BOOST_CHECK( *itr == "bar" );
+
+   ++itr;
+   BOOST_CHECK( itr == backend.end() );
+
+   --itr;
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   itr = backend.lower_bound( "charlie" );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   itr = backend.lower_bound( "foo" );
+   BOOST_CHECK( itr != backend.end() );
+   BOOST_CHECK( *itr == "bar" );
+
+   backend.put( "foo", "blob" );
    itr = backend.find( "foo" );
    BOOST_CHECK( itr != backend.end() );
    BOOST_CHECK( *itr == "blob" );

@@ -47,17 +47,14 @@ iterator rocksdb_backend::end()
    return iterator( std::unique_ptr< abstract_iterator >( std::move( itr ) ) );
 }
 
-bool rocksdb_backend::put( const key_type& k, const value_type& v )
+void rocksdb_backend::put( const key_type& k, const value_type& v )
 {
    auto status = _db->Put( _wopts, nullptr, ::rocksdb::Slice( k ), ::rocksdb::Slice( v ) );
 
-   if ( status.ok() )
-   {
-      std::lock_guard lock( _cache->get_mutex() );
-      _cache->put( ::rocksdb::Slice( k ), v );
-   }
+   KOINOS_ASSERT( status.ok(), koinos::exception, "" );
 
-   return status.ok();
+   std::lock_guard lock( _cache->get_mutex() );
+   _cache->put( ::rocksdb::Slice( k ), v );
 }
 
 void rocksdb_backend::erase( const key_type& k )

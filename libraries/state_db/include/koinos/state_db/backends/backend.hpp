@@ -16,7 +16,7 @@ class abstract_backend
       virtual iterator begin() = 0;
       virtual iterator end() = 0;
 
-      virtual bool put( const key_type& k, const value_type& v ) = 0;
+      virtual void put( const key_type& k, const value_type& v ) = 0;
       virtual void erase( const key_type& k ) = 0;
 
       virtual iterator find( const key_type& k ) = 0;
