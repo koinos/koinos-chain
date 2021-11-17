@@ -20,7 +20,7 @@
 
 using namespace koinos;
 using namespace koinos::state_db;
-using state_db::detail::merge_index;
+using state_db::detail::merge_state;
 using state_db::detail::state_delta;
 
 using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
@@ -321,7 +321,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // by_b: 2, 1, 0
    // by_sum: 1, 2, 0
    {
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -357,7 +357,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( id_ptr->a, 1 );
       BOOST_REQUIRE_EQUAL( id_ptr->b, 7 );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 7 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -417,7 +417,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
@@ -479,7 +479,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // by_b: 2, 1, 0 (not changed)
    // by_sum: 1, 2, 0 (not changed)
    {
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -515,7 +515,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( id_ptr->a, 3 );
       BOOST_REQUIRE_EQUAL( id_ptr->b, 5 );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -545,7 +545,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -575,7 +575,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
@@ -621,7 +621,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // by_b: 2, 0, 1
    // by_sum: 2, 0, 1
    {
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -657,7 +657,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( id_ptr->a, 1 );
       BOOST_REQUIRE_EQUAL( id_ptr->b, 20 );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -687,7 +687,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -717,7 +717,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
@@ -759,7 +759,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // by_b: 2, 1
    // by_sum: 2, 1
    {
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -784,7 +784,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       const auto id_ptr = by_id_idx.find( 0 );
       BOOST_REQUIRE_EQUAL( id_ptr, nullptr );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -806,7 +806,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -828,7 +828,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
@@ -866,7 +866,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // by_b: 2, 3, 1
    // by_sum: 2, 3, 1
    {
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -902,7 +902,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( id_ptr->a, 2 );
       BOOST_REQUIRE_EQUAL( id_ptr->b, 13 );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -932,7 +932,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -950,7 +950,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       ++b_itr;
       BOOST_REQUIRE( b_itr == by_b_idx.end() );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
@@ -985,7 +985,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    delta_deque.pop_front();
    delta_deque.front()->commit();
    {
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -1029,7 +1029,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -1059,7 +1059,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -1089,7 +1089,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
@@ -1125,7 +1125,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       delta_deque.pop_front();
       delta_deque.front()->commit();
 
-      auto by_id_idx = merge_index< book_index, by_id >( delta_deque.back() );
+      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
       auto id_itr = by_id_idx.begin();
 
       BOOST_REQUIRE( id_itr != by_id_idx.end() );
@@ -1169,7 +1169,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
       BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
 
-      auto by_a_idx = merge_index< book_index, by_a >( delta_deque.back() );
+      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
       auto a_itr = by_a_idx.begin();
 
       BOOST_REQUIRE( a_itr != by_a_idx.end() );
@@ -1213,7 +1213,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
       BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
 
-      auto by_b_idx = merge_index< book_index, by_b >( delta_deque.back() );
+      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
       auto b_itr = by_b_idx.begin();
 
       BOOST_REQUIRE( b_itr != by_b_idx.end() );
@@ -1257,7 +1257,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
       BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
 
-      auto by_sum_idx = merge_index< book_index, by_sum >( delta_deque.back() );
+      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
       auto sum_itr = by_sum_idx.begin();
 
       BOOST_REQUIRE( sum_itr != by_sum_idx.end() );

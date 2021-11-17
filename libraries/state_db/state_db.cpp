@@ -367,7 +367,7 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_index( _state );
+   auto idx = merge_state( _state );
    auto pobj = idx.find( key_string );
 
    if( pobj != nullptr )
@@ -385,7 +385,7 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_index( _state );
+   auto idx = merge_state( _state );
    auto it = idx.lower_bound( key_string );
 
    if ( it != idx.end() )
@@ -413,7 +413,7 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_index( _state );
+   auto idx = merge_state( _state );
    auto it = idx.lower_bound( key_string );
 
    if( it != idx.begin() )
@@ -439,7 +439,7 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_index( _state );
+   auto idx = merge_state( _state );
    auto pobj = idx.find( key_string );
 
    int32_t bytes_used = 0;
