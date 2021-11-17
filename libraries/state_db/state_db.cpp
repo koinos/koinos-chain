@@ -363,7 +363,7 @@ bool database_impl::is_open()const
 const object_value* state_node_impl::get_object( const object_space& space, const object_key& key )const
 {
    chain::database_key db_key;
-   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   *db_key.mutable_space() = space;
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
@@ -381,7 +381,7 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
 std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key )const
 {
    chain::database_key db_key;
-   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   *db_key.mutable_space() = space;
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
@@ -409,7 +409,7 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
 std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key )const
 {
    chain::database_key db_key;
-   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   *db_key.mutable_space() = space;
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
@@ -432,28 +432,30 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
 
 int32_t state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
-   int32_t bytes_used = val != nullptr ? val->size() : 0;
    KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
 
    chain::database_key db_key;
-   *db_key.mutable_space() = util::converter::to< chain::object_space >( space );
+   *db_key.mutable_space() = space;
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
    auto idx = merge_index( _state );
    auto pobj = idx.find( key_string );
 
+   int32_t bytes_used = 0;
+
+   if ( pobj != nullptr )
+   {
+      bytes_used -= pobj->size();
+   }
+
    if ( val != nullptr )
    {
+      bytes_used += val->size();
       _state->put( key_string, *val );
    }
    else
    {
-      if ( pobj != nullptr )
-      {
-         bytes_used -= pobj->size();
-      }
-
       _state->erase( key_string );
    }
 

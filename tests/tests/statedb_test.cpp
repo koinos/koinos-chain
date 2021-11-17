@@ -65,99 +65,68 @@ struct state_db_fixture
 
 BOOST_FIXTURE_TEST_SUITE( state_db_tests, state_db_fixture )
 
-#if 0
 BOOST_AUTO_TEST_CASE( basic_test )
 { try {
-   BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = util::converter::as< object_space >( 0 );
-   book book_a;
-   book_a.id = 1;
-   book_a.a = 3;
-   book_a.b = 4;
-   book get_book;
+   BOOST_TEST_MESSAGE( "Creating object" );
+   object_space space;
+   std::string a_key = "a";
+   std::string a_val = "alice";
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
-   auto book_a_id = util::converter::as< object_key >( book_a.id );
-   auto book_value = util::converter::as< object_value >( book_a );
-   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == book_value.size() );
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
 
-   // Book should not exist on older state node
-   BOOST_REQUIRE( db.get_root()->get_object( space, book_a_id ) == nullptr );
+   // Object should not exist on older state node
+   BOOST_CHECK_EQUAL( db.get_root()->get_object( space, a_key ), nullptr );
 
-   auto ptr = state_1->get_object( space, book_a_id );
+   auto ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
+   BOOST_CHECK_EQUAL( *ptr, a_val );
 
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+   BOOST_TEST_MESSAGE( "Modifying object" );
 
-   BOOST_TEST_MESSAGE( "Modifying book" );
+   a_val = "alicia";
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), 1 );
 
-   book_a.a = 5;
-   book_a.b = 6;
-   book_value = util::converter::as< object_value >( book_a );
-   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == 0 );
-
-   ptr = state_1->get_object( space, book_a_id );
+   ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
-
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+   BOOST_CHECK_EQUAL( *ptr, a_val );
 
    state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
    auto state_2 = db.create_writable_node( state_1->id(), state_id );
-   BOOST_REQUIRE( !state_2 );
+   BOOST_CHECK( !state_2 );
 
    db.finalize_node( state_1->id() );
 
-
-   BOOST_REQUIRE_THROW( state_1->put_object( space, book_a_id, &book_value ), node_finalized );
+   BOOST_REQUIRE_THROW( state_1->put_object( space, a_key, &a_val ), node_finalized );
 
    state_2 = db.create_writable_node( state_1->id(), state_id );
-   book_a.a = 7;
-   book_a.b = 8;
-   book_value = util::converter::as< object_value >( book_a );
-   BOOST_REQUIRE( state_2->put_object( space, book_a_id, &book_value ) == 0 );
+   a_val = "alex";
+   BOOST_CHECK_EQUAL( state_2->put_object( space, a_key, &a_val ), -2 );
 
-   ptr = state_2->get_object( space, book_a_id );
+   ptr = state_2->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
+   BOOST_CHECK_EQUAL( *ptr, a_val );
 
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
-
-   ptr = state_1->get_object( space, book_a_id );
+   ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
+   BOOST_CHECK_EQUAL( *ptr, "alicia" );
 
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, 5 );
-   BOOST_REQUIRE_EQUAL( get_book.b, 6 );
+   BOOST_TEST_MESSAGE( "Erasing object" );
+   BOOST_CHECK_EQUAL( state_2->put_object( space, a_key, nullptr ), -1 * a_val.size() );
 
-   BOOST_TEST_MESSAGE( "Erasing book" );
-   BOOST_REQUIRE( state_2->put_object( space, book_a_id, nullptr ) == -1 * book_value.size() );
-
-   BOOST_REQUIRE( !state_2->get_object( space, book_a_id ) );
+   BOOST_CHECK( !state_2->get_object( space, a_key ) );
 
    db.discard_node( state_2->id() );
    state_2 = db.get_node( state_2->id() );
-   BOOST_REQUIRE( !state_2 );
+   BOOST_CHECK( !state_2 );
 
-   ptr = state_1->get_object( space, book_a_id );
+   ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
-
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, 5 );
-   BOOST_REQUIRE_EQUAL( get_book.b, 6 );
+   BOOST_CHECK_EQUAL( *ptr, "alicia" );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
    BOOST_TEST_MESSAGE( "Basic fork tests on state_db" );
@@ -1476,6 +1445,12 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
 BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
 { try {
    koinos::state_db::backends::rocksdb::rocksdb_backend backend;
+   auto temp = std::filesystem::temp_directory_path() / util::random_alphanumeric( 8 );
+
+   BOOST_REQUIRE_THROW( backend.open( temp ), koinos::exception );
+
+   std::filesystem::create_directory( temp );
+   backend.open( temp );
 
    auto itr = backend.begin();
    BOOST_CHECK( itr == backend.end() );
@@ -1532,6 +1507,8 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    backend.erase( "alice" );
    itr = backend.end();
    BOOST_CHECK( itr == backend.end() );
+
+   std::filesystem::remove_all( temp );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

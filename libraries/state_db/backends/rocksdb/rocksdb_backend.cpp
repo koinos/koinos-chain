@@ -34,11 +34,11 @@ rocksdb_backend::~rocksdb_backend()
 
 bool rocksdb_backend::maybe_create_columns( const std::filesystem::path& p )
 {
-   std::vector< ::rocksdb::ColumnFamilyDescriptor > column_definitions;
-   column_definitions.emplace_back(
+   column_definitions defs;
+   defs.emplace_back(
       constants::objects_column_name,
       ::rocksdb::ColumnFamilyOptions() );
-   column_definitions.emplace_back(
+   defs.emplace_back(
       constants::metadata_column_name,
       ::rocksdb::ColumnFamilyOptions() );
 
@@ -46,7 +46,7 @@ bool rocksdb_backend::maybe_create_columns( const std::filesystem::path& p )
    std::vector< ::rocksdb::ColumnFamilyHandle* > handles;
    ::rocksdb::Options options;
 
-   auto status = ::rocksdb::DB::OpenForReadOnly( options, p.string(), column_definitions, &handles, &db );
+   auto status = ::rocksdb::DB::OpenForReadOnly( options, p.string(), defs, &handles, &db );
 
    if ( status.ok() )
    {
@@ -66,8 +66,8 @@ bool rocksdb_backend::maybe_create_columns( const std::filesystem::path& p )
 
    std::shared_ptr< ::rocksdb::DB > db_ptr( db );
 
-   status = db->CreateColumnFamilies( column_definitions, &handles );
-   std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > > handle_ptrs;
+   status = db->CreateColumnFamilies( defs, &handles );
+   column_handles handle_ptrs;
    for( auto* h : handles )
    {
       handle_ptrs.emplace_back( h );
@@ -113,28 +113,30 @@ bool rocksdb_backend::maybe_create_columns( const std::filesystem::path& p )
 void rocksdb_backend::open( const std::filesystem::path& p )
 {
    KOINOS_ASSERT( p.is_absolute(), koinos::exception, "" );
+   KOINOS_ASSERT( std::filesystem::exists( p ), koinos::exception, "" );
 
    KOINOS_ASSERT( maybe_create_columns( p ), koinos::exception, "" );
 
-   std::vector< ::rocksdb::ColumnFamilyDescriptor > column_definitions;
-   column_definitions.emplace_back(
+   column_definitions defs;
+   defs.emplace_back(
+      ::rocksdb::kDefaultColumnFamilyName,
+      ::rocksdb::ColumnFamilyOptions() );
+   defs.emplace_back(
       constants::objects_column_name,
       ::rocksdb::ColumnFamilyOptions() );
-   column_definitions.emplace_back(
+   defs.emplace_back(
       constants::metadata_column_name,
       ::rocksdb::ColumnFamilyOptions() );
 
    std::vector< ::rocksdb::ColumnFamilyHandle* > handles;
 
    ::rocksdb::Options options;
-   options.create_if_missing = true;
    options.max_open_files = constants::max_open_files;
    ::rocksdb::DB* db;
 
-   std::filesystem::create_directory( p );
-   auto status = ::rocksdb::DB::Open( options, p.string(), column_definitions, &handles, &db );
+   auto status = ::rocksdb::DB::Open( options, p.string(), defs, &handles, &db );
 
-   KOINOS_ASSERT( status.ok(), koinos::exception, "" );
+   KOINOS_ASSERT( status.ok(), koinos::exception, std::string( status.getState() ) );
 
    _db = std::shared_ptr< ::rocksdb::DB >( db );
 
@@ -148,21 +150,21 @@ void rocksdb_backend::close()
    {
       auto status = _db->Put(
          _wopts,
-         _handles[ constants::metadata_column_index ],
+         &(*_handles[ constants::metadata_column_index ]),
          ::rocksdb::Slice( constants::size_key ),
          ::rocksdb::Slice( util::converter::as< std::string >( uint64_t( 0 ) ) )
       );
 
-      KOINOS_ASSERT( status.ok(), koinos::exception, "" );
+      KOINOS_ASSERT( status.ok(), koinos::exception, status.getState() );
 
       status = _db->Put(
          _wopts,
-         _handles[ constants::metadata_column_index ],
+         &(*_handles[ constants::metadata_column_index ]),
          ::rocksdb::Slice( constants::size_key ),
          ::rocksdb::Slice( util::converter::as< std::string >( uint64_t( 0 ) ) )
       );
 
-      KOINOS_ASSERT( status.ok(), koinos::exception, "" );
+      KOINOS_ASSERT( status.ok(), koinos::exception, status.getState() );
 
       ::rocksdb::CancelAllBackgroundWork( &(*_db), true );
       _handles.clear();
@@ -187,7 +189,7 @@ iterator rocksdb_backend::begin()
    KOINOS_ASSERT( _db, koinos::exception, "" );
 
    auto itr = std::make_unique< rocksdb_iterator >( _db, _ropts, _cache );
-   itr->_iter = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts ) );
+   itr->_iter = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts, &(*_handles[ constants::objects_column_index ]) ) );
    itr->_iter->SeekToFirst();
 
    return iterator( std::unique_ptr< abstract_iterator >( std::move( itr ) ) );
@@ -198,7 +200,7 @@ iterator rocksdb_backend::end()
    KOINOS_ASSERT( _db, koinos::exception, "" );
 
    auto itr = std::make_unique< rocksdb_iterator >( _db, _ropts, _cache );
-   itr->_iter = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts ) );
+   itr->_iter = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts, &(*_handles[ constants::objects_column_index ]) ) );
 
    return iterator( std::unique_ptr< abstract_iterator >( std::move( itr ) ) );
 }
@@ -230,7 +232,10 @@ void rocksdb_backend::erase( const key_type& k )
    KOINOS_ASSERT( _db, koinos::exception, "" );
 
    bool exists = find( k ) != end();
-   auto status = _db->Delete( _wopts, &(*_handles[ constants::objects_column_index ]), ::rocksdb::Slice( k ) );
+   auto status = _db->Delete(
+      _wopts,
+      &(*_handles[ constants::objects_column_index ]),
+      ::rocksdb::Slice( k ) );
 
    KOINOS_ASSERT( status.ok(), koinos::exception, "" );
 
@@ -265,7 +270,7 @@ iterator rocksdb_backend::find( const key_type& k )
    KOINOS_ASSERT( _db, koinos::exception, "" );
 
    auto itr = std::make_unique< rocksdb_iterator >( _db, _ropts, _cache );
-   auto itr_ptr = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts ) );
+   auto itr_ptr = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts, &(*_handles[ constants::objects_column_index ]) ) );
 
    itr_ptr->Seek( ::rocksdb::Slice( k ) );
 
@@ -288,7 +293,7 @@ iterator rocksdb_backend::lower_bound( const key_type& k )
    KOINOS_ASSERT( _db, koinos::exception, "" );
 
    auto itr = std::make_unique< rocksdb_iterator >( _db, _ropts, _cache );
-   itr->_iter = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts ) );
+   itr->_iter = std::unique_ptr< ::rocksdb::Iterator >( _db->NewIterator( *_ropts, &(*_handles[ constants::objects_column_index ]) ) );
 
    itr->_iter->Seek( ::rocksdb::Slice( k ) );
 

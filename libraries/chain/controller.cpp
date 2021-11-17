@@ -500,7 +500,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   auto result = _db.get_head()->get_object( util::converter::as< state_db::object_space >( state::space::meta() ), util::converter::as< state_db::object_key >( state::key::chain_id ) );
+   auto result = _db.get_head()->get_object( state::space::meta(), state::key::chain_id );
 
    KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
 

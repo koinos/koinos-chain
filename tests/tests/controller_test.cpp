@@ -40,7 +40,7 @@ struct controller_fixture
 
       chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { util::converter::as< state_db::object_space >( chain::state::space::meta() ), util::converter::as< state_db::object_key >( chain::state::key::chain_id ) } ] = util::converter::as< state_db::object_value >( chain_id );
+      genesis_data[ { chain::state::space::meta(), chain::state::key::chain_id } ] = util::converter::as< state_db::object_value >( chain_id );
 
       _controller.open( _state_dir, genesis_data, false );
    }

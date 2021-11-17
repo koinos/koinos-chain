@@ -286,16 +286,4 @@ class database final
       std::unique_ptr< detail::database_impl > impl;
 };
 
-
-// contract_id   : 160 bits
-// reserved      :  72 bits
-// object_type   :  24 bits
-//
-// object_id     : 256 bits
-
-// contract_id is the address of a particular smart contract.
-// reserved must be 0
-// object_type is semantics defined by the application, different object_type can have different index_type
-// object_id is 256 bits, semantics defined by application
-
-}
+} // koinos::state_db

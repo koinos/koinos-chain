@@ -45,13 +45,16 @@ class rocksdb_backend final : public abstract_backend {
    private:
       bool maybe_create_columns( const std::filesystem::path& p );
 
-      std::shared_ptr< ::rocksdb::DB >              _db;
-      std::vector< ::rocksdb::ColumnFamilyHandle* > _handles;
-      ::rocksdb::WriteOptions                       _wopts;
-      std::shared_ptr< ::rocksdb::ReadOptions >     _ropts;
-      std::shared_ptr< object_cache >               _cache;
-      size_type                                     _size = 0;
-      size_type                                     _revision = 0;
+      using column_definitions = std::vector< ::rocksdb::ColumnFamilyDescriptor >;
+      using column_handles = std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > >;
+
+      std::shared_ptr< ::rocksdb::DB >          _db;
+      column_handles                            _handles;
+      ::rocksdb::WriteOptions                   _wopts;
+      std::shared_ptr< ::rocksdb::ReadOptions > _ropts;
+      std::shared_ptr< object_cache >           _cache;
+      size_type                                 _size = 0;
+      size_type                                 _revision = 0;
 };
 
 } // koinos::state_db::backends::rocksdb
