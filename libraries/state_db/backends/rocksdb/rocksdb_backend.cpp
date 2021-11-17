@@ -228,8 +228,8 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
 void rocksdb_backend::erase( const key_type& k )
 {
    KOINOS_ASSERT( _db, koinos::exception, "" );
-   bool exists = find( k ) != end();
 
+   bool exists = find( k ) != end();
    auto status = _db->Delete( _wopts, &(*_handles[ constants::objects_column_index ]), ::rocksdb::Slice( k ) );
 
    KOINOS_ASSERT( status.ok(), koinos::exception, "" );
@@ -241,6 +241,18 @@ void rocksdb_backend::erase( const key_type& k )
 
    std::lock_guard lock( _cache->get_mutex() );
    _cache->remove( ::rocksdb::Slice( k ) );
+}
+
+void rocksdb_backend::clear()
+{
+   KOINOS_ASSERT( _db, koinos::exception, "" );
+
+   for ( auto h : _handles )
+   {
+      _db->DropColumnFamily( &*h );
+   }
+
+   _cache->clear();
 }
 
 rocksdb_backend::size_type rocksdb_backend::size()const

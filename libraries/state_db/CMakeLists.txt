@@ -15,6 +15,6 @@ add_library(koinos_state_db
             backends/rocksdb/rocksdb_iterator.cpp
             backends/rocksdb/object_cache.cpp
             ${HEADERS} )
-target_link_libraries(koinos_state_db Koinos::exception Koinos::proto Koinos::crypto mira)
+target_link_libraries(koinos_state_db Koinos::exception Koinos::proto Koinos::crypto RocksDB::rocksdb)
 target_include_directories(koinos_state_db PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(Koinos::state_db ALIAS koinos_state_db)

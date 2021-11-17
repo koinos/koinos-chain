@@ -20,8 +20,6 @@
 
 #include <koinos/vm_manager/vm_backend.hpp>
 
-#include <mira/database_configuration.hpp>
-
 #include <algorithm>
 #include <chrono>
 #include <cmath>
