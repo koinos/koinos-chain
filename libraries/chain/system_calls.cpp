@@ -963,11 +963,13 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
+   auto caller = system_call::get_caller( context ).caller();
+
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-   context.resource_meter().use_network_bandwidth( context.get_caller().size() + name.size() + data.size() );
+   context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
 
    protocol::event_data ev;
-   ev.set_source( util::converter::as< std::string >( context.get_caller() ) );
+   ev.set_source( caller );
    ev.set_name( name );
    ev.set_data( data );
 
