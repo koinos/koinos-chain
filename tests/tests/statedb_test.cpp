@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_CHECK_EQUAL( *ptr, "alicia" );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( fork_tests )
 { try {
    BOOST_TEST_MESSAGE( "Basic fork tests on state_db" );
@@ -276,7 +276,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( fork_heads[0]->id() == id );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( merge_iterator )
 { try {
    /**

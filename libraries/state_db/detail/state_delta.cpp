@@ -22,6 +22,7 @@ state_delta::state_delta( const std::filesystem::path& p )
    backend->open( p );
    _backend = backend;
    _revision = backend->revision();
+   _id = backend->id();
 }
 
 void state_delta::put( const key_type& k, const value_type& v )

@@ -4,21 +4,28 @@
 
 namespace koinos::state_db::backends::rocksdb {
 
-rocksdb_iterator::rocksdb_iterator( std::shared_ptr< ::rocksdb::DB > db, std::shared_ptr< const ::rocksdb::ReadOptions > opts, std::shared_ptr< object_cache > cache ) :
+rocksdb_iterator::rocksdb_iterator(
+   std::shared_ptr< ::rocksdb::DB > db,
+   std::shared_ptr< ::rocksdb::ColumnFamilyHandle > handle,
+   std::shared_ptr< const ::rocksdb::ReadOptions > opts,
+   std::shared_ptr< object_cache > cache
+) :
    _db( db ),
+   _handle( handle ),
    _opts( opts ),
    _cache( cache )
-   {}
+{}
 
 rocksdb_iterator::rocksdb_iterator( const rocksdb_iterator& other ) :
    _db( other._db ),
+   _handle( other._handle ),
    _opts( other._opts ),
    _cache( other._cache ),
    _cache_value( other._cache_value )
 {
    if ( other._iter )
    {
-      _iter.reset( _db->NewIterator( *_opts ) );
+      _iter.reset( _db->NewIterator( *_opts, &*_handle ) );
 
       if( other._iter->Valid() )
       {
@@ -69,7 +76,7 @@ abstract_iterator& rocksdb_iterator::operator--()
 {
    if ( !valid() )
    {
-      _iter.reset( _db->NewIterator( *_opts ) );
+      _iter.reset( _db->NewIterator( *_opts, &*_handle ) );
       _iter->SeekToLast();
    }
    else

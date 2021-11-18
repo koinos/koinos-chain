@@ -1,5 +1,6 @@
 #pragma once
 
+#include <koinos/crypto/multihash.hpp>
 #include <koinos/state_db/backends/backend.hpp>
 #include <koinos/state_db/backends/rocksdb/object_cache.hpp>
 #include <koinos/state_db/backends/rocksdb/rocksdb_iterator.hpp>
@@ -23,9 +24,13 @@ class rocksdb_backend final : public abstract_backend {
 
       void open( const std::filesystem::path& p );
       void close();
+      void flush();
 
       size_type revision()const;
       void set_revision( size_type rev );
+
+      const crypto::multihash& id()const;
+      void set_id( const crypto::multihash& );
 
       // Iterators
       virtual iterator begin();
@@ -43,7 +48,8 @@ class rocksdb_backend final : public abstract_backend {
       virtual iterator lower_bound( const key_type& k );
 
    private:
-      bool maybe_create_columns( const std::filesystem::path& p );
+      void load_metadata();
+      void store_metadata();
 
       using column_definitions = std::vector< ::rocksdb::ColumnFamilyDescriptor >;
       using column_handles = std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > >;
@@ -55,6 +61,7 @@ class rocksdb_backend final : public abstract_backend {
       std::shared_ptr< object_cache >           _cache;
       size_type                                 _size = 0;
       size_type                                 _revision = 0;
+      crypto::multihash                         _id;
 };
 
 } // koinos::state_db::backends::rocksdb
