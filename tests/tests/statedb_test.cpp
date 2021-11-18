@@ -12,9 +12,8 @@
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/random.hpp>
 
-#include <boost/container/deque.hpp>
-#include <boost/interprocess/streams/vectorstream.hpp>
 
+#include <deque>
 #include <iostream>
 #include <filesystem>
 
@@ -22,8 +21,6 @@ using namespace koinos;
 using namespace koinos::state_db;
 using state_db::detail::merge_state;
 using state_db::detail::state_delta;
-
-using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
 using namespace std::string_literals;
 
 struct test_block
@@ -276,1033 +273,255 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    BOOST_REQUIRE( fork_heads[0]->id() == id );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( merge_iterator )
 { try {
-   /**
-    * The merge iterator test was originally written to work with chainbase.
-    * The state delta code has since been moved to state db, where the interface
-    * has changed. Because this test is intended to test to correctness of the
-    * merge iterators only, they will operate directly on state deltas, outside
-    * of state_db.
-    */
-   std::filesystem::path temp = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
+   std::filesystem::path temp = std::filesystem::temp_directory_path() / koinos::util::random_alphanumeric( 8 );
    std::filesystem::create_directory( temp );
 
-   using state_delta_type = state_delta< book_index >;
-   using state_delta_ptr = std::shared_ptr< state_delta_type >;
+   using state_delta_ptr = std::shared_ptr< state_delta >;
+   std::deque< state_delta_ptr > delta_queue;
+   delta_queue.emplace_back( std::make_shared< state_delta >( temp ) );
 
-   boost::container::deque< state_delta_ptr > delta_deque;
-   delta_deque.emplace_back( std::make_shared< state_delta_type >( temp ) );
+   // alice: 1
+   // bob: 2
+   // charlie: 3
+   delta_queue.back()->put( "alice", "1" );
+   delta_queue.back()->put( "bob", "2" );
+   delta_queue.back()->put( "charlie", "3" );
 
-   // Book 0: a: 5, b: 10, sum: 15
-   // Book 1: a: 1, b: 7, sum: 8
-   // Book 2: a: 10, b:3, sum 13
-   delta_deque.back()->emplace( [&]( book& b )
    {
-      b.a = 5;
-      b.b = 10;
-   });
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-   delta_deque.back()->emplace( [&]( book& b )
-   {
-      b.a = 1;
-      b.b = 7;
-   });
-
-   delta_deque.back()->emplace( [&]( book& b )
-   {
-      b.a = 10;
-      b.b = 3;
-   });
-
-   // Undo State 0 orders:
-   // by_a: 1, 0, 2
-   // by_b: 2, 1, 0
-   // by_sum: 1, 2, 0
-   {
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
-
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 10 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 7 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 7 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 10 );
-
-      const auto id_ptr = by_id_idx.find( 1 );
-      BOOST_REQUIRE( id_ptr != nullptr );
-      BOOST_REQUIRE_EQUAL( id_ptr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_ptr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_ptr->b, 7 );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 7 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 10 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 10 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 7 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 7 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 10 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 10 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 7 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 7 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 10 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 5 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 10 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 7 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "1" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "2" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "2" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "1" );
    }
 
-   // Book 0: a: 2, b: 13, sum: 15
-   // Book 1: a: 3, b: 5, sum: 8
-   // Book 2: a: 10, b: 3, sum: 13 (not changed)
-   delta_deque.emplace_back( std::make_shared< state_delta_type >( delta_deque.back(), delta_deque.back()->id() ) );
-   const auto book_0 = delta_deque.back()->template find< by_id >( 0 );
-   BOOST_REQUIRE( book_0 != nullptr );
-   BOOST_REQUIRE_EQUAL( book_0->id, 0 );
-   BOOST_REQUIRE_EQUAL( book_0->a, 5 );
-   BOOST_REQUIRE_EQUAL( book_0->b, 10 );
-   delta_deque.back()->modify( *book_0, [&]( book& b )
+
+   // alice: 4
+   // bob: 5
+   // charlie: 3 (not changed)
+   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.back()->put( "alice", "4" );
+   delta_queue.back()->put( "bob", "5" );
+
    {
-      b.a = 2;
-      b.b = 13;
-   });
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-   const auto book_1 = delta_deque.back()->template find< by_id >( 1 );
-   BOOST_REQUIRE( book_1 != nullptr );
-   BOOST_REQUIRE_EQUAL( book_1->id, 1 );
-   BOOST_REQUIRE_EQUAL( book_1->a, 1 );
-   BOOST_REQUIRE_EQUAL( book_1->b, 7 );
-   delta_deque.back()->modify( *book_1, [&]( book& b )
-   {
-      b.a = 3;
-      b.b = 5;
-   });
-
-   // Undo State 1 orders:
-   // by_a: 0, 1, 2
-   // by_b: 2, 1, 0 (not changed)
-   // by_sum: 1, 2, 0 (not changed)
-   {
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
-
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 5 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 5 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-
-      const auto id_ptr = by_id_idx.find( 1 );
-      BOOST_REQUIRE( id_ptr != nullptr );
-      BOOST_REQUIRE_EQUAL( id_ptr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_ptr->a, 3 );
-      BOOST_REQUIRE_EQUAL( id_ptr->b, 5 );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 5 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 5 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 5 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 5 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 5 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 5 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "5" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "5" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
    }
 
-   // Book 0: a: 2, b: 13, sum: 15 (not changed)
-   // Book 1: a: 1, b: 20, sum: 21
-   // Book 2: a: 10, b: 3, sum: 13 (not changed)
-   delta_deque.emplace_back( std::make_shared< state_delta_type >( delta_deque.back(), delta_deque.back()->id() ) );
-   delta_deque.back()->modify( *(delta_deque.back()->template find< by_id >( 1 )), [&]( book& b )
+   // alice: 4 (not changed)
+   // bob: 6
+   // charlie: 3 (not changed)
+   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.back()->put( "bob", "6" );
+
    {
-      b.a = 1;
-      b.b = 20;
-   });
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-   // Undo State 2 orders:
-   // by_a: 1, 0, 2
-   // by_b: 2, 0, 1
-   // by_sum: 2, 0, 1
-   {
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
-
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-
-      const auto id_ptr = by_id_idx.find( 1 );
-      BOOST_REQUIRE( id_ptr != nullptr );
-      BOOST_REQUIRE_EQUAL( id_ptr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_ptr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_ptr->b, 20 );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 0 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
    }
 
-   // Book: 0 (removed)
-   // Book 1: a: 1, b: 20, sum: 21 (not changed)
-   // Book 2: a: 10, b: 3, sum: 13 (not changed)
-   delta_deque.emplace_back( std::make_shared< state_delta_type >( delta_deque.back(), delta_deque.back()->id() ) );
-   delta_deque.back()->erase( *(delta_deque.back()->template find< by_id >( 0 )) );
+   // alice: (removed)
+   // bob: 6 (not changed)
+   // charlie: 3 (not changed)
+   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.back()->erase( "alice" );
 
-   // Undo State 3 orders:
-   // by_a: 1, 2
-   // by_b: 2, 1
-   // by_sum: 2, 1
    {
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-
-      const auto id_ptr = by_id_idx.find( 0 );
-      BOOST_REQUIRE_EQUAL( id_ptr, nullptr );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
    }
 
-   // Book 1: a: 1, b: 20, sum: 21 (not changed)
-   // Book 2: a: 10, b: 3, sum: 13 (not changed)
-   // Book 3: a: 2, b: 13, sum: 15 (old book 0)
-   delta_deque.emplace_back( std::make_shared< state_delta_type >( delta_deque.back(), delta_deque.back()->id() ) );
-   delta_deque.back()->emplace( [&]( book& b )
+   // alice: 4 (restored)
+   // bob: 6 (not changed)
+   // charlie: 3 (not changed)
+   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.back()->put( "alice", "4" );
+
    {
-      b.a = 2;
-      b.b = 13;
-   });
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-   // Undo State 4 orders:
-   // by_a: 1, 3, 2
-   // by_b: 2, 3, 1
-   // by_sum: 2, 3, 1
-   {
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
-
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-
-      const auto id_ptr = by_id_idx.find( 3 );
-      BOOST_REQUIRE( id_ptr != nullptr );
-      BOOST_REQUIRE_EQUAL( id_ptr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_ptr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_ptr->b, 13 );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
    }
 
-   delta_deque.pop_front();
-   delta_deque.pop_front();
-   delta_deque.front()->commit();
+   delta_queue.pop_front();
+   delta_queue.pop_front();
+   delta_queue.front()->commit();
+
    {
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      ++id_itr;
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
    }
 
-   while( delta_deque.size() > 1 )
+   while( delta_queue.size() > 1 )
    {
-      delta_deque.pop_front();
-      delta_deque.front()->commit();
+      delta_queue.pop_front();
+      delta_queue.front()->commit();
 
-      auto by_id_idx = merge_state< book_index, by_id >( delta_deque.back() );
-      auto id_itr = by_id_idx.begin();
+      merge_state m_state( delta_queue.back() );
+      auto itr = m_state.begin();
 
-      BOOST_REQUIRE( id_itr != by_id_idx.end() );
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      ++id_itr;
-      BOOST_REQUIRE( id_itr == by_id_idx.end() );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 13 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 20 );
-      ++id_itr;
-      ++id_itr;
-      --id_itr;
-      BOOST_REQUIRE_EQUAL( id_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( id_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( id_itr->b, 3 );
-
-      auto by_a_idx = merge_state< book_index, by_a >( delta_deque.back() );
-      auto a_itr = by_a_idx.begin();
-
-      BOOST_REQUIRE( a_itr != by_a_idx.end() );
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      ++a_itr;
-      BOOST_REQUIRE( a_itr == by_a_idx.end() );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 3 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 20 );
-      ++a_itr;
-      ++a_itr;
-      --a_itr;
-      BOOST_REQUIRE_EQUAL( a_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( a_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( a_itr->b, 13 );
-
-      auto by_b_idx = merge_state< book_index, by_b >( delta_deque.back() );
-      auto b_itr = by_b_idx.begin();
-
-      BOOST_REQUIRE( b_itr != by_b_idx.end() );
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      ++b_itr;
-      BOOST_REQUIRE( b_itr == by_b_idx.end() );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 20 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 3 );
-      ++b_itr;
-      ++b_itr;
-      --b_itr;
-      BOOST_REQUIRE_EQUAL( b_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( b_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( b_itr->b, 13 );
-
-      auto by_sum_idx = merge_state< book_index, by_sum >( delta_deque.back() );
-      auto sum_itr = by_sum_idx.begin();
-
-      BOOST_REQUIRE( sum_itr != by_sum_idx.end() );
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      ++sum_itr;
-      BOOST_REQUIRE( sum_itr == by_sum_idx.end() );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 1 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 20 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 10 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 3 );
-      ++sum_itr;
-      ++sum_itr;
-      --sum_itr;
-      BOOST_REQUIRE_EQUAL( sum_itr->id, 3 );
-      BOOST_REQUIRE_EQUAL( sum_itr->a, 2 );
-      BOOST_REQUIRE_EQUAL( sum_itr->b, 13 );
+      BOOST_REQUIRE( itr != m_state.end() );
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      ++itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      ++itr;
+      BOOST_REQUIRE( itr == m_state.end() );
+      BOOST_CHECK_THROW( *itr, koinos::exception );
+      BOOST_CHECK_THROW( ++itr, koinos::exception );
+      BOOST_CHECK_THROW( itr.key(), koinos::exception );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "charlie" );
+      BOOST_CHECK_EQUAL( *itr, "3" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "bob" );
+      BOOST_CHECK_EQUAL( *itr, "6" );
+      --itr;
+      BOOST_CHECK_EQUAL( itr.key(), "alice" );
+      BOOST_CHECK_EQUAL( *itr, "4" );
    }
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( reset_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );

@@ -92,12 +92,10 @@ bool merge_iterator::operator==( const merge_iterator& other )const
 merge_iterator& merge_iterator::operator++()
 {
    auto first_itr = _itr_revision_index.begin();
+   KOINOS_ASSERT( first_itr->valid(), koinos::exception, "" );
 
-   if ( first_itr->valid() )
-   {
-      _itr_revision_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.itr); } );
-      resolve_conflicts();
-   }
+   _itr_revision_index.modify( first_itr, []( iterator_wrapper& i ){ ++(i.itr); } );
+   resolve_conflicts();
 
    return *this;
 }
@@ -112,7 +110,6 @@ merge_iterator& merge_iterator::operator--()
    const auto& order_idx = _itr_revision_index.template get< by_order_revision >();
 
    auto head_itr = order_idx.begin();
-   // composite keys do not have default initializers, so we need to store them as a pointer
    std::optional< key_type > head_key;
 
    if( head_itr->valid() )
@@ -121,9 +118,9 @@ merge_iterator& merge_iterator::operator--()
    }
 
    /* We are grabbing the current head value.
-      * Then iterate over all other iterators and rewind them until they have a value less
-      * than the current value. One of those values is what we want to decrement to.
-      */
+    * Then iterate over all other iterators and rewind them until they have a value less
+    * than the current value. One of those values is what we want to decrement to.
+    */
    const auto& rev_idx = _itr_revision_index.template get< by_revision >();
    for( auto rev_itr = rev_idx.begin(); rev_itr != rev_idx.end(); ++rev_itr )
    {
@@ -225,7 +222,10 @@ const merge_iterator::value_type* merge_iterator::operator->()const
 
 const merge_iterator::key_type& merge_iterator::key()const
 {
-   return _itr_revision_index.begin()->itr.key();
+   auto first_itr = _itr_revision_index.begin();
+   KOINOS_ASSERT( first_itr->valid(), koinos::exception, "" );
+
+   return first_itr->itr.key();
 }
 
 merge_iterator& merge_iterator::operator=( const merge_iterator& other )
