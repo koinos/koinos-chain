@@ -6,6 +6,7 @@
 
 #include <list>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 
