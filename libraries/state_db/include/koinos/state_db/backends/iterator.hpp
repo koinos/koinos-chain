@@ -2,6 +2,8 @@
 
 #include <koinos/state_db/backends/types.hpp>
 
+#include <memory>
+
 namespace koinos::state_db::backends {
 
 class iterator;
