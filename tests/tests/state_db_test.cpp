@@ -542,6 +542,19 @@ BOOST_AUTO_TEST_CASE( reset_test )
    BOOST_TEST_MESSAGE( "Closing and opening database" );
    state_1.reset();
    db.close();
+
+   BOOST_CHECK_THROW( db.reset(), koinos::exception );
+   BOOST_CHECK_THROW( db.get_node_at_revision( 1 ), koinos::exception );
+   BOOST_CHECK_THROW( db.get_node_at_revision( 1, crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.get_node( crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.create_writable_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ), crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.finalize_node( crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.discard_node( crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.commit_node( crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.get_head(), koinos::exception );
+   BOOST_CHECK_THROW( db.get_fork_heads(), koinos::exception );
+   BOOST_CHECK_THROW( db.get_root(), koinos::exception );
+
    db.open( temp );
 
    // Object should not exist on persistent database (state node was not committed)
@@ -659,6 +672,22 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
 
    BOOST_REQUIRE_THROW( backend.open( temp ), koinos::exception );
 
+   BOOST_CHECK_THROW( backend.begin(), koinos::exception );
+   BOOST_CHECK_THROW( backend.end(), koinos::exception );
+   BOOST_CHECK_THROW( backend.put( "foo", "bar" ), koinos::exception );
+   BOOST_CHECK_THROW( backend.get( "foo" ), koinos::exception );
+   BOOST_CHECK_THROW( backend.erase( "foo" ), koinos::exception );
+   BOOST_CHECK_THROW( backend.clear(), koinos::exception );
+   BOOST_CHECK_THROW( backend.size(), koinos::exception );
+   BOOST_CHECK_THROW( backend.empty(), koinos::exception );
+   BOOST_CHECK_THROW( backend.find( "foo" ), koinos::exception );
+   BOOST_CHECK_THROW( backend.lower_bound( "foo" ), koinos::exception );
+   BOOST_CHECK_THROW( backend.flush(), koinos::exception );
+   BOOST_CHECK_THROW( backend.revision(), koinos::exception );
+   BOOST_CHECK_THROW( backend.set_revision( 1 ), koinos::exception );
+   BOOST_CHECK_THROW( backend.id(), koinos::exception );
+   BOOST_CHECK_THROW( backend.set_id( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ), koinos::exception );
+
    std::filesystem::create_directory( temp );
    backend.open( temp );
 
@@ -719,6 +748,46 @@ BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
    BOOST_CHECK( itr == backend.end() );
 
    std::filesystem::remove_all( temp );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( rocksdb_object_cache_test )
+{ try {
+   std::size_t cache_size = 1024;
+   koinos::state_db::backends::rocksdb::object_cache cache( cache_size );
+
+   std::string a_key = "a";
+   std::string a_val = "alice";
+
+   BOOST_CHECK( !cache.get( a_key ) );
+   BOOST_CHECK( cache.put( a_key, a_val ) );
+
+   auto val_ptr = cache.get( a_key );
+   BOOST_REQUIRE( val_ptr );
+   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+
+   std::string b_key = "b";
+   std::string b_val = "bob";
+
+   cache.put( b_key, b_val );
+   val_ptr = cache.get( b_key );
+   BOOST_REQUIRE( val_ptr );
+   BOOST_CHECK_EQUAL( *val_ptr, b_val );
+
+   // Will put 'a' first in the cache to evict 'b'
+   cache.get( a_key );
+
+   std::string fill_key = "f";
+   std::string fill_val( cache_size - a_val.size() - b_val.size() + 1, 'f' );
+   BOOST_CHECK( cache.put( fill_key, fill_val ) );
+   BOOST_CHECK( !cache.get( b_key ) );
+
+   val_ptr = cache.get( a_key );
+   BOOST_REQUIRE( val_ptr );
+   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+
+   BOOST_CHECK( cache.put( fill_key, fill_val ) );
+   BOOST_CHECK( !cache.get( b_key ) );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

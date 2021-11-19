@@ -113,26 +113,16 @@ class merge_iterator :
          resolve_conflicts();
       }
 
-      merge_iterator( const std::deque< state_delta_ptr >& deque );
       merge_iterator( const merge_iterator& other );
-      merge_iterator( merge_iterator&& other );
-      merge_iterator();
 
       bool operator ==( const merge_iterator& other )const;
 
       merge_iterator& operator++();
-      merge_iterator operator++(int)const;
-
       merge_iterator& operator--();
-      merge_iterator operator--(int)const;
 
       const value_type& operator*()const;
-      const value_type* operator->()const;
 
       const key_type& key()const;
-
-      merge_iterator& operator =( const merge_iterator& other );
-      merge_iterator& operator =( merge_iterator&& other );
 
    private:
       template< typename ItrType >

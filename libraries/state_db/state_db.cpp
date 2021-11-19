@@ -104,7 +104,6 @@ class database_impl final
       void close();
 
       void reset();
-      void get_recent_states( std::vector< state_node_ptr >& get_recent_nodes, uint64_t limit );
       state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child )const;
       state_node_ptr get_node( const state_node_id& node_id )const;
       state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
@@ -167,22 +166,6 @@ void database_impl::close()
    _root.reset();
    _head.reset();
    _index.clear();
-}
-
-void database_impl::get_recent_states( std::vector< state_node_ptr >& node_list, uint64_t limit )
-{
-   KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
-   node_list.clear();
-   node_list.reserve( limit );
-   auto node_itr = _index.find( _head->id() );
-
-   while( node_list.size() < limit && node_itr != _index.end() )
-   {
-      node_list.emplace_back( *node_itr );
-      if( *node_itr == _root ) return;
-
-      node_itr = _index.find( (*node_itr)->parent_id() );
-   }
 }
 
 state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
@@ -592,11 +575,6 @@ void database::close()
 void database::reset()
 {
    impl->reset();
-}
-
-void database::get_recent_states( std::vector<state_node_ptr>& node_list, uint64_t limit )
-{
-   impl->get_recent_states( node_list, limit );
 }
 
 state_node_ptr database::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const

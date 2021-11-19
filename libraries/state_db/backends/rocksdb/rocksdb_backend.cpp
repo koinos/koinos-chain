@@ -190,21 +190,29 @@ void rocksdb_backend::flush()
 
 rocksdb_backend::size_type rocksdb_backend::revision()const
 {
+   KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
+
    return _revision;
 }
 
 void rocksdb_backend::set_revision( size_type rev )
 {
+   KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
+
    _revision = rev;
 }
 
 const crypto::multihash& rocksdb_backend::id()const
 {
+   KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
+
    return _id;
 }
 
 void rocksdb_backend::set_id( const crypto::multihash& id )
 {
+   KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
+
    _id = id;
 }
 
@@ -314,6 +322,8 @@ void rocksdb_backend::clear()
 
 rocksdb_backend::size_type rocksdb_backend::size()const
 {
+   KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
+
    return _size;
 }
 

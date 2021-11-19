@@ -54,21 +54,10 @@ bool iterator_compare_greater::operator()( const iterator_wrapper& lhs, const it
    return rhs.itr.key() < lhs.itr.key();
 }
 
-merge_iterator::merge_iterator( const std::deque< state_delta_ptr >& deque ) :
-   _delta_deque( deque )
-{}
-
 merge_iterator::merge_iterator( const merge_iterator& other ) :
    _itr_revision_index( other._itr_revision_index ),
    _delta_deque( other._delta_deque )
 {}
-
-merge_iterator::merge_iterator( merge_iterator&& other ) :
-   _itr_revision_index( std::move( other._itr_revision_index ) ),
-   _delta_deque( other._delta_deque )
-{}
-
-merge_iterator::merge_iterator() {}
 
 bool merge_iterator::operator==( const merge_iterator& other )const
 {
@@ -98,11 +87,6 @@ merge_iterator& merge_iterator::operator++()
    resolve_conflicts();
 
    return *this;
-}
-
-merge_iterator merge_iterator::operator++(int)const
-{
-   return ++( merge_iterator( *this ) );
 }
 
 merge_iterator& merge_iterator::operator--()
@@ -205,19 +189,9 @@ merge_iterator& merge_iterator::operator--()
    return *this;
 }
 
-merge_iterator merge_iterator::operator--(int)const
-{
-   return --(merge_iterator( *this ));
-}
-
 const merge_iterator::value_type& merge_iterator::operator*()const
 {
    return _itr_revision_index.begin()->itr.operator *();
-}
-
-const merge_iterator::value_type* merge_iterator::operator->()const
-{
-   return _itr_revision_index.begin()->itr.operator ->();
 }
 
 const merge_iterator::key_type& merge_iterator::key()const
@@ -226,30 +200,6 @@ const merge_iterator::key_type& merge_iterator::key()const
    KOINOS_ASSERT( first_itr->valid(), koinos::exception, "" );
 
    return first_itr->itr.key();
-}
-
-merge_iterator& merge_iterator::operator=( const merge_iterator& other )
-{
-   KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
-   KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques." );
-   KOINOS_ASSERT( (*_delta_deque.begin())->id() == (*other._delta_deque.begin())->id(), internal_error, "Cannot assign merge iterators with different roots" );
-   KOINOS_ASSERT( (*_delta_deque.rbegin())->id() == (*other._delta_deque.rbegin())->id(), internal_error, "Cannot assign merge iterators with different heads" );
-
-   _itr_revision_index = other._itr_revision_index;
-
-   return *this;
-}
-
-merge_iterator& merge_iterator::operator=( merge_iterator&& other )
-{
-   KOINOS_ASSERT( _delta_deque.size(), internal_error, "Merge iterator is unexpectedly empty" );
-   KOINOS_ASSERT( _delta_deque.size() == other._delta_deque.size(), internal_error, "Cannot assign iterators with different delta deques." );
-   KOINOS_ASSERT( (*_delta_deque.begin())->id() == (*other._delta_deque.begin())->id(), internal_error, "Cannot assign merge iterators with different roots" );
-   KOINOS_ASSERT( (*_delta_deque.rbegin())->id() == (*other._delta_deque.rbegin())->id(), internal_error, "Cannot assign merge iterators with different heads" );
-
-   _itr_revision_index = std::move( other._itr_revision_index );
-
-   return *this;
 }
 
 void merge_iterator::resolve_conflicts()

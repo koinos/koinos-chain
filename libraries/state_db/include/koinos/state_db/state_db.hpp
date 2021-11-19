@@ -195,11 +195,6 @@ class database final
       void reset();
 
       /**
-       * Get a list of recent state nodes.
-       */
-      void get_recent_states(std::vector< state_node_ptr >& node_list, uint64_t limit);
-
-      /**
        * Get an ancestor of a node at a particular revision
        */
       state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child_id )const;
