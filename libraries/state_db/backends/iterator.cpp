@@ -11,7 +11,6 @@ iterator::iterator( iterator&& other ) : _itr( std::move( other._itr ) ) {}
 
 const iterator::value_type& iterator::operator*()const
 {
-   KOINOS_ASSERT( valid(), koinos::exception, "" );
    return **_itr;
 }
 
@@ -32,24 +31,18 @@ const iterator::value_type& iterator::value()const
 
 iterator& iterator::operator++()
 {
-   KOINOS_ASSERT( valid(), koinos::exception, "" );
-
    ++(*_itr);
    return *this;
 }
 
 iterator& iterator::operator--()
 {
-   //KOINOS_ASSERT( valid(), koinos::exception, "" );
-
    --(*_itr);
    return *this;
 }
 
 iterator& iterator::operator=( const iterator& other )
 {
-   KOINOS_ASSERT( other.valid(), koinos::exception, "" );
-
    _itr = other._itr->copy();
    return *this;
 }

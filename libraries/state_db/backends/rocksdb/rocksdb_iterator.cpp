@@ -1,6 +1,6 @@
 #include <koinos/state_db/backends/rocksdb/rocksdb_iterator.hpp>
 
-#include <koinos/exception.hpp>
+#include <koinos/state_db/backends/rocksdb/exceptions.hpp>
 
 namespace koinos::state_db::backends::rocksdb {
 
@@ -38,7 +38,7 @@ rocksdb_iterator::~rocksdb_iterator() {}
 
 const rocksdb_iterator::value_type& rocksdb_iterator::operator*()const
 {
-   KOINOS_ASSERT( valid(), koinos::exception, "" );
+   KOINOS_ASSERT( valid(), iterator_exception, "iterator operation is invalid" );
 
    if ( !_cache_value )
    {
@@ -50,7 +50,7 @@ const rocksdb_iterator::value_type& rocksdb_iterator::operator*()const
 
 const rocksdb_iterator::key_type& rocksdb_iterator::key()const
 {
-   KOINOS_ASSERT( valid(), koinos::exception, "" );
+   KOINOS_ASSERT( valid(), iterator_exception, "iterator operation is invalid" );
 
    if ( !_key )
    {
@@ -62,10 +62,10 @@ const rocksdb_iterator::key_type& rocksdb_iterator::key()const
 
 abstract_iterator& rocksdb_iterator::operator++()
 {
-   KOINOS_ASSERT( valid(), koinos::exception, "" );
+   KOINOS_ASSERT( valid(), iterator_exception, "iterator operation is invalid" );
 
    _iter->Next();
-   KOINOS_ASSERT( _iter->status().ok(), koinos::exception, "" );
+   KOINOS_ASSERT( _iter->status().ok(), iterator_exception, "iterator operation is invalid" );
 
    update_cache_value();
 
@@ -82,8 +82,7 @@ abstract_iterator& rocksdb_iterator::operator--()
    else
    {
       _iter->Prev();
-
-      KOINOS_ASSERT( _iter->status().ok(), koinos::exception, "" );
+      KOINOS_ASSERT( _iter->status().ok(), iterator_exception, "iterator operation is invalid" );
    }
 
    update_cache_value();
