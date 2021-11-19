@@ -6,12 +6,12 @@ map_backend::map_backend() {}
 
 map_backend::~map_backend() {}
 
-iterator map_backend::begin()
+iterator map_backend::begin() noexcept
 {
    return iterator( std::make_unique< map_iterator >( std::make_unique< map_iterator::iterator_impl >( _map.begin() ), _map ) );
 }
 
-iterator map_backend::end()
+iterator map_backend::end() noexcept
 {
    return iterator( std::make_unique< map_iterator >( std::make_unique< map_iterator::iterator_impl >( _map.end() ), _map ) );
 }
@@ -37,12 +37,12 @@ void map_backend::erase( const key_type& k )
    _map.erase( k );
 }
 
-void map_backend::clear()
+void map_backend::clear() noexcept
 {
    _map.clear();
 }
 
-map_backend::size_type map_backend::size()const
+map_backend::size_type map_backend::size() const noexcept
 {
    return _map.size();
 }

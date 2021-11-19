@@ -22,11 +22,6 @@ std::shared_ptr< const object_cache::value_type > object_cache::get( const key_t
    return val;
 }
 
-std::shared_ptr< const object_cache::value_type > object_cache::get( const ::rocksdb::Slice& k )
-{
-   return get( std::string( k.data(), k.size() ) );
-}
-
 std::shared_ptr< const object_cache::value_type > object_cache::put( const key_type& k, const value_type& v )
 {
    if ( auto itr = _object_map.find( k ); itr != _object_map.end() )
@@ -50,11 +45,6 @@ std::shared_ptr< const object_cache::value_type > object_cache::put( const key_t
    _cache_size += v.size();
 
    return val_ptr;
-}
-
-std::shared_ptr< const object_cache::value_type > object_cache::put( const ::rocksdb::Slice& k, const value_type& v )
-{
-   return put( std::string( k.data(), k.size() ), v );
 }
 
 void object_cache::remove( const key_type& k )

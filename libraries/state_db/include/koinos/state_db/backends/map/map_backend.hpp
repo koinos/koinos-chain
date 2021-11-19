@@ -15,16 +15,16 @@ class map_backend final : public abstract_backend {
       virtual ~map_backend();
 
       // Iterators
-      virtual iterator begin();
-      virtual iterator end();
+      virtual iterator begin() noexcept;
+      virtual iterator end() noexcept;
 
       // Modifiers
       virtual void put( const key_type& k, const value_type& v );
       virtual const value_type* get( const key_type& );
       virtual void erase( const key_type& k );
-      virtual void clear();
+      virtual void clear() noexcept;
 
-      virtual size_type size()const;
+      virtual size_type size() const noexcept;
 
       // Lookup
       virtual iterator find( const key_type& k );

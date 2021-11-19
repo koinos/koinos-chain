@@ -41,7 +41,6 @@ class iterator final
       iterator( iterator&& other );
 
       const value_type& operator*()const;
-      const value_type* operator->()const;
 
       const key_type& key()const;
       const value_type& value()const;
@@ -49,7 +48,6 @@ class iterator final
       iterator& operator++();
       iterator& operator--();
 
-      iterator& operator=( const iterator& other );
       iterator& operator=( iterator&& other );
 
       friend bool operator==( const iterator& x, const iterator& y );

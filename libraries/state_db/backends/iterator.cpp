@@ -14,19 +14,9 @@ const iterator::value_type& iterator::operator*()const
    return **_itr;
 }
 
-const iterator::value_type* iterator::operator->()const
-{
-   return &(**this);
-}
-
 const iterator::key_type& iterator::key()const
 {
    return _itr->key();
-}
-
-const iterator::value_type& iterator::value()const
-{
-   return **this;
 }
 
 iterator& iterator::operator++()
@@ -38,12 +28,6 @@ iterator& iterator::operator++()
 iterator& iterator::operator--()
 {
    --(*_itr);
-   return *this;
-}
-
-iterator& iterator::operator=( const iterator& other )
-{
-   _itr = other._itr->copy();
    return *this;
 }
 

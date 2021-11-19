@@ -256,7 +256,7 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
    }
 
    std::lock_guard lock( _cache->get_mutex() );
-   _cache->put( ::rocksdb::Slice( k ), v );
+   _cache->put( k, v );
 }
 
 const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k )

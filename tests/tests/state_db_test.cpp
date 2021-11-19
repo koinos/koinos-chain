@@ -851,6 +851,10 @@ BOOST_AUTO_TEST_CASE( map_backend_test )
    itr = backend.end();
    BOOST_CHECK( itr == backend.end() );
 
+   backend.put( "foo", "bar" );
+   BOOST_REQUIRE( backend.get( "foo" ) );
+   BOOST_CHECK_EQUAL( *backend.get( "foo" ), "bar" );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
