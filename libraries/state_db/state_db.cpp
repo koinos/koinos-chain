@@ -148,7 +148,7 @@ void database_impl::open( const std::filesystem::path& p, std::function< void( s
    root->impl->_state = std::make_shared< state_delta >( p );
    _init_func = init;
 
-   if ( !root->revision() && root->impl->_state->is_empty() == 0 && _init_func )
+   if ( !root->revision() && root->impl->_state->is_empty() && _init_func )
    {
       init( root );
    }
