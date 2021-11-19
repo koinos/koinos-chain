@@ -37,19 +37,17 @@ void state_delta::put( const key_type& k, const value_type& v )
 
 void state_delta::erase( const key_type& k )
 {
-   if ( _backend->find( k ) != _backend->end() )
+   if ( find( k ) )
    {
       _backend->erase( k );
+      _removed_objects.insert( k );
    }
-
-   _removed_objects.insert( k );
 }
 
 const value_type* state_delta::find( const key_type& key )
 {
-   auto itr = _backend->find( key );
-   if ( itr != _backend->end() )
-      return &*itr;
+   if ( auto val_ptr = _backend->get( key ); val_ptr )
+      return val_ptr;
 
    if ( is_removed( key ) )
       return nullptr;
@@ -63,7 +61,7 @@ void state_delta::squash()
 
    for ( key_type r_key : _removed_objects )
    {
-      if ( _parent->_backend->find( r_key ) != _parent->_backend->end() )
+      if ( _parent->_backend->get( r_key ) )
       {
          _parent->_backend->erase( r_key );
       }
@@ -71,7 +69,7 @@ void state_delta::squash()
 
    for ( auto mod_itr = _modified_objects.begin(); mod_itr != _modified_objects.end(); ++ mod_itr )
    {
-      _parent->_backend->put( *mod_itr, *_backend->find( *mod_itr ) );
+      _parent->_backend->put( *mod_itr, *_backend->get( *mod_itr ) );
    }
 
    if ( !_parent->is_root() )

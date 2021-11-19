@@ -7,6 +7,7 @@
 #include <koinos/util/random.hpp>
 
 #include <rocksdb/convenience.h>
+#include <rocksdb/filter_policy.h>
 
 namespace koinos::state_db::backends::rocksdb {
 
@@ -120,8 +121,6 @@ void rocksdb_backend::open( const std::filesystem::path& p )
    KOINOS_ASSERT( p.is_absolute(), koinos::exception, "" );
    KOINOS_ASSERT( std::filesystem::exists( p ), koinos::exception, "" );
 
-   //KOINOS_ASSERT( maybe_create_columns( p ), koinos::exception, "" );
-
    std::vector< ::rocksdb::ColumnFamilyDescriptor > defs;
    defs.emplace_back(
       ::rocksdb::kDefaultColumnFamilyName,
@@ -234,7 +233,7 @@ iterator rocksdb_backend::end()
 void rocksdb_backend::put( const key_type& k, const value_type& v )
 {
    KOINOS_ASSERT( _db, koinos::exception, "" );
-   bool exists = find( k ) != end();
+   bool exists = get( k );
 
    auto status = _db->Put(
       _wopts,
@@ -253,11 +252,37 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
    _cache->put( ::rocksdb::Slice( k ), v );
 }
 
+const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k )
+{
+   KOINOS_ASSERT( _db, koinos::exception, "" );
+
+   auto ptr = _cache->get( k );
+   if ( ptr )
+   {
+      return &*ptr;
+   }
+
+   value_type value;
+   auto status = _db->Get(
+      *_ropts,
+      &*_handles[ constants::objects_column_index ],
+      ::rocksdb::Slice( k ),
+      &value
+   );
+
+   if ( status.ok() )
+   {
+      return &*_cache->put( k, value );
+   }
+
+   return nullptr;
+}
+
 void rocksdb_backend::erase( const key_type& k )
 {
    KOINOS_ASSERT( _db, koinos::exception, "" );
 
-   bool exists = find( k ) != end();
+   bool exists = get( k );
    auto status = _db->Delete(
       _wopts,
       &*_handles[ constants::objects_column_index ],
