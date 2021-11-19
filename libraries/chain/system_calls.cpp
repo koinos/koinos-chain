@@ -466,13 +466,11 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    if ( o.target().has_system_call_bundle() )
    {
-      const auto& contract_id_str = o.target().system_call_bundle().contract_id();
-      auto contract_id = util::converter::to< crypto::multihash >( contract_id_str );
-      auto contract = system_call::get_object( context, state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
+      auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( contract_id_str ) << " at entry point " << o.target().system_call_bundle().entry_point();
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else if ( o.target().thunk_id() )
    {
