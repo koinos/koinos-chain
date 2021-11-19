@@ -581,31 +581,22 @@ BOOST_AUTO_TEST_CASE( reset_test )
    BOOST_CHECK( db.get_head()->id() == crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
    BOOST_CHECK( db.get_head()->revision() == 0 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( anonymous_node_test )
 { try {
-   BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = util::converter::as< object_space >( 0 );
-   book book_a;
-   book_a.id = 1;
-   book_a.a = 3;
-   book_a.b = 4;
-   book get_book;
+   BOOST_TEST_MESSAGE( "Creating object" );
+   object_space space;
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
-   auto book_a_id = util::converter::as< object_key >( book_a.id );
-   auto book_value = util::converter::as< object_value >( book_a );
+   std::string a_key = "a";
+   std::string a_val = "alice";
 
-   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == book_value.size() );
+   BOOST_CHECK( state_1->put_object( space, a_key, &a_val ) == a_val.size() );
 
-   auto ptr = state_1->get_object( space, book_a_id );
+   auto ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
-
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+   BOOST_CHECK_EQUAL( *ptr, a_val );
 
    {
       BOOST_TEST_MESSAGE( "Creating anonymous state node" );
@@ -615,28 +606,18 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
       BOOST_REQUIRE( anon_state->revision() == state_1->revision() );
       BOOST_REQUIRE( anon_state->parent_id() == state_1->parent_id() );
 
-      BOOST_TEST_MESSAGE( "Modifying book" );
+      BOOST_TEST_MESSAGE( "Modifying object" );
+      a_val = "alicia";
 
-      book_a.a = 5;
-      book_a.b = 6;
-      book_value = util::converter::as< object_value >( book_a );
-      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) == 0 );
+      BOOST_CHECK( anon_state->put_object( space, a_key, &a_val ) == 1 );
 
-      ptr = state_1->get_object( space, book_a_id );
+      ptr = anon_state->get_object( space, a_key );
       BOOST_REQUIRE( ptr );
+      BOOST_CHECK_EQUAL( *ptr, a_val );
 
-      get_book = util::converter::to< book >( *ptr );
-      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-      BOOST_REQUIRE_EQUAL( get_book.a, 3 );
-      BOOST_REQUIRE_EQUAL( get_book.b, 4 );
-
-      ptr = anon_state->get_object( space, book_a_id );
+      ptr = state_1->get_object( space, a_key );
       BOOST_REQUIRE( ptr );
-
-      get_book = util::converter::to< book >( *ptr );
-      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-      BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-      BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+      BOOST_CHECK_EQUAL( *ptr, "alice" );
 
       BOOST_TEST_MESSAGE( "Deleting anonymous node" );
    }
@@ -645,52 +626,31 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
       BOOST_TEST_MESSAGE( "Creating anonymous state node" );
       auto anon_state = state_1->create_anonymous_node();
 
-      BOOST_TEST_MESSAGE( "Modifying book" );
+      BOOST_TEST_MESSAGE( "Modifying object" );
 
-      book_a.a = 5;
-      book_a.b = 6;
-      book_value = util::converter::as< object_value >( book_a );
-      BOOST_REQUIRE( anon_state->put_object( space, book_a_id, &book_value ) == 0 );
+      BOOST_CHECK( anon_state->put_object( space, a_key, &a_val ) == 1 );
 
-      ptr = state_1->get_object( space, book_a_id );
+      ptr = anon_state->get_object( space, a_key );
       BOOST_REQUIRE( ptr );
+      BOOST_CHECK_EQUAL( *ptr, a_val );
 
-      get_book = util::converter::to< book >( *ptr );
-      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-      BOOST_REQUIRE_EQUAL( get_book.a, 3 );
-      BOOST_REQUIRE_EQUAL( get_book.b, 4 );
-
-      ptr = anon_state->get_object( space, book_a_id );
+      ptr = state_1->get_object( space, a_key );
       BOOST_REQUIRE( ptr );
-
-      get_book = util::converter::to< book >( *ptr );
-      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-      BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-      BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+      BOOST_CHECK_EQUAL( *ptr, "alice" );
 
       BOOST_TEST_MESSAGE( "Committing anonymous node" );
       anon_state->commit();
 
-      ptr = state_1->get_object( space, book_a_id );
+      ptr = state_1->get_object( space, a_key );
       BOOST_REQUIRE( ptr );
-
-      get_book = util::converter::to< book >( *ptr );
-      BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-      BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-      BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+      BOOST_CHECK_EQUAL( *ptr, a_val );
    }
 
-   ptr = state_1->get_object( space, book_a_id );
+   ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
-
-   get_book = util::converter::to< book >( *ptr );
-   BOOST_REQUIRE_EQUAL( get_book.id, book_a.id );
-   BOOST_REQUIRE_EQUAL( get_book.a, book_a.a );
-   BOOST_REQUIRE_EQUAL( get_book.b, book_a.b );
+   BOOST_CHECK_EQUAL( *ptr, a_val );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
-#endif
 
 BOOST_AUTO_TEST_CASE( rocksdb_backend_test )
 { try {
