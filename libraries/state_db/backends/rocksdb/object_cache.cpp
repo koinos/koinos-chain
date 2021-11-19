@@ -1,7 +1,5 @@
 #include <koinos/state_db/backends/rocksdb/object_cache.hpp>
 
-#include <koinos/log.hpp>
-
 namespace koinos::state_db::backends::rocksdb {
 
 object_cache::object_cache( std::size_t size ) : _cache_max_size( size ) {}

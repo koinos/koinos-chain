@@ -20,7 +20,7 @@ class rocksdb_backend final : public abstract_backend {
       using size_type  = abstract_backend::size_type;
 
       rocksdb_backend();
-      virtual ~rocksdb_backend();
+      ~rocksdb_backend();
 
       void open( const std::filesystem::path& p );
       void close();
@@ -51,7 +51,6 @@ class rocksdb_backend final : public abstract_backend {
       void load_metadata();
       void store_metadata();
 
-      using column_definitions = std::vector< ::rocksdb::ColumnFamilyDescriptor >;
       using column_handles = std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > >;
 
       std::shared_ptr< ::rocksdb::DB >          _db;

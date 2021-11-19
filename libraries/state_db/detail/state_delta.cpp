@@ -105,6 +105,7 @@ void state_delta::commit()
 
    _backend = std::move( root->_backend );
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_revision( _revision );
+   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_id( _id );
    _modified_objects.clear();
    _removed_objects.clear();
    _parent.reset();

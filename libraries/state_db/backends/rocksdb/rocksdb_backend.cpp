@@ -14,15 +14,96 @@ namespace constants {
    constexpr std::size_t cache_size = 64 << 20; // 64 MB
    constexpr std::size_t max_open_files = 64;
 
-   const std::string objects_column_name       = "objects";
-   constexpr std::size_t objects_column_index  = 0;
-   const std::string metadata_column_name      = "metadata";
-   constexpr std::size_t metadata_column_index = 1;
+   constexpr std::size_t default_column_index  = 0;
+   const std::string objects_column_name = "objects";
+   constexpr std::size_t objects_column_index  = 1;
+   const std::string metadata_column_name = "metadata";
+   constexpr std::size_t metadata_column_index = 2;
 
-   const std::string size_key     = "size";
+   const std::string size_key = "size";
    const std::string revision_key = "revision";
-   const std::string id_key       = "id";
+   const std::string id_key = "id";
+
+   constexpr rocksdb_backend::size_type size_default = 0;
+   constexpr rocksdb_backend::size_type revision_default = 0;
+   const crypto::multihash id_default = crypto::multihash::zero( crypto::multicodec::sha2_256 );
 } // constants
+
+bool setup_database( const std::filesystem::path& p )
+{
+   std::vector< ::rocksdb::ColumnFamilyDescriptor > defs;
+   defs.emplace_back(
+      constants::objects_column_name,
+      ::rocksdb::ColumnFamilyOptions() );
+   defs.emplace_back(
+      constants::metadata_column_name,
+      ::rocksdb::ColumnFamilyOptions() );
+
+   ::rocksdb::Options options;
+   options.create_if_missing = true;
+
+   ::rocksdb::DB* db;
+   auto status = ::rocksdb::DB::Open( options, p.string(), &db );
+
+   KOINOS_ASSERT( status.ok(), koinos::exception, std::string( "" ) );
+
+   auto db_ptr = std::shared_ptr< ::rocksdb::DB >( db );
+
+   std::vector< ::rocksdb::ColumnFamilyHandle* > handles;
+   status = db->CreateColumnFamilies( defs, &handles );
+
+   if ( !status.ok() )
+   {
+      return false;
+   }
+
+   std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > > handle_ptrs;
+
+   for ( auto* h : handles )
+      handle_ptrs.emplace_back( h );
+
+   ::rocksdb::WriteOptions wopts;
+
+   status = db_ptr->Put(
+      wopts,
+      &*handle_ptrs[ 1 ],
+      ::rocksdb::Slice( constants::size_key ),
+      ::rocksdb::Slice( util::converter::as< std::string >( constants::size_default ) )
+   );
+
+   if ( !status.ok() )
+   {
+      handle_ptrs.clear();
+      db_ptr.reset();
+      return false;
+   }
+
+   status = db_ptr->Put(
+      wopts,
+      &*handle_ptrs[ 1 ],
+      ::rocksdb::Slice( constants::revision_key ),
+      ::rocksdb::Slice( util::converter::as< std::string >( constants::revision_default ) )
+   );
+
+   if ( !status.ok() )
+   {
+      handle_ptrs.clear();
+      db_ptr.reset();
+      return false;
+   }
+
+   status = db_ptr->Put(
+      wopts,
+      &*handle_ptrs[ 1 ],
+      ::rocksdb::Slice( constants::id_key ),
+      ::rocksdb::Slice( util::converter::as< std::string >( constants::id_default ) )
+   );
+
+   handle_ptrs.clear();
+   db_ptr.reset();
+
+   return status.ok();
+}
 
 rocksdb_backend::rocksdb_backend() :
    _cache( std::make_shared< object_cache >( constants::cache_size ) ),
@@ -41,7 +122,7 @@ void rocksdb_backend::open( const std::filesystem::path& p )
 
    //KOINOS_ASSERT( maybe_create_columns( p ), koinos::exception, "" );
 
-   column_definitions defs;
+   std::vector< ::rocksdb::ColumnFamilyDescriptor > defs;
    defs.emplace_back(
       ::rocksdb::kDefaultColumnFamilyName,
       ::rocksdb::ColumnFamilyOptions() );
@@ -60,60 +141,28 @@ void rocksdb_backend::open( const std::filesystem::path& p )
 
    auto status = ::rocksdb::DB::Open( options, p.string(), defs, &handles, &db );
 
-   if ( status.ok() )
+   if ( !status.ok() )
    {
-      _db = std::shared_ptr< ::rocksdb::DB >( db );
+      KOINOS_ASSERT( setup_database( p ), koinos::exception, "" );
 
-      for ( auto* h : handles )
-         _handles.emplace_back( h );
-
-      try
-      {
-         load_metadata();
-      }
-      catch ( ... )
-      {
-         _handles.clear();
-         _db.reset();
-         throw;
-      }
+      status = ::rocksdb::DB::Open( options, p.string(), defs, &handles, &db );
+      KOINOS_ASSERT( status.ok(), koinos::exception, "" );
    }
-   else
+
+   _db = std::shared_ptr< ::rocksdb::DB >( db );
+
+   for ( auto* h : handles )
+      _handles.emplace_back( h );
+
+   try
    {
-      defs.erase( defs.begin() );
-      options.create_if_missing = true;
-
-      status = ::rocksdb::DB::Open( options, p.string(), &db );
-
-      KOINOS_ASSERT( status.ok(), koinos::exception, std::string( "" ) );
-
-      _db = std::shared_ptr< ::rocksdb::DB >( db );
-
-      status = db->CreateColumnFamilies( defs, &handles );
-
-      if ( !status.ok() )
-      {
-         _db.reset();
-         KOINOS_THROW( koinos::exception, "" );
-      }
-
-      for ( auto* h : handles )
-         _handles.emplace_back( h );
-
-      _revision = 0;
-      _size = 0;
-      _id = crypto::multihash::zero( crypto::multicodec::sha2_256 );
-
-      try
-      {
-         store_metadata();
-      }
-      catch ( ... )
-      {
-         _handles.clear();
-         _db.reset();
-         throw;
-      }
+      load_metadata();
+   }
+   catch ( ... )
+   {
+      _handles.clear();
+      _db.reset();
+      throw;
    }
 }
 
@@ -121,6 +170,7 @@ void rocksdb_backend::close()
 {
    if ( _db )
    {
+      store_metadata();
       flush();
 
       ::rocksdb::CancelAllBackgroundWork( &*_db, true );
@@ -133,8 +183,6 @@ void rocksdb_backend::close()
 void rocksdb_backend::flush()
 {
    KOINOS_ASSERT( _db, koinos::exception, "" );
-
-   store_metadata();
 
    static const ::rocksdb::FlushOptions flush_options;
 
@@ -235,6 +283,8 @@ void rocksdb_backend::clear()
       _db->DropColumnFamily( &*h );
    }
 
+   _handles.clear();
+   _db.reset();
    _cache->clear();
 }
 

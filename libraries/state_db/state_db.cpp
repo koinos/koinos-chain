@@ -367,8 +367,7 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_state( _state );
-   auto pobj = idx.find( key_string );
+   auto pobj = merge_state( _state ).find( key_string );
 
    if( pobj != nullptr )
    {
@@ -385,15 +384,15 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_state( _state );
-   auto it = idx.lower_bound( key_string );
+   auto state = merge_state( _state );
+   auto it = state.lower_bound( key_string );
 
-   if ( it != idx.end() )
+   if ( it != state.end() )
    {
       it++;
    }
 
-   if( it != idx.end() )
+   if( it != state.end() )
    {
       chain::database_key next_key = util::converter::to< chain::database_key >( it.key() );
 
@@ -413,10 +412,10 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_state( _state );
-   auto it = idx.lower_bound( key_string );
+   auto state = merge_state( _state );
+   auto it = state.lower_bound( key_string );
 
-   if( it != idx.begin() )
+   if( it != state.begin() )
    {
       --it;
       chain::database_key next_key = util::converter::to< chain::database_key >( it.key() );
@@ -439,8 +438,7 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   auto idx = merge_state( _state );
-   auto pobj = idx.find( key_string );
+   auto pobj = merge_state( _state ).find( key_string );
 
    int32_t bytes_used = 0;
 
@@ -461,11 +459,6 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
 
    return bytes_used;
 }
-
-//bool state_node_impl::is_empty()const
-//{
-//   return _state->is_empty();
-//}
 
 } // detail
 

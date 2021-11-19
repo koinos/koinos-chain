@@ -521,36 +521,67 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
       BOOST_CHECK_EQUAL( *itr, "4" );
    }
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-#if 0
+
 BOOST_AUTO_TEST_CASE( reset_test )
 { try {
-   BOOST_TEST_MESSAGE( "Creating book" );
-   object_space space = util::converter::as< object_space >( 0 );
-   book book_a;
-   book_a.id = 1;
-   book_a.a = 3;
-   book_a.b = 4;
-   book get_book;
+   BOOST_TEST_MESSAGE( "Creating object on transient state node" );
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
-   auto book_a_id = util::converter::as< object_key >( book_a.id );
-   auto book_value = util::converter::as< object_value >( book_a );
+   object_space space;
+   std::string a_key = "a";
+   std::string a_val = "alice";
 
-   BOOST_REQUIRE( state_1->put_object( space, book_a_id, &book_value ) == book_value.size() );
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
+   db.finalize_node( state_1->id() );
+
+   auto val_ptr = db.get_head()->get_object( space, a_key );
+   BOOST_REQUIRE( val_ptr );
+   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+
+   BOOST_TEST_MESSAGE( "Closing and opening database" );
    state_1.reset();
+   db.close();
+   db.open( temp );
+
+   // Object should not exist on persistent database (state node was not committed)
+   BOOST_CHECK( !db.get_head()->get_object( space, a_key ) );
+   BOOST_CHECK( db.get_head()->id() == crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
+   BOOST_CHECK( db.get_head()->revision() == 0 );
+
+   BOOST_TEST_MESSAGE( "Creating object on committed state node" );
+
+   state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
+   db.finalize_node( state_1->id() );
+   db.commit_node( state_1->id() );
+
+   val_ptr = db.get_head()->get_object( space, a_key );
+   BOOST_REQUIRE( val_ptr );
+   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+   BOOST_CHECK( db.get_head()->id() == crypto::hash( crypto::multicodec::sha2_256, 1 ) );
+
+   BOOST_TEST_MESSAGE( "Closing and opening database" );
+   state_1.reset();
+   db.close();
+   db.open( temp );
+
+   // State node was committed and should exist on open
+   val_ptr = db.get_head()->get_object( space, a_key );
+   BOOST_REQUIRE( val_ptr );
+   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+   BOOST_CHECK( db.get_head()->id() == crypto::hash( crypto::multicodec::sha2_256, 1 ) );
+   BOOST_CHECK( db.get_head()->revision() == 1 );
 
    BOOST_TEST_MESSAGE( "Resetting database" );
    db.reset();
-   auto head = db.get_head();
 
-   // Book should not exist on reset db
-   BOOST_REQUIRE( !head->get_object( space, book_a_id ) );
-   BOOST_REQUIRE( head->id() == crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
-   BOOST_REQUIRE( head->revision() == 0 );
-
+   // Object should not exist on reset db
+   BOOST_CHECK( !db.get_head()->get_object( space, a_key ) );
+   BOOST_CHECK( db.get_head()->id() == crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
+   BOOST_CHECK( db.get_head()->revision() == 0 );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
-
+#if 0
 BOOST_AUTO_TEST_CASE( anonymous_node_test )
 { try {
    BOOST_TEST_MESSAGE( "Creating book" );

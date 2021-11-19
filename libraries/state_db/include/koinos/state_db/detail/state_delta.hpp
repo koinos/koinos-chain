@@ -33,6 +33,7 @@ namespace koinos::state_db::detail {
       public:
          state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id = state_node_id() );
          state_delta( const std::filesystem::path& p );
+         ~state_delta() {};
 
          void put( const key_type& k, const value_type& v );
          void erase( const key_type& k );

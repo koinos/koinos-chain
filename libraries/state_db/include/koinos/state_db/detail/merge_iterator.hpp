@@ -155,11 +155,10 @@ class merge_iterator :
 class merge_state
 {
    public:
-      using state_delta_type = state_delta;
       using key_type         = state_delta::key_type;
       using value_type       = state_delta::value_type;
 
-      merge_state( std::shared_ptr< state_delta_type > head );
+      merge_state( std::shared_ptr< state_delta > head );
 
       merge_iterator begin() const;
       merge_iterator end() const;
@@ -168,7 +167,7 @@ class merge_state
       merge_iterator lower_bound( const key_type& key ) const;
 
    private:
-      std::shared_ptr< state_delta_type > _head;
+      std::shared_ptr< state_delta > _head;
 };
 
 } // koinos::state_db::detail

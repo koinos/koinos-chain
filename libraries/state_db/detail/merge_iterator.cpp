@@ -276,7 +276,7 @@ bool merge_iterator::is_end() const
       []( auto& i ){ return !i.valid(); } );
 }
 
-merge_state::merge_state( std::shared_ptr< state_delta_type > head ) :
+merge_state::merge_state( std::shared_ptr< state_delta > head ) :
    _head( head )
 {}
 
