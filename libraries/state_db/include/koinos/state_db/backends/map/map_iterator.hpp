@@ -16,7 +16,7 @@ class map_iterator final : public abstract_iterator
       using iterator_impl = map_impl::iterator;
 
       map_iterator( std::unique_ptr< iterator_impl > itr, const map_impl& map );
-      virtual ~map_iterator();
+      ~map_iterator();
 
       virtual const value_type& operator*() const override;
 
