@@ -453,7 +453,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
    ctx.set_user_code( true );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{}, false, false, false ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );

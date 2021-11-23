@@ -28,7 +28,7 @@ void register_thunks( thunk_dispatcher& td )
       (prints)
       (exit_contract)
 
-      (verify_block_signature)
+      (process_block_signature)
       (verify_merkle_root)
 
       (apply_block)
@@ -132,7 +132,7 @@ THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
+THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -153,7 +153,7 @@ THUNK_DEFINE( verify_block_signature_result, verify_block_signature, ((const std
       }
    );
 
-   verify_block_signature_result ret;
+   process_block_signature_result ret;
    ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
    return ret;
 }
@@ -179,16 +179,8 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    return ret;
 }
 
-THUNK_DEFINE( void, apply_block,
-   (
-      (const protocol::block&) block,
-      (bool) check_passive_data,
-      (bool) check_block_signature,
-      (bool) check_transaction_signatures)
-   )
+THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
-   #pragma message "TODO: Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms"
-
    KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
 
@@ -218,17 +210,8 @@ THUNK_DEFINE( void, apply_block,
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
 
-   /*
-    * The PoW implementation of verify_block_signature has side effects. While this is the case, we should never
-    * skip it. We either need to remove this flag or redesign our system call architecture the prevent
-    * side effects within verify_block_signature. (Issue 408)
-    */
-   #pragma message "TODO: Rearchitect verify_block_signature or remove check_block_signature flag. (Issue #408)"
-   // if( check_block_signature )
-   {
-      crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
-      KOINOS_ASSERT( system_call::verify_block_signature( context, util::converter::as< std::string >( block_hash ), block.active(), block.signature_data() ), invalid_block_signature, "block signature does not match" );
-   }
+   crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
+   KOINOS_ASSERT( system_call::process_block_signature( context, util::converter::as< std::string >( block_hash ), block.active(), block.signature_data() ), invalid_block_signature, "block signature does not match" );
 
    system_call::put_object( context, state::space::meta(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 

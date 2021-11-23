@@ -123,9 +123,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    BOOST_TEST_MESSAGE( "Error when first block does not have height of 1" );
 
    rpc::chain::submit_block_request block_req;
-   block_req.set_verify_passive_data( true );
-   block_req.set_verify_block_signature( true );
-   block_req.set_verify_transaction_signature( true );
 
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
@@ -216,9 +213,6 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
    BOOST_TEST_MESSAGE( "Check block irreversibility" );
 
    rpc::chain::submit_block_request block_req;
-   block_req.set_verify_passive_data( true );
-   block_req.set_verify_block_signature( true );
-   block_req.set_verify_transaction_signature( true );
 
    auto head_info_res = _controller.get_head_info();
 
@@ -269,9 +263,6 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    BOOST_TEST_MESSAGE( "Setting up forks and checking heads" );
 
    rpc::chain::submit_block_request block_req;
-   block_req.set_verify_passive_data( true );
-   block_req.set_verify_block_signature( true );
-   block_req.set_verify_transaction_signature( true );
 
    uint64_t test_timestamp = 1609459200;
 
@@ -410,9 +401,6 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    sign_transaction( trx3, key3 );
 
    koinos::rpc::chain::submit_block_request block_req;
-   block_req.set_verify_passive_data( false );
-   block_req.set_verify_block_signature( false );
-   block_req.set_verify_transaction_signature( false );
 
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
@@ -496,9 +484,6 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    sign_transaction( trx2, alice_private_key );
 
    koinos::rpc::chain::submit_block_request block_req;
-   block_req.set_verify_passive_data( false );
-   block_req.set_verify_block_signature( false );
-   block_req.set_verify_transaction_signature( false );
 
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
@@ -572,9 +557,6 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    sign_transaction( trx2, alice_private_key );
 
    koinos::rpc::chain::submit_block_request block_req;
-   block_req.set_verify_passive_data( false );
-   block_req.set_verify_block_signature( false );
-   block_req.set_verify_transaction_signature( false );
 
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );

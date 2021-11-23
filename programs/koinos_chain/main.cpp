@@ -206,9 +206,6 @@ void attach_request_handler(
          {
             rpc::chain::submit_block_request sub_block;
             sub_block.set_allocated_block( bam.release_block() );
-            sub_block.set_verify_passive_data( false );
-            sub_block.set_verify_block_signature( true );
-            sub_block.set_verify_transaction_signature( false );
             controller.submit_block( sub_block );
          }
          catch( const boost::exception& e )
@@ -273,9 +270,6 @@ void index_loop(
          }
 
          rpc::chain::submit_block_request sub_block;
-         sub_block.set_verify_passive_data( false );
-         sub_block.set_verify_block_signature( true );
-         sub_block.set_verify_transaction_signature( false );
 
          for ( auto& block_item : *batch->mutable_block_items() )
          {
