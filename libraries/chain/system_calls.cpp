@@ -232,38 +232,6 @@ THUNK_DEFINE( void, apply_block,
 
    system_call::put_object( context, state::space::meta(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
-   // Check passive Merkle root
-   if( check_passive_data )
-   {
-      // Passive Merkle root verifies:
-      //
-      // Block passive
-      // Block signature slot (zero hash)
-      // Transaction signatures
-      //
-      // Transaction passive
-      // Transaction signature
-      //
-      // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
-      // during the block building process.
-
-      #pragma message "TODO: Can we optimize away the string copies?"
-      auto passive_root = util::converter::to< crypto::multihash >( active_data.passive_data_merkle_root() );
-      std::vector< std::string > passives;
-      passives.reserve( 2 * ( block.transactions().size() + 1 ) );
-
-      passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
-      passives.emplace_back( util::converter::as< std::string >( crypto::multihash::empty( passive_root.code() ) ) );
-
-      for ( const auto& trx : block.transactions() )
-      {
-         passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), trx.passive() ) ) );
-         passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
-      }
-
-      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), passives ), passive_root_mismatch, "passive merkle root does not match" );
-   }
-
    //
    // +-----------+      +--------------+      +-------------------------+      +---------------------+
    // | Block sig | ---> | Block active | ---> | Transaction merkle root | ---> | Transaction actives |

@@ -58,25 +58,15 @@ struct controller_fixture
    void set_block_merkle_roots( protocol::block& block, protocol::active_block_data& active_data, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
    {
       std::vector< crypto::multihash > transactions;
-      std::vector< crypto::multihash > passives;
       transactions.reserve( block.transactions().size() );
-      passives.reserve( 2 * ( block.transactions().size() + 1 ) );
-
-      passives.emplace_back( crypto::hash( code, block.passive(), size ) );
-      passives.emplace_back( crypto::multihash::empty( code ) );
 
       for ( const auto& trx : block.transactions() )
       {
-         passives.emplace_back( crypto::hash( code, trx.passive(), size ) );
-         passives.emplace_back( crypto::hash( code, trx.signature_data(), size ) );
          transactions.emplace_back( crypto::hash( code, trx.active(), size ) );
       }
 
       auto transaction_merkle_tree = crypto::merkle_tree( code, transactions );
-      auto passives_merkle_tree = crypto::merkle_tree( code, passives );
-
       active_data.set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
-      active_data.set_passive_data_merkle_root( util::converter::as< std::string >( passives_merkle_tree.root()->hash() ) );
    }
 
    void sign_block( protocol::block& block, crypto::private_key& block_signing_key )
@@ -141,7 +131,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 2 );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
-   block_req.mutable_block()->mutable_passive();
 
    protocol::active_block_data block_active_data;
 

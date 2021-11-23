@@ -139,7 +139,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    KOINOS_ASSERT( request.block().header().height(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "height") );
    KOINOS_ASSERT( request.block().header().timestamp(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "timestamp") );
    KOINOS_ASSERT( request.block().active().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.block().passive().size() == 0, missing_required_arguments, "unexpected value in field in block: ${f}", ("f", "passive") );
    KOINOS_ASSERT( request.block().signature_data().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
 
    rpc::chain::submit_block_response resp;
@@ -372,7 +371,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    KOINOS_ASSERT( request.transaction().id().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "id") );
    KOINOS_ASSERT( request.transaction().active().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.transaction().passive().size() == 0, missing_required_arguments, "unexpected value in field in transaction: ${f}", ("f", "passive") );
    KOINOS_ASSERT( request.transaction().signature_data().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
 
    rpc::chain::submit_transaction_response resp;
