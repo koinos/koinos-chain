@@ -80,6 +80,7 @@ class state_node_impl final
       std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key ) const;
       std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key ) const;
       int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
+      crypto::multihash get_merkle_root() const;
 
       state_delta_ptr   _state;
       bool              _is_writable = true;
@@ -442,6 +443,11 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    return bytes_used;
 }
 
+crypto::multihash state_node_impl::get_merkle_root() const
+{
+   return _state->get_merkle_root();
+}
+
 } // detail
 
 abstract_state_node::abstract_state_node() : impl( new detail::state_node_impl() ) {}
@@ -470,6 +476,12 @@ int32_t abstract_state_node::put_object( const object_space& space, const object
 bool abstract_state_node::is_writable() const
 {
    return impl->_is_writable;
+}
+
+crypto::multihash abstract_state_node::get_merkle_root() const
+{
+   KOINOS_ASSERT( !is_writable(), koinos::exception, "cannot get the merkle root of a writable node" );
+   return impl->get_merkle_root();
 }
 
 anonymous_state_node_ptr abstract_state_node::create_anonymous_node()

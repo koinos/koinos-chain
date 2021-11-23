@@ -1,5 +1,7 @@
 #include <koinos/state_db/detail/state_delta.hpp>
 
+#include <koinos/crypto/merkle_tree.hpp>
+
 namespace koinos::state_db::detail {
 
 using backend_type = state_delta::backend_type;
@@ -44,7 +46,7 @@ void state_delta::erase( const key_type& k )
    }
 }
 
-const value_type* state_delta::find( const key_type& key )
+const value_type* state_delta::find( const key_type& key ) const
 {
    if ( auto val_ptr = _backend->get( key ); val_ptr )
       return val_ptr;
@@ -147,6 +149,37 @@ void state_delta::set_revision( uint64_t revision )
    {
       std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_revision( revision );
    }
+}
+
+crypto::multihash state_delta::get_merkle_root() const
+{
+   if ( !_merkle_root )
+   {
+      std::set< std::string > object_keys;
+      for ( const auto& modified : _modified_objects )
+      {
+         object_keys.insert( modified );
+      }
+
+      for ( const auto& removed : _removed_objects )
+      {
+         object_keys.insert( removed );
+      }
+
+      std::vector< crypto::multihash > merkle_leafs;
+      merkle_leafs.reserve( object_keys.size() * 2 );
+
+      for ( const auto& key : object_keys )
+      {
+         merkle_leafs.emplace_back( crypto::hash( crypto::multicodec::sha2_256, key ) );
+         auto val_ptr = find( key );
+         merkle_leafs.emplace_back( crypto::hash( crypto::multicodec::sha2_256, val_ptr ? *val_ptr : std::string() ) );
+      }
+
+      _merkle_root = crypto::merkle_tree( crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
+   }
+
+   return *_merkle_root;
 }
 
 const std::shared_ptr< backend_type > state_delta::backend() const
