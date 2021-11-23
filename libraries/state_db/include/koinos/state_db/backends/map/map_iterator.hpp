@@ -18,16 +18,16 @@ class map_iterator final : public abstract_iterator
       map_iterator( std::unique_ptr< iterator_impl > itr, const map_impl& map );
       virtual ~map_iterator();
 
-      virtual const value_type& operator*()const;
+      virtual const value_type& operator*() const override;
 
-      virtual const key_type& key()const;
+      virtual const key_type& key() const override;
 
-      virtual abstract_iterator& operator++();
-      virtual abstract_iterator& operator--();
+      virtual abstract_iterator& operator++() override;
+      virtual abstract_iterator& operator--() override;
 
    private:
-      virtual bool valid()const;
-      virtual std::unique_ptr< abstract_iterator > copy()const;
+      virtual bool valid() const override;
+      virtual std::unique_ptr< abstract_iterator > copy() const override;
 
       std::unique_ptr< iterator_impl > _itr;
       const map_impl&                  _map;

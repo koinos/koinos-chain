@@ -26,27 +26,27 @@ class rocksdb_backend final : public abstract_backend {
       void close();
       void flush();
 
-      size_type revision()const;
+      size_type revision() const;
       void set_revision( size_type rev );
 
-      const crypto::multihash& id()const;
+      const crypto::multihash& id() const;
       void set_id( const crypto::multihash& );
 
       // Iterators
-      virtual iterator begin();
-      virtual iterator end();
+      virtual iterator begin() override;
+      virtual iterator end() override;
 
       // Modifiers
-      virtual void put( const key_type& k, const value_type& v );
-      virtual const value_type* get( const key_type& )const;
-      virtual void erase( const key_type& k );
-      virtual void clear();
+      virtual void put( const key_type& k, const value_type& v ) override;
+      virtual const value_type* get( const key_type& ) const override;
+      virtual void erase( const key_type& k ) override;
+      virtual void clear() override;
 
-      virtual size_type size()const;
+      virtual size_type size() const override;
 
       // Lookup
-      virtual iterator find( const key_type& k );
-      virtual iterator lower_bound( const key_type& k );
+      virtual iterator find( const key_type& k ) override;
+      virtual iterator lower_bound( const key_type& k ) override;
 
    private:
       void load_metadata();

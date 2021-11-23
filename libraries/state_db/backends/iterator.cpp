@@ -9,12 +9,12 @@ iterator::iterator( const iterator& other ) : _itr( other._itr->copy() ) {}
 
 iterator::iterator( iterator&& other ) : _itr( std::move( other._itr ) ) {}
 
-const iterator::value_type& iterator::operator*()const
+const iterator::value_type& iterator::operator*() const
 {
    return **_itr;
 }
 
-const iterator::key_type& iterator::key()const
+const iterator::key_type& iterator::key() const
 {
    return _itr->key();
 }
@@ -37,7 +37,7 @@ iterator& iterator::operator=( iterator&& other )
    return *this;
 }
 
-bool iterator::valid()const
+bool iterator::valid() const
 {
    return _itr && _itr->valid();
 }

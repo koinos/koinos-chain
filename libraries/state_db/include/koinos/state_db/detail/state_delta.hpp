@@ -45,19 +45,19 @@ namespace koinos::state_db::detail {
 
          void clear();
 
-         bool is_modified( const key_type& k )const;
-         bool is_removed( const key_type& k )const;
-         bool is_root()const;
-         bool is_empty()const;
+         bool is_modified( const key_type& k ) const;
+         bool is_removed( const key_type& k ) const;
+         bool is_root() const;
+         bool is_empty() const;
 
          uint64_t revision() const;
          void set_revision( uint64_t revision );
 
-         const state_node_id& id()const;
-         const state_node_id& parent_id()const;
-         std::shared_ptr< state_delta > parent()const;
+         const state_node_id& id() const;
+         const state_node_id& parent_id() const;
+         std::shared_ptr< state_delta > parent() const;
 
-         const std::shared_ptr< backend_type > backend()const;
+         const std::shared_ptr< backend_type > backend() const;
 
       private:
          std::shared_ptr< state_delta > get_root();

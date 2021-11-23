@@ -20,17 +20,17 @@ iterator_wrapper::iterator_wrapper( const iterator_wrapper& i ) :
    backend( i.backend )
 {}
 
-const iterator_wrapper& iterator_wrapper::self()const
+const iterator_wrapper& iterator_wrapper::self() const
 {
    return *this;
 }
 
-bool iterator_wrapper::valid()const
+bool iterator_wrapper::valid() const
 {
    return itr != backend->end();
 }
 
-bool iterator_compare_less::operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const
+bool iterator_compare_less::operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs ) const
 {
    bool lh_valid = lhs.valid();
    bool rh_valid = rhs.valid();
@@ -42,7 +42,7 @@ bool iterator_compare_less::operator()( const iterator_wrapper& lhs, const itera
    return lhs.itr.key() < rhs.itr.key();
 }
 
-bool iterator_compare_greater::operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const
+bool iterator_compare_greater::operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs ) const
 {
    bool lh_valid = lhs.valid();
    bool rh_valid = rhs.valid();
@@ -59,7 +59,7 @@ merge_iterator::merge_iterator( const merge_iterator& other ) :
    _delta_deque( other._delta_deque )
 {}
 
-bool merge_iterator::operator==( const merge_iterator& other )const
+bool merge_iterator::operator==( const merge_iterator& other ) const
 {
    // If both iterators are empty, they are true.
    // But we use empty merge iterators as an optimization for an end itertor.
@@ -189,12 +189,12 @@ merge_iterator& merge_iterator::operator--()
    return *this;
 }
 
-const merge_iterator::value_type& merge_iterator::operator*()const
+const merge_iterator::value_type& merge_iterator::operator*() const
 {
    return _itr_revision_index.begin()->itr.operator *();
 }
 
-const merge_iterator::key_type& merge_iterator::key()const
+const merge_iterator::key_type& merge_iterator::key() const
 {
    auto first_itr = _itr_revision_index.begin();
    KOINOS_ASSERT( first_itr->valid(), koinos::exception, "" );
@@ -230,7 +230,7 @@ merge_state::merge_state( std::shared_ptr< state_delta > head ) :
    _head( head )
 {}
 
-merge_iterator merge_state::begin()const
+merge_iterator merge_state::begin() const
 {
    return merge_iterator( _head, [&]( std::shared_ptr< backends::abstract_backend > backend )
    {
@@ -238,7 +238,7 @@ merge_iterator merge_state::begin()const
    });
 }
 
-merge_iterator merge_state::end()const
+merge_iterator merge_state::end() const
 {
    return merge_iterator( _head, [&]( std::shared_ptr< backends::abstract_backend > backend )
    {
@@ -246,12 +246,12 @@ merge_iterator merge_state::end()const
    });
 }
 
-const merge_state::value_type* merge_state::find( const key_type& key )const
+const merge_state::value_type* merge_state::find( const key_type& key ) const
 {
    return _head->find( key );
 }
 
-merge_iterator merge_state::lower_bound( const key_type& key )const
+merge_iterator merge_state::lower_bound( const key_type& key ) const
 {
    return merge_iterator( _head, [&]( std::shared_ptr< backends::abstract_backend > backend )
    {

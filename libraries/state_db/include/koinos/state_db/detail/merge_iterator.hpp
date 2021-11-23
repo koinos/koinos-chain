@@ -22,8 +22,8 @@ struct iterator_wrapper
    iterator_wrapper( iterator_wrapper&& i );
    iterator_wrapper( const iterator_wrapper& i );
 
-   const iterator_wrapper& self()const;
-   bool valid()const;
+   const iterator_wrapper& self() const;
+   bool valid() const;
 
    backends::iterator                            itr;
    std::shared_ptr< backends::abstract_backend > backend;
@@ -36,12 +36,12 @@ struct iterator_wrapper
 // (i.e. lhs < rhs == false && rhs < lhs == false )
 struct iterator_compare_less
 {
-   bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const;
+   bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs ) const;
 };
 
 struct iterator_compare_greater
 {
-   bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs )const;
+   bool operator()( const iterator_wrapper& lhs, const iterator_wrapper& rhs ) const;
 };
 
 class merge_iterator :
@@ -92,7 +92,7 @@ class merge_iterator :
       template< typename Initializer >
       merge_iterator( state_delta_ptr head, Initializer&& init )
       {
-         KOINOS_ASSERT( head, internal_error, "Cannot create a merge iterator on an null delta." );
+         KOINOS_ASSERT( head, internal_error, "cannot create a merge iterator on a null delta" );
          auto current_delta = head;
 
          do
@@ -115,14 +115,14 @@ class merge_iterator :
 
       merge_iterator( const merge_iterator& other );
 
-      bool operator ==( const merge_iterator& other )const;
+      bool operator ==( const merge_iterator& other ) const;
 
       merge_iterator& operator++();
       merge_iterator& operator--();
 
-      const value_type& operator*()const;
+      const value_type& operator*() const;
 
-      const key_type& key()const;
+      const key_type& key() const;
 
    private:
       template< typename ItrType >

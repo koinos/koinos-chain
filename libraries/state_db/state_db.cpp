@@ -16,7 +16,7 @@ namespace std {
    template<>
    struct hash< koinos::crypto::multihash >
    {
-      std::size_t operator()( const koinos::crypto::multihash& mh )const
+      std::size_t operator()( const koinos::crypto::multihash& mh ) const
       {
          static const std::hash< std::string > hash_fn;
          return hash_fn( koinos::util::converter::as< std::string >( mh ) );
@@ -76,11 +76,10 @@ class state_node_impl final
       state_node_impl() {}
       ~state_node_impl() {}
 
-      const object_value* get_object( const object_space& space, const object_key& key )const;
-      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
-      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
+      const object_value* get_object( const object_space& space, const object_key& key ) const;
+      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key ) const;
+      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key ) const;
       int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
-      //bool is_empty()const;
 
       state_delta_ptr   _state;
       bool              _is_writable = true;
@@ -104,18 +103,18 @@ class database_impl final
       void close();
 
       void reset();
-      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child )const;
-      state_node_ptr get_node( const state_node_id& node_id )const;
+      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child ) const;
+      state_node_ptr get_node( const state_node_id& node_id ) const;
       state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
       void finalize_node( const state_node_id& node );
       void discard_node( const state_node_id& node, const std::unordered_set< state_node_id >& whitelist );
       void commit_node( const state_node_id& node );
 
-      state_node_ptr get_head()const;
-      std::vector< state_node_ptr > get_fork_heads()const;
-      state_node_ptr get_root()const;
+      state_node_ptr get_head() const;
+      std::vector< state_node_ptr > get_fork_heads() const;
+      state_node_ptr get_root() const;
 
-      bool is_open()const;
+      bool is_open() const;
 
       std::filesystem::path                     _path;
       std::function< void( state_node_ptr ) >   _init_func = nullptr;
@@ -168,7 +167,7 @@ void database_impl::close()
    _index.clear();
 }
 
-state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
+state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id ) const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    KOINOS_ASSERT( revision >= _root->revision(), illegal_argument,
@@ -195,7 +194,7 @@ state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const sta
    return *node_itr;
 }
 
-state_node_ptr database_impl::get_node( const state_node_id& node_id )const
+state_node_ptr database_impl::get_node( const state_node_id& node_id ) const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
 
@@ -312,13 +311,13 @@ void database_impl::commit_node( const state_node_id& node_id )
    discard_node( old_root->id(), whitelist );
 }
 
-state_node_ptr database_impl::get_head()const
+state_node_ptr database_impl::get_head() const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    return _head;
 }
 
-std::vector< state_node_ptr > database_impl::get_fork_heads()const
+std::vector< state_node_ptr > database_impl::get_fork_heads() const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    std::vector< state_node_ptr > fork_heads;
@@ -332,18 +331,18 @@ std::vector< state_node_ptr > database_impl::get_fork_heads()const
    return fork_heads;
 }
 
-state_node_ptr database_impl::get_root()const
+state_node_ptr database_impl::get_root() const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    return _root;
 }
 
-bool database_impl::is_open()const
+bool database_impl::is_open() const
 {
    return (bool)_root && (bool)_head;
 }
 
-const object_value* state_node_impl::get_object( const object_space& space, const object_key& key )const
+const object_value* state_node_impl::get_object( const object_space& space, const object_key& key ) const
 {
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -360,7 +359,7 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
    return nullptr;
 }
 
-std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key )const
+std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key ) const
 {
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -388,7 +387,7 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
    return { nullptr, null_key };
 }
 
-std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key )const
+std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key ) const
 {
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -448,17 +447,17 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
 abstract_state_node::abstract_state_node() : impl( new detail::state_node_impl() ) {}
 abstract_state_node::~abstract_state_node() {}
 
-const object_value* abstract_state_node::get_object( const object_space& space, const object_key& key )const
+const object_value* abstract_state_node::get_object( const object_space& space, const object_key& key ) const
 {
    return impl->get_object( space, key );
 }
 
-std::pair< const object_value*, const object_key& > abstract_state_node::get_next_object( const object_space& space, const object_key& key )const
+std::pair< const object_value*, const object_key& > abstract_state_node::get_next_object( const object_space& space, const object_key& key ) const
 {
    return impl->get_next_object( space, key );
 }
 
-std::pair< const object_value*, const object_key& > abstract_state_node::get_prev_object( const object_space& space, const object_key& key )const
+std::pair< const object_value*, const object_key& > abstract_state_node::get_prev_object( const object_space& space, const object_key& key ) const
 {
    return impl->get_prev_object( space, key );
 }
@@ -468,7 +467,7 @@ int32_t abstract_state_node::put_object( const object_space& space, const object
    return impl->put_object( space, key, val );
 }
 
-bool abstract_state_node::is_writable()const
+bool abstract_state_node::is_writable() const
 {
    return impl->_is_writable;
 }
@@ -484,22 +483,22 @@ anonymous_state_node_ptr abstract_state_node::create_anonymous_node()
 state_node::state_node() : abstract_state_node() {}
 state_node::~state_node() {}
 
-const state_node_id& state_node::id()const
+const state_node_id& state_node::id() const
 {
    return impl->_state->id();
 }
 
-const state_node_id& state_node::parent_id()const
+const state_node_id& state_node::parent_id() const
 {
    return impl->_state->parent_id();
 }
 
-uint64_t state_node::revision()const
+uint64_t state_node::revision() const
 {
    return impl->_state->revision();
 }
 
-abstract_state_node_ptr state_node::get_parent()const
+abstract_state_node_ptr state_node::get_parent() const
 {
    auto parent_delta = impl->_state->parent();
    if ( parent_delta )
@@ -521,22 +520,22 @@ abstract_state_node_ptr state_node::shared_from_derived()
 anonymous_state_node::anonymous_state_node() : abstract_state_node() {}
 anonymous_state_node::anonymous_state_node::~anonymous_state_node() {}
 
-const state_node_id& anonymous_state_node::id()const
+const state_node_id& anonymous_state_node::id() const
 {
    return parent->id();
 }
 
-const state_node_id& anonymous_state_node::parent_id()const
+const state_node_id& anonymous_state_node::parent_id() const
 {
    return parent->parent_id();
 }
 
-uint64_t anonymous_state_node::revision()const
+uint64_t anonymous_state_node::revision() const
 {
    return parent->revision();
 }
 
-abstract_state_node_ptr anonymous_state_node::get_parent()const
+abstract_state_node_ptr anonymous_state_node::get_parent() const
 {
    return parent;
 }
@@ -577,18 +576,18 @@ void database::reset()
    impl->reset();
 }
 
-state_node_ptr database::get_node_at_revision( uint64_t revision, const state_node_id& child_id )const
+state_node_ptr database::get_node_at_revision( uint64_t revision, const state_node_id& child_id ) const
 {
    return impl->get_node_at_revision( revision, child_id );
 }
 
-state_node_ptr database::get_node_at_revision( uint64_t revision )const
+state_node_ptr database::get_node_at_revision( uint64_t revision ) const
 {
    static const state_node_id null_id;
    return impl->get_node_at_revision( revision, null_id );
 }
 
-state_node_ptr database::get_node( const state_node_id& node_id )const
+state_node_ptr database::get_node( const state_node_id& node_id ) const
 {
    return impl->get_node( node_id );
 }
@@ -614,17 +613,17 @@ void database::commit_node( const state_node_id& node_id )
    impl->commit_node( node_id );
 }
 
-state_node_ptr database::get_head()const
+state_node_ptr database::get_head() const
 {
    return impl->get_head();
 }
 
-std::vector< state_node_ptr > database::get_fork_heads()const
+std::vector< state_node_ptr > database::get_fork_heads() const
 {
    return impl->get_fork_heads();
 }
 
-state_node_ptr database::get_root()const
+state_node_ptr database::get_root() const
 {
    return impl->get_root();
 }

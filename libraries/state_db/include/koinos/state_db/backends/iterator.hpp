@@ -16,9 +16,9 @@ class abstract_iterator
 
       virtual ~abstract_iterator() {};
 
-      virtual const value_type& operator*()const = 0;
+      virtual const value_type& operator*() const = 0;
 
-      virtual const key_type& key()const = 0;
+      virtual const key_type& key() const = 0;
 
       virtual abstract_iterator& operator++() = 0;
       virtual abstract_iterator& operator--() = 0;
@@ -26,8 +26,8 @@ class abstract_iterator
    private:
       friend class iterator;
 
-      virtual bool valid()const = 0;
-      virtual std::unique_ptr< abstract_iterator > copy()const = 0;
+      virtual bool valid() const = 0;
+      virtual std::unique_ptr< abstract_iterator > copy() const = 0;
 };
 
 class iterator final
@@ -40,10 +40,10 @@ class iterator final
       iterator( const iterator& other );
       iterator( iterator&& other );
 
-      const value_type& operator*()const;
+      const value_type& operator*() const;
 
-      const key_type& key()const;
-      const value_type& value()const;
+      const key_type& key() const;
+      const value_type& value() const;
 
       iterator& operator++();
       iterator& operator--();
@@ -54,7 +54,7 @@ class iterator final
       friend bool operator!=( const iterator& x, const iterator& y );
 
    private:
-      bool valid()const;
+      bool valid() const;
 
       std::unique_ptr< abstract_iterator > _itr;
 };

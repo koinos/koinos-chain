@@ -189,7 +189,7 @@ void rocksdb_backend::flush()
    _db->Flush( flush_options, &*_handles[ constants::metadata_column_index ] );
 }
 
-rocksdb_backend::size_type rocksdb_backend::revision()const
+rocksdb_backend::size_type rocksdb_backend::revision() const
 {
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
 
@@ -203,7 +203,7 @@ void rocksdb_backend::set_revision( size_type rev )
    _revision = rev;
 }
 
-const crypto::multihash& rocksdb_backend::id()const
+const crypto::multihash& rocksdb_backend::id() const
 {
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
 
@@ -260,7 +260,7 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
    _cache->put( k, v );
 }
 
-const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k )const
+const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k ) const
 {
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
 
@@ -323,7 +323,7 @@ void rocksdb_backend::clear()
    _cache->clear();
 }
 
-rocksdb_backend::size_type rocksdb_backend::size()const
+rocksdb_backend::size_type rocksdb_backend::size() const
 {
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
 

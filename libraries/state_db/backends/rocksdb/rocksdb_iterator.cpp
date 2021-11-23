@@ -36,7 +36,7 @@ rocksdb_iterator::rocksdb_iterator( const rocksdb_iterator& other ) :
 
 rocksdb_iterator::~rocksdb_iterator() {}
 
-const rocksdb_iterator::value_type& rocksdb_iterator::operator*()const
+const rocksdb_iterator::value_type& rocksdb_iterator::operator*() const
 {
    KOINOS_ASSERT( valid(), iterator_exception, "iterator operation is invalid" );
 
@@ -48,7 +48,7 @@ const rocksdb_iterator::value_type& rocksdb_iterator::operator*()const
    return *_cache_value;
 }
 
-const rocksdb_iterator::key_type& rocksdb_iterator::key()const
+const rocksdb_iterator::key_type& rocksdb_iterator::key() const
 {
    KOINOS_ASSERT( valid(), iterator_exception, "iterator operation is invalid" );
 
@@ -90,17 +90,17 @@ abstract_iterator& rocksdb_iterator::operator--()
    return *this;
 }
 
-bool rocksdb_iterator::valid()const
+bool rocksdb_iterator::valid() const
 {
    return _iter && _iter->Valid();
 }
 
-std::unique_ptr< abstract_iterator > rocksdb_iterator::copy()const
+std::unique_ptr< abstract_iterator > rocksdb_iterator::copy() const
 {
    return std::make_unique< rocksdb_iterator >( *this );
 }
 
-void rocksdb_iterator::update_cache_value()const
+void rocksdb_iterator::update_cache_value() const
 {
    if ( valid() )
    {

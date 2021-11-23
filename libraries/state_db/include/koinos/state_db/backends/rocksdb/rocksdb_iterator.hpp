@@ -22,22 +22,22 @@ class rocksdb_iterator final : public abstract_iterator
          std::shared_ptr< const ::rocksdb::ReadOptions > opts,
          std::shared_ptr< object_cache > cache );
       rocksdb_iterator( const rocksdb_iterator& other );
-      virtual ~rocksdb_iterator();
+      virtual ~rocksdb_iterator() override;
 
-      virtual const value_type& operator*()const;
+      virtual const value_type& operator*() const override;
 
-      virtual const key_type& key()const;
+      virtual const key_type& key() const override;
 
-      virtual abstract_iterator& operator++();
-      virtual abstract_iterator& operator--();
+      virtual abstract_iterator& operator++() override;
+      virtual abstract_iterator& operator--() override;
 
    private:
       friend class rocksdb_backend;
 
-      virtual bool valid()const;
-      virtual std::unique_ptr< abstract_iterator > copy()const;
+      virtual bool valid() const override;
+      virtual std::unique_ptr< abstract_iterator > copy() const override;
 
-      void update_cache_value()const;
+      void update_cache_value() const;
 
       std::shared_ptr< ::rocksdb::DB >                 _db;
       std::shared_ptr< ::rocksdb::ColumnFamilyHandle > _handle;

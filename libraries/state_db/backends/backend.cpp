@@ -2,7 +2,7 @@
 
 namespace koinos::state_db::backends {
 
-bool abstract_backend::empty()const
+bool abstract_backend::empty() const
 {
    return size() == 0;
 }

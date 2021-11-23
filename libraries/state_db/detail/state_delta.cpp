@@ -149,7 +149,7 @@ void state_delta::set_revision( uint64_t revision )
    }
 }
 
-const std::shared_ptr< backend_type > state_delta::backend()const
+const std::shared_ptr< backend_type > state_delta::backend() const
 {
    return _backend;
 }

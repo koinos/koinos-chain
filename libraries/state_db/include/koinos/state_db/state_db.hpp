@@ -43,7 +43,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - args.key is copied into result.key
        */
-      const object_value* get_object( const object_space& space, const object_key& key )const;
+      const object_value* get_object( const object_space& space, const object_key& key ) const;
 
       /**
        * Get the next object.
@@ -53,7 +53,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key )const;
+      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key ) const;
 
       /**
        * Get the previous object.
@@ -63,7 +63,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key )const;
+      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key ) const;
 
       /**
        * Write an object into the state_node.
@@ -77,17 +77,17 @@ class abstract_state_node
       /**
        * Return true if the node is writable.
        */
-      bool is_writable()const;
+      bool is_writable() const;
 
       /**
        * Returns an anonymous state node with this node as its parent.
        */
       anonymous_state_node_ptr create_anonymous_node();
 
-      virtual const state_node_id&    id()const = 0;
-      virtual const state_node_id&    parent_id()const = 0;
-      virtual uint64_t                revision()const = 0;
-      virtual abstract_state_node_ptr get_parent()const = 0;
+      virtual const state_node_id&    id() const = 0;
+      virtual const state_node_id&    parent_id() const = 0;
+      virtual uint64_t                revision() const = 0;
+      virtual abstract_state_node_ptr get_parent() const = 0;
 
       friend class detail::database_impl;
 
@@ -103,10 +103,10 @@ class anonymous_state_node final : public abstract_state_node, public std::enabl
       anonymous_state_node();
       ~anonymous_state_node();
 
-      const state_node_id&    id()const override;
-      const state_node_id&    parent_id()const override;
-      uint64_t                revision()const override;
-      abstract_state_node_ptr get_parent()const override;
+      const state_node_id&    id() const override;
+      const state_node_id&    parent_id() const override;
+      uint64_t                revision() const override;
+      abstract_state_node_ptr get_parent() const override;
 
       void commit();
       void reset();
@@ -129,10 +129,10 @@ class state_node final : public abstract_state_node, public std::enable_shared_f
       state_node();
       ~state_node();
 
-      const state_node_id&    id()const override;
-      const state_node_id&    parent_id()const override;
-      uint64_t                revision()const override;
-      abstract_state_node_ptr get_parent()const override;
+      const state_node_id&    id() const override;
+      const state_node_id&    parent_id() const override;
+      uint64_t                revision() const override;
+      abstract_state_node_ptr get_parent() const override;
 
    protected:
       std::shared_ptr< abstract_state_node > shared_from_derived()override;
@@ -197,15 +197,15 @@ class database final
       /**
        * Get an ancestor of a node at a particular revision
        */
-      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child_id )const;
-      state_node_ptr get_node_at_revision( uint64_t revision )const;
+      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child_id ) const;
+      state_node_ptr get_node_at_revision( uint64_t revision ) const;
 
       /**
        * Get the state_node for the given state_node_id.
        *
        * Return an empty pointer if no node for the given id exists.
        */
-      state_node_ptr get_node( const state_node_id& node_id )const;
+      state_node_ptr get_node( const state_node_id& node_id ) const;
 
       /**
        * Create a writable state_node.
@@ -260,7 +260,7 @@ class database final
        * chain wins in a tie of length. Only finalized
        * nodes are eligible to become head.
        */
-      state_node_ptr get_head()const;
+      state_node_ptr get_head() const;
 
       /**
        * Get and return a vector of all fork heads.
@@ -268,14 +268,14 @@ class database final
        * Fork heads are any finalized nodes that do
        * not have children.
        */
-      std::vector< state_node_ptr > get_fork_heads()const;
+      std::vector< state_node_ptr > get_fork_heads() const;
 
       /**
        * Get and return the current "root" node.
        *
        * All state nodes are guaranteed to a descendant of root.
        */
-      state_node_ptr get_root()const;
+      state_node_ptr get_root() const;
 
    private:
       std::unique_ptr< detail::database_impl > impl;
