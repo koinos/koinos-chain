@@ -466,13 +466,11 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    if ( o.target().has_system_call_bundle() )
    {
-      const auto& contract_id_str = o.target().system_call_bundle().contract_id();
-      auto contract_id = util::converter::to< crypto::multihash >( contract_id_str );
-      auto contract = system_call::get_object( context, state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
+      auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( contract_id_str ) << " at entry point " << o.target().system_call_bundle().entry_point();
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else if ( o.target().thunk_id() )
    {
@@ -502,11 +500,7 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
    auto val = util::converter::as< state_db::object_value >( obj );
 
    put_object_result ret;
-   ret.set_value(
-      state->put_object(
-         util::converter::as< state_db::object_space >( space ),
-         util::converter::as< state_db::object_key >( key ),
-         val.size() ? &val : nullptr ) != val.size() );
+   ret.set_value( state->put_object( space, key, val.size() ? &val : nullptr ) != val.size() );
 
    return ret;
 }
@@ -521,9 +515,7 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   const auto result = state->get_object(
-      util::converter::as< state_db::object_space >( space ),
-      util::converter::as< state_db::object_key >( key ) );
+   const auto result = state->get_object( space, key );
 
    get_object_result ret;
 
@@ -544,10 +536,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   state_db::get_object_result get_res;
-   const auto [result, next_key] = state->get_next_object(
-      util::converter::as< state_db::object_space >( space ),
-      util::converter::as< state_db::object_key >( key ) );
+   const auto [result, next_key] = state->get_next_object( space, key );
 
    get_next_object_result ret;
 
@@ -568,10 +557,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
-   state_db::get_object_result get_res;
-   const auto [result, next_key] = state->get_prev_object(
-      util::converter::as< state_db::object_space >( space ),
-      util::converter::as< state_db::object_key >( key ) );
+   const auto [result, next_key] = state->get_prev_object( space, key );
 
    get_prev_object_result ret;
 

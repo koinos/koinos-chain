@@ -10,8 +10,6 @@
 #include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
 
-#include <mira/database_configuration.hpp>
-
 #define HELP_OPTION     "help"
 #define CONTRACT_OPTION "contract"
 #define VM_OPTION       "vm"

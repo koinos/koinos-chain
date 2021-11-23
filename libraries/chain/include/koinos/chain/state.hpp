@@ -12,7 +12,11 @@
 #include <koinos/state_db/state_db_types.hpp>
 #include <koinos/util/conversion.hpp>
 
-namespace koinos::chain::state {
+namespace koinos::chain {
+
+bool operator<( const object_space& lhs, const object_space& rhs );
+
+namespace state {
 
 namespace zone {
 
@@ -57,4 +61,6 @@ constexpr uint32_t max_object_size = 1024 * 1024; // 1 MB
 
 void assert_permissions( const execution_context& context, const object_space& space );
 
-} // koinos::chain::state
+} // state
+
+} // koinos::chain
