@@ -21,7 +21,7 @@ void map_backend::put( const key_type& k, const value_type& v )
    _map.insert_or_assign( k, v );
 }
 
-const map_backend::value_type* map_backend::get( const key_type& key )
+const map_backend::value_type* map_backend::get( const key_type& key ) const
 {
    auto itr = _map.find( key );
    if ( itr == _map.end() )

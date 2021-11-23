@@ -38,7 +38,7 @@ class rocksdb_backend final : public abstract_backend {
 
       // Modifiers
       virtual void put( const key_type& k, const value_type& v );
-      virtual const value_type* get( const key_type& );
+      virtual const value_type* get( const key_type& )const;
       virtual void erase( const key_type& k );
       virtual void clear();
 
@@ -58,7 +58,7 @@ class rocksdb_backend final : public abstract_backend {
       column_handles                            _handles;
       ::rocksdb::WriteOptions                   _wopts;
       std::shared_ptr< ::rocksdb::ReadOptions > _ropts;
-      std::shared_ptr< object_cache >           _cache;
+      mutable std::shared_ptr< object_cache >   _cache;
       size_type                                 _size = 0;
       size_type                                 _revision = 0;
       crypto::multihash                         _id;

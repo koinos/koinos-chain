@@ -37,15 +37,15 @@ class rocksdb_iterator final : public abstract_iterator
       virtual bool valid()const;
       virtual std::unique_ptr< abstract_iterator > copy()const;
 
-      void update_cache_value();
+      void update_cache_value()const;
 
       std::shared_ptr< ::rocksdb::DB >                 _db;
       std::shared_ptr< ::rocksdb::ColumnFamilyHandle > _handle;
       std::unique_ptr< ::rocksdb::Iterator >           _iter;
       std::shared_ptr< const ::rocksdb::ReadOptions >  _opts;
-      std::shared_ptr< object_cache >                  _cache;
-      std::shared_ptr< const value_type >              _cache_value;
-      std::shared_ptr< const key_type >                _key;
+      mutable std::shared_ptr< object_cache >          _cache;
+      mutable std::shared_ptr< const value_type >      _cache_value;
+      mutable std::shared_ptr< const key_type >        _key;
 };
 
 } // koinos::state_db::backends::rocksdb

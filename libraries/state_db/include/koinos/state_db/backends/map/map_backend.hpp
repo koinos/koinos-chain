@@ -20,7 +20,7 @@ class map_backend final : public abstract_backend {
 
       // Modifiers
       virtual void put( const key_type& k, const value_type& v );
-      virtual const value_type* get( const key_type& );
+      virtual const value_type* get( const key_type& )const;
       virtual void erase( const key_type& k );
       virtual void clear() noexcept;
 

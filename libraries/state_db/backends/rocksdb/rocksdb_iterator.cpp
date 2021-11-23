@@ -42,7 +42,7 @@ const rocksdb_iterator::value_type& rocksdb_iterator::operator*()const
 
    if ( !_cache_value )
    {
-      const_cast< rocksdb_iterator* >( this )->update_cache_value();
+      update_cache_value();
    }
 
    return *_cache_value;
@@ -54,7 +54,7 @@ const rocksdb_iterator::key_type& rocksdb_iterator::key()const
 
    if ( !_key )
    {
-      const_cast< rocksdb_iterator* >( this )->update_cache_value();
+      update_cache_value();
    }
 
    return *_key;
@@ -100,7 +100,7 @@ std::unique_ptr< abstract_iterator > rocksdb_iterator::copy()const
    return std::make_unique< rocksdb_iterator >( *this );
 }
 
-void rocksdb_iterator::update_cache_value()
+void rocksdb_iterator::update_cache_value()const
 {
    if ( valid() )
    {

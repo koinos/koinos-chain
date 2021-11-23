@@ -174,6 +174,7 @@ void rocksdb_backend::close()
       ::rocksdb::CancelAllBackgroundWork( &*_db, true );
       _handles.clear();
       _db.reset();
+      std::lock_guard lock( _cache->get_mutex() );
       _cache->clear();
    }
 }
@@ -259,10 +260,11 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
    _cache->put( k, v );
 }
 
-const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k )
+const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k )const
 {
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
 
+   std::lock_guard lock( _cache->get_mutex() );
    auto ptr = _cache->get( k );
    if ( ptr )
    {
@@ -317,6 +319,7 @@ void rocksdb_backend::clear()
 
    _handles.clear();
    _db.reset();
+   std::lock_guard lock( _cache->get_mutex() );
    _cache->clear();
 }
 
