@@ -7,7 +7,7 @@
 
 namespace koinos::chain {
 
-class session : public abstract_rc_session, public abstract_event_session
+class session final : public abstract_rc_session, public abstract_event_session
 {
 public:
    session( uint64_t begin_rc );
