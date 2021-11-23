@@ -232,25 +232,6 @@ THUNK_DEFINE( void, apply_block,
 
    system_call::put_object( context, state::space::meta(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
-   //
-   // +-----------+      +--------------+      +-------------------------+      +---------------------+
-   // | Block sig | ---> | Block active | ---> | Transaction merkle root | ---> | Transaction actives |
-   // +-----------+      +--------------+      +-------------------------+      +---------------------+
-   //                           |
-   //                           V
-   //                +----------------------+      +----------------------+
-   //                |                      | ---> |     Block passive    |
-   //                |                      |      +----------------------+
-   //                |                      |
-   //                |                      |      +----------------------+
-   //                | Passives merkle root | ---> | Transaction passives |
-   //                |                      |      +----------------------+
-   //                |                      |
-   //                |                      |      +----------------------+
-   //                |                      | ---> |   Transaction sigs   |
-   //                +----------------------+      +----------------------+
-   //
-
    for ( const auto& tx : block.transactions() )
    {
       try
