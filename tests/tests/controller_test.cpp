@@ -54,25 +54,15 @@ struct controller_fixture
    void set_block_merkle_roots( protocol::block& block, protocol::active_block_data& active_data, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
    {
       std::vector< crypto::multihash > transactions;
-      std::vector< crypto::multihash > passives;
       transactions.reserve( block.transactions().size() );
-      passives.reserve( 2 * ( block.transactions().size() + 1 ) );
-
-      passives.emplace_back( crypto::hash( code, block.passive(), size ) );
-      passives.emplace_back( crypto::multihash::empty( code ) );
 
       for ( const auto& trx : block.transactions() )
       {
-         passives.emplace_back( crypto::hash( code, trx.passive(), size ) );
-         passives.emplace_back( crypto::hash( code, trx.signature_data(), size ) );
          transactions.emplace_back( crypto::hash( code, trx.active(), size ) );
       }
 
       auto transaction_merkle_tree = crypto::merkle_tree( code, transactions );
-      auto passives_merkle_tree = crypto::merkle_tree( code, passives );
-
       active_data.set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
-      active_data.set_passive_data_merkle_root( util::converter::as< std::string >( passives_merkle_tree.root()->hash() ) );
    }
 
    void sign_block( protocol::block& block, crypto::private_key& block_signing_key )
@@ -137,7 +127,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 2 );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
-   block_req.mutable_block()->mutable_passive();
 
    protocol::active_block_data block_active_data;
 
@@ -537,6 +526,169 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    bal_ret.ParseFromString( response.result() );
 
    BOOST_REQUIRE_EQUAL( bal_ret.value(), 0 );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( receipt_test )
+{ try {
+   BOOST_TEST_MESSAGE( "Submit block with KOIN contract upload and attempted mint" );
+
+   auto rc_limit1 = 10'000'000;
+   auto rc_limit2 = 9'000'000;
+
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "contract"s ) );
+   auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
+   auto alice_address = alice_private_key.get_public_key().to_address_bytes();
+   koinos::protocol::transaction trx1;
+   koinos::protocol::active_transaction_data active1;
+
+   // Upload the KOIN contract
+   auto op1 = active1.add_operations()->mutable_upload_contract();
+   op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
+   op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
+   active1.set_rc_limit( rc_limit1 );
+   trx1.set_active( util::converter::as< std::string >( active1 ) );
+   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
+   sign_transaction( trx1, contract_private_key );
+
+   koinos::protocol::transaction trx2;
+   koinos::protocol::active_transaction_data active2;
+
+   koinos::contracts::token::mint_arguments mint_arg;
+   mint_arg.set_to( alice_address );
+   mint_arg.set_value( 100 );
+
+   auto op2 = active2.add_operations()->mutable_call_contract();
+   op2->set_contract_id( op1->contract_id() );
+   op2->set_entry_point( 0xc2f82bdc );
+   op2->set_args( mint_arg.SerializeAsString() );
+   active2.set_rc_limit( rc_limit2 );
+   trx2.set_active( util::converter::as< std::string >( active2 ) );
+   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
+   sign_transaction( trx2, alice_private_key );
+
+   koinos::rpc::chain::submit_block_request block_req;
+   block_req.set_verify_passive_data( false );
+   block_req.set_verify_block_signature( false );
+   block_req.set_verify_transaction_signature( false );
+
+   auto duration = std::chrono::system_clock::now().time_since_epoch();
+   block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+   block_req.mutable_block()->mutable_header()->set_height( 1 );
+   block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ) );
+   *block_req.mutable_block()->add_transactions() = trx1;
+   *block_req.mutable_block()->add_transactions() = trx2;
+
+   koinos::protocol::active_block_data active_block_data;
+   set_block_merkle_roots( *block_req.mutable_block(), active_block_data, koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_active( util::converter::as< std::string >( active_block_data ) );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+   auto rld = _controller.get_resource_limits( koinos::rpc::chain::get_resource_limits_request() );
+
+   koinos::rpc::chain::get_account_rc_request rc_req;
+
+   rc_req.set_account( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
+   uint64_t max_payer1 = _controller.get_account_rc( rc_req ).rc();
+
+   rc_req.set_account( util::converter::as< std::string >( alice_private_key.get_public_key().to_address_bytes() ) );
+   uint64_t max_payer2 = _controller.get_account_rc( rc_req ).rc();
+
+   auto block_resp = _controller.submit_block( block_req );
+
+   BOOST_TEST_MESSAGE( "Check the resulting block receipt" );
+
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().id(), block_req.block().id() );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts_size(), 2 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().events_size(), 0 );
+   BOOST_REQUIRE(
+      block_resp.receipt().disk_storage_used() >=
+      block_resp.receipt().transaction_receipts( 0 ).disk_storage_used() +
+      block_resp.receipt().transaction_receipts( 1 ).disk_storage_used() );
+
+   BOOST_REQUIRE(
+      block_resp.receipt().network_bandwidth_used() >=
+      block_resp.receipt().transaction_receipts( 0 ).network_bandwidth_used() +
+      block_resp.receipt().transaction_receipts( 1 ).network_bandwidth_used() );
+
+   BOOST_REQUIRE(
+      block_resp.receipt().compute_bandwidth_used() >=
+      block_resp.receipt().transaction_receipts( 0 ).compute_bandwidth_used() +
+      block_resp.receipt().transaction_receipts( 1 ).compute_bandwidth_used() );
+
+   uint64_t rc1 = 0;
+   rc1 += block_resp.receipt().transaction_receipts( 0 ).disk_storage_used() * rld.resource_limit_data().disk_storage_cost();
+   rc1 += block_resp.receipt().transaction_receipts( 0 ).compute_bandwidth_used() * rld.resource_limit_data().compute_bandwidth_cost();
+   rc1 += block_resp.receipt().transaction_receipts( 0 ).network_bandwidth_used() * rld.resource_limit_data().network_bandwidth_cost();
+
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).id(), trx1.id() );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).rc_limit(), rc_limit1 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).rc_used(), rc1 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).payer(), util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).max_payer_rc(), max_payer1 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).reverted(), false );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).events_size(), 0 );
+
+   uint64_t rc2 = 0;
+   rc2 += block_resp.receipt().transaction_receipts( 1 ).disk_storage_used() * rld.resource_limit_data().disk_storage_cost();
+   rc2 += block_resp.receipt().transaction_receipts( 1 ).compute_bandwidth_used() * rld.resource_limit_data().compute_bandwidth_cost();
+   rc2 += block_resp.receipt().transaction_receipts( 1 ).network_bandwidth_used() * rld.resource_limit_data().network_bandwidth_cost();
+
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).id(), trx2.id() );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).rc_limit(), rc_limit2 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).rc_used(), rc2 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).payer(), util::converter::as< std::string >( alice_private_key.get_public_key().to_address_bytes() ) );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).max_payer_rc(), max_payer2 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).reverted(), false );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).events_size(), 0 );
+
+
+   auto rc_limit3 = 8'000'000;
+
+   koinos::protocol::transaction trx3;
+   koinos::protocol::active_transaction_data active3;
+
+   koinos::contracts::token::transfer_arguments xfer_arg;
+   xfer_arg.set_from( alice_address );
+   xfer_arg.set_to( contract_private_key.get_public_key().to_address_bytes() );
+   xfer_arg.set_value( 100 );
+
+   auto op3 = active3.add_operations()->mutable_call_contract();
+   op3->set_contract_id( op1->contract_id() );
+   op3->set_entry_point( 0x62efa292 );
+   op3->set_args( xfer_arg.SerializeAsString() );
+   active3.set_rc_limit( rc_limit3 );
+   active3.set_nonce( 1 );
+   trx3.set_active( util::converter::as< std::string >( active3 ) );
+   trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
+   sign_transaction( trx3, alice_private_key );
+
+   koinos::rpc::chain::submit_transaction_request tx_req;
+   *tx_req.mutable_transaction() = trx3;
+
+   rld = _controller.get_resource_limits( koinos::rpc::chain::get_resource_limits_request() );
+
+   rc_req.set_account( util::converter::as< std::string >( alice_private_key.get_public_key().to_address_bytes() ) );
+
+   uint64_t max_payer3 = _controller.get_account_rc( rc_req ).rc();
+
+   auto tx_resp = _controller.submit_transaction( tx_req );
+
+   uint64_t rc3 = 0;
+   rc3 += tx_resp.receipt().disk_storage_used() * rld.resource_limit_data().disk_storage_cost();
+   rc3 += tx_resp.receipt().compute_bandwidth_used() * rld.resource_limit_data().compute_bandwidth_cost();
+   rc3 += tx_resp.receipt().network_bandwidth_used() * rld.resource_limit_data().network_bandwidth_cost();
+
+   BOOST_TEST_MESSAGE( "Check the resulting transaction receipt" );
+
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().id(), trx3.id() );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().rc_limit(), rc_limit3 );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().rc_used(), rc3 );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().payer(), util::converter::as< std::string >( alice_private_key.get_public_key().to_address_bytes() ) );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().max_payer_rc(), max_payer3 );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().reverted(), false );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().events_size(), 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

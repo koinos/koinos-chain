@@ -10,7 +10,7 @@
 
 namespace koinos::chain {
 
-host_api::host_api( apply_context& ctx ) : _ctx( ctx ) {}
+host_api::host_api( execution_context& ctx ) : _ctx( ctx ) {}
 host_api::~host_api() {}
 
 uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )

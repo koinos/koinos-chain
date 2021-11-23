@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 
-#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/chain.pb.h>
 
 #include <koinos/bigint.hpp>
@@ -59,7 +59,7 @@ constexpr uint32_t max_object_size = 512;
 
 constexpr uint32_t max_object_size = 1024 * 1024; // 1 MB
 
-void assert_permissions( const apply_context& context, const object_space& space );
+void assert_permissions( const execution_context& context, const object_space& space );
 
 } // state
 

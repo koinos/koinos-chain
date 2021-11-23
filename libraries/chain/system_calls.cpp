@@ -5,12 +5,13 @@
 #include <google/protobuf/util/message_differencer.h>
 
 #include <koinos/bigint.hpp>
-#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/util/base58.hpp>
@@ -69,6 +70,8 @@ void register_thunks( thunk_dispatcher& td )
       (consume_account_rc)
       (get_resource_limits)
       (consume_block_resources)
+
+      (event)
    )
 }
 
@@ -76,7 +79,7 @@ void register_thunks( thunk_dispatcher& td )
 // the block.
 struct block_guard
 {
-   block_guard( apply_context& context, const protocol::block& block ) :
+   block_guard( execution_context& context, const protocol::block& block ) :
       ctx( context )
    {
       ctx.set_block( block );
@@ -87,14 +90,14 @@ struct block_guard
       ctx.clear_block();
    }
 
-   apply_context& ctx;
+   execution_context& ctx;
 };
 
 // RAII class to ensure apply context transaction state is consistent if there is an error applying
 // the transaction.
 struct transaction_guard
 {
-   transaction_guard( apply_context& context, const protocol::transaction& trx ) :
+   transaction_guard( execution_context& context, const protocol::transaction& trx ) :
       ctx( context )
    {
       ctx.set_transaction( trx );
@@ -105,7 +108,7 @@ struct transaction_guard
       ctx.clear_transaction();
    }
 
-   apply_context& ctx;
+   execution_context& ctx;
 };
 
 THUNK_DEFINE_BEGIN();
@@ -186,9 +189,12 @@ THUNK_DEFINE( void, apply_block,
 {
    #pragma message "TODO: Check previous block hash, height, timestamp, and specify allowed set of hashing algorithms"
 
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
 
    block_guard guard( context, block );
+
+   context.receipt() = protocol::block_receipt();
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
 
@@ -226,57 +232,6 @@ THUNK_DEFINE( void, apply_block,
 
    system_call::put_object( context, state::space::meta(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
-   // Check passive Merkle root
-   if( check_passive_data )
-   {
-      // Passive Merkle root verifies:
-      //
-      // Block passive
-      // Block signature slot (zero hash)
-      // Transaction signatures
-      //
-      // Transaction passive
-      // Transaction signature
-      //
-      // This matches the pattern of the input, except the hash of block_sig is zero because it has not yet been determined
-      // during the block building process.
-
-      #pragma message "TODO: Can we optimize away the string copies?"
-      auto passive_root = util::converter::to< crypto::multihash >( active_data.passive_data_merkle_root() );
-      std::vector< std::string > passives;
-      passives.reserve( 2 * ( block.transactions().size() + 1 ) );
-
-      passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), block.passive() ) ) );
-      passives.emplace_back( util::converter::as< std::string >( crypto::multihash::empty( passive_root.code() ) ) );
-
-      for ( const auto& trx : block.transactions() )
-      {
-         passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), trx.passive() ) ) );
-         passives.emplace_back( util::converter::as< std::string >( crypto::hash( passive_root.code(), trx.signature_data() ) ) );
-      }
-
-      KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.passive_data_merkle_root(), passives ), passive_root_mismatch, "passive merkle root does not match" );
-   }
-
-   //
-   // +-----------+      +--------------+      +-------------------------+      +---------------------+
-   // | Block sig | ---> | Block active | ---> | Transaction merkle root | ---> | Transaction actives |
-   // +-----------+      +--------------+      +-------------------------+      +---------------------+
-   //                           |
-   //                           V
-   //                +----------------------+      +----------------------+
-   //                |                      | ---> |     Block passive    |
-   //                |                      |      +----------------------+
-   //                |                      |
-   //                |                      |      +----------------------+
-   //                | Passives merkle root | ---> | Transaction passives |
-   //                |                      |      +----------------------+
-   //                |                      |
-   //                |                      |      +----------------------+
-   //                |                      | ---> |   Transaction sigs   |
-   //                +----------------------+      +----------------------+
-   //
-
    for ( const auto& tx : block.transactions() )
    {
       try
@@ -296,14 +251,26 @@ THUNK_DEFINE( void, apply_block,
       unable_to_consume_resources,
       "unable to consume block resources"
    );
+
+   auto& receipt = std::get< protocol::block_receipt >( context.receipt() );
+
+   receipt.set_id( block.id() );
+   receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() );
+   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
+   receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
+
+   for ( auto& e : context.event_recorder().events() )
+      *receipt.add_events() = std::move( e );
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    transaction_guard guard( context, trx );
+
+   protocol::transaction_receipt receipt;
 
    protocol::active_transaction_data active_data;
    KOINOS_ASSERT(
@@ -317,11 +284,15 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    auto payer_rc = system_call::get_account_rc( context, payer );
    KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
 
+   auto start_disk_used    = context.resource_meter().disk_storage_used();
+   auto start_network_used = context.resource_meter().network_bandwidth_used();
+   auto start_compute_used = context.resource_meter().compute_bandwidth_used();
+
    /**
     * While a reference to the payer_session remains alive, resource usage will be tallied
     * and charged to the current payer.
     */
-   auto payer_session = context.resource_meter().make_session( active_data.rc_limit() );
+   auto payer_session = context.make_session( active_data.rc_limit() );
 
    auto account_nonce = system_call::get_account_nonce( context, payer );
    KOINOS_ASSERT(
@@ -337,6 +308,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.set_state_node( trx_node, block_node->get_parent() );
 
    std::exception_ptr reverted_exception_ptr;
+
+   receipt.set_id( trx.id() );
+   receipt.set_payer( payer );
+   receipt.set_max_payer_rc( payer_rc );
+   receipt.set_rc_limit( active_data.rc_limit() );
+   receipt.set_reverted( false );
 
    try
    {
@@ -365,21 +342,44 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << e.what();
       transaction_reverted tr( e.what() );
       reverted_exception_ptr = std::make_exception_ptr( tr );
+      receipt.set_reverted( true );
    }
 
    context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
    system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( active_data.nonce() + 1 ) );
+   auto used_rc = payer_session->used_rc();
 
-   auto payer_consumed_rc = payer_session->used();
+   receipt.set_rc_used( used_rc );
+   receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() - start_disk_used );
+   receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() - start_network_used );
+   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() - start_compute_used );
+
+   for ( auto& e : payer_session->events() )
+      *receipt.add_events() = e;
+
    payer_session.reset();
 
    KOINOS_ASSERT(
-      system_call::consume_account_rc( context, payer, payer_consumed_rc ),
+      system_call::consume_account_rc( context, payer, used_rc ),
       unable_to_consume_resources,
       "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
    );
+
+   switch ( context.intent() )
+   {
+   case intent::block_application:
+      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ), unexpected_receipt, "expected block receipt with block application intent" );
+      *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
+      break;
+   case intent::transaction_application:
+      context.receipt() = receipt;
+      break;
+   default:
+      KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
+      break;
+   }
 
    if ( reverted_exception_ptr )
    {
@@ -391,8 +391,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
@@ -416,8 +416,8 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -435,8 +435,8 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT( !context.is_in_user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
@@ -488,7 +488,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "cannot put object during read only call" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot put object during read only call" );
 
    context.resource_meter().use_disk_storage( obj.size() );
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
@@ -798,7 +798,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
 THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
 {
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -809,7 +809,7 @@ THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
 
 THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
-   KOINOS_ASSERT( !context.is_read_only(), read_only_context, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -894,6 +894,24 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
    consume_block_resources_result ret;
    ret.set_value( true );
    return ret;
+}
+
+THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
+{
+   auto caller = system_call::get_caller( context ).caller();
+
+   context.resource_meter().use_compute_bandwidth( compute_load::light );
+   context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
+
+   protocol::event_data ev;
+   ev.set_source( caller );
+   ev.set_name( name );
+   ev.set_data( data );
+
+   for ( auto& imp : impacted )
+      *ev.add_impacted() = imp;
+
+   context.event_recorder().push_event( std::move( ev ) );
 }
 
 THUNK_DEFINE_END();

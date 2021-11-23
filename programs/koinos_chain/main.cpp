@@ -101,14 +101,12 @@ void attach_request_handler(
                   }
                   case rpc::chain::chain_request::RequestCase::kSubmitBlock:
                   {
-                     controller.submit_block( args.submit_block() );
-                     resp.mutable_submit_block();
+                     *resp.mutable_submit_block() = controller.submit_block( args.submit_block() );
                      break;
                   }
                   case rpc::chain::chain_request::RequestCase::kSubmitTransaction:
                   {
-                     controller.submit_transaction( args.submit_transaction() );
-                     resp.mutable_submit_transaction();
+                     *resp.mutable_submit_transaction() = controller.submit_transaction( args.submit_transaction() );
                      break;
                   }
                   case rpc::chain::chain_request::RequestCase::kGetHeadInfo:

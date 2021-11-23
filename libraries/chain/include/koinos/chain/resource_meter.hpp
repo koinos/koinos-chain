@@ -12,19 +12,11 @@ namespace compute_load {
    constexpr uint64_t heavy  = 10000;
 }
 
-class rc_session final
+struct abstract_rc_session
 {
-public:
-   rc_session( uint64_t begin_rc );
-   ~rc_session();
-
-   void use( uint64_t rc );
-   uint64_t remaining();
-   uint64_t used();
-
-private:
-   uint64_t _begin_rc;
-   uint64_t _end_rc;
+   virtual void use_rc( uint64_t rc ) = 0;
+   virtual uint64_t remaining_rc() = 0;
+   virtual uint64_t used_rc() = 0;
 };
 
 class resource_meter final
@@ -35,7 +27,7 @@ public:
 
    void set_resource_limit_data( const resource_limit_data& rld );
 
-   std::shared_ptr< rc_session > make_session( uint64_t rc );
+   void set_session( std::shared_ptr< abstract_rc_session > s );
 
    void use_disk_storage( uint64_t bytes );
    uint64_t disk_storage_used();
@@ -55,7 +47,7 @@ private:
    uint64_t _network_bandwidth_remaining = 0;
    uint64_t _compute_bandwidth_remaining = 0;
    resource_limit_data _resource_limit_data;
-   std::weak_ptr< rc_session > _session;
+   std::weak_ptr< abstract_rc_session > _session;
 };
 
 } // koinos::chain
