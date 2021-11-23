@@ -1,11 +1,13 @@
 file(GLOB HEADERS "include/koinos/chain/*.hpp" "include/koinos/chain/wasm/*.hpp")
 add_library(koinos_chain_lib
-            apply_context.cpp
             controller.cpp
+            event_recorder.cpp
+            execution_context.cpp
             host_api.cpp
+            session.cpp
             system_calls.cpp
             thunk_dispatcher.cpp
-            resources.cpp
+            resource_meter.cpp
             state.cpp
             ${HEADERS})
 target_link_libraries(koinos_chain_lib Koinos::state_db Koinos::exception Koinos::crypto Koinos::log Koinos::util Koinos::mq Koinos::vm_manager mira)

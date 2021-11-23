@@ -30,22 +30,22 @@ data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THU
 #define VA_ARGS(...) , ##__VA_ARGS__
 
 #define THUNK_DECLARE(return_type, name, ...)                                      \
-   namespace thunk { return_type name( apply_context& VA_ARGS(__VA_ARGS__) ); }    \
+   namespace thunk { return_type name( execution_context& VA_ARGS(__VA_ARGS__) ); }\
    namespace system_call {                                                         \
    BOOST_PP_IF(                                                                    \
       _THUNK_IS_VOID(return_type),                                                 \
       void,                                                                        \
       std::remove_reference_t< decltype( std::declval< return_type >().value() ) > \
-   ) name( apply_context& VA_ARGS(__VA_ARGS__) ); }
+   ) name( execution_context& VA_ARGS(__VA_ARGS__) ); }
 
 #define THUNK_DECLARE_VOID(return_type, name)                                      \
-   namespace thunk { return_type name( apply_context& ); }                         \
+   namespace thunk { return_type name( execution_context& ); }                     \
    namespace system_call {                                                         \
    BOOST_PP_IF(                                                                    \
       _THUNK_IS_VOID(return_type),                                                 \
       void,                                                                        \
       std::remove_reference_t< decltype( std::declval<return_type>().value() ) >   \
-   ) name( apply_context& ); }
+   ) name( execution_context& ); }
 
 #define _THUNK_RET_TYPE_void 1)(1
 #define _THUNK_IS_VOID(type) BOOST_PP_EQUAL(BOOST_PP_SEQ_SIZE((BOOST_PP_CAT(_THUNK_RET_TYPE_,type))),2)
@@ -233,7 +233,7 @@ namespace koinos::chain::detail {
 #define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
    }                                                                                                                 \
    namespace system_call {                                                                                           \
-   auto SYSCALL( apply_context& context ARGS ) ->                                                                    \
+   auto SYSCALL( execution_context& context ARGS ) ->                                                                \
       BOOST_PP_IF(                                                                                                   \
          _THUNK_IS_VOID(RETURN_TYPE),                                                                                \
          void,                                                                                                       \
@@ -324,7 +324,7 @@ namespace koinos::chain::detail {
    }                                                                                                                 \
    }                                                                                                                 \
    namespace thunk {                                                                                                 \
-   RETURN_TYPE SYSCALL( apply_context& context ARGS )
+   RETURN_TYPE SYSCALL( execution_context& context ARGS )
 
 #define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \

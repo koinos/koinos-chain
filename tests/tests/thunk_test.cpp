@@ -9,11 +9,12 @@
 #include <koinos/log.hpp>
 
 #include <koinos/chain/controller.hpp>
-#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
+#include <koinos/chain/session.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -40,7 +41,7 @@ struct thunk_fixture
 {
    thunk_fixture() :
       vm_backend( koinos::vm_manager::get_vm_backend() ),
-      ctx( vm_backend ),
+      ctx( vm_backend, chain::intent::block_application ),
       host( ctx )
    {
       KOINOS_ASSERT( vm_backend, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
@@ -131,7 +132,7 @@ struct thunk_fixture
    std::filesystem::path temp;
    koinos::state_db::database db;
    std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
-   koinos::chain::apply_context ctx;
+   koinos::chain::execution_context ctx;
    koinos::chain::host_api host;
    koinos::crypto::private_key _signing_private_key;
 };
@@ -451,7 +452,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
-   ctx.set_in_user_code( true );
+   ctx.set_user_code( true );
    BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{}, false, false, false ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
@@ -497,7 +498,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    auto last_frame = ctx.pop_frame();
    BOOST_REQUIRE( std::equal( call2_vb.begin(), call2_vb.end(), last_frame.call.begin() ) );
 
-   for ( int i = 2; i <= APPLY_CONTEXT_STACK_LIMIT; i++ )
+   for ( int i = 2; i <= chain::execution_context::stack_limit; i++ )
    {
       ctx.push_frame( chain::stack_frame{ .call = crypto::hash( crypto::multicodec::ripemd_160, "call"s + std::to_string( i ) ).digest() } );
    }
@@ -533,6 +534,8 @@ BOOST_AUTO_TEST_CASE( require_authority )
 BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 { try {
    using namespace koinos;
+
+   ctx.set_intent( chain::intent::transaction_application );
 
    BOOST_TEST_MESSAGE( "Test transaction nonce" );
 
@@ -785,10 +788,10 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
    auto compute_bandwidth_remaining = ctx.resource_meter().compute_bandwidth_remaining();
 
-   auto session = ctx.resource_meter().make_session( 1'000'000 );
+   auto session = ctx.make_session( 1'000'000 );
    BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficient_rc );
-   BOOST_REQUIRE_EQUAL( session->used(), 1'000'000 );
-   BOOST_REQUIRE_EQUAL( session->remaining(), 0 );
+   BOOST_REQUIRE_EQUAL( session->used_rc(), 1'000'000 );
+   BOOST_REQUIRE_EQUAL( session->remaining_rc(), 0 );
    session.reset();
 
    BOOST_REQUIRE_EQUAL( ctx.resource_meter().compute_bandwidth_remaining(), compute_bandwidth_remaining - 1'000'000 );

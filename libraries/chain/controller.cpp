@@ -1,7 +1,7 @@
 #include <koinos/block_store/block_store.pb.h>
 #include <koinos/broadcast/broadcast.pb.h>
 
-#include <koinos/chain/apply_context.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
@@ -138,8 +138,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    KOINOS_ASSERT( request.block().header().height(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "height") );
    KOINOS_ASSERT( request.block().header().timestamp(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "timestamp") );
    KOINOS_ASSERT( request.block().active().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.block().passive().size() == 0, missing_required_arguments, "unexpected value in field in block: ${f}", ("f", "passive") );
    KOINOS_ASSERT( request.block().signature_data().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
+
+   rpc::chain::submit_block_response resp;
 
    static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
@@ -169,7 +170,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    // than the parent block timestamp.
    if ( block_node && !parent_id.is_zero() )
    {
-      apply_context parent_ctx( _vm_backend );
+      execution_context parent_ctx( _vm_backend, intent::read_only );
 
       parent_ctx.push_frame( stack_frame {
          .call = crypto::hash( crypto::multicodec::ripemd_160, "submit_block"s ).digest(),
@@ -183,7 +184,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       time_lower_bound = head_info.head_block_time();
    }
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend, intent::block_application );
 
    try
    {
@@ -238,16 +239,19 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          KOINOS_ASSERT( resp.has_add_block(), koinos::exception, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
+      uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
+      uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
+      uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
+
+      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ), unexpected_receipt, "expected block receipt" );
+      *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
+
       if ( !index_to )
       {
          auto num_transactions = block.transactions_size();
 
          LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
-
-         auto disk = ctx.resource_meter().disk_storage_used();
-         auto network = ctx.resource_meter().network_bandwidth_used();
-         auto compute = ctx.resource_meter().compute_bandwidth_used();
-         LOG(info) << "Consumed resources: " << disk << " disk, " << network << " network, " << compute << " compute";
+         LOG(info) << "Consumed resources: " << disk_storage_used << " disk, " << network_bandwidth_used << " network, " << compute_bandwidth_used << " compute";
       }
       else if ( block_height % index_message_interval == 0 )
       {
@@ -291,8 +295,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          try
          {
             broadcast::block_accepted ba;
-
-            ba.mutable_block()->CopyFrom( block );
+            *ba.mutable_block() = block;
+            *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
 
             _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
          }
@@ -320,7 +324,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
    }
-   catch( const std::exception& e )
+   catch ( const std::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
 
@@ -338,7 +342,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       throw;
    }
-   catch( ... )
+   catch ( ... )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
 
@@ -357,7 +361,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       throw;
    }
 
-   return {};
+   return resp;
 }
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
@@ -366,8 +370,9 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    KOINOS_ASSERT( request.transaction().id().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "id") );
    KOINOS_ASSERT( request.transaction().active().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.transaction().passive().size() == 0, missing_required_arguments, "unexpected value in field in transaction: ${f}", ("f", "passive") );
    KOINOS_ASSERT( request.transaction().signature_data().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
+
+   rpc::chain::submit_transaction_response resp;
 
    std::string payer;
    uint64_t max_payer_rc;
@@ -381,7 +386,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    auto pending_trx_node = _db.get_head()->create_anonymous_node();
    KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend, intent::transaction_application );
 
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::sha2_256, "submit_transaction"s ).digest(),
@@ -400,7 +405,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       system_call::apply_transaction( ctx, transaction );
 
-      uint64_t disk_storage_used = ctx.resource_meter().disk_storage_used();
+      uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
@@ -424,20 +429,17 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
+      KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt, "expected transaction receipt" );
+      *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
+
       if ( _client && _client->is_running() )
       {
          try
          {
             broadcast::transaction_accepted ta;
-
             *ta.mutable_transaction() = transaction;
-            ta.set_payer( payer );
-            ta.set_max_payer_rc( max_payer_rc );
-            ta.set_rc_limit( trx_rc_limit );
+            *ta.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
             ta.set_height( ctx.get_state_node()->revision() );
-            ta.set_disk_storage_used( disk_storage_used );
-            ta.set_network_bandwidth_used( network_bandwidth_used );
-            ta.set_compute_bandwidth_used( compute_bandwidth_used );
 
             _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
          }
@@ -473,14 +475,14 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       throw;
    }
 
-   return {};
+   return resp;
 }
 
 rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::chain::get_head_info_request& )
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -523,7 +525,7 @@ fork_data controller_impl::get_fork_data()
 fork_data controller_impl::get_fork_data_lockless()
 {
    fork_data fdata;
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_fork_data"s ).digest(),
@@ -570,7 +572,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_resource_limits"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -592,7 +594,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
 
    KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "payer") );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_rc"s ).digest(),
       .call_privilege = privilege::kernel_mode
@@ -635,14 +637,13 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    head_node = _db.get_head();
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "read_contract"s ).digest(),
       .call_privilege = privilege::kernel_mode,
    } );
 
    ctx.set_state_node( head_node );
-   ctx.set_read_only( true );
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( 10'000'000 );
@@ -664,7 +665,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
    KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "account") );
 
-   apply_context ctx( _vm_backend );
+   execution_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
       .call = crypto::hash( crypto::multicodec::ripemd_160, "get_account_nonce"s ).digest(),
