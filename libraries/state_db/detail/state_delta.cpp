@@ -106,14 +106,15 @@ void state_delta::commit_helper()
 void state_delta::commit()
 {
    KOINOS_ASSERT( !is_root(), internal_error, "Cannot commit root." );
-   auto root = get_root();
-   KOINOS_ASSERT( root, internal_error, "Could not get root" );
 
+   auto merkle_root = get_merkle_root();
+
+   // As a side effect, get_root()->_backend has been moved to _backend
    commit_helper();
 
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_revision( _revision );
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_id( _id );
-   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_merkle_root( get_merkle_root() );
+   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_merkle_root( merkle_root );
    _removed_objects.clear();
    _parent.reset();
 }
@@ -160,16 +161,22 @@ crypto::multihash state_delta::get_merkle_root() const
 {
    if ( !_merkle_root )
    {
-      std::set< std::string > object_keys;
+      std::vector< std::string > object_keys;
+      object_keys.reserve( _backend->size() + _removed_objects.size() );
       for ( auto itr = _backend->begin(); itr != _backend->end(); ++itr )
       {
-         object_keys.insert( itr.key() );
+         object_keys.push_back( itr.key() );
       }
 
       for ( const auto& removed : _removed_objects )
       {
-         object_keys.insert( removed );
+         object_keys.push_back( removed );
       }
+
+      std::sort(
+         object_keys.begin(),
+         object_keys.end()
+      );
 
       std::vector< crypto::multihash > merkle_leafs;
       merkle_leafs.reserve( object_keys.size() * 2 );
