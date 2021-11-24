@@ -736,6 +736,10 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
    merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
    BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
 
+   state_1.reset();
+   db.commit_node( state_2_id );
+   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( rocksdb_backend_test )

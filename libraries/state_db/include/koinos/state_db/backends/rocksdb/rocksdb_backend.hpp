@@ -32,6 +32,9 @@ class rocksdb_backend final : public abstract_backend {
       const crypto::multihash& id() const;
       void set_id( const crypto::multihash& );
 
+      const crypto::multihash& merkle_root() const;
+      void set_merkle_root( const crypto::multihash& );
+
       // Iterators
       virtual iterator begin() override;
       virtual iterator end() override;
@@ -62,6 +65,7 @@ class rocksdb_backend final : public abstract_backend {
       size_type                                 _size = 0;
       size_type                                 _revision = 0;
       crypto::multihash                         _id;
+      crypto::multihash                         _merkle_root;
 };
 
 } // koinos::state_db::backends::rocksdb

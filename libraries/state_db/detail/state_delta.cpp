@@ -22,19 +22,15 @@ state_delta::state_delta( const std::filesystem::path& p )
 {
    auto backend = std::make_shared< backends::rocksdb::rocksdb_backend >();
    backend->open( p );
-   _backend = backend;
    _revision = backend->revision();
    _id = backend->id();
+   _merkle_root =  backend->merkle_root();
+   _backend = backend;
 }
 
 void state_delta::put( const key_type& k, const value_type& v )
 {
    _backend->put( k, v );
-
-   if ( !is_root() )
-   {
-      _modified_objects.insert( k );
-   }
 }
 
 void state_delta::erase( const key_type& k )
@@ -59,40 +55,52 @@ const value_type* state_delta::find( const key_type& key ) const
 
 void state_delta::squash()
 {
-   if ( is_root() ) return;
+   if ( is_root() )
+      return;
 
-   for ( key_type r_key : _removed_objects )
+   // If an object is removed here and exists in the parent, it needs to only be removed in the parent
+   // If an object is modified here, but removed in the parent, it needs to only be modified in the parent
+   // These are O(m log n) operations. Because of this, squash should only be called from anonymouse state
+   // nodes, whose modifications are much smaller
+   for ( const key_type& r_key : _removed_objects )
    {
-      if ( _parent->_backend->get( r_key ) )
+      _parent->_backend->erase( r_key );
+
+      if ( !_parent->is_root() )
       {
-         _parent->_backend->erase( r_key );
+         _parent->_removed_objects.insert( r_key );
       }
    }
 
-   for ( auto mod_itr = _modified_objects.begin(); mod_itr != _modified_objects.end(); ++ mod_itr )
+   for ( auto itr = _backend->begin(); itr != _backend->end(); ++itr )
    {
-      _parent->_backend->put( *mod_itr, *_backend->get( *mod_itr ) );
-   }
+      _parent->_backend->put( itr.key(), *itr );
 
-   if ( !_parent->is_root() )
-   {
-      _parent->_removed_objects.merge( _removed_objects );
-
-      // There is a corner case where if an object is created in parent and
-      // modified here, then parent will show it as modified, when it is actually
-      // new. I do not believe this will cause problems, but it is worth noting
-      // it case it does.
-      _parent->_modified_objects.merge( _modified_objects );
+      if ( !_parent->is_root() )
+      {
+         _parent->_removed_objects.erase( itr.key() );
+      }
    }
 }
 
-void state_delta::squash( uint64_t revision )
+void state_delta::commit_helper()
 {
-   if ( revision < _revision && !is_root() )
+   if ( is_root() )
+      return;
+
+   _parent->commit_helper();
+
+   for ( const key_type& r_key : _removed_objects )
    {
-      squash();
-      _parent->squash( revision );
+      _parent->_backend->erase( r_key );
    }
+
+   for ( auto itr = _backend->begin(); itr != _backend->end(); ++itr )
+   {
+      _parent->_backend->put( itr.key(), *itr );
+   }
+
+   _backend = std::move( _parent->_backend );
 }
 
 void state_delta::commit()
@@ -101,12 +109,11 @@ void state_delta::commit()
    auto root = get_root();
    KOINOS_ASSERT( root, internal_error, "Could not get root" );
 
-   squash( 0 );
+   commit_helper();
 
-   _backend = std::move( root->_backend );
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_revision( _revision );
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_id( _id );
-   _modified_objects.clear();
+   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_merkle_root( get_merkle_root() );
    _removed_objects.clear();
    _parent.reset();
 }
@@ -114,7 +121,6 @@ void state_delta::commit()
 void state_delta::clear()
 {
    _backend->clear();
-   _modified_objects.clear();
    _removed_objects.clear();
 
    _revision = 0;
@@ -123,8 +129,7 @@ void state_delta::clear()
 
 bool state_delta::is_modified( const key_type& k ) const
 {
-   return _modified_objects.find( k ) != _modified_objects.end()
-      || _removed_objects.find( k ) != _removed_objects.end();
+   return _backend->get( k ) || _removed_objects.find( k ) != _removed_objects.end();
 }
 
 bool state_delta::is_removed( const key_type& k ) const
@@ -156,9 +161,9 @@ crypto::multihash state_delta::get_merkle_root() const
    if ( !_merkle_root )
    {
       std::set< std::string > object_keys;
-      for ( const auto& modified : _modified_objects )
+      for ( auto itr = _backend->begin(); itr != _backend->end(); ++itr )
       {
-         object_keys.insert( modified );
+         object_keys.insert( itr.key() );
       }
 
       for ( const auto& removed : _removed_objects )
@@ -172,7 +177,7 @@ crypto::multihash state_delta::get_merkle_root() const
       for ( const auto& key : object_keys )
       {
          merkle_leafs.emplace_back( crypto::hash( crypto::multicodec::sha2_256, key ) );
-         auto val_ptr = find( key );
+         auto val_ptr = _backend->get( key );
          merkle_leafs.emplace_back( crypto::hash( crypto::multicodec::sha2_256, val_ptr ? *val_ptr : std::string() ) );
       }
 
