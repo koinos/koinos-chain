@@ -26,6 +26,9 @@ class rocksdb_backend final : public abstract_backend {
       void close();
       void flush();
 
+      void start_write_batch();
+      void end_write_batch();
+
       size_type revision() const;
       void set_revision( size_type rev );
 
@@ -58,6 +61,7 @@ class rocksdb_backend final : public abstract_backend {
       using column_handles = std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > >;
 
       std::shared_ptr< ::rocksdb::DB >          _db;
+      std::optional< ::rocksdb::WriteBatch >    _write_batch;
       column_handles                            _handles;
       ::rocksdb::WriteOptions                   _wopts;
       std::shared_ptr< ::rocksdb::ReadOptions > _ropts;

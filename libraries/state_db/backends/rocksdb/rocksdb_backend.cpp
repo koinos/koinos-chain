@@ -205,6 +205,22 @@ void rocksdb_backend::flush()
    _db->Flush( flush_options, &*_handles[ constants::metadata_column_index ] );
 }
 
+void rocksdb_backend::start_write_batch()
+{
+   KOINOS_ASSERT( !_write_batch, rocksdb_session_in_progress, "session already in progress" );
+   _write_batch.emplace();
+}
+
+void rocksdb_backend::end_write_batch()
+{
+   if ( _write_batch )
+   {
+      auto status = _db->Write( _wopts, &*_write_batch );
+      KOINOS_ASSERT( status.ok(), rocksdb_write_exception, "unable to write session to rocksdb database" + ( status.getState() ? ", " + std::string( status.getState() ) : "" ) );
+      _write_batch.reset();
+   }
+}
+
 rocksdb_backend::size_type rocksdb_backend::revision() const
 {
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
@@ -269,11 +285,23 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
    bool exists = get( k );
 
-   auto status = _db->Put(
-      _wopts,
-      &*_handles[ constants::objects_column_index ],
-      ::rocksdb::Slice( k ),
-      ::rocksdb::Slice( v ) );
+   ::rocksdb::Status status;
+
+   if ( _write_batch )
+   {
+      status = _write_batch->Put(
+         &*_handles[ constants::objects_column_index ],
+         ::rocksdb::Slice( k ),
+         ::rocksdb::Slice( v ) );
+   }
+   else
+   {
+      status = _db->Put(
+         _wopts,
+         &*_handles[ constants::objects_column_index ],
+         ::rocksdb::Slice( k ),
+         ::rocksdb::Slice( v ) );
+   }
 
    KOINOS_ASSERT( status.ok(), rocksdb_write_exception, "unable to write to rocksdb database" + ( status.getState() ? ", " + std::string( status.getState() ) : "" ) );
 

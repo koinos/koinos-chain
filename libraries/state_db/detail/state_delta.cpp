@@ -90,6 +90,10 @@ void state_delta::commit_helper()
 
    _parent->commit_helper();
 
+   KOINOS_ASSERT( _parent->is_root(), internal_error, "must commit delta to root" );
+
+   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _parent->_backend )->start_write_batch();
+
    for ( const key_type& r_key : _removed_objects )
    {
       _parent->_backend->erase( r_key );
@@ -100,12 +104,14 @@ void state_delta::commit_helper()
       _parent->_backend->put( itr.key(), *itr );
    }
 
+   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _parent->_backend )->end_write_batch();
+
    _backend = std::move( _parent->_backend );
 }
 
 void state_delta::commit()
 {
-   KOINOS_ASSERT( !is_root(), internal_error, "Cannot commit root." );
+   KOINOS_ASSERT( !is_root(), internal_error, "cannot commit root" );
 
    auto merkle_root = get_merkle_root();
 
