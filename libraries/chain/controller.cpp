@@ -216,12 +216,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       ctx.set_state_node( block_node );
 
-      system_call::apply_block(
-         ctx,
-         block,
-         request.verify_passive_data(),
-         request.verify_block_signature(),
-         request.verify_transaction_signature() );
+      system_call::apply_block( ctx, block );
 
       if ( _client && _client->is_running() )
       {

@@ -52,10 +52,10 @@ void register_thunks( thunk_dispatcher& td );
 THUNK_DECLARE( void, prints, const std::string& str );
 THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
 
-THUNK_DECLARE( verify_block_signature_result, verify_block_signature, const std::string& digest, const std::string& active_data, const std::string& signature_data );
+THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const std::string& active_data, const std::string& signature_data );
 THUNK_DECLARE( verify_merkle_root_result, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
 
-THUNK_DECLARE( void, apply_block, const protocol::block& block, bool check_passive_data, bool check_block_signature, bool check_transaction_signatures );
+THUNK_DECLARE( void, apply_block, const protocol::block& block );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
 THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
