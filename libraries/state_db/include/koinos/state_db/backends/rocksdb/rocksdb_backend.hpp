@@ -26,11 +26,17 @@ class rocksdb_backend final : public abstract_backend {
       void close();
       void flush();
 
+      void start_write_batch();
+      void end_write_batch();
+
       size_type revision() const;
       void set_revision( size_type rev );
 
       const crypto::multihash& id() const;
       void set_id( const crypto::multihash& );
+
+      const crypto::multihash& merkle_root() const;
+      void set_merkle_root( const crypto::multihash& );
 
       // Iterators
       virtual iterator begin() override;
@@ -55,6 +61,7 @@ class rocksdb_backend final : public abstract_backend {
       using column_handles = std::vector< std::shared_ptr< ::rocksdb::ColumnFamilyHandle > >;
 
       std::shared_ptr< ::rocksdb::DB >          _db;
+      std::optional< ::rocksdb::WriteBatch >    _write_batch;
       column_handles                            _handles;
       ::rocksdb::WriteOptions                   _wopts;
       std::shared_ptr< ::rocksdb::ReadOptions > _ropts;
@@ -62,6 +69,7 @@ class rocksdb_backend final : public abstract_backend {
       size_type                                 _size = 0;
       size_type                                 _revision = 0;
       crypto::multihash                         _id;
+      crypto::multihash                         _merkle_root;
 };
 
 } // koinos::state_db::backends::rocksdb

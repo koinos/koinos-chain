@@ -80,6 +80,11 @@ class abstract_state_node
       bool is_writable() const;
 
       /**
+       * Return the merkle root of writes on this state node
+       */
+      crypto::multihash get_merkle_root() const;
+
+      /**
        * Returns an anonymous state node with this node as its parent.
        */
       anonymous_state_node_ptr create_anonymous_node();

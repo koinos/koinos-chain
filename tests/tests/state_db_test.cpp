@@ -1,6 +1,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <koinos/bigint.hpp>
+#include <koinos/crypto/merkle_tree.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/log.hpp>
 #include <koinos/exception.hpp>
@@ -662,6 +663,82 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );
    BOOST_CHECK_EQUAL( *ptr, a_val );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( merkle_root_test )
+{ try {
+   auto state_1_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_1_id );
+
+   object_space space;
+   std::string a_key = "a";
+   std::string a_val = "alice";
+   std::string b_key = "b";
+   std::string b_val = "bob";
+   std::string c_key = "c";
+   std::string c_val = "charlie";
+
+   state_1->put_object( space, c_key, &c_val );
+   state_1->put_object( space, b_key, &b_val );
+   state_1->put_object( space, a_key, &a_val );
+
+   chain::database_key a_db_key;
+   *a_db_key.mutable_space() = space;
+   a_db_key.set_key( a_key );
+
+   chain::database_key b_db_key;
+   *b_db_key.mutable_space() = space;
+   b_db_key.set_key( b_key );
+
+   chain::database_key c_db_key;
+   *c_db_key.mutable_space() = space;
+   c_db_key.set_key( c_key );
+
+   std::vector< std::string > merkle_leafs;
+   merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( a_db_key ) );
+   merkle_leafs.push_back( a_val );
+   merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( b_db_key ) );
+   merkle_leafs.push_back( b_val );
+   merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( c_db_key ) );
+   merkle_leafs.push_back( c_val );
+
+   BOOST_CHECK_THROW( state_1->get_merkle_root(), koinos::exception );
+   db.finalize_node( state_1_id );
+
+   auto merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
+   BOOST_CHECK_EQUAL( merkle_root, state_1->get_merkle_root() );
+
+   auto state_2_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   auto state_2 = db.create_writable_node( state_1_id, state_2_id );
+
+   std::string d_key = "d";
+   std::string d_val = "dave";
+   a_val = "alicia";
+
+   state_2->put_object( space, a_key, &a_val );
+   state_2->put_object( space, d_key, &d_val );
+   state_2->put_object( space, b_key, nullptr );
+
+   chain::database_key d_db_key;
+   *d_db_key.mutable_space() = space;
+   d_db_key.set_key( d_key );
+
+   merkle_leafs.clear();
+   merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( a_db_key ) );
+   merkle_leafs.push_back( a_val );
+   merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( b_db_key ) );
+   merkle_leafs.push_back( "" );
+   merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( d_db_key ) );
+   merkle_leafs.push_back( d_val );
+
+   db.finalize_node( state_2_id );
+   merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
+   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
+
+   state_1.reset();
+   db.commit_node( state_2_id );
+   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
