@@ -643,6 +643,7 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    hi.mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
    hi.mutable_head_topology()->set_height( head->revision() );
    hi.set_last_irreversible_block( get_last_irreversible_block( context ).value() );
+   hi.set_head_state_merkle_root( util::converter::as< std::string >( head->get_merkle_root() ) );
 
    if ( const auto* block = context.get_block(); block != nullptr )
    {
