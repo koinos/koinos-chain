@@ -141,6 +141,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_active_data.set_signer( util::converter::as< std::string >( foo_key.get_public_key().to_address_bytes() ) );
    block_req.mutable_block()->mutable_header()->set_height( 1 );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
 
    sign_block( *block_req.mutable_block(), foo_key );
@@ -218,6 +219,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
       block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
+      block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
 
       protocol::active_block_data active_data;
       set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
@@ -238,6 +240,7 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
       block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
+      block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
 
       protocol::active_block_data active_data;
       set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
@@ -266,11 +269,14 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    rpc::chain::get_head_info_response head_info;
    head_info.CopyFrom( root_head_info );
 
+   const std::string first_state_merkle_root = _controller.get_head_info().head_state_merkle_root();
+   std::string last_state_merkle_root = first_state_merkle_root;
    for ( uint64_t i = 1; i <= chain::default_irreversible_threshold; i++ )
    {
       block_req.mutable_block()->mutable_header()->set_timestamp( test_timestamp + i );
       block_req.mutable_block()->mutable_header()->set_height( head_info.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
+      block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
 
       protocol::active_block_data active_data;
       set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
@@ -278,7 +284,8 @@ BOOST_AUTO_TEST_CASE( fork_heads )
       block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
       sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
-      _controller.submit_block( block_req );
+      auto receipt = _controller.submit_block( block_req ).receipt();
+      last_state_merkle_root = receipt.state_merkle_root();
 
       head_info.mutable_head_topology()->set_height( head_info.head_topology().height() + 1 );
       head_info.mutable_head_topology()->set_previous( head_info.head_topology().id() );
@@ -289,11 +296,13 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    fork_head_info.CopyFrom( head_info );
    head_info.CopyFrom( root_head_info );
 
+   last_state_merkle_root = first_state_merkle_root;
    for ( uint64_t i = 1; i <= chain::default_irreversible_threshold; i++ )
    {
       block_req.mutable_block()->mutable_header()->set_timestamp( test_timestamp + i + chain::default_irreversible_threshold );
       block_req.mutable_block()->mutable_header()->set_height( head_info.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
+      block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( last_state_merkle_root );
 
       protocol::active_block_data active_data;
       set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
@@ -301,7 +310,8 @@ BOOST_AUTO_TEST_CASE( fork_heads )
       block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
       sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
-      _controller.submit_block( block_req );
+      auto receipt = _controller.submit_block( block_req ).receipt();
+      last_state_merkle_root = receipt.state_merkle_root();
 
       head_info.mutable_head_topology()->set_height( head_info.head_topology().height() + 1 );
       head_info.mutable_head_topology()->set_previous( head_info.head_topology().id() );
@@ -330,6 +340,7 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    block_req.mutable_block()->mutable_header()->set_timestamp( test_timestamp + ( 2 * chain::default_irreversible_threshold ) + 1 );
    block_req.mutable_block()->mutable_header()->set_height( head_info.head_topology().height() + 1 );
    block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( last_state_merkle_root );
 
    protocol::active_block_data active_data;
    set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
@@ -402,6 +413,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 1 );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ) );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    *block_req.mutable_block()->add_transactions() = trx1;
    *block_req.mutable_block()->add_transactions() = trx2;
    *block_req.mutable_block()->add_transactions() = trx3;
@@ -485,6 +497,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 1 );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ) );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    *block_req.mutable_block()->add_transactions() = trx1;
    *block_req.mutable_block()->add_transactions() = trx2;
 
@@ -558,6 +571,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 1 );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ) );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    *block_req.mutable_block()->add_transactions() = trx1;
    *block_req.mutable_block()->add_transactions() = trx2;
 
