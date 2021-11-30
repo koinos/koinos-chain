@@ -642,7 +642,7 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    hi.mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
    hi.mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
    hi.mutable_head_topology()->set_height( head->revision() );
-   hi.set_last_irreversible_block( get_last_irreversible_block( context ).value() );
+   hi.set_last_irreversible_block( _get_last_irreversible_block( context ).value() );
 
    if ( const auto* block = context.get_block(); block != nullptr )
    {
@@ -797,7 +797,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
-   std::string sig_account = system_call::recover_public_key( context, get_transaction_signature( context ).value(), util::converter::as< std::string >( digest ) );
+   std::string sig_account = system_call::recover_public_key( context, _get_transaction_signature( context ).value(), util::converter::as< std::string >( digest ) );
 
    KOINOS_ASSERT(
       account == sig_account,

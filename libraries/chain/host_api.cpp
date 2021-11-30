@@ -32,7 +32,7 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
-         blob_target = thunk::get_object(
+         blob_target = thunk::_get_object(
             _ctx,
             state::space::system_call_dispatch(),
             key,
@@ -79,7 +79,7 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          },
          [&]()
          {
-            ret = thunk::call_contract( _ctx, scb.contract_id(), scb.entry_point(), args ).value();
+            ret = thunk::_call_contract( _ctx, scb.contract_id(), scb.entry_point(), args ).value();
          }
       );
       KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
