@@ -230,7 +230,7 @@ namespace koinos::chain::detail {
 #define _THUNK_DETAIL_ARG_PACK(r, msg, i, elem) koinos::chain::detail::set_message_field( msg, i + 1, elem );
 #define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH_I(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
-#define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD ) \
+#define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                                \
    }                                                                                                                  \
    namespace system_call {                                                                                            \
    auto SYSCALL( execution_context& context ARGS ) ->                                                                 \
