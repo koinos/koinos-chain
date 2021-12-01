@@ -737,27 +737,9 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_caller_result ret;
-   auto frame0 = context.pop_frame(); // get_caller frame
-   auto frame1 = context.pop_frame(); // contract frame
-   std::exception_ptr e;
+   ret.mutable_value()->set_caller( util::converter::as< std::string >( context.get_caller() ) );
+   ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
 
-   try
-   {
-      ret.mutable_value()->set_caller( util::converter::as< std::string >( context.get_caller() ) );
-      ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
-   }
-   catch( ... )
-   {
-      e = std::current_exception();
-   }
-
-   context.push_frame( std::move( frame1 ) );
-   context.push_frame( std::move( frame0 ) );
-
-   if ( e )
-   {
-      std::rethrow_exception( e );
-   }
    return ret;
 }
 

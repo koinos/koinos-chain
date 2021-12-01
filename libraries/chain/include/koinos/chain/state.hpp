@@ -50,7 +50,7 @@ constexpr uint32_t max_object_size = 512;
 
 constexpr uint32_t max_object_size = 1024 * 1024; // 1 MB
 
-void assert_permissions( const execution_context& context, const object_space& space );
+void assert_permissions( execution_context& context, const object_space& space );
 
 } // state
 

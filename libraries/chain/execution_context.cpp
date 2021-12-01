@@ -3,6 +3,10 @@
 
 namespace koinos::chain {
 
+namespace constants {
+   const std::string system = "system";
+}
+
 execution_context::execution_context( std::shared_ptr< vm_manager::vm_backend > vm_backend, chain::intent i ) :
    _vm_backend( vm_backend )
 {
@@ -87,26 +91,26 @@ void execution_context::clear_transaction()
 
 const std::string& execution_context::get_contract_call_args() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
-   return _stack[ _stack.size() - 2 ].call_args;
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   return _stack[ _stack.size() ].call_args;
 }
 
 std::string execution_context::get_contract_return() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
-   return _stack[ _stack.size() - 2 ].call_return;
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   return _stack[ _stack.size() - 1 ].call_return;
 }
 
 uint32_t execution_context::get_contract_entry_point() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
-   return _stack[ _stack.size() - 2 ].entry_point;
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   return _stack[ _stack.size() - 1 ].entry_point;
 }
 
 void execution_context::set_contract_return( const std::string& ret )
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
-   _stack[ _stack.size() - 2 ].call_return = ret;
+   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   _stack[ _stack.size() - 1 ].call_return = ret;
 }
 
 void execution_context::set_key_authority( const crypto::public_key& key )
@@ -135,26 +139,23 @@ stack_frame execution_context::pop_frame()
 
 const std::string& execution_context::get_caller() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "no calling frame" );
    for ( size_t i = _stack.size() - 2; i >= 0; --i )
    {
       if ( !_stack[ i ].system )
          return _stack[ i ].contract_id;
    }
-
-   KOINOS_ASSERT( false, stack_exception, "no valid calling frame" );
+   return constants::system;
 }
 
 privilege execution_context::get_caller_privilege() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "no calling frame" );
    for ( size_t i = _stack.size() - 2; i >= 0; --i )
    {
       if ( !_stack[ i ].system )
          return _stack[ i ].call_privilege;
    }
 
-   KOINOS_ASSERT( false, stack_exception, "no valid calling frame" );
+   return privilege::kernel_mode;
 }
 
 void execution_context::set_privilege( privilege p )
