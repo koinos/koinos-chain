@@ -28,7 +28,8 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
    with_stack_frame(
       _ctx,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+         //.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+         .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ),
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
@@ -57,7 +58,8 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
       with_stack_frame(
          _ctx,
          stack_frame {
-            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            //.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ),
             .call_privilege = _ctx.get_privilege(),
          },
          [&]() {
@@ -74,7 +76,8 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
       with_stack_frame(
          _ctx,
          stack_frame {
-            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            //.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
+            .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ),
             .call_privilege = privilege::kernel_mode,
          },
          [&]()

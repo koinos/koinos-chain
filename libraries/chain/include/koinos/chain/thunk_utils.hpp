@@ -249,7 +249,8 @@ namespace koinos::chain::detail {
       with_stack_frame(                                                                                              \
          context,                                                                                                    \
          stack_frame {                                                                                               \
-            .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),    \
+            /*.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),*/    \
+            .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ), \
             .call_privilege = privilege::kernel_mode,                                                                \
          },                                                                                                          \
          [&]() {                                                                                                     \
@@ -280,7 +281,8 @@ namespace koinos::chain::detail {
          with_stack_frame(                                                                                           \
             context,                                                                                                 \
             stack_frame {                                                                                            \
-               .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call " ) ).digest(),\
+               /*.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call " ) ).digest(),*/\
+               .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ), \
                .call_privilege = context.get_privilege(),                                                            \
             },                                                                                                       \
             [&]() {                                                                                                  \
@@ -303,7 +305,8 @@ namespace koinos::chain::detail {
          with_stack_frame(                                                                                           \
             context,                                                                                                 \
             stack_frame {                                                                                            \
-               .call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(), \
+               /*.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),*/\
+               .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ), \
                .call_privilege = privilege::kernel_mode,                                                             \
             },                                                                                                       \
             [&]()                                                                                                    \

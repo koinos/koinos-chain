@@ -144,7 +144,8 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
+         //.call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
+         .call = util::converter::as< std::vector< std::byte > >( std::string( "retrieve_chain_id" ) ),
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
@@ -407,7 +408,8 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "apply_call_contract_operation"s ).digest(),
+         //.call = crypto::hash( crypto::multicodec::ripemd_160, "apply_call_contract_operation"s ).digest(),
+         .call = util::converter::as< std::vector< std::byte > >( std::string( "apply_callcontract_operation" ) ),
          .call_privilege = privilege::user_mode,
       },
       [&]() {
@@ -428,7 +430,8 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
+         //.call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
+         .call = util::converter::as< std::vector< std::byte > >( std::string( "retrieve_chain_id" ) ),
          .call_privilege = privilege::kernel_mode,
       },
       [&]() {
@@ -562,7 +565,8 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "call_contract"s ).digest(),
+         //.call = crypto::hash( crypto::multicodec::ripemd_160, "call_contract"s ).digest(),
+         .call = util::converter::as< std::vector< std::byte > >( std::string( "call_contract" ) ),
          .call_privilege = privilege::kernel_mode,
       },
       [&]()
@@ -653,7 +657,8 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
       with_stack_frame(
          context,
          stack_frame {
-            .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
+            //.call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
+            .call = util::converter::as< std::vector< std::byte > >( std::string( "get_head_info" ) ),
             .call_privilege = privilege::kernel_mode,
          },
          [&]() {

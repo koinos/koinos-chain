@@ -625,6 +625,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).reverted(), false );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).events_size(), 0 );
 
+   LOG(info) << block_resp;
 
    auto rc_limit3 = 8'000'000;
 
@@ -671,6 +672,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().max_payer_rc(), max_payer3 );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().reverted(), false );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().events_size(), 0 );
+
+   LOG(info) << tx_resp.receipt();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

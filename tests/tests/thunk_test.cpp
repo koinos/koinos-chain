@@ -668,6 +668,8 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    ctx.get_pending_console_output();
 
+   auto session = ctx.make_session( 1'000'000 );
+
    LOG(info) << "Mint to 'alice'";
    koinos::contracts::token::mint_arguments mint_args;
    mint_args.set_to( util::converter::as< std::string >( alice_address ) );
@@ -676,11 +678,31 @@ BOOST_AUTO_TEST_CASE( token_tests )
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
    auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( !success.value() );
+   BOOST_CHECK_EQUAL( session->events().size(), 0 );
+
+   session = ctx.make_session( 1'000'000 );
 
    ctx.set_privilege( chain::privilege::kernel_mode );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
    success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( success.value() );
+
+   BOOST_REQUIRE_EQUAL( session->events().size(), 1 );
+   {
+      const auto& event = session->events()[0];
+      LOG(info) << util::to_hex( event.source() );
+      LOG(info) << util::to_hex( op.contract_id() );
+      BOOST_CHECK_EQUAL( event.source(), op.contract_id() );
+      BOOST_CHECK_EQUAL( event.name(), "koin.mint" );
+      BOOST_CHECK_EQUAL( event.impacted().size(), 1 );
+      BOOST_CHECK_EQUAL( event.impacted()[0], mint_args.to() );
+
+      auto mint_event = util::converter::to< koinos::contracts::token::mint_event >( event.data() );
+      BOOST_CHECK_EQUAL( mint_event.to(), mint_args.to() );
+      BOOST_CHECK_EQUAL( mint_event.value(), mint_args.value() );
+   }
+
+   LOG(info) << session->events()[0];
 
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
