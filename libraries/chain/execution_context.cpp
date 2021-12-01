@@ -37,12 +37,12 @@ void execution_context::set_state_node( abstract_state_node_ptr node, abstract_s
       _parent_state_node.reset();
 }
 
-abstract_state_node_ptr execution_context::get_state_node()const
+abstract_state_node_ptr execution_context::get_state_node() const
 {
    return _current_state_node;
 }
 
-abstract_state_node_ptr execution_context::get_parent_node()const
+abstract_state_node_ptr execution_context::get_parent_node() const
 {
    // This handles the genesis case
    return _parent_state_node ? _parent_state_node : _current_state_node;
@@ -59,7 +59,7 @@ void execution_context::set_block( const protocol::block& block )
    _block = &block;
 }
 
-const protocol::block* execution_context::get_block()const
+const protocol::block* execution_context::get_block() const
 {
    return _block;
 }
@@ -74,7 +74,7 @@ void execution_context::set_transaction( const protocol::transaction& trx )
    _trx = &trx;
 }
 
-const protocol::transaction& execution_context::get_transaction()const
+const protocol::transaction& execution_context::get_transaction() const
 {
    KOINOS_ASSERT( _trx != nullptr, unexpected_access, "attempting to dereference a null pointer" );
    return *_trx;
@@ -85,13 +85,13 @@ void execution_context::clear_transaction()
    _trx = nullptr;
 }
 
-const std::vector< std::byte >& execution_context::get_contract_call_args() const
+const std::string& execution_context::get_contract_call_args() const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].call_args;
 }
 
-std::vector< std::byte > execution_context::get_contract_return() const
+std::string execution_context::get_contract_return() const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].call_return;
@@ -103,7 +103,7 @@ uint32_t execution_context::get_contract_entry_point() const
    return _stack[ _stack.size() - 2 ].entry_point;
 }
 
-void execution_context::set_contract_return( const std::vector< std::byte >& ret )
+void execution_context::set_contract_return( const std::string& ret )
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    _stack[ _stack.size() - 2 ].call_return = ret;
@@ -133,28 +133,46 @@ stack_frame execution_context::pop_frame()
    return frame;
 }
 
-const std::vector< std::byte >& execution_context::get_caller()const
+const std::string& execution_context::get_caller() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
-   return _stack[ _stack.size() - 2 ].call;
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "no calling frame" );
+   for ( size_t i = _stack.size() - 2; i >= 0; --i )
+   {
+      if ( !_stack[ i ].system )
+         return _stack[ i ].contract_id;
+   }
+
+   KOINOS_ASSERT( false, stack_exception, "no valid calling frame" );
 }
 
-privilege execution_context::get_caller_privilege()const
+privilege execution_context::get_caller_privilege() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack has no calling frame" );
-   return _stack[ _stack.size() - 2 ].call_privilege;
+   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "no calling frame" );
+   for ( size_t i = _stack.size() - 2; i >= 0; --i )
+   {
+      if ( !_stack[ i ].system )
+         return _stack[ i ].call_privilege;
+   }
+
+   KOINOS_ASSERT( false, stack_exception, "no valid calling frame" );
 }
 
 void execution_context::set_privilege( privilege p )
 {
-   KOINOS_ASSERT( _stack.size() , stack_exception, "stack has no calling frame" );
+   KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
    _stack[ _stack.size() - 1 ].call_privilege = p;
 }
 
-privilege execution_context::get_privilege()const
+privilege execution_context::get_privilege() const
 {
-   KOINOS_ASSERT( _stack.size() , stack_exception, "stack has no calling frame" );
+   KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
    return _stack[ _stack.size() - 1 ].call_privilege;
+}
+
+const std::string& execution_context::get_contract_id() const
+{
+   KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
+   return _stack[ _stack.size() - 1 ].contract_id;
 }
 
 void execution_context::set_user_code( bool is_in_user_code )
@@ -162,12 +180,12 @@ void execution_context::set_user_code( bool is_in_user_code )
    _user_code = is_in_user_code;
 }
 
-bool execution_context::user_code()const
+bool execution_context::user_code() const
 {
    return _user_code;
 }
 
-bool execution_context::read_only()const
+bool execution_context::read_only() const
 {
    return _intent == intent::read_only;
 }

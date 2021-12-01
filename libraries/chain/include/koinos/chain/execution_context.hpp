@@ -10,6 +10,7 @@
 
 #include <koinos/chain/chain.pb.h>
 #include <koinos/protocol/protocol.pb.h>
+#include <koinos/protocol/system_call_ids.pb.h>
 
 #include <deque>
 #include <optional>
@@ -28,11 +29,12 @@ using receipt                 = std::variant< std::monostate, protocol::block_re
 
 struct stack_frame
 {
-   std::vector< std::byte > call;
-   privilege                call_privilege;
-   std::vector< std::byte > call_args;
-   uint32_t                 entry_point = 0;
-   std::vector< std::byte > call_return;
+   std::string contract_id;
+   bool        system = false;
+   privilege   call_privilege;
+   std::string call_args;
+   uint32_t    entry_point = 0;
+   std::string call_return;
 };
 
 enum class intent : uint64_t
@@ -69,13 +71,13 @@ class execution_context
       const protocol::transaction& get_transaction() const;
       void clear_transaction();
 
-      void set_contract_call_args( const std::vector< std::byte >& args );
-      const std::vector< std::byte >& get_contract_call_args() const;
+      void set_contract_call_args( const std::string& args );
+      const std::string& get_contract_call_args() const;
 
       uint32_t get_contract_entry_point() const;
 
-      std::vector< std::byte > get_contract_return() const;
-      void set_contract_return( const std::vector< std::byte >& ret );
+      std::string get_contract_return() const;
+      void set_contract_return( const std::string& ret );
 
       /**
        * For now, authority lives on the context.
@@ -87,16 +89,18 @@ class execution_context
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
 
-      const std::vector< std::byte >& get_caller()const;
-      privilege get_caller_privilege()const;
+      const std::string& get_caller() const;
+      privilege get_caller_privilege() const;
 
       void set_privilege( privilege );
-      privilege get_privilege()const;
+      privilege get_privilege() const;
+
+      const std::string& get_contract_id() const;
 
       void set_user_code( bool );
-      bool user_code()const;
+      bool user_code() const;
 
-      bool read_only()const;
+      bool read_only() const;
 
       chain::resource_meter& resource_meter();
       chain::event_recorder& event_recorder();
@@ -131,34 +135,33 @@ class execution_context
       chain::receipt                            _receipt;
 };
 
-struct frame_restorer
+namespace detail {
+
+struct privilege_restorer
 {
-   frame_restorer( execution_context& ctx, stack_frame&& f ) :
+   privilege_restorer( execution_context& ctx, privilege p ) :
       _ctx( ctx )
    {
-      _user_code = _ctx.user_code();
-      if ( f.call_privilege == privilege::user_mode )
-      {
-         _ctx.set_user_code( true );
-      }
-      _ctx.push_frame( std::move( f ) );
+      _privilege = ctx.get_privilege();
+      _ctx.set_privilege( p );
    }
 
-   ~frame_restorer()
+   ~privilege_restorer()
    {
-      _ctx.pop_frame();
-      _ctx.set_user_code( _user_code );
+      _ctx.set_privilege( _privilege );
    }
 
    private:
       execution_context& _ctx;
-      bool           _user_code;
+      privilege          _privilege;
 };
 
+} // detail
+
 template< typename Lambda >
-void with_stack_frame( execution_context& ctx, stack_frame&& f, Lambda&& l )
+void with_privilege( execution_context& ctx, privilege p, Lambda&& l )
 {
-   frame_restorer r( ctx, std::move( f ) );
+   detail::privilege_restorer r( ctx, p );
    l();
 }
 

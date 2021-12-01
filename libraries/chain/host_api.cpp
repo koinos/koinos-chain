@@ -6,7 +6,10 @@
 #include <koinos/chain/system_calls.hpp>
 
 #include <koinos/log.hpp>
+#include <koinos/protocol/system_call_ids.pb.h>
 #include <koinos/util/conversion.hpp>
+
+using namespace std::string_literals;
 
 namespace koinos::chain {
 
@@ -25,13 +28,9 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
    auto key = util::converter::as< std::string >( sid );
    std::string blob_target;
 
-   with_stack_frame(
+   with_privilege(
       _ctx,
-      stack_frame {
-         //.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
-         .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ),
-         .call_privilege = privilege::kernel_mode,
-      },
+      privilege::kernel_mode,
       [&]() {
          blob_target = thunk::get_object(
             _ctx,
@@ -55,36 +54,14 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
 
    if ( target.thunk_id() )
    {
-      with_stack_frame(
-         _ctx,
-         stack_frame {
-            //.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
-            .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ),
-            .call_privilege = _ctx.get_privilege(),
-         },
-         [&]() {
-            bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
-         }
-      );
+      bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
    }
    else if ( target.has_system_call_bundle() )
    {
       const auto& scb = target.system_call_bundle();
       #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
       std::string args( arg_ptr, arg_len );
-      std::string ret;
-      with_stack_frame(
-         _ctx,
-         stack_frame {
-            //.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),
-            .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ),
-            .call_privilege = privilege::kernel_mode,
-         },
-         [&]()
-         {
-            ret = thunk::call_contract( _ctx, scb.contract_id(), scb.entry_point(), args ).value();
-         }
-      );
+      auto ret = thunk::call_contract( _ctx, scb.contract_id(), scb.entry_point(), args ).value();
       KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
       std::memcpy( ret.data(), ret_ptr, ret.size() );
       bytes_returned = ret.size();

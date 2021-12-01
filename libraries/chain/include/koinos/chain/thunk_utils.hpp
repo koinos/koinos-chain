@@ -246,13 +246,9 @@ namespace koinos::chain::detail {
       auto _key = util::converter::as< std::string >( _sid );                                                        \
       std::string _blob_target;                                                                                      \
                                                                                                                      \
-      with_stack_frame(                                                                                              \
+      with_privilege(                                                                                                \
          context,                                                                                                    \
-         stack_frame {                                                                                               \
-            /*.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),*/    \
-            .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ), \
-            .call_privilege = privilege::kernel_mode,                                                                \
-         },                                                                                                          \
+         privilege::kernel_mode,                                                                                     \
          [&]() {                                                                                                     \
             _blob_target = thunk::get_object(                                                                        \
                context,                                                                                              \
@@ -278,44 +274,22 @@ namespace koinos::chain::detail {
                                                                                                                      \
       if ( _target.thunk_id() )                                                                                      \
       {                                                                                                              \
-         with_stack_frame(                                                                                           \
-            context,                                                                                                 \
-            stack_frame {                                                                                            \
-               /*.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call " ) ).digest(),*/\
-               .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ), \
-               .call_privilege = context.get_privilege(),                                                            \
-            },                                                                                                       \
-            [&]() {                                                                                                  \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
-                  thunk_dispatcher::instance().call_thunk<                                                           \
-                     RETURN_TYPE                                                                                     \
-                     TYPES >(                                                                                        \
-                        _sid,                                                                                        \
-                        context                                                                                      \
-                        FWD );                                                                                       \
-            }                                                                                                        \
-         );                                                                                                          \
+         BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
+            thunk_dispatcher::instance().call_thunk<                                                                 \
+               RETURN_TYPE                                                                                           \
+               TYPES >(                                                                                              \
+                  _sid,                                                                                              \
+                  context                                                                                            \
+                  FWD );                                                                                             \
       }                                                                                                              \
       else if ( _target.has_system_call_bundle() )                                                                   \
       {                                                                                                              \
          const auto& _scb = _target.system_call_bundle();                                                            \
          BOOST_PP_CAT( SYSCALL, _THUNK_ARGS_SUFFIX ) _args;                                                          \
          BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
-         std::string _ret_str;                                                                                       \
-         with_stack_frame(                                                                                           \
-            context,                                                                                                 \
-            stack_frame {                                                                                            \
-               /*.call = crypto::hash( crypto::multicodec::ripemd_160, std::string( "invoke_system_call" ) ).digest(),*/\
-               .call = util::converter::as< std::vector< std::byte > >( std::string( "invoke_system_call" ) ), \
-               .call_privilege = privilege::kernel_mode,                                                             \
-            },                                                                                                       \
-            [&]()                                                                                                    \
-            {                                                                                                        \
-               std::string _arg_str;                                                                                 \
-               _args.SerializeToString( &_arg_str );                                                                 \
-               _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
-            }                                                                                                        \
-         );                                                                                                          \
+         std::string _arg_str;                                                                                       \
+         _args.SerializeToString( &_arg_str );                                                                       \
+         auto _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value();  \
          BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
       }                                                                                                              \
       else                                                                                                           \

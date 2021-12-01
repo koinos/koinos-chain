@@ -475,7 +475,7 @@ int main( int argc, char** argv )
 
       chain::genesis_data genesis_data;
       chain::database_key chain_id_key;
-      genesis_data[ { chain::state::space::meta(), chain::state::key::chain_id } ] = util::converter::as< std::string >( chain_id );
+      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< std::string >( chain_id );
 
       chain::controller controller;
       controller.open( statedir, genesis_data, reset );

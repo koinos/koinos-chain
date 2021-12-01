@@ -7,6 +7,7 @@
 #include <koinos/crypto/multihash.hpp>
 
 #include <koinos/chain/chain.pb.h>
+#include <koinos/chain/system_calls.pb.h>
 #include <koinos/protocol/protocol.pb.h>
 #include <koinos/protocol/system_call_ids.pb.h>
 

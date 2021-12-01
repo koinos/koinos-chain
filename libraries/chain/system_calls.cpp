@@ -141,15 +141,11 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
    std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
 
-   with_stack_frame(
+   with_privilege(
       context,
-      stack_frame {
-         //.call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
-         .call = util::converter::as< std::vector< std::byte > >( std::string( "retrieve_chain_id" ) ),
-         .call_privilege = privilege::kernel_mode,
-      },
+      privilege::kernel_mode,
       [&]() {
-         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id );
+         auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
          chain_id = util::converter::to< crypto::multihash >( obj );
       }
    );
@@ -214,7 +210,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
    KOINOS_ASSERT( system_call::process_block_signature( context, util::converter::as< std::string >( block_hash ), block.active(), block.signature_data() ), invalid_block_signature, "block signature does not match" );
 
-   system_call::put_object( context, state::space::meta(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
+   system_call::put_object( context, state::space::metadata(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
    for ( const auto& tx : block.transactions() )
    {
@@ -392,10 +388,11 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
    );
 
-   auto hash = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
+   contract_metadata contract_meta;
+   *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
 
    system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
-   system_call::put_object( context, state::space::contract_hash(), o.contract_id(), hash );
+   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
@@ -405,17 +402,7 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   with_stack_frame(
-      context,
-      stack_frame {
-         //.call = crypto::hash( crypto::multicodec::ripemd_160, "apply_call_contract_operation"s ).digest(),
-         .call = util::converter::as< std::vector< std::byte > >( std::string( "apply_callcontract_operation" ) ),
-         .call_privilege = privilege::user_mode,
-      },
-      [&]() {
-         system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
-      }
-   );
+   system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
@@ -427,15 +414,11 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    crypto::multihash chain_id;
 
-   with_stack_frame(
+   with_privilege(
       context,
-      stack_frame {
-         //.call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
-         .call = util::converter::as< std::vector< std::byte > >( std::string( "retrieve_chain_id" ) ),
-         .call_privilege = privilege::kernel_mode,
-      },
+      privilege::kernel_mode,
       [&]() {
-         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id );
+         auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
          chain_id = util::converter::to< crypto::multihash >( obj );
       }
    );
@@ -561,35 +544,33 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
 
    // We need to be in kernel mode to read the contract data
    std::string contract_bytecode;
-   std::string contract_hash;
-   with_stack_frame(
+   contract_metadata contract_meta;
+   with_privilege(
       context,
-      stack_frame {
-         //.call = crypto::hash( crypto::multicodec::ripemd_160, "call_contract"s ).digest(),
-         .call = util::converter::as< std::vector< std::byte > >( std::string( "call_contract" ) ),
-         .call_privilege = privilege::kernel_mode,
-      },
+      privilege::kernel_mode,
       [&]()
       {
          contract_bytecode = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
          KOINOS_ASSERT( contract_bytecode.size(), invalid_contract, "contract does not exist" );
-         contract_hash = system_call::get_object( context, state::space::contract_hash(), contract_id );
-         KOINOS_ASSERT( contract_hash.size(), invalid_contract, "contract does not exist" );
+         auto contract_meta_bytes = system_call::get_object( context, state::space::contract_metadata(), contract_id );
+         KOINOS_ASSERT( contract_meta_bytes.size(), invalid_contract, "contract metadata does not exist" );
+         contract_meta = util::converter::to< contract_metadata >( contract_meta_bytes );
+         KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
       }
    );
 
-   context.push_frame( stack_frame {
-      .call = util::converter::as< std::vector< std::byte > >( contract_id ),
-      .call_privilege = context.get_privilege(),
-      .call_args = util::converter::as< std::vector< std::byte > >( args ),
+   context.push_frame( stack_frame{
+      .contract_id = contract_id,
+      .system = contract_meta.system(),
+      .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
+      .call_args = args,
       .entry_point = entry_point
    } );
 
-   chain::host_api hapi( context );
-
    try
    {
-      context.get_backend()->run( hapi, contract_bytecode, contract_hash );
+      chain::host_api hapi( context );
+      context.get_backend()->run( hapi, contract_bytecode, contract_meta.hash() );
    }
    catch( const exit_success& ) {}
    catch( ... ) {
@@ -598,7 +579,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    }
 
    call_contract_result ret;
-   ret.set_value( util::converter::to< std::string >( context.pop_frame().call_return ) );
+   ret.set_value( context.pop_frame().call_return );
    return ret;
 }
 
@@ -633,7 +614,7 @@ THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   context.set_contract_return( util::converter::to< std::vector< std::byte > >( ret ) );
+   context.set_contract_return( ret );
 }
 
 THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
@@ -654,15 +635,11 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    }
    else
    {
-      with_stack_frame(
+      with_privilege(
          context,
-         stack_frame {
-            //.call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
-            .call = util::converter::as< std::vector< std::byte > >( std::string( "get_head_info" ) ),
-            .call_privilege = privilege::kernel_mode,
-         },
+         privilege::kernel_mode,
          [&]() {
-            auto val = system_call::get_object( context, state::space::meta(), state::key::head_block_time );
+            auto val = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
             uint64_t time = val.size() > 0 ? util::converter::to< uint64_t >( val ) : 0;
             hi.set_head_block_time( time );
          }
@@ -816,7 +793,7 @@ THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_contract_id_result ret;
-   ret.set_value( util::converter::as< std::string >( context.get_caller() ) );
+   ret.set_value( context.get_contract_id() );
    return ret;
 }
 
