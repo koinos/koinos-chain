@@ -242,8 +242,9 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
    receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
 
-   for ( auto& e : context.event_recorder().events() )
-      *receipt.add_events() = std::move( e );
+   for ( const auto& [ within_session, event ] : context.event_recorder().events() )
+      if ( !within_session )
+         *receipt.add_events() = event;
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )

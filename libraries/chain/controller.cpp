@@ -14,6 +14,7 @@
 
 #include <koinos/state_db/state_db.hpp>
 
+#include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
 #include <koinos/util/services.hpp>
@@ -314,6 +315,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          catch ( const std::exception& e )
          {
             LOG(error) << "Failed to publish fork data to message broker: " << e.what();
+         }
+
+         try
+         {
+            for ( const auto& [ unused, event ] : ctx.event_recorder().events() )
+            {
+               _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
+            }
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block and transaction events to message broker: " << e.what();
          }
       }
    }

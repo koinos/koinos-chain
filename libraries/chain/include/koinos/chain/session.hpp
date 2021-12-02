@@ -16,7 +16,7 @@ public:
    virtual void use_rc( uint64_t rc ) override;
    virtual uint64_t remaining_rc() override;
    virtual uint64_t used_rc() override;
-   virtual void push_event( protocol::event_data&& ev ) override;
+   virtual void push_event( const protocol::event_data& ev ) override;
    const std::vector< protocol::event_data >& events() override;
 
 private:
