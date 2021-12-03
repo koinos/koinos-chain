@@ -117,8 +117,6 @@ const object_space transaction_nonce()
 void assert_permissions( execution_context& context, const object_space& space )
 {
    auto privilege = context.get_privilege();
-   const auto& caller1 = context.get_caller();
-   LOG(info) << util::to_hex( caller1 );
    const auto& caller = context.get_caller();
    if ( space.zone() != caller )
    {

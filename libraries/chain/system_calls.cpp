@@ -406,9 +406,13 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    // Drop to user mode
-   with_privilege(
+   with_stack_frame(
       context,
-      privilege::user_mode,
+      stack_frame {
+         .contract_id = "call_contract_operation"s,
+         .system = false,
+         .call_privilege = privilege::user_mode,
+      },
       [&]() {
          system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
       }
