@@ -445,7 +445,7 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
-   ctx.set_user_code( true );
+   ctx.set_privilege( chain::privilege::user_mode );
    BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
@@ -481,7 +481,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 
    auto call1 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call1"s ) );
    ctx.push_frame( chain::stack_frame{ .contract_id = call1, .system = false } );
-   BOOST_CHECK_THROW( ctx.get_caller(), chain::stack_exception );
+   BOOST_CHECK_EQUAL( call1, ctx.get_caller() );
    BOOST_CHECK_EQUAL( call1, ctx.get_contract_id() );
 
    auto call2 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call2"s ) );
@@ -492,7 +492,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 
    auto last_frame = ctx.pop_frame();
    BOOST_CHECK_EQUAL( call2, last_frame.contract_id );
-   BOOST_CHECK_THROW( ctx.get_caller(), chain::stack_exception );
+   BOOST_CHECK_EQUAL( call1, ctx.get_caller() );
 
    for ( int i = 2; i <= chain::execution_context::stack_limit; i++ )
    {

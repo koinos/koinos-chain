@@ -274,13 +274,23 @@ namespace koinos::chain::detail {
                                                                                                                      \
       if ( _target.thunk_id() )                                                                                      \
       {                                                                                                              \
-         BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
-            thunk_dispatcher::instance().call_thunk<                                                                 \
-               RETURN_TYPE                                                                                           \
-               TYPES >(                                                                                              \
-                  _sid,                                                                                              \
-                  context                                                                                            \
-                  FWD );                                                                                             \
+         with_stack_frame (                                                                                          \
+            context,                                                                                                 \
+            stack_frame {                                                                                            \
+               .sid = _sid,                                                                                          \
+               .call_privilege = context.get_privilege(),                                                            \
+               .system = true,                                                                                       \
+            },                                                                                                       \
+            [&]() {                                                                                                  \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
+                  thunk_dispatcher::instance().call_thunk<                                                           \
+                     RETURN_TYPE                                                                                     \
+                     TYPES >(                                                                                        \
+                        _sid,                                                                                        \
+                        context                                                                                      \
+                        FWD );                                                                                       \
+            }                                                                                                        \
+         );                                                                                                          \
       }                                                                                                              \
       else if ( _target.has_system_call_bundle() )                                                                   \
       {                                                                                                              \

@@ -30,6 +30,7 @@ using receipt                 = std::variant< std::monostate, protocol::block_re
 struct stack_frame
 {
    std::string contract_id;
+   uint32_t    sid = 0;
    bool        system = false;
    privilege   call_privilege;
    std::string call_args;
@@ -95,10 +96,9 @@ class execution_context
       void set_privilege( privilege );
       privilege get_privilege() const;
 
-      const std::string& get_contract_id() const;
+      bool get_system() const;
 
-      void set_user_code( bool );
-      bool user_code() const;
+      const std::string& get_contract_id() const;
 
       bool read_only() const;
 
@@ -123,8 +123,6 @@ class execution_context
       std::string                               _pending_console_output;
       std::optional< crypto::public_key >       _key_auth;
 
-      bool                                      _user_code = false;
-
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
 
@@ -136,6 +134,23 @@ class execution_context
 };
 
 namespace detail {
+
+struct frame_restorer
+{
+   frame_restorer( execution_context& ctx, stack_frame&& f ) :
+      _ctx( ctx )
+   {
+      _ctx.push_frame( std::move( f ) );
+   }
+
+   ~frame_restorer()
+   {
+      _ctx.pop_frame();
+   }
+
+   private:
+      execution_context& _ctx;
+};
 
 struct privilege_restorer
 {
@@ -157,6 +172,13 @@ struct privilege_restorer
 };
 
 } // detail
+
+template< typename Lambda >
+void with_stack_frame( execution_context& ctx, stack_frame&& f, Lambda&& l )
+{
+   detail::frame_restorer r( ctx, std::move( f ) );
+   l();
+}
 
 template< typename Lambda >
 void with_privilege( execution_context& ctx, privilege p, Lambda&& l )
