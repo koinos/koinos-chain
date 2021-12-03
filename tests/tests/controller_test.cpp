@@ -581,6 +581,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 
    BOOST_TEST_MESSAGE( "Check the resulting block receipt" );
 
+   LOG(info) << block_resp;
+
    BOOST_REQUIRE_EQUAL( block_resp.receipt().id(), block_req.block().id() );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts_size(), 2 );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().events_size(), 0 );

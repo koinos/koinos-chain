@@ -2,6 +2,7 @@
 #include <koinos/chain/object_spaces.pb.h>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/log.hpp>
+#include <koinos/util/hex.hpp>
 
 namespace koinos::chain {
 
@@ -116,7 +117,9 @@ const object_space transaction_nonce()
 void assert_permissions( execution_context& context, const object_space& space )
 {
    auto privilege = context.get_privilege();
-   auto caller = context.get_caller();
+   const auto& caller1 = context.get_caller();
+   LOG(info) << util::to_hex( caller1 );
+   const auto& caller = context.get_caller();
    if ( space.zone() != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )

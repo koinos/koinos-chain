@@ -308,6 +308,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
             system_call::apply_call_contract_operation( context, o.call_contract() );
          else if ( o.has_set_system_call() )
             system_call::apply_set_system_call_operation( context, o.set_system_call() );
+         else if ( o.has_set_system_contract() )
+            system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
          else
             KOINOS_THROW( unknown_operation, "unknown operation" );
       }
@@ -403,7 +405,14 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
+   // Drop to user mode
+   with_privilege(
+      context,
+      privilege::user_mode,
+      [&]() {
+         system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
+      }
+   );
 }
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )

@@ -139,17 +139,18 @@ stack_frame execution_context::pop_frame()
 
 const std::string& execution_context::get_caller() const
 {
-   for ( size_t i = _stack.size() - 1; i >= 0; --i )
+   for ( int32_t i = _stack.size() - 1; i >= 0; --i )
    {
       if ( !_stack[ i ].system )
          return _stack[ i ].contract_id;
    }
+
    return constants::system;
 }
 
 privilege execution_context::get_caller_privilege() const
 {
-   for ( size_t i = _stack.size() - 1; i >= 0; --i )
+   for ( int32_t i = _stack.size() - 1; i >= 0; --i )
    {
       if ( !_stack[ i ].system )
          return _stack[ i ].call_privilege;
@@ -178,11 +179,12 @@ bool execution_context::get_system() const
 
 const std::string& execution_context::get_contract_id() const
 {
-   for ( size_t i = _stack.size() - 1; i >= 0; --i )
+   for ( int32_t i = _stack.size() - 1; i >= 0; --i )
    {
       if ( _stack[ i ].contract_id.size() )
          return _stack[ i ].contract_id;
    }
+
    return constants::system;
 }
 
