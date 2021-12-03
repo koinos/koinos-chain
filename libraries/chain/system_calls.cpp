@@ -36,6 +36,7 @@ void register_thunks( thunk_dispatcher& td )
       (apply_upload_contract_operation)
       (apply_call_contract_operation)
       (apply_set_system_call_operation)
+      (apply_set_system_contract_operation)
 
       (put_object)
       (get_object)
@@ -428,6 +429,8 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    {
       auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
+      auto contract_meta = util::converter::to< contract_metadata >( system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() ) );
+      KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
       LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
@@ -444,6 +447,34 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    // Place the override in the database
    system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
+}
+
+THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
+{
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
+
+   context.resource_meter().use_compute_bandwidth( compute_load::heavy );
+
+   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ) );
+
+   const auto& tx = context.get_transaction();
+   crypto::recoverable_signature sig;
+   std::memcpy( sig.data(), tx.signature_data().data(), std::min( sig.size(), tx.signature_data().size() ) );
+
+   KOINOS_ASSERT(
+      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      insufficient_privileges,
+      "transaction does not have the required authority to override system calls"
+   );
+
+   auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
+   KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
+   auto contract_meta = util::converter::to< contract_metadata >( system_call::get_object( context, state::space::contract_metadata(), o.contract_id() ) );
+   KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
+
+   contract_meta.set_system( o.system_contract() );
+   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
 
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )

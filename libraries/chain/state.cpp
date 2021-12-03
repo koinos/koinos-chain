@@ -115,30 +115,19 @@ const object_space transaction_nonce()
 
 void assert_permissions( execution_context& context, const object_space& space )
 {
-   try
+   auto privilege = context.get_privilege();
+   auto caller = context.get_caller();
+   if ( space.zone() != caller )
    {
-      context.push_frame( stack_frame{ .system = true } );
-      auto privilege = context.get_privilege();
-      auto caller = context.get_caller();
-      if ( space.zone() != caller )
+      if ( context.get_privilege() == privilege::kernel_mode )
       {
-         if ( context.get_privilege() == privilege::kernel_mode )
-         {
-            KOINOS_ASSERT( space.system(), insufficient_privileges, "privileged code can only accessed system space" );
-         }
-         else
-         {
-            KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
-         }
+         KOINOS_ASSERT( space.system(), insufficient_privileges, "privileged code can only accessed system space" );
+      }
+      else
+      {
+         KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
       }
    }
-   catch ( ... )
-   {
-      context.pop_frame();
-      throw;
-   }
-
-   context.pop_frame();
 }
 
 } // state

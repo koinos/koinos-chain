@@ -61,6 +61,7 @@ THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
 THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
+THUNK_DECLARE( void, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
 
 THUNK_DECLARE( put_object_result, put_object, const object_space& space, const std::string& key, const std::string& obj );
 THUNK_DECLARE( get_object_result, get_object, const object_space& space, const std::string& key, uint32_t object_size_hint = 0 );

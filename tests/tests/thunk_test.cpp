@@ -74,6 +74,7 @@ struct thunk_fixture
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
       ctx.push_frame( chain::stack_frame {
          .contract_id = "thunk_tests"s,
+         .system = true,
          .call_privilege = chain::privilege::kernel_mode
       } );
 
@@ -310,12 +311,25 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::insufficient_privileges );
 
-   BOOST_TEST_MESSAGE( "Test success overriding a system call with the genesis key" );
+   BOOST_TEST_MESSAGE( "Test failure to set system contract without genesis key" );
 
-   // After signing the transaction with the genesis key, we may override system calls
+   koinos::protocol::set_system_contract_operation system_contract_op;
+   system_contract_op.set_contract_id( contract_op2.contract_id() );
+   system_contract_op.set_system_contract( true );
+
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::insufficient_privileges );
+
+   BOOST_TEST_MESSAGE( "Test failure to override system call without system contract" );
+
+   // Overriding system calls requires the genesis key
    sign_transaction( tx, _signing_private_key );
    ctx.set_transaction( tx );
 
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
+
+   BOOST_TEST_MESSAGE( "Test success overriding a system call with the genesis key" );
+
+   koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
 
    // Fetch the created call bundle from the database and check it
@@ -366,6 +380,9 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    BOOST_CHECK_EQUAL( ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
+
+   ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .system = false, .call_privilege = chain::user_mode } );
+   BOOST_REQUIRE_THROW( host.invoke_thunk( protocol::system_call_id::prints, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
@@ -632,7 +649,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   ctx.set_privilege( chain::privilege::user_mode );
+   ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .system = false, .call_privilege = chain::user_mode } );
 
    auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
    auto name = util::converter::to< koinos::contracts::token::name_result >( response );
@@ -691,8 +708,6 @@ BOOST_AUTO_TEST_CASE( token_tests )
    BOOST_REQUIRE_EQUAL( session->events().size(), 1 );
    {
       const auto& event = session->events()[0];
-      LOG(info) << util::to_hex( event.source() );
-      LOG(info) << util::to_hex( op.contract_id() );
       BOOST_CHECK_EQUAL( event.source(), op.contract_id() );
       BOOST_CHECK_EQUAL( event.name(), "koin.mint" );
       BOOST_CHECK_EQUAL( event.impacted().size(), 1 );
@@ -702,8 +717,6 @@ BOOST_AUTO_TEST_CASE( token_tests )
       BOOST_CHECK_EQUAL( mint_event.to(), mint_args.to() );
       BOOST_CHECK_EQUAL( mint_event.value(), mint_args.value() );
    }
-
-   LOG(info) << session->events()[0];
 
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
