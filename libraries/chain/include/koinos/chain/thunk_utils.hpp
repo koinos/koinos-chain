@@ -278,8 +278,8 @@ namespace koinos::chain::detail {
             context,                                                                                                 \
             stack_frame {                                                                                            \
                .sid = _sid,                                                                                          \
-               .call_privilege = context.get_privilege(),                                                            \
                .system = true,                                                                                       \
+               .call_privilege = context.get_privilege(),                                                            \
             },                                                                                                       \
             [&]() {                                                                                                  \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \

@@ -58,8 +58,8 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          _ctx,
          stack_frame {
             .sid = sid,
-            .call_privilege = _ctx.get_privilege(),
             .system = true,
+            .call_privilege = _ctx.get_privilege(),
          },
          [&]() {
             bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
