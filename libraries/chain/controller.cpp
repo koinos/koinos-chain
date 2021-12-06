@@ -171,7 +171,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       execution_context parent_ctx( _vm_backend, intent::read_only );
 
       parent_ctx.push_frame( stack_frame {
-         .contract_id = "submit_block"s,
          .system = true,
          .call_privilege = privilege::kernel_mode
       } );
@@ -211,7 +210,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds, "block timestamp is too old" );
 
       ctx.push_frame( stack_frame {
-         .contract_id = "submit_block"s,
          .system = true,
          .call_privilege = privilege::kernel_mode
       } );
@@ -384,7 +382,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    execution_context ctx( _vm_backend, intent::transaction_application );
 
    ctx.push_frame( stack_frame {
-      .contract_id = "submit_transaction"s,
       .system = true,
       .call_privilege = privilege::kernel_mode
    } );
@@ -480,7 +477,6 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
    execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
-      .contract_id = "get_head_info"s,
       .system = true,
       .call_privilege = privilege::kernel_mode
    } );
@@ -525,7 +521,6 @@ fork_data controller_impl::get_fork_data_lockless()
    execution_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
-      .contract_id = "get_fork_data"s,
       .system = true,
       .call_privilege = privilege::kernel_mode
    } );
@@ -572,7 +567,6 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 
    execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
-      .contract_id = "get_resource_limits"s,
       .system = true,
       .call_privilege = privilege::kernel_mode
    } );
@@ -595,7 +589,6 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
 
    execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
-      .contract_id = "get_account_rc"s,
       .system = true,
       .call_privilege = privilege::kernel_mode
    } );
@@ -639,9 +632,8 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
-      .contract_id = "read_contract"s,
       .system = true,
-      .call_privilege = privilege::kernel_mode,
+      .call_privilege = privilege::user_mode,
    } );
 
    ctx.set_state_node( head_node );
@@ -669,7 +661,6 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
    execution_context ctx( _vm_backend );
 
    ctx.push_frame( koinos::chain::stack_frame {
-      .contract_id = "get_account_nonce"s,
       .system = true,
       .call_privilege = privilege::kernel_mode
    } );
