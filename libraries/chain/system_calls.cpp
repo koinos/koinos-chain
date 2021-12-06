@@ -898,7 +898,7 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   auto caller = system_call::get_caller( context ).caller();
+   auto caller = context.get_caller();
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
    context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );

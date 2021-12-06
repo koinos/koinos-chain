@@ -4,7 +4,7 @@
 namespace koinos::chain {
 
 namespace constants {
-   const std::string system = "system";
+   const std::string system = "";
 }
 
 execution_context::execution_context( std::shared_ptr< vm_manager::vm_backend > vm_backend, chain::intent i ) :
