@@ -22,24 +22,24 @@
 #define _THUNK_RET_SUFFIX  _result
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( protocol::system_call_id::elem, thunk::elem );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( protocol::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
 
-#define THUNK_REGISTER( dispatcher, args )                        \
+#define THUNK_REGISTER( dispatcher, args ) \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
 
 #define VA_ARGS(...) , ##__VA_ARGS__
 
-#define THUNK_DECLARE(return_type, name, ...)                                      \
-   namespace thunk { return_type name( execution_context& VA_ARGS(__VA_ARGS__) ); }\
-   namespace system_call {                                                         \
-   BOOST_PP_IF(                                                                    \
-      _THUNK_IS_VOID(return_type),                                                 \
-      void,                                                                        \
-      std::remove_reference_t< decltype( std::declval< return_type >().value() ) > \
+#define THUNK_DECLARE(return_type, name, ...)                                                        \
+   namespace thunk { return_type BOOST_PP_CAT(_, name)( execution_context& VA_ARGS(__VA_ARGS__) ); } \
+   namespace system_call {                                                                           \
+   BOOST_PP_IF(                                                                                      \
+      _THUNK_IS_VOID(return_type),                                                                   \
+      void,                                                                                          \
+      std::remove_reference_t< decltype( std::declval< return_type >().value() ) >                   \
    ) name( execution_context& VA_ARGS(__VA_ARGS__) ); }
 
 #define THUNK_DECLARE_VOID(return_type, name)                                      \
-   namespace thunk { return_type name( execution_context& ); }                     \
+   namespace thunk { return_type BOOST_PP_CAT(_, name)( execution_context& ); }    \
    namespace system_call {                                                         \
    BOOST_PP_IF(                                                                    \
       _THUNK_IS_VOID(return_type),                                                 \
@@ -250,7 +250,7 @@ namespace koinos::chain::detail {
          context,                                                                                                    \
          privilege::kernel_mode,                                                                                     \
          [&]() {                                                                                                     \
-            _blob_target = thunk::get_object(                                                                        \
+            _blob_target = thunk::_get_object(                                                                       \
                context,                                                                                              \
                state::space::system_call_dispatch(),                                                                 \
                _key,                                                                                                 \
@@ -299,7 +299,7 @@ namespace koinos::chain::detail {
          BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
          std::string _arg_str;                                                                                       \
          _args.SerializeToString( &_arg_str );                                                                       \
-         auto _ret_str = thunk::call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value();  \
+         auto _ret_str = thunk::_call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
          BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
       }                                                                                                              \
       else                                                                                                           \
@@ -311,7 +311,7 @@ namespace koinos::chain::detail {
    }                                                                                                                 \
    }                                                                                                                 \
    namespace thunk {                                                                                                 \
-   RETURN_TYPE SYSCALL( execution_context& context ARGS )
+   RETURN_TYPE BOOST_PP_CAT(_, SYSCALL)( execution_context& context ARGS )
 
 #define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \
    _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL,                                                                       \

@@ -14,6 +14,7 @@
 
 #include <koinos/state_db/state_db.hpp>
 
+#include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
 #include <koinos/util/services.hpp>
@@ -154,6 +155,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto block_height = block.header().height();
    auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
    block_node        = _db.get_node( block_id );
+   auto parent_node  = _db.get_node( parent_id );
 
    if ( block_node ) return {}; // Block has been applied
 
@@ -175,7 +177,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          .call_privilege = privilege::kernel_mode
       } );
 
-      auto parent_node = _db.get_node( parent_id );
       parent_ctx.set_state_node( parent_node );
       auto head_info = system_call::get_head_info( parent_ctx );
       parent_height = head_info.head_topology().height();
@@ -208,6 +209,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       KOINOS_ASSERT( block.header().timestamp() <= time_upper_bound, timestamp_out_of_bounds, "block timestamp is too far in the future" );
       KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds, "block timestamp is too old" );
+
+      KOINOS_ASSERT(
+         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->get_merkle_root() ),
+         state_merkle_mismatch,
+         "block previous state merkle mismatch"
+      );
 
       ctx.push_frame( stack_frame {
          .system = true,
@@ -269,6 +276,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          _db.commit_node( node.value()->id() );
       }
 
+      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
+
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
       if ( _client && _client->is_running() )
@@ -314,6 +323,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          catch ( const std::exception& e )
          {
             LOG(error) << "Failed to publish fork data to message broker: " << e.what();
+         }
+
+         try
+         {
+            for ( const auto& [ unused, event ] : ctx.event_recorder().events() )
+            {
+               _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
+            }
+         }
+         catch ( const std::exception& e )
+         {
+            LOG(error) << "Failed to publish block and transaction events to message broker: " << e.what();
          }
       }
    }
@@ -489,6 +510,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    rpc::chain::get_head_info_response resp;
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
+   resp.set_head_state_merkle_root( util::converter::as< std::string >( ctx.get_state_node()->get_merkle_root() ) );
 
    return resp;
 }

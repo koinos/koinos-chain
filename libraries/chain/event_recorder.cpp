@@ -10,20 +10,19 @@ void event_recorder::set_session( std::shared_ptr< abstract_event_session > s )
 void event_recorder::push_event( protocol::event_data&& ev )
 {
    ev.set_sequence( _seq_no );
+   bool within_session = false;
 
    if ( auto session = _session.lock() )
    {
-      session->push_event( std::move( ev ) );
-   }
-   else
-   {
-      _events.emplace_back( std::move( ev ) );
+      within_session = true;
+      session->push_event( ev );
    }
 
+   _events.emplace_back( std::make_pair( within_session, std::move( ev ) ) );
    _seq_no++;
 }
 
-const std::vector< protocol::event_data >& event_recorder::events()
+const std::vector< event_bundle >& event_recorder::events()
 {
    return _events;
 }

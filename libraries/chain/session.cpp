@@ -22,9 +22,9 @@ uint64_t session::used_rc()
    return _begin_rc - _end_rc;
 }
 
-void session::push_event( protocol::event_data&& ev )
+void session::push_event( const protocol::event_data& ev )
 {
-   _events.emplace_back( std::move( ev ) );
+   _events.push_back( ev );
 }
 
 const std::vector< protocol::event_data >& session::events()
