@@ -391,7 +391,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
    );
 
-   contract_metadata contract_meta;
+   contract_metadata_object contract_meta;
    *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
 
    system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
@@ -442,7 +442,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    {
       auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
-      auto contract_meta = util::converter::to< contract_metadata >( system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() ) );
+      auto contract_meta = util::converter::to< contract_metadata_object >( system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() ) );
       KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
@@ -483,7 +483,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
    KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
-   auto contract_meta = util::converter::to< contract_metadata >( system_call::get_object( context, state::space::contract_metadata(), o.contract_id() ) );
+   auto contract_meta = util::converter::to< contract_metadata_object >( system_call::get_object( context, state::space::contract_metadata(), o.contract_id() ) );
    KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
 
    contract_meta.set_system( o.system_contract() );
@@ -579,7 +579,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
 
    // We need to be in kernel mode to read the contract data
    std::string contract_bytecode;
-   contract_metadata contract_meta;
+   contract_metadata_object contract_meta;
    with_privilege(
       context,
       privilege::kernel_mode,
@@ -589,7 +589,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
          KOINOS_ASSERT( contract_bytecode.size(), invalid_contract, "contract does not exist" );
          auto contract_meta_bytes = system_call::get_object( context, state::space::contract_metadata(), contract_id );
          KOINOS_ASSERT( contract_meta_bytes.size(), invalid_contract, "contract metadata does not exist" );
-         contract_meta = util::converter::to< contract_metadata >( contract_meta_bytes );
+         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_bytes );
          KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
       }
    );

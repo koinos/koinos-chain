@@ -237,7 +237,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
    auto bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
-   auto meta = util::converter::to< koinos::chain::contract_metadata >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_metadata(), op.contract_id() ) );
+   auto meta = util::converter::to< koinos::chain::contract_metadata_object >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_metadata(), op.contract_id() ) );
 
    BOOST_REQUIRE( bytecode.size() == op.bytecode().size() );
    BOOST_REQUIRE( std::memcmp( bytecode.c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
@@ -808,7 +808,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    chain::system_call::apply_upload_contract_operation( ctx, op );
 
    auto bytecode = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
-   auto meta = util::converter::to< koinos::chain::contract_metadata >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_metadata(), op.contract_id() ) );
+   auto meta = util::converter::to< koinos::chain::contract_metadata_object >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_metadata(), op.contract_id() ) );
 
    BOOST_REQUIRE( bytecode.size() == op.bytecode().size() );
    BOOST_REQUIRE( std::memcmp( bytecode.c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );

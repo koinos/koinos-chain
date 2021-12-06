@@ -40,7 +40,7 @@ const object_space make_contract_bytecode()
    object_space s;
    s.set_system( true );
    s.set_zone( zone::kernel );
-   s.set_id( system_space_id::contract_bytecode_id );
+   s.set_id( system_space_id::contract_bytecode );
    return s;
 }
 
@@ -49,7 +49,7 @@ const object_space make_contract_metadata()
    object_space s;
    s.set_system( true );
    s.set_zone( zone::kernel );
-   s.set_id( system_space_id::contract_metadata_id );
+   s.set_id( system_space_id::contract_metadata );
    return s;
 }
 
@@ -58,7 +58,7 @@ const object_space make_system_call_dispatch()
    object_space s;
    s.set_system( true );
    s.set_zone( zone::kernel );
-   s.set_id( system_space_id::system_call_dispatch_id );
+   s.set_id( system_space_id::system_call_dispatch );
    return s;
 }
 
@@ -67,7 +67,7 @@ const object_space make_metadata()
    object_space s;
    s.set_system( true );
    s.set_zone( zone::kernel );
-   s.set_id( system_space_id::metadata_id );
+   s.set_id( system_space_id::metadata );
    return s;
 }
 
@@ -76,7 +76,7 @@ const object_space make_transaction_nonce()
    object_space s;
    s.set_system( true );
    s.set_zone( zone::kernel );
-   s.set_id( system_space_id::transaction_nonce_id );
+   s.set_id( system_space_id::transaction_nonce );
    return s;
 }
 
