@@ -40,7 +40,7 @@ struct controller_fixture
 
       chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { chain::state::space::meta(), chain::state::key::chain_id } ] = util::converter::as< state_db::object_value >( chain_id );
+      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< state_db::object_value >( chain_id );
 
       _controller.open( _state_dir, genesis_data, false );
    }
@@ -595,6 +595,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 
    BOOST_TEST_MESSAGE( "Check the resulting block receipt" );
 
+   LOG(info) << block_resp;
+
    BOOST_REQUIRE_EQUAL( block_resp.receipt().id(), block_req.block().id() );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts_size(), 2 );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().events_size(), 0 );
@@ -639,6 +641,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).reverted(), false );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).events_size(), 0 );
 
+   LOG(info) << block_resp;
 
    auto rc_limit3 = 8'000'000;
 
@@ -685,6 +688,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().max_payer_rc(), max_payer3 );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().reverted(), false );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().events_size(), 0 );
+
+   LOG(info) << tx_resp.receipt();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

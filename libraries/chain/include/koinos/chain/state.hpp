@@ -24,21 +24,12 @@ const auto kernel = std::string{};
 
 } // zone
 
-enum class id : uint32_t
-{
-   meta,
-   system_call_dispatch,
-   contract_bytecode,
-   contract_hash,
-   transaction_nonce
-};
-
 namespace space {
 
 const object_space contract_bytecode();
-const object_space contract_hash();
+const object_space contract_metadata();
 const object_space system_call_dispatch();
-const object_space meta();
+const object_space metadata();
 const object_space transaction_nonce();
 
 } // space
@@ -59,7 +50,7 @@ constexpr uint32_t max_object_size = 512;
 
 constexpr uint32_t max_object_size = 1024 * 1024; // 1 MB
 
-void assert_permissions( const execution_context& context, const object_space& space );
+void assert_permissions( execution_context& context, const object_space& space );
 
 } // state
 

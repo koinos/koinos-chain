@@ -36,6 +36,7 @@ void register_thunks( thunk_dispatcher& td )
       (apply_upload_contract_operation)
       (apply_call_contract_operation)
       (apply_set_system_call_operation)
+      (apply_set_system_contract_operation)
 
       (put_object)
       (get_object)
@@ -141,14 +142,11 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
    std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
 
-   with_stack_frame(
+   with_privilege(
       context,
-      stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
-         .call_privilege = privilege::kernel_mode,
-      },
+      privilege::kernel_mode,
       [&]() {
-         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id );
+         auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
          chain_id = util::converter::to< crypto::multihash >( obj );
       }
    );
@@ -181,7 +179,7 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
 
 THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
-   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
 
    block_guard guard( context, block );
@@ -213,7 +211,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
    KOINOS_ASSERT( system_call::process_block_signature( context, util::converter::as< std::string >( block_hash ), block.active(), block.signature_data() ), invalid_block_signature, "block signature does not match" );
 
-   system_call::put_object( context, state::space::meta(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
+   system_call::put_object( context, state::space::metadata(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
    for ( const auto& tx : block.transactions() )
    {
@@ -249,7 +247,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    transaction_guard guard( context, trx );
@@ -311,6 +309,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
             system_call::apply_call_contract_operation( context, o.call_contract() );
          else if ( o.has_set_system_call() )
             system_call::apply_set_system_call_operation( context, o.set_system_call() );
+         else if ( o.has_set_system_contract() )
+            system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
          else
             KOINOS_THROW( unknown_operation, "unknown operation" );
       }
@@ -375,7 +375,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
@@ -392,23 +392,26 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
       "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
    );
 
-   auto hash = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
+   contract_metadata_object contract_meta;
+   *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
 
    system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
-   system_call::put_object( context, state::space::contract_hash(), o.contract_id(), hash );
+   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
+   // Drop to user mode
    with_stack_frame(
       context,
       stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "apply_call_contract_operation"s ).digest(),
+         .contract_id = "call_contract_operation"s,
+         .system = false,
          .call_privilege = privilege::user_mode,
       },
       [&]() {
@@ -419,24 +422,12 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT( !context.user_code(), insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   crypto::multihash chain_id;
-
-   with_stack_frame(
-      context,
-      stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "retrieve_chain_id"s ).digest(),
-         .call_privilege = privilege::kernel_mode,
-      },
-      [&]() {
-         auto obj = system_call::get_object( context, state::space::meta(), state::key::chain_id );
-         chain_id = util::converter::to< crypto::multihash >( obj );
-      }
-   );
+   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ) );
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
@@ -452,6 +443,8 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    {
       auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
       KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
+      auto contract_meta = util::converter::to< contract_metadata_object >( system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() ) );
+      KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
       LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
@@ -468,6 +461,34 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    // Place the override in the database
    system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
+}
+
+THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
+{
+   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
+
+   context.resource_meter().use_compute_bandwidth( compute_load::heavy );
+
+   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ) );
+
+   const auto& tx = context.get_transaction();
+   crypto::recoverable_signature sig;
+   std::memcpy( sig.data(), tx.signature_data().data(), std::min( sig.size(), tx.signature_data().size() ) );
+
+   KOINOS_ASSERT(
+      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      insufficient_privileges,
+      "transaction does not have the required authority to override system calls"
+   );
+
+   auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
+   KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
+   auto contract_meta = util::converter::to< contract_metadata_object >( system_call::get_object( context, state::space::contract_metadata(), o.contract_id() ) );
+   KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
+
+   contract_meta.set_system( o.system_contract() );
+   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
 
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
@@ -559,34 +580,33 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
 
    // We need to be in kernel mode to read the contract data
    std::string contract_bytecode;
-   std::string contract_hash;
-   with_stack_frame(
+   contract_metadata_object contract_meta;
+   with_privilege(
       context,
-      stack_frame {
-         .call = crypto::hash( crypto::multicodec::ripemd_160, "call_contract"s ).digest(),
-         .call_privilege = privilege::kernel_mode,
-      },
+      privilege::kernel_mode,
       [&]()
       {
          contract_bytecode = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
          KOINOS_ASSERT( contract_bytecode.size(), invalid_contract, "contract does not exist" );
-         contract_hash = system_call::get_object( context, state::space::contract_hash(), contract_id );
-         KOINOS_ASSERT( contract_hash.size(), invalid_contract, "contract does not exist" );
+         auto contract_meta_bytes = system_call::get_object( context, state::space::contract_metadata(), contract_id );
+         KOINOS_ASSERT( contract_meta_bytes.size(), invalid_contract, "contract metadata does not exist" );
+         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_bytes );
+         KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
       }
    );
 
-   context.push_frame( stack_frame {
-      .call = util::converter::as< std::vector< std::byte > >( contract_id ),
-      .call_privilege = context.get_privilege(),
-      .call_args = util::converter::as< std::vector< std::byte > >( args ),
+   context.push_frame( stack_frame{
+      .contract_id = contract_id,
+      .system = contract_meta.system(),
+      .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
+      .call_args = args,
       .entry_point = entry_point
    } );
 
-   chain::host_api hapi( context );
-
    try
    {
-      context.get_backend()->run( hapi, contract_bytecode, contract_hash );
+      chain::host_api hapi( context );
+      context.get_backend()->run( hapi, contract_bytecode, contract_meta.hash() );
    }
    catch( const exit_success& ) {}
    catch( ... ) {
@@ -595,7 +615,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    }
 
    call_contract_result ret;
-   ret.set_value( util::converter::to< std::string >( context.pop_frame().call_return ) );
+   ret.set_value( context.pop_frame().call_return );
    return ret;
 }
 
@@ -622,7 +642,7 @@ THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_contract_arguments_result ret;
-   ret.set_value( util::converter::as< std::string >( context.get_contract_call_args() ) );
+   ret.set_value( context.get_contract_call_args() );
    return ret;
 }
 
@@ -630,7 +650,7 @@ THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   context.set_contract_return( util::converter::to< std::vector< std::byte > >( ret ) );
+   context.set_contract_return( ret );
 }
 
 THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
@@ -651,14 +671,11 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    }
    else
    {
-      with_stack_frame(
+      with_privilege(
          context,
-         stack_frame {
-            .call = crypto::hash( crypto::multicodec::ripemd_160, "get_head_info"s ).digest(),
-            .call_privilege = privilege::kernel_mode,
-         },
+         privilege::kernel_mode,
          [&]() {
-            auto val = system_call::get_object( context, state::space::meta(), state::key::head_block_time );
+            auto val = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
             uint64_t time = val.size() > 0 ? util::converter::to< uint64_t >( val ) : 0;
             hi.set_head_block_time( time );
          }
@@ -762,7 +779,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
    try
    {
-      ret.mutable_value()->set_caller( util::converter::as< std::string >( context.get_caller() ) );
+      ret.mutable_value()->set_caller( context.get_caller() );
       ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
    }
    catch( ... )
@@ -812,7 +829,7 @@ THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_contract_id_result ret;
-   ret.set_value( util::converter::as< std::string >( context.get_caller() ) );
+   ret.set_value( context.get_contract_id() );
    return ret;
 }
 
@@ -882,7 +899,7 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   auto caller = system_call::get_caller( context ).caller();
+   auto caller = context.get_caller();
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
    context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
