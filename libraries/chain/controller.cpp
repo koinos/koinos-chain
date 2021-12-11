@@ -133,11 +133,13 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    KOINOS_ASSERT( request.block().id().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "id") );
    KOINOS_ASSERT( request.block().has_header(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "header") );
-   KOINOS_ASSERT( request.block().header().previous().size(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "previous") );
-   KOINOS_ASSERT( request.block().header().height(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "height") );
-   KOINOS_ASSERT( request.block().header().timestamp(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "timestamp") );
-   KOINOS_ASSERT( request.block().active().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.block().signature_data().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
+   KOINOS_ASSERT( request.block().header().previous().size(), missing_required_arguments, "missing expected field in block header: ${f}", ("f", "previous") );
+   KOINOS_ASSERT( request.block().header().height(), missing_required_arguments, "missing expected field in block header: ${f}", ("f", "height") );
+   KOINOS_ASSERT( request.block().header().timestamp(), missing_required_arguments, "missing expected field in block header: ${f}", ("f", "timestamp") );
+//   KOINOS_ASSERT( request.block().header().previous_state_merkle_root().size(), missing_required_arguments, "missing expected field in block header: ${f}", ("f", "previous_state_merkle_root") );
+   KOINOS_ASSERT( request.block().header().transaction_merkle_root().size(), missing_required_arguments, "missing expected field in block header: ${f}", ("f", "transaction_merkle_root") );
+//   KOINOS_ASSERT( request.block().header().signer().size(), missing_required_arguments, "missing expected field in block header: ${f}", ("f", "signer") );
+   KOINOS_ASSERT( request.block().signature().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
 
    rpc::chain::submit_block_response resp;
 
@@ -194,7 +196,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       }
 
       KOINOS_ASSERT(
-         crypto::hash( crypto::multicodec::sha2_256, block.header(), block.active() ) == block_id,
+         crypto::hash( crypto::multicodec::sha2_256, block.header() ) == block_id,
          block_id_mismatch,
          "block contains an invalid block ID"
       );
@@ -383,8 +385,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    KOINOS_ASSERT( request.transaction().id().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "id") );
-   KOINOS_ASSERT( request.transaction().active().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.transaction().signature_data().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
+   KOINOS_ASSERT( request.transaction().has_header(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "header") );
+   KOINOS_ASSERT( request.transaction().header().rc_limit(), missing_required_arguments, "missing expected field in transaction header: ${f}", ("f", "rc_limit") );
+   KOINOS_ASSERT( request.transaction().header().nonce(), missing_required_arguments, "missing expected field in transaction header: ${f}", ("f", "nonce") );
+//   KOINOS_ASSERT( request.transaction().header().operation_merkle_root().size(), missing_required_arguments, "missing expected field in transaction header: ${f}", ("f", "operation_merkle_root") );
+   KOINOS_ASSERT( request.transaction().signature().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
 
    rpc::chain::submit_transaction_response resp;
 

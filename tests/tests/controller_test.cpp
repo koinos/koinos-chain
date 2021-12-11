@@ -51,30 +51,30 @@ struct controller_fixture
       std::filesystem::remove_all( _state_dir );
    }
 
-   void set_block_merkle_roots( protocol::block& block, protocol::active_block_data& active_data, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
+   void set_block_merkle_roots( protocol::block& block, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
    {
       std::vector< crypto::multihash > transactions;
       transactions.reserve( block.transactions().size() );
 
       for ( const auto& trx : block.transactions() )
       {
-         transactions.emplace_back( crypto::hash( code, trx.active(), size ) );
+         transactions.emplace_back( crypto::hash( code, trx.header(), size ) );
       }
 
       auto transaction_merkle_tree = crypto::merkle_tree( code, transactions );
-      active_data.set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
+      block.mutable_header()->set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
    }
 
    void sign_block( protocol::block& block, crypto::private_key& block_signing_key )
    {
-      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, block.header(), block.active() );
-      block.set_signature_data( util::converter::as< std::string >( block_signing_key.sign_compact( id_mh ) ) );
+      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, block.header() );
+      block.set_signature( util::converter::as< std::string >( block_signing_key.sign_compact( id_mh ) ) );
    }
 
    void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
-      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.active() );
-      transaction.set_signature_data( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
+      auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
+      transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
 
    std::vector< uint8_t > get_hello_wasm()
@@ -113,8 +113,6 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    auto key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "foobar"s ) );
    rpc::chain::submit_transaction_request trx_req;
 
-   protocol::active_transaction_data trx_active_data;
-
    BOOST_TEST_MESSAGE( "Test submit block" );
    BOOST_TEST_MESSAGE( "Error when first block does not have height of 1" );
 
@@ -125,13 +123,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_height( 2 );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
 
-   protocol::active_block_data block_active_data;
-
-   set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( block_active_data ) );
+   set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unexpected_height );
 
@@ -139,10 +134,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    auto foo_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( crypto::multicodec::sha2_256, "foo"s ) );
 
-   block_active_data.set_signer( util::converter::as< std::string >( foo_key.get_public_key().to_address_bytes() ) );
+   block_req.mutable_block()->mutable_header()->set_signer( util::converter::as< std::string >( foo_key.get_public_key().to_address_bytes() ) );
    block_req.mutable_block()->mutable_header()->set_height( 1 );
    block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
 
    sign_block( *block_req.mutable_block(), foo_key );
 
@@ -152,9 +147,8 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::empty( crypto::multicodec::sha2_256 ) ) );
 
-   set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( block_active_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block );
@@ -164,7 +158,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    duration = ( std::chrono::system_clock::now() + std::chrono::minutes( 1 ) ).time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
 
@@ -175,9 +169,8 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
 
-   set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( block_active_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
@@ -188,9 +181,8 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_height( 2 );
    block_req.mutable_block()->mutable_header()->set_timestamp( block_req.block().header().timestamp() - 1 );
 
-   set_block_merkle_roots( *block_req.mutable_block(), block_active_data, crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( block_active_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
@@ -221,10 +213,8 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
       block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
 
-      protocol::active_block_data active_data;
-      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
-      block_req.mutable_block()->set_active( util::converter::as< std::string >( active_data ) );
-      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
       sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       _controller.submit_block( block_req );
@@ -242,10 +232,8 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
       block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
 
-      protocol::active_block_data active_data;
-      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
-      block_req.mutable_block()->set_active( util::converter::as< std::string >( active_data ) );
-      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
       sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       _controller.submit_block( block_req );
@@ -278,10 +266,8 @@ BOOST_AUTO_TEST_CASE( fork_heads )
       block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
       block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
 
-      protocol::active_block_data active_data;
-      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
-      block_req.mutable_block()->set_active( util::converter::as< std::string >( active_data ) );
-      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
       sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       auto receipt = _controller.submit_block( block_req ).receipt();
@@ -304,10 +290,8 @@ BOOST_AUTO_TEST_CASE( fork_heads )
       block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
       block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( last_state_merkle_root );
 
-      protocol::active_block_data active_data;
-      set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
-      block_req.mutable_block()->set_active( util::converter::as< std::string >( active_data ) );
-      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+      set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+      block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
       sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
       auto receipt = _controller.submit_block( block_req ).receipt();
@@ -342,10 +326,8 @@ BOOST_AUTO_TEST_CASE( fork_heads )
    block_req.mutable_block()->mutable_header()->set_previous( head_info.head_topology().id() );
    block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( last_state_merkle_root );
 
-   protocol::active_block_data active_data;
-   set_block_merkle_roots( *block_req.mutable_block(), active_data, koinos::crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( active_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
@@ -373,38 +355,32 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto key3 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "foobar3"s ) );
 
    koinos::protocol::transaction trx1;
-   koinos::protocol::active_transaction_data active1;
 
-   auto op1 = active1.add_operations()->mutable_upload_contract();
+   auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( key1.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_hello_wasm() ) );
-   active1.set_rc_limit( 10'000'000 );
-   trx1.set_active( util::converter::as< std::string >( active1 ) );
-   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
+   trx1.mutable_header()->set_rc_limit( 10'000'000 );
+   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, key1 );
 
    // Upload the return test contract
    koinos::protocol::transaction trx2;
-   koinos::protocol::active_transaction_data active2;
 
-   auto op2 = active2.add_operations()->mutable_upload_contract();
+   auto op2 = trx2.add_operations()->mutable_upload_contract();
    op2->set_contract_id( util::converter::as< std::string >( key2.get_public_key().to_address_bytes() ) );
    op2->set_bytecode( util::converter::as< std::string >( get_contract_return_wasm() ) );
-   active2.set_rc_limit( 10'000'000 );
-   trx2.set_active( util::converter::as< std::string >( active2 ) );
-   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
+   trx2.mutable_header()->set_rc_limit( 10'000'000 );
+   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx2, key2 );
 
    // Upload the db write contract
    koinos::protocol::transaction trx3;
-   koinos::protocol::active_transaction_data active3;
 
-   auto op3 = active3.add_operations()->mutable_upload_contract();
+   auto op3 = trx3.add_operations()->mutable_upload_contract();
    op3->set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
    op3->set_bytecode( util::converter::as< std::string >( get_db_write_wasm() ) );
-   active3.set_rc_limit( 10'000'000 );
-   trx3.set_active( util::converter::as< std::string >( active3 ) );
-   trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx3.active() ) ) );
+   trx3.mutable_header()->set_rc_limit( 10'000'000 );
+   trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx3.header() ) ) );
    sign_transaction( trx3, key3 );
 
    koinos::rpc::chain::submit_block_request block_req;
@@ -418,10 +394,8 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    *block_req.mutable_block()->add_transactions() = trx2;
    *block_req.mutable_block()->add_transactions() = trx3;
 
-   koinos::protocol::active_block_data active_block_data;
-   set_block_merkle_roots( *block_req.mutable_block(), active_block_data, koinos::crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( active_block_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
@@ -464,31 +438,27 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx1;
-   koinos::protocol::active_transaction_data active1;
 
    // Upload the KOIN contract
-   auto op1 = active1.add_operations()->mutable_upload_contract();
+   auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
-   active1.set_rc_limit( 10'000'000 );
-   trx1.set_active( util::converter::as< std::string >( active1 ) );
-   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
+   trx1.mutable_header()->set_rc_limit( 10'000'000 );
+   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, contract_private_key );
 
    koinos::protocol::transaction trx2;
-   koinos::protocol::active_transaction_data active2;
 
    koinos::contracts::token::mint_arguments mint_arg;
    mint_arg.set_to( alice_address );
    mint_arg.set_value( 100 );
 
-   auto op2 = active2.add_operations()->mutable_call_contract();
+   auto op2 = trx2.add_operations()->mutable_call_contract();
    op2->set_contract_id( op1->contract_id() );
    op2->set_entry_point( 0xc2f82bdc );
    op2->set_args( mint_arg.SerializeAsString() );
-   active2.set_rc_limit( 10'000'000 );
-   trx2.set_active( util::converter::as< std::string >( active2 ) );
-   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
+   trx2.mutable_header()->set_rc_limit( 10'000'000 );
+   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx2, alice_private_key );
 
    koinos::rpc::chain::submit_block_request block_req;
@@ -501,10 +471,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    *block_req.mutable_block()->add_transactions() = trx1;
    *block_req.mutable_block()->add_transactions() = trx2;
 
-   koinos::protocol::active_block_data active_block_data;
-   set_block_merkle_roots( *block_req.mutable_block(), active_block_data, koinos::crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( active_block_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    _controller.submit_block( block_req );
@@ -538,31 +506,27 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx1;
-   koinos::protocol::active_transaction_data active1;
 
    // Upload the KOIN contract
-   auto op1 = active1.add_operations()->mutable_upload_contract();
+   auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
-   active1.set_rc_limit( rc_limit1 );
-   trx1.set_active( util::converter::as< std::string >( active1 ) );
-   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.active() ) ) );
+   trx1.mutable_header()->set_rc_limit( rc_limit1 );
+   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, contract_private_key );
 
    koinos::protocol::transaction trx2;
-   koinos::protocol::active_transaction_data active2;
 
    koinos::contracts::token::mint_arguments mint_arg;
    mint_arg.set_to( alice_address );
    mint_arg.set_value( 100 );
 
-   auto op2 = active2.add_operations()->mutable_call_contract();
+   auto op2 = trx2.add_operations()->mutable_call_contract();
    op2->set_contract_id( op1->contract_id() );
    op2->set_entry_point( 0xc2f82bdc );
    op2->set_args( mint_arg.SerializeAsString() );
-   active2.set_rc_limit( rc_limit2 );
-   trx2.set_active( util::converter::as< std::string >( active2 ) );
-   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
+   trx2.mutable_header()->set_rc_limit( rc_limit2 );
+   trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx2, alice_private_key );
 
    koinos::rpc::chain::submit_block_request block_req;
@@ -575,10 +539,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    *block_req.mutable_block()->add_transactions() = trx1;
    *block_req.mutable_block()->add_transactions() = trx2;
 
-   koinos::protocol::active_block_data active_block_data;
-   set_block_merkle_roots( *block_req.mutable_block(), active_block_data, koinos::crypto::multicodec::sha2_256 );
-   block_req.mutable_block()->set_active( util::converter::as< std::string >( active_block_data ) );
-   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header(), block_req.block().active() ) ) );
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
    auto rld = _controller.get_resource_limits( koinos::rpc::chain::get_resource_limits_request() );
@@ -646,21 +608,19 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    auto rc_limit3 = 8'000'000;
 
    koinos::protocol::transaction trx3;
-   koinos::protocol::active_transaction_data active3;
 
    koinos::contracts::token::transfer_arguments xfer_arg;
    xfer_arg.set_from( alice_address );
    xfer_arg.set_to( contract_private_key.get_public_key().to_address_bytes() );
    xfer_arg.set_value( 100 );
 
-   auto op3 = active3.add_operations()->mutable_call_contract();
+   auto op3 = trx3.add_operations()->mutable_call_contract();
    op3->set_contract_id( op1->contract_id() );
    op3->set_entry_point( 0x62efa292 );
    op3->set_args( xfer_arg.SerializeAsString() );
-   active3.set_rc_limit( rc_limit3 );
-   active3.set_nonce( 1 );
-   trx3.set_active( util::converter::as< std::string >( active3 ) );
-   trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.active() ) ) );
+   trx3.mutable_header()->set_rc_limit( rc_limit3 );
+   trx3.mutable_header()->set_nonce( 1 );
+   trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx3, alice_private_key );
 
    koinos::rpc::chain::submit_transaction_request tx_req;
