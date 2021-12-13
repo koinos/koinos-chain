@@ -71,6 +71,20 @@ struct controller_fixture
       block.set_signature( util::converter::as< std::string >( block_signing_key.sign_compact( id_mh ) ) );
    }
 
+   void set_transaction_merkle_roots( protocol::transaction& transaction, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
+   {
+      std::vector< crypto::multihash > operations;
+      operations.reserve( transaction.operations().size() );
+
+      for ( const auto& op : transaction.operations() )
+      {
+         operations.emplace_back( crypto::hash( code, op, size ) );
+      }
+
+      auto operation_merkle_tree = crypto::merkle_tree( code, operations );
+      transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
+   }
+
    void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
@@ -121,6 +135,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    auto duration = std::chrono::system_clock::now().time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
    block_req.mutable_block()->mutable_header()->set_height( 2 );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
 
    set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
@@ -360,6 +375,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op1->set_contract_id( util::converter::as< std::string >( key1.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_hello_wasm() ) );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
+   set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, key1 );
 
@@ -370,6 +386,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op2->set_contract_id( util::converter::as< std::string >( key2.get_public_key().to_address_bytes() ) );
    op2->set_bytecode( util::converter::as< std::string >( get_contract_return_wasm() ) );
    trx2.mutable_header()->set_rc_limit( 10'000'000 );
+   set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
    trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx2, key2 );
 
@@ -380,6 +397,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op3->set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
    op3->set_bytecode( util::converter::as< std::string >( get_db_write_wasm() ) );
    trx3.mutable_header()->set_rc_limit( 10'000'000 );
+   set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
    trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx3.header() ) ) );
    sign_transaction( trx3, key3 );
 
@@ -444,6 +462,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
+   set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, contract_private_key );
 
@@ -458,6 +477,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    op2->set_entry_point( 0xc2f82bdc );
    op2->set_args( mint_arg.SerializeAsString() );
    trx2.mutable_header()->set_rc_limit( 10'000'000 );
+   set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
    trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx2, alice_private_key );
 
@@ -512,6 +532,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
    trx1.mutable_header()->set_rc_limit( rc_limit1 );
+   set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, contract_private_key );
 
@@ -526,6 +547,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    op2->set_entry_point( 0xc2f82bdc );
    op2->set_args( mint_arg.SerializeAsString() );
    trx2.mutable_header()->set_rc_limit( rc_limit2 );
+   set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
    trx2.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx2, alice_private_key );
 
@@ -620,6 +642,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    op3->set_args( xfer_arg.SerializeAsString() );
    trx3.mutable_header()->set_rc_limit( rc_limit3 );
    trx3.mutable_header()->set_nonce( 1 );
+   set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
    trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx3, alice_private_key );
 

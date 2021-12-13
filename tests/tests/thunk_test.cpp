@@ -90,6 +90,20 @@ struct thunk_fixture
       std::filesystem::remove_all( temp );
    }
 
+   void set_transaction_merkle_roots( protocol::transaction& transaction, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
+   {
+      std::vector< crypto::multihash > operations;
+      operations.reserve( transaction.operations().size() );
+
+      for ( const auto& op : transaction.operations() )
+      {
+         operations.emplace_back( crypto::hash( code, op, size ) );
+      }
+
+      auto operation_merkle_tree = crypto::merkle_tree( code, operations );
+      transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
+   }
+
    void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       // Signature is on the hash of the active data
@@ -557,6 +571,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    transaction.mutable_header()->set_rc_limit( 10'000 );
    transaction.mutable_header()->set_nonce( 0 );
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
    transaction.set_signature( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
 

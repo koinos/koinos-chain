@@ -259,6 +259,18 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    transaction_guard guard( context, trx );
 
+   const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
+   size_t op_count = trx.operations_size();
+
+   // Check operation merkle root
+   std::vector< std::string > hashes;
+   hashes.reserve( op_count );
+
+   for ( const auto& op : trx.operations() )
+      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( op_root.code(), op ) ) );
+
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
+
    protocol::transaction_receipt receipt;
 
    std::string payer = system_call::get_transaction_payer( context, trx );
