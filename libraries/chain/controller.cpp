@@ -72,6 +72,9 @@ class controller_impl final
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
 
+      void validate_block( const protocol::block& b );
+      void validate_transaction( const protocol::transaction& t );
+
       fork_data get_fork_data();
       fork_data get_fork_data_lockless();
 };
@@ -124,6 +127,30 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
    _client = c;
 }
 
+void controller_impl::validate_block( const protocol::block& b )
+{
+   KOINOS_ASSERT( b.id().size(), missing_required_arguments, "missing expected field in block: ${field}", ("field", "id") );
+   KOINOS_ASSERT( b.has_header(), missing_required_arguments, "missing expected field in block: ${field}", ("field", "header")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().previous().size(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "previous")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().height(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "height")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().timestamp(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "timestamp")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().previous_state_merkle_root().size(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "previous_state_merkle_root")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().transaction_merkle_root().size(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "transaction_merkle_root")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.signature().size(), missing_required_arguments, "missing expected field in block: ${field}", ("field", "signature_data")("block_id", util::to_hex( b.id() )) );
+
+   for ( const auto& t : b.transactions() )
+      validate_transaction( t );
+}
+
+void controller_impl::validate_transaction( const protocol::transaction& t )
+{
+   KOINOS_ASSERT( t.id().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "id") );
+   KOINOS_ASSERT( t.has_header(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "header")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.header().rc_limit(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "rc_limit")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.header().operation_merkle_root().size(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "operation_merkle_root")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.signature().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
+}
+
 rpc::chain::submit_block_response controller_impl::submit_block(
    const rpc::chain::submit_block_request& request,
    uint64_t index_to,
@@ -131,13 +158,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
-   KOINOS_ASSERT( request.block().id().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "id") );
-   KOINOS_ASSERT( request.block().has_header(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "header") );
-   KOINOS_ASSERT( request.block().header().previous().size(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "previous") );
-   KOINOS_ASSERT( request.block().header().height(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "height") );
-   KOINOS_ASSERT( request.block().header().timestamp(), missing_required_arguments, "missing expected field in block_header: ${f}", ("f", "timestamp") );
-   KOINOS_ASSERT( request.block().active().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.block().signature_data().size(), missing_required_arguments, "missing expected field in block: ${f}", ("f", "signature_data") );
+   validate_block( request.block() );
 
    rpc::chain::submit_block_response resp;
 
@@ -194,7 +215,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       }
 
       KOINOS_ASSERT(
-         crypto::hash( crypto::multicodec::sha2_256, block.header(), block.active() ) == block_id,
+         crypto::hash( crypto::multicodec::sha2_256, block.header() ) == block_id,
          block_id_mismatch,
          "block contains an invalid block ID"
       );
@@ -382,9 +403,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   KOINOS_ASSERT( request.transaction().id().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "id") );
-   KOINOS_ASSERT( request.transaction().active().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "active") );
-   KOINOS_ASSERT( request.transaction().signature_data().size(), missing_required_arguments, "missing expected field in transaction: ${f}", ("f", "signature_data") );
+   validate_transaction( request.transaction() );
 
    rpc::chain::submit_transaction_response resp;
 

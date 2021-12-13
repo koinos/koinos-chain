@@ -30,6 +30,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( insufficient_privileges, system_call_exception
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_hash_code, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( empty_block_header, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_root_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( operation_root_mismatch, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( passive_root_mismatch, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_block_signature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_transaction_signature, system_call_exception );

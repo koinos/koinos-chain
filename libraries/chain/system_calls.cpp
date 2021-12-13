@@ -188,9 +188,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
 
-   protocol::active_block_data active_data;
-   active_data.ParseFromString( block.active() );
-   const crypto::multihash tx_root = util::converter::to< crypto::multihash >( active_data.transaction_merkle_root() );
+   const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
    size_t tx_count = block.transactions_size();
 
    // Check transaction Merkle root
@@ -201,15 +199,24 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    for ( const auto& trx : block.transactions() )
    {
       transactions_bytes_size += trx.ByteSizeLong();
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.active() ) ) );
+      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.header() ) ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
 
-   KOINOS_ASSERT( system_call::verify_merkle_root( context, active_data.transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
 
-   crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header(), block.active() );
-   KOINOS_ASSERT( system_call::process_block_signature( context, util::converter::as< std::string >( block_hash ), block.active(), block.signature_data() ), invalid_block_signature, "block signature does not match" );
+   crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header() );
+   KOINOS_ASSERT(
+      system_call::process_block_signature(
+         context,
+         util::converter::as< std::string >( block_hash ),
+         util::converter::as< std::string >( block.header() ),
+         block.signature()
+      ),
+      invalid_block_signature,
+      "block signature does not match"
+   );
 
    system_call::put_object( context, state::space::metadata(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
@@ -252,19 +259,24 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    transaction_guard guard( context, trx );
 
-   protocol::transaction_receipt receipt;
+   const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
+   size_t op_count = trx.operations_size();
 
-   protocol::active_transaction_data active_data;
-   KOINOS_ASSERT(
-      active_data.ParseFromString( trx.active() ),
-      parse_failure,
-      "unable to parse transaction active data"
-   );
+   // Check operation merkle root
+   std::vector< std::string > hashes;
+   hashes.reserve( op_count );
+
+   for ( const auto& op : trx.operations() )
+      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( op_root.code(), op ) ) );
+
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
+
+   protocol::transaction_receipt receipt;
 
    std::string payer = system_call::get_transaction_payer( context, trx );
 
    auto payer_rc = system_call::get_account_rc( context, payer );
-   KOINOS_ASSERT( payer_rc >= active_data.rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
+   KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
 
    auto start_disk_used    = context.resource_meter().disk_storage_used();
    auto start_network_used = context.resource_meter().network_bandwidth_used();
@@ -274,13 +286,13 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     * While a reference to the payer_session remains alive, resource usage will be tallied
     * and charged to the current payer.
     */
-   auto payer_session = context.make_session( active_data.rc_limit() );
+   auto payer_session = context.make_session( trx.header().rc_limit() );
 
    auto account_nonce = system_call::get_account_nonce( context, payer );
    KOINOS_ASSERT(
-      account_nonce == active_data.nonce(),
+      account_nonce == trx.header().nonce(),
       chain::chain_exception,
-      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", active_data.nonce())("e", account_nonce)
+      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", trx.header().nonce())("e", account_nonce)
    );
 
    system_call::require_authority( context, payer );
@@ -294,14 +306,14 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    receipt.set_id( trx.id() );
    receipt.set_payer( payer );
    receipt.set_max_payer_rc( payer_rc );
-   receipt.set_rc_limit( active_data.rc_limit() );
+   receipt.set_rc_limit( trx.header().rc_limit() );
    receipt.set_reverted( false );
 
    try
    {
       context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
 
-      for ( const auto& o : active_data.operations() )
+      for ( const auto& o : trx.operations() )
       {
          if ( o.has_upload_contract() )
             system_call::apply_upload_contract_operation( context, o.upload_contract() );
@@ -332,7 +344,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
-   system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( active_data.nonce() + 1 ) );
+   system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( trx.header().nonce() + 1 ) );
    auto used_rc = payer_session->used_rc();
 
    receipt.set_rc_used( used_rc );
@@ -380,10 +392,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   protocol::active_transaction_data active_data;
-   active_data.ParseFromString( context.get_transaction().active() );
-
-   auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, active_data );
+   auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
    auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( tx_id ) );
 
    KOINOS_ASSERT(
@@ -431,7 +440,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature_data().data(), std::min( sig.size(), tx.signature_data().size() ) );
+   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
       chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
@@ -474,7 +483,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature_data().data(), std::min( sig.size(), tx.signature_data().size() ) );
+   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
       chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
@@ -735,7 +744,7 @@ THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const proto
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   std::string account = system_call::recover_public_key( context, transaction.signature_data(), util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.active() ) ) );
+   std::string account = system_call::recover_public_key( context, transaction.signature(), util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
 
    LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
 
@@ -748,11 +757,8 @@ THUNK_DEFINE( get_transaction_rc_limit_result, get_transaction_rc_limit, ((const
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   protocol::active_transaction_data active_data;
-   active_data.ParseFromString( transaction.active() );
-
    get_transaction_rc_limit_result ret;
-   ret.set_value( active_data.rc_limit() );
+   ret.set_value( transaction.header().rc_limit() );
    return ret;
 }
 
@@ -804,7 +810,7 @@ THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_transaction_signature_result ret;
-   ret.set_value( context.get_transaction().signature_data() );
+   ret.set_value( context.get_transaction().signature() );
    return ret;
 }
 
@@ -814,7 +820,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().active() );
+   auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
    std::string sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( digest ) );
 
    KOINOS_ASSERT(
