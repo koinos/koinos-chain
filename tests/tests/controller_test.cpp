@@ -53,15 +53,16 @@ struct controller_fixture
 
    void set_block_merkle_roots( protocol::block& block, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
    {
-      std::vector< crypto::multihash > transactions;
-      transactions.reserve( block.transactions().size() );
+      std::vector< crypto::multihash > hashes;
+      hashes.reserve( block.transactions().size() * 2 );
 
       for ( const auto& trx : block.transactions() )
       {
-         transactions.emplace_back( crypto::hash( code, trx.header(), size ) );
+         hashes.emplace_back( crypto::hash( code, trx.header(), size ) );
+         hashes.emplace_back( crypto::hash( code, trx.signature(), size ) );
       }
 
-      auto transaction_merkle_tree = crypto::merkle_tree( code, transactions );
+      auto transaction_merkle_tree = crypto::merkle_tree( code, hashes );
       block.mutable_header()->set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
    }
 

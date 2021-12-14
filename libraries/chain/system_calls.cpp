@@ -193,13 +193,14 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
    // Check transaction Merkle root
    std::vector< std::string > hashes;
-   hashes.reserve( tx_count );
+   hashes.reserve( tx_count * 2 );
 
    std::size_t transactions_bytes_size = 0;
    for ( const auto& trx : block.transactions() )
    {
       transactions_bytes_size += trx.ByteSizeLong();
       hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.header() ) ) );
+      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signature() ) ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
