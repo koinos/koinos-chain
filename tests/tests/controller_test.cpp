@@ -10,6 +10,7 @@
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/crypto/elliptic.hpp>
+#include <koinos/util/hex.hpp>
 
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
@@ -209,6 +210,35 @@ BOOST_AUTO_TEST_CASE( submission_tests )
       util::converter::to< crypto::multihash >( _controller.get_chain_id().chain_id() ),
       koinos::crypto::hash( crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() )
    );
+
+   BOOST_TEST_MESSAGE( "Test invalid transaction" );
+
+   block_req.mutable_block()->mutable_header()->set_previous( block_req.block().id() );
+   block_req.mutable_block()->mutable_header()->set_height( 2 );
+   block_req.mutable_block()->mutable_header()->set_timestamp( block_req.block().header().timestamp() + 2 );
+
+   auto trx = block_req.mutable_block()->add_transactions();
+   trx->mutable_header()->set_rc_limit( 10'000 );
+   trx->mutable_header()->set_nonce( 2 );
+   set_transaction_merkle_roots( *trx, crypto::multicodec::sha2_256 );
+
+   trx->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx->header() ) ) );
+
+   set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+   try
+   {
+      _controller.submit_block( block_req );
+      BOOST_REQUIRE( false );
+   }
+   catch ( koinos::exception& e )
+   {
+      const auto& j = e.get_json();
+      BOOST_CHECK( j.find( "transaction_id" ) != j.end() );
+      BOOST_CHECK_EQUAL( j["transaction_id"], util::to_hex( trx->id() ) );
+   }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

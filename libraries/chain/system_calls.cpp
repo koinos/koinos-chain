@@ -228,6 +228,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          system_call::apply_transaction( context, tx );
       }
       catch( const transaction_reverted& ) {} /* do nothing */
+      KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
    }
 
    KOINOS_ASSERT(
