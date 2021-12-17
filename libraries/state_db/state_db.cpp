@@ -77,9 +77,10 @@ class state_node_impl final
       ~state_node_impl() {}
 
       const object_value* get_object( const object_space& space, const object_key& key ) const;
-      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key ) const;
-      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key ) const;
+      std::pair< const object_value*, const object_key > get_next_object( const object_space& space, const object_key& key ) const;
+      std::pair< const object_value*, const object_key > get_prev_object( const object_space& space, const object_key& key ) const;
       int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
+      void remove_object( const object_space& space, const object_key& key );
       crypto::multihash get_merkle_root() const;
 
       state_delta_ptr   _state;
@@ -360,7 +361,7 @@ const object_value* state_node_impl::get_object( const object_space& space, cons
    return nullptr;
 }
 
-std::pair< const object_value*, const object_key& > state_node_impl::get_next_object( const object_space& space, const object_key& key ) const
+std::pair< const object_value*, const object_key > state_node_impl::get_next_object( const object_space& space, const object_key& key ) const
 {
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -379,16 +380,16 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_next_ob
    {
       chain::database_key next_key = util::converter::to< chain::database_key >( it.key() );
 
-      if ( next_key.space() == db_key.space() )
+      if ( next_key.space() == space )
       {
-         return { &*it, it.key() };
+         return { &*it, next_key.key() };
       }
    }
 
    return { nullptr, null_key };
 }
 
-std::pair< const object_value*, const object_key& > state_node_impl::get_prev_object( const object_space& space, const object_key& key ) const
+std::pair< const object_value*, const object_key > state_node_impl::get_prev_object( const object_space& space, const object_key& key ) const
 {
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -403,9 +404,9 @@ std::pair< const object_value*, const object_key& > state_node_impl::get_prev_ob
       --it;
       chain::database_key next_key = util::converter::to< chain::database_key >( it.key() );
 
-      if ( next_key.space() == db_key.space() )
+      if ( next_key.space() == space )
       {
-         return { &*it, it.key() };
+         return { &*it, next_key.key() };
       }
    }
 
@@ -430,17 +431,21 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
       bytes_used -= pobj->size();
    }
 
-   if ( val != nullptr )
-   {
-      bytes_used += val->size();
-      _state->put( key_string, *val );
-   }
-   else
-   {
-      _state->erase( key_string );
-   }
+   bytes_used += val->size();
+   _state->put( key_string, *val );
 
    return bytes_used;
+}
+
+void state_node_impl::remove_object( const object_space& space, const object_key& key )
+{
+   KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
+
+   chain::database_key db_key;
+   *db_key.mutable_space() = space;
+   db_key.set_key( key );
+
+   _state->erase( util::converter::as< std::string >( db_key ) );
 }
 
 crypto::multihash state_node_impl::get_merkle_root() const
@@ -458,12 +463,12 @@ const object_value* abstract_state_node::get_object( const object_space& space, 
    return impl->get_object( space, key );
 }
 
-std::pair< const object_value*, const object_key& > abstract_state_node::get_next_object( const object_space& space, const object_key& key ) const
+std::pair< const object_value*, const object_key > abstract_state_node::get_next_object( const object_space& space, const object_key& key ) const
 {
    return impl->get_next_object( space, key );
 }
 
-std::pair< const object_value*, const object_key& > abstract_state_node::get_prev_object( const object_space& space, const object_key& key ) const
+std::pair< const object_value*, const object_key > abstract_state_node::get_prev_object( const object_space& space, const object_key& key ) const
 {
    return impl->get_prev_object( space, key );
 }
@@ -471,6 +476,11 @@ std::pair< const object_value*, const object_key& > abstract_state_node::get_pre
 int32_t abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
    return impl->put_object( space, key, val );
+}
+
+void abstract_state_node::remove_object( const object_space& space, const object_key& key )
+{
+   return impl->remove_object( space, key );
 }
 
 bool abstract_state_node::is_writable() const

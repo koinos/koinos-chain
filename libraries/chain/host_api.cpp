@@ -26,26 +26,25 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
 {
    uint32_t bytes_returned = 0;
    auto key = util::converter::as< std::string >( sid );
-   std::string blob_target;
+   database_object object;
 
    with_privilege(
       _ctx,
       privilege::kernel_mode,
       [&]() {
-         blob_target = thunk::_get_object(
+         object = thunk::_get_object(
             _ctx,
             state::space::system_call_dispatch(),
-            key,
-            state::system_call_dispatch::max_object_size
+            key
          ).value();
       }
    );
 
    protocol::system_call_target target;
 
-   if ( blob_target.size() )
+   if ( object.exists() )
    {
-      target.ParseFromString( blob_target );
+      target.ParseFromString( object.value() );
    }
    else
    {
