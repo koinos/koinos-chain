@@ -247,12 +247,12 @@ void index_loop(
                }
                case rpc::block_store::block_store_response::ResponseCase::kError:
                {
-                  KOINOS_THROW( koinos::exception, resp.error().message() );
+                  KOINOS_THROW( chain::rpc_failure, resp.error().message() );
                   break;
                }
                default:
                {
-                  KOINOS_THROW( koinos::exception, "unexpected block store response" );
+                  KOINOS_THROW( chain::rpc_failure, "unexpected block store response" );
                   break;
                }
             }
@@ -308,12 +308,12 @@ void index( chain::controller& controller, std::shared_ptr< mq::client > mq_clie
                }
                case rpc::block_store::block_store_response::ResponseCase::kError:
                {
-                  KOINOS_THROW( koinos::exception, resp.error().message() );
+                  KOINOS_THROW( chain::rpc_failure, resp.error().message() );
                   break;
                }
                default:
                {
-                  KOINOS_THROW( koinos::exception, "unexpected block store response" );
+                  KOINOS_THROW( chain::rpc_failure, "unexpected block store response" );
                   break;
                }
             }

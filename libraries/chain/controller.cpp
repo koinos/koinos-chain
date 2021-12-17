@@ -5,6 +5,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/pending_state.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -71,6 +72,7 @@ class controller_impl final
       std::shared_mutex                         _db_mutex;
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
+      pending_state                             _pending_state;
 
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
@@ -85,8 +87,9 @@ controller_impl::controller_impl()
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
 
    _vm_backend->initialize();
-
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " vm backend";
+
+   _pending_state.set_backend( _vm_backend );
 }
 
 controller_impl::~controller_impl()
@@ -119,12 +122,14 @@ void controller_impl::open( const std::filesystem::path& p, const genesis_data& 
    }
 
    auto head = _db.get_head();
+   _pending_state.rebuild( head );
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
 {
    _client = c;
+   _pending_state.set_client( c );
 }
 
 void controller_impl::validate_block( const protocol::block& b )
@@ -256,8 +261,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          rpc::block_store::block_store_response resp;
          resp.ParseFromString( future.get() );
 
-         KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from block store: ${e}", ("e", resp.error()) );
-         KOINOS_ASSERT( resp.has_add_block(), koinos::exception, "unexpected response when submitting block: ${r}", ("r", resp) );
+         KOINOS_ASSERT( !resp.has_error(), rpc_failure, "received error from block store: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_add_block(), rpc_failure, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
       uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
@@ -296,6 +301,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          node = _db.get_node_at_revision( lib, block_node->id() );
          _db.commit_node( node.value()->id() );
       }
+
+      if ( block_node == _db.get_head() )
+         _pending_state.rebuild( block_node );
 
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
 
@@ -416,8 +424,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
-   auto pending_trx_node = _db.get_head()->create_anonymous_node();
-   KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
+   auto pending_trx_node = _pending_state.get_state_node();
+   KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
 
    execution_context ctx( _vm_backend, intent::transaction_application );
 
@@ -456,8 +464,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          rpc::mempool::mempool_response resp;
          resp.ParseFromString( future.get() );
 
-         KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from mempool: ${e}", ("e", resp.error()) );
-         KOINOS_ASSERT( resp.has_check_pending_account_resources(), koinos::exception, "received unexpected response from mempool" );
+         KOINOS_ASSERT( !resp.has_error(), rpc_failure, "received error from mempool: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_check_pending_account_resources(), rpc_failure, "received unexpected response from mempool" );
       }
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;

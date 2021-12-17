@@ -46,7 +46,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_height, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( block_id_mismatch, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( duplicate_trx_state, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( trx_state_error, controller_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( pending_state_error, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( timestamp_out_of_bounds, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( missing_required_arguments, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( state_merkle_mismatch, controller_exception );
@@ -77,5 +77,9 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( context_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_intent, context_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_access, context_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_receipt, context_exception );
+
+// RPC exceptions
+KOINOS_DECLARE_DERIVED_EXCEPTION( rpc_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( rpc_failure, rpc_exception );
 
 } // koinos::chain

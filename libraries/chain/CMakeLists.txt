@@ -4,6 +4,7 @@ add_library(koinos_chain_lib
             event_recorder.cpp
             execution_context.cpp
             host_api.cpp
+            pending_state.cpp
             session.cpp
             system_calls.cpp
             thunk_dispatcher.cpp
