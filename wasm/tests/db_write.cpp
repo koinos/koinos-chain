@@ -6,6 +6,8 @@ using namespace std::string_literals;
 
 int main()
 {
-   koinos::system::detail::put_object( "\x01"s, "\x00"s, koinos::system::get_contract_args() );
+   koinos::system::object_space space;
+   space.set_system( true );
+   koinos::system::detail::put_object( space, "\x00"s, koinos::system::get_contract_arguments() );
    return 0;
 }
