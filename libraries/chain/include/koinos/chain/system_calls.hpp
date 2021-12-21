@@ -64,9 +64,10 @@ THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system
 THUNK_DECLARE( void, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
 
 THUNK_DECLARE( put_object_result, put_object, const object_space& space, const std::string& key, const std::string& obj );
-THUNK_DECLARE( get_object_result, get_object, const object_space& space, const std::string& key, uint32_t object_size_hint = 0 );
-THUNK_DECLARE( get_next_object_result, get_next_object, const object_space& space, const std::string& key, uint32_t object_size_hint = 0 );
-THUNK_DECLARE( get_prev_object_result, get_prev_object, const object_space& space, const std::string& key, uint32_t object_size_hint = 0 );
+THUNK_DECLARE( void, remove_object, const object_space& space, const std::string& key );
+THUNK_DECLARE( get_object_result, get_object, const object_space& space, const std::string& key );
+THUNK_DECLARE( get_next_object_result, get_next_object, const object_space& space, const std::string& key );
+THUNK_DECLARE( get_prev_object_result, get_prev_object, const object_space& space, const std::string& key );
 
 THUNK_DECLARE( call_contract_result, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 

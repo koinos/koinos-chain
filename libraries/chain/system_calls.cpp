@@ -39,6 +39,7 @@ void register_thunks( thunk_dispatcher& td )
       (apply_set_system_contract_operation)
 
       (put_object)
+      (remove_object)
       (get_object)
       (get_next_object)
       (get_prev_object)
@@ -147,7 +148,7 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
       privilege::kernel_mode,
       [&]() {
          auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-         chain_id = util::converter::to< crypto::multihash >( obj );
+         chain_id = util::converter::to< crypto::multihash >( obj.value() );
       }
    );
 
@@ -438,7 +439,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ) );
+   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
@@ -452,9 +453,11 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    if ( o.target().has_system_call_bundle() )
    {
-      auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
-      KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
-      auto contract_meta = util::converter::to< contract_metadata_object >( system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() ) );
+      auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
+      KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
+      auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() );
+      KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
+      auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
       KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
       KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
@@ -481,7 +484,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ) );
+   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
@@ -493,9 +496,11 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
       "transaction does not have the required authority to override system calls"
    );
 
-   auto contract = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
-   KOINOS_ASSERT( contract.size(), invalid_contract, "contract does not exist" );
-   auto contract_meta = util::converter::to< contract_metadata_object >( system_call::get_object( context, state::space::contract_metadata(), o.contract_id() ) );
+   auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
+   KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
+   auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
+   KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract does not exist" );
+   auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
    KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
 
    contract_meta.set_system( o.system_contract() );
@@ -516,12 +521,26 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
    auto val = util::converter::as< state_db::object_value >( obj );
 
    put_object_result ret;
-   ret.set_value( state->put_object( space, key, val.size() ? &val : nullptr ) != val.size() );
+   ret.set_value( state->put_object( space, key, &val ) != val.size() );
 
    return ret;
 }
 
-THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::string&) key) )
+{
+   KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot remove object during read only call" );
+
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
+
+   state::assert_permissions( context, space );
+
+   auto state = context.get_state_node();
+   KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
+
+   state->remove_object( space, key );
+}
+
+THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (const std::string&) key) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
@@ -537,13 +556,14 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
    if( result )
    {
-      ret.set_value( result->data(), result->size() );
+      ret.mutable_value()->set_exists( true );
+      ret.mutable_value()->set_value( result->data(), result->size() );
    }
 
    return ret;
 }
 
-THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) space, (const std::string&) key) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
@@ -558,13 +578,15 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
 
    if( result )
    {
-      ret.set_value( result->data(), result->size() );
+      ret.mutable_value()->set_exists( true );
+      ret.mutable_value()->set_value( result->data(), result->size() );
+      ret.mutable_value()->set_key( next_key );
    }
 
    return ret;
 }
 
-THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) space, (const std::string&) key, (uint32_t) object_size_hint) )
+THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) space, (const std::string&) key) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
@@ -579,7 +601,9 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 
    if( result )
    {
-      ret.set_value( result->data(), result->size() );
+      ret.mutable_value()->set_exists( true );
+      ret.mutable_value()->set_value( result->data(), result->size() );
+      ret.mutable_value()->set_key( next_key );
    }
 
    return ret;
@@ -590,18 +614,18 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    // We need to be in kernel mode to read the contract data
-   std::string contract_bytecode;
+   database_object contract_object;
    contract_metadata_object contract_meta;
    with_privilege(
       context,
       privilege::kernel_mode,
       [&]()
       {
-         contract_bytecode = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
-         KOINOS_ASSERT( contract_bytecode.size(), invalid_contract, "contract does not exist" );
-         auto contract_meta_bytes = system_call::get_object( context, state::space::contract_metadata(), contract_id );
-         KOINOS_ASSERT( contract_meta_bytes.size(), invalid_contract, "contract metadata does not exist" );
-         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_bytes );
+         contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
+         KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
+         auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), contract_id );
+         KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
+         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
          KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
       }
    );
@@ -617,7 +641,7 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    try
    {
       chain::host_api hapi( context );
-      context.get_backend()->run( hapi, contract_bytecode, contract_meta.hash() );
+      context.get_backend()->run( hapi, contract_object.value(), contract_meta.hash() );
    }
    catch( const exit_success& ) {}
    catch( ... ) {
@@ -686,8 +710,8 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
          context,
          privilege::kernel_mode,
          [&]() {
-            auto val = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
-            uint64_t time = val.size() > 0 ? util::converter::to< uint64_t >( val ) : 0;
+            auto head_info_object = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
+            uint64_t time = head_info_object.exists() ? util::converter::to< uint64_t >( head_info_object.value() ) : 0;
             hi.set_head_block_time( time );
          }
       );
@@ -849,8 +873,8 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
 
    get_account_nonce_result ret;
 
-   if ( obj.size() > 0 )
-      ret.set_value( util::converter::to< uint64_t >( obj ) );
+   if ( obj.exists() )
+      ret.set_value( util::converter::to< uint64_t >( obj.value() ) );
    else
       ret.set_value( 0 );
 

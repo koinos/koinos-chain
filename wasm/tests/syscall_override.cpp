@@ -1,8 +1,10 @@
+
+#include <utility>
+
 #include <stdint.h>
 #include <string.h>
 
-#define KOINOS_SYSTEM_CALL_ID_get_contract_args 15
-#define KOINOS_THUNK_ID_prints 1
+#include <koinos/protocol/system_call_ids.h>
 
 char prepend[] = "test: ";
 #define PREPEND_LEN 6
@@ -36,13 +38,13 @@ void prints( char* msg )
 
    args[1] = (uint8_t)(i + PREPEND_LEN);
 
-   invoke_thunk( KOINOS_THUNK_ID_prints, 0, 0, args, i + PREPEND_LEN + 2 );
+   invoke_thunk( std::underlying_type_t< koinos::protocol::system_call_id >( koinos::protocol::system_call_id::prints ), 0, 0, args, i + PREPEND_LEN + 2 );
 }
 
 int main()
 {
    char message[65];
    memset( message, 0, 65 );
-   invoke_system_call( KOINOS_SYSTEM_CALL_ID_get_contract_args, message, 63, 0, 0 );
+   invoke_system_call( std::underlying_type_t< koinos::protocol::system_call_id >( koinos::protocol::system_call_id::get_contract_arguments ), message, 63, 0, 0 );
    prints( message + 4 );
 }
