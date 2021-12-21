@@ -53,7 +53,7 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      std::pair< const object_value*, const object_key& > get_next_object( const object_space& space, const object_key& key ) const;
+      std::pair< const object_value*, const object_key > get_next_object( const object_space& space, const object_key& key ) const;
 
       /**
        * Get the previous object.
@@ -63,16 +63,20 @@ class abstract_state_node
        * - If buf is too small, buf is unchanged, however result is still updated
        * - Found key is written into result
        */
-      std::pair< const object_value*, const object_key& > get_prev_object( const object_space& space, const object_key& key ) const;
+      std::pair< const object_value*, const object_key > get_prev_object( const object_space& space, const object_key& key ) const;
 
       /**
        * Write an object into the state_node.
        *
        * - Fail if node is not writable.
        * - If object exists, object is overwritten.
-       * - If buf == nullptr, object is deleted.
        */
       int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
+
+      /**
+       * Remove an object from the state_node
+       */
+      void remove_object( const object_space& space, const object_key& key );
 
       /**
        * Return true if the node is writable.

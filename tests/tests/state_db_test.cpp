@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_CHECK_EQUAL( *ptr, "alicia" );
 
    BOOST_TEST_MESSAGE( "Erasing object" );
-   BOOST_CHECK_EQUAL( state_2->put_object( space, a_key, nullptr ), -1 * a_val.size() );
+   state_2->remove_object( space, a_key );
 
    BOOST_CHECK( !state_2->get_object( space, a_key ) );
 
@@ -718,7 +718,7 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
 
    state_2->put_object( space, a_key, &a_val );
    state_2->put_object( space, d_key, &d_val );
-   state_2->put_object( space, b_key, nullptr );
+   state_2->remove_object( space, b_key );
 
    chain::database_key d_db_key;
    *d_db_key.mutable_space() = space;

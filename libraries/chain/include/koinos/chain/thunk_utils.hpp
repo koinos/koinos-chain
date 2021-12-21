@@ -244,26 +244,25 @@ namespace koinos::chain::detail {
       uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
                                                                                                                      \
       auto _key = util::converter::as< std::string >( _sid );                                                        \
-      std::string _blob_target;                                                                                      \
+      database_object _object;                                                                                       \
                                                                                                                      \
       with_privilege(                                                                                                \
          context,                                                                                                    \
          privilege::kernel_mode,                                                                                     \
          [&]() {                                                                                                     \
-            _blob_target = thunk::_get_object(                                                                       \
+            _object = thunk::_get_object(                                                                            \
                context,                                                                                              \
                state::space::system_call_dispatch(),                                                                 \
-               _key,                                                                                                 \
-               state::system_call_dispatch::max_object_size                                                          \
+               _key                                                                                                  \
             ).value();                                                                                               \
          }                                                                                                           \
       );                                                                                                             \
                                                                                                                      \
       protocol::system_call_target _target;                                                                          \
                                                                                                                      \
-      if ( _blob_target.size() )                                                                                     \
+      if ( _object.exists() )                                                                                        \
       {                                                                                                              \
-         _target.ParseFromString( _blob_target );                                                                    \
+         _target.ParseFromString( _object.value() );                                                                 \
       }                                                                                                              \
       else                                                                                                           \
       {                                                                                                              \
