@@ -546,7 +546,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   auto result = _db.get_head()->get_object( state::space::metadata(), state::key::chain_id );
+   auto result = _pending_state.get_state_node()->get_object( state::space::metadata(), state::key::chain_id );
 
    KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
 
@@ -620,7 +620,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _pending_state.get_state_node() );
 
    auto value = system_call::get_resource_limits( ctx );
 
@@ -642,7 +642,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _pending_state.get_state_node() );
 
    auto value = system_call::get_account_rc( ctx, request.account() );
 
@@ -675,17 +675,13 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "contract_id") );
 
-   state_db::state_node_ptr head_node;
-
-   head_node = _db.get_head();
-
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
       .system = true,
       .call_privilege = privilege::user_mode,
    } );
 
-   ctx.set_state_node( head_node );
+   ctx.set_state_node( _pending_state.get_state_node() );
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( 10'000'000 );
@@ -714,7 +710,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _pending_state.get_state_node() );
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() );
 
