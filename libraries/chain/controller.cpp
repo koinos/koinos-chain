@@ -367,9 +367,21 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
    }
-   catch ( const std::exception& e )
+   catch ( const koinos::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
+
+      if ( _client && _client->is_running() )
+      {
+         auto exception_data = e.get_json();
+
+         if ( exception_data.count( "transaction_id" ) )
+         {
+            broadcast::transaction_failed ptf;
+            ptf.set_id( exception_data[ "transaction_id" ] );
+            _client->broadcast( "koinos.transaction.fail", util::converter::as< std::string >( ptf ) );
+         }
+      }
 
       auto output = ctx.get_pending_console_output();
 

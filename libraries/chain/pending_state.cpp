@@ -64,8 +64,8 @@ void pending_state::rebuild( state_db::state_node_ptr head )
          }
          catch ( const std::exception& e )
          {
-            broadcast::pending_transaction_failed ptf;
-            *ptf.mutable_transaction() = ptransaction.transaction();
+            broadcast::transaction_failed ptf;
+            ptf.set_id( ptransaction.transaction().id() );
             _client->broadcast( "koinos.transaction.fail", util::converter::as< std::string >( ptf ) );
          }
       }
