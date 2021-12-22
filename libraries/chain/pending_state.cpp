@@ -26,12 +26,11 @@ void pending_state::set_client( std::shared_ptr< mq::client > client )
 
 void pending_state::rebuild( state_db::state_node_ptr head )
 {
-   LOG(info) << "Rebuilding pending state";
+   LOG(debug) << "Rebuilding pending state";
    _pending_state = head->create_anonymous_node();
 
    if ( _client && _client->is_running() )
    {
-      LOG(info) << "Retrieving pending transactions from mempool";
       rpc::mempool::mempool_request req;
       req.mutable_get_pending_transactions();
 
@@ -54,9 +53,13 @@ void pending_state::rebuild( state_db::state_node_ptr head )
 
       const auto& pending_trxs = resp.get_pending_transactions();
 
+      LOG(debug) << "Retrieved " << pending_trxs.pending_transactions_size() << " transaction(s) from the mempool for reapplication";
+
+      auto resource_limits = system_call::get_resource_limits( ctx );
+
       for ( const auto& ptransaction : pending_trxs.pending_transactions() )
       {
-         ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
+         ctx.resource_meter().set_resource_limit_data( resource_limits );
 
          try
          {
