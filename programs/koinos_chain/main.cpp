@@ -154,7 +154,7 @@ void attach_request_handler(
             {
                auto error = resp.mutable_error();
                error->set_message( e.what() );
-               error->set_data( e.get_json() );
+               error->set_data( e.get_json().dump() );
             }
             catch( std::exception& e )
             {
