@@ -134,7 +134,7 @@ THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
    }
 }
 
-THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const std::string&) id, (const std::string&) active_data, (const std::string&) signature_data) )
+THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const std::string&) id, (const protocol::block_header&) header, (const std::string&) signature_data) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -213,7 +213,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       system_call::process_block_signature(
          context,
          util::converter::as< std::string >( block_hash ),
-         util::converter::as< std::string >( block.header() ),
+         block.header(),
          block.signature()
       ),
       invalid_block_signature,
