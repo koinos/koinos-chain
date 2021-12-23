@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ) == false );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), object_data.size() );
    auto db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( object_data == "object1" );
 
@@ -216,13 +216,13 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test object modification" );
    object_data = "object1.1"s;
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ) == true );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), object_data.size() - "object1"s.size() );
    db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.value() == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ) == true );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), int64_t( "object1.1"s.size() ) * -1 );
    db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.exists() );
    BOOST_REQUIRE( db_obj.value().size() == 0 );
