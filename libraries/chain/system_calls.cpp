@@ -511,7 +511,6 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot put object during read only call" );
 
-   context.resource_meter().use_disk_storage( obj.size() );
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    state::assert_permissions( context, space );
@@ -520,8 +519,13 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    auto val = util::converter::as< state_db::object_value >( obj );
 
+   auto bytes_used = state->put_object( space, key, &val );
+
+   if ( bytes_used > 0 )
+      context.resource_meter().use_disk_storage( bytes_used );
+
    put_object_result ret;
-   ret.set_value( state->put_object( space, key, &val ) != val.size() );
+   ret.set_value( bytes_used );
 
    return ret;
 }
