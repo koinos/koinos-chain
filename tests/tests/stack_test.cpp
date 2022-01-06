@@ -15,6 +15,7 @@
 #include <koinos/tests/wasm/stack/simple_user_contract.hpp>
 #include <koinos/tests/wasm/stack/stack_assertion.hpp>
 #include <koinos/tests/wasm/stack/syscall_from_user.hpp>
+#include <koinos/tests/wasm/stack/user_calling_user.hpp>
 
 #include <koinos/util/hex.hpp>
 
@@ -194,5 +195,36 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    chain::system_call::apply_transaction( ctx, trx );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( user_from_user )
+{
+   // User contract checks if being called from user mode then asserts it is in user mode
+
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
+   koinos::protocol::transaction trx;
+   protocol::upload_contract_operation upload_op;
+   upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)simple_user_contract_wasm, simple_user_contract_wasm_len ) );
+   sign_transaction( trx, user_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   auto calling_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "calling_key"s ) );
+   upload_op.set_contract_id( util::converter::as< std::string >( calling_key.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)user_calling_user_wasm, user_calling_user_wasm_len ) );
+   sign_transaction( trx, calling_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_nonce( 0 );
+   auto call_op = trx.add_operations()->mutable_call_contract();
+   call_op->set_contract_id( upload_op.contract_id() );
+   set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx, calling_key );
+
+   ctx.set_transaction( trx );
+   chain::system_call::apply_transaction( ctx, trx );
+}
 
 BOOST_AUTO_TEST_SUITE_END()
