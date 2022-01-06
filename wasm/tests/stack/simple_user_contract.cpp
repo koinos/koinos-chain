@@ -14,7 +14,7 @@ int main()
    if ( privilege != koinos::chain::privilege::user_mode )
       return 1;
 
-   koinos::system::call_contract( stack_assertion_id, 0, std::string() );
+   koinos::system::call_contract( stack_assertion_id, 0, "\x00"s );
 
    return 0;
 }
