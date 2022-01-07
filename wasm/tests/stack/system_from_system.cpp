@@ -10,11 +10,13 @@ int main()
    auto args = koinos::system::get_contract_arguments();
    const auto [ caller, privilege ] = koinos::system::get_caller();
 
-   // zero is user mode, non-zero is kernel mode
-   if ( privilege != koinos::chain::privilege::user_mode )
+   if ( privilege != koinos::chain::privilege::kernel_mode )
+   {
+      koinos::system::print( "expected kernel mode, was user mode" );
       return 1;
+   }
 
-   koinos::system::call_contract( stack_assertion_id, 0, "\x00"s );
+   koinos::system::call_contract( stack_assertion_id, 0, "\x01"s );
 
    return 0;
 }

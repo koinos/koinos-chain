@@ -9,18 +9,28 @@
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/elliptic.hpp>
 
 #include <koinos/tests/wasm/hello.hpp>
 #include <koinos/tests/wasm/stack/simple_user_contract.hpp>
 #include <koinos/tests/wasm/stack/stack_assertion.hpp>
 #include <koinos/tests/wasm/stack/syscall_from_user.hpp>
+#include <koinos/tests/wasm/stack/user_calling_syscall.hpp>
 #include <koinos/tests/wasm/stack/user_calling_user.hpp>
 
 #include <koinos/util/hex.hpp>
 
 using namespace koinos;
 using namespace std::string_literals;
+
+/**
+ * For these tests, we sometimes need to override system calls.
+ * The ones chosen for this are set_contract_result and event because both have void return types
+ * and are not needed for these tests.
+ *
+ * prints also has a void return type, but is used for logging error messages by the contracts
+ */
 
 struct stack_fixture
 {
@@ -122,6 +132,15 @@ void stack_fixture::sign_transaction( protocol::transaction& transaction, crypto
    transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
 }
 
+namespace koinos::chain::thunk {
+
+void dummy_thunk( execution_context& ctx, const std::string& )
+{
+   system_call::event( ctx, "foo", "bar", std::vector< std::string >() );
+}
+
+} // koinos::chain::thunk
+
 BOOST_FIXTURE_TEST_SUITE( stack_tests, stack_fixture )
 
 BOOST_AUTO_TEST_CASE( simple_user_contract )
@@ -173,16 +192,19 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::prints ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)hello_wasm, hello_wasm_len ) );
+   upload_op.set_bytecode( std::string( (const char*)user_calling_syscall_wasm, user_calling_syscall_wasm_len ) );
    sign_transaction( trx, user_key );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   // We need to update the state node after a system call override
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
@@ -192,7 +214,14 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    sign_transaction( trx, user_key );
 
    ctx.set_transaction( trx );
-   chain::system_call::apply_transaction( ctx, trx );
+   try
+   {
+      chain::system_call::apply_transaction( ctx, trx );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( ctx.get_pending_console_output() );
+   }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -225,6 +254,19 @@ BOOST_AUTO_TEST_CASE( user_from_user )
 
    ctx.set_transaction( trx );
    chain::system_call::apply_transaction( ctx, trx );
+}
+
+BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
+{
+   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::prints_arguments, chain::prints_result >( 99, chain::thunk::dummy_thunk );
+
+   // Upload and override event
+
+   // Override print with dummy_thunk
+
+   // Upload user contract
+
+   // Call user contract
 }
 
 BOOST_AUTO_TEST_SUITE_END()

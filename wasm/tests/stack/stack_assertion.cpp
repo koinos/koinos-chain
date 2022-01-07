@@ -8,7 +8,18 @@ int main()
 
    // zero is user mode, non-zero is kernel mode
    if ( args.c_str()[0] == 0 != ( privilege == koinos::chain::privilege::user_mode ) )
+   {
+      if ( args.c_str()[0] == 0 )
+      {
+         koinos::system::print( "expected user mode, was kernel mode" );
+      }
+      else
+      {
+         koinos::system::print( "expected kernel mode, was user mode" );
+      }
+
       return 1;
+   }
 
    return 0;
 }
