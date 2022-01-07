@@ -7,7 +7,7 @@ int main()
    const auto [ caller, privilege ] = koinos::system::get_caller();
 
    // zero is user mode, non-zero is kernel mode
-   if ( args.c_str()[0] == 0 != ( privilege == koinos::chain::privilege::user_mode ) )
+   if ( ( args.c_str()[0] == 0 ) != ( privilege == koinos::chain::privilege::user_mode ) )
    {
       if ( args.c_str()[0] == 0 )
       {

@@ -223,6 +223,23 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
       BOOST_FAIL( ctx.get_pending_console_output() );
    }
 
+   set_system_op.set_contract_id( call_op->contract_id() );
+   sign_transaction( trx, _genesis_private_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   trx.mutable_header()->set_nonce( 1 );
+   set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx, user_key );
+
+   ctx.set_transaction( trx );
+   try
+   {
+      chain::system_call::apply_transaction( ctx, trx );
+      BOOST_FAIL( "no reversion when called from system context" );
+   }
+   catch ( ... ) { /* do nothing, success */ }
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( user_from_user )
@@ -253,7 +270,34 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    sign_transaction( trx, calling_key );
 
    ctx.set_transaction( trx );
-   chain::system_call::apply_transaction( ctx, trx );
+   try
+   {
+      chain::system_call::apply_transaction( ctx, trx );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( ctx.get_pending_console_output() );
+   }
+
+   protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( upload_op.contract_id() );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _genesis_private_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   trx.mutable_header()->set_nonce( 1 );
+   set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx, user_key );
+
+   ctx.set_transaction( trx );
+   try
+   {
+      chain::system_call::apply_transaction( ctx, trx );
+      BOOST_FAIL( "no reversion when called from system context" );
+   }
+   catch ( ... ) { /* do nothing, success */ }
 }
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
