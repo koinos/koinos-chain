@@ -10,9 +10,9 @@ int main()
    auto args = koinos::system::get_contract_arguments();
    const auto [ caller, privilege ] = koinos::system::get_caller();
 
-   if ( privilege != koinos::chain::privilege::user_mode )
+   if ( privilege != koinos::chain::privilege::kernel_mode )
    {
-      koinos::system::print( "expected user mode, was kernel mode" );
+      koinos::system::print( "expected kernel mode, was user mode" );
       return 1;
    }
 
