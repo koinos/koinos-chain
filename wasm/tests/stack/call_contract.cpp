@@ -3,11 +3,11 @@
 
 using namespace std::string_literals;
 
-const std::string user_contract = "\x00\xeb\xfd\x98\x40\x48\xd9\xb6\xc8\x4b\x29\xea\x8b\x9e\xa3\x9e\x5c\x45\xeb\x92\xc0\x63\xc7\xcc\x8f"s;
+const std::string contract_id = "\x00\x4c\x6c\x3b\xf1\x6e\x47\xa2\x54\xe3\x41\x27\x0c\x00\x6c\x01\x4d\x09\x6d\x34\x6c\xb9\xb4\x6a\xcf"s;
 
 int main()
 {
-   koinos::system::call_contract( user_contract, 0, std::string() );
+   koinos::system::call_contract( contract_id, 0, std::string() );
 
    return 0;
 }

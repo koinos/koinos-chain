@@ -146,10 +146,16 @@ BOOST_FIXTURE_TEST_SUITE( stack_tests, stack_fixture )
 
 BOOST_AUTO_TEST_CASE( simple_user_contract )
 { try {
+   /**
+    * Top User Contract (User Mode, read from DB)
+    * |  Call Contract (Drop to User Mode)
+    * V  Apply Transaction (Kernel Mode)
+    */
+
    // User contract checks caller is in user mode (apply_transaction dropping to user)
    // And then asserts it is in user mode
 
-   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    koinos::protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
@@ -172,6 +178,14 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
 
 BOOST_AUTO_TEST_CASE( syscall_from_user )
 { try {
+   /**
+    * Top System Call (Kernel Mode, read from DB)
+    * |  < Call Contract, but no stack frame >
+    * |  User Code (User Mode, read from DB)
+    * |  Call Contract (Drop to User Mode)
+    * V  Apply Transaction (Kernel Mode)
+    */
+
    // Syscall override checks caller is in user mode (user contract calling to syscall)
    // And then asserts it is in kernel mode
 
@@ -198,7 +212,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
-   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
    sign_transaction( trx, user_key );
@@ -245,9 +259,16 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
 
 BOOST_AUTO_TEST_CASE( user_from_user )
 {
+   /**
+    * Top User Code (User Mode, read from DB)
+    * |  Call Contract (User Mode, inherited)
+    * |  User Code (User Mode, read from DB)
+    * |  Call Contract (Drop to User Mode)
+    * V  Apply Transaction (Kernel Mode)
+    */
    // User contract checks if being called from user mode then asserts it is in user mode
 
-   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    koinos::protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
@@ -303,6 +324,14 @@ BOOST_AUTO_TEST_CASE( user_from_user )
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 {
+   /**
+    * Top System Call (Kernel Mode, read from DB )
+    * |  < Call Contract, but no stack frame >
+    * |  System Call (Kernel Mode, implicit)
+    * |  User Code (User Mode, read from DB)
+    * |  Call Contract (Drop to User Mode)
+    * V  Apply Transaction (Kernel Mode)
+    */
    const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::prints_arguments, chain::prints_result >( 99, chain::thunk::dummy_thunk );
 
    // Upload and override event
@@ -335,7 +364,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
    // Upload user contract
-   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
    sign_transaction( trx, user_key );
@@ -365,6 +394,16 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
 {
+   /**
+    * Top System Call (Kernel Mode, read from DB )
+    * |  < Call Contract, but no stack frame >
+    * |  System Call (Kernel Mode, read from DB)
+    * |  < Call Contract, but no stack frame >
+    * |  User Code (User Mode, read from DB)
+    * |  Call Contract (Kernel Mode, inherited)
+    * V  Apply Transaction (Kernel Mode)
+    */
+
    // Upload and override event
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
    protocol::transaction trx;
@@ -408,6 +447,86 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   // Upload user contract
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
+   upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
+   sign_transaction( trx, user_key );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   // Call user contract
+   // We need to update the state node after a system call override
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+
+   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_nonce( 0 );
+   auto call_op = trx.add_operations()->mutable_call_contract();
+   call_op->set_contract_id( upload_op.contract_id() );
+   set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx, user_key );
+
+   ctx.set_transaction( trx );
+   try
+   {
+      chain::system_call::apply_transaction( ctx, trx );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( ctx.get_pending_console_output() );
+   }
+}
+
+BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
+{
+   /**
+    * Top System Contract (Kernel Mode, read from DB )
+    * |  < Call Contract, but no stack frame >
+    * |  System Call (Kernel Mode, read from DB)
+    * |  < Call Contract, but no stack frame >
+    * |  User Code (User Mode, read from DB)
+    * |  Call Contract (Kernel Mode, inherited)
+    * V  Apply Transaction (Kernel Mode)
+    */
+
+   // Upload and override set_contract_result
+   auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
+   protocol::transaction trx;
+   protocol::upload_contract_operation upload_op;
+   upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)call_contract_wasm, call_contract_wasm_len ) );
+   sign_transaction( trx, override_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( upload_op.contract_id() );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _genesis_private_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   protocol::set_system_call_operation set_syscall_op;
+   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
+   chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   // Upload system contract
+   auto system_contract = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
+   upload_op.set_contract_id( util::converter::as< std::string >( system_contract.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)system_from_system_wasm, system_from_system_wasm_len ) );
+   sign_transaction( trx, system_contract );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   set_system_op.set_contract_id( upload_op.contract_id() );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _genesis_private_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    // Upload user contract
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
