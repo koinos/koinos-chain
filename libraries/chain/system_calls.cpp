@@ -401,7 +401,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    KOINOS_ASSERT(
       sig_account == o.contract_id(),
       invalid_signature,
-      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
+      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", util::to_base58( o.contract_id() ))("signer_hash", util::to_base58( sig_account ))
    );
 
    contract_metadata_object contract_meta;

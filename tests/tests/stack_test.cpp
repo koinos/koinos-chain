@@ -14,6 +14,7 @@
 
 #include <koinos/tests/wasm/stack/call_contract.hpp>
 #include <koinos/tests/wasm/stack/call_system_call.hpp>
+#include <koinos/tests/wasm/stack/call_system_call2.hpp>
 #include <koinos/tests/wasm/stack/stack_assertion.hpp>
 #include <koinos/tests/wasm/stack/system_from_user.hpp>
 #include <koinos/tests/wasm/stack/system_from_system.hpp>
@@ -360,13 +361,69 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    {
       BOOST_FAIL( ctx.get_pending_console_output() );
    }
+}
 
-   set_system_op.set_contract_id( call_op->contract_id() );
+BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
+{
+   // Upload and override event
+   auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
+   protocol::transaction trx;
+   protocol::upload_contract_operation upload_op;
+   upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)system_from_system_wasm, system_from_system_wasm_len ) );
+   sign_transaction( trx, override_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( upload_op.contract_id() );
+   set_system_op.set_system_contract( true );
+
    sign_transaction( trx, _genesis_private_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   trx.mutable_header()->set_nonce( 1 );
+   protocol::set_system_call_operation set_syscall_op;
+   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::event ) );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
+   chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   // Upload and override set_contract_result
+   auto override_key2 = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key2"s ) );
+   upload_op.set_contract_id( util::converter::as< std::string >( override_key2.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)call_system_call2_wasm, call_system_call2_wasm_len ) );
+   sign_transaction( trx, override_key2 );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   set_system_op.set_contract_id( upload_op.contract_id() );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _genesis_private_key );
+   ctx.set_transaction( trx );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
+   chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   // Upload user contract
+   auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
+   upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
+   upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
+   sign_transaction( trx, user_key );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   // Call user contract
+   // We need to update the state node after a system call override
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+
+   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_nonce( 0 );
+   auto call_op = trx.add_operations()->mutable_call_contract();
+   call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx, user_key );
 
@@ -374,9 +431,11 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    try
    {
       chain::system_call::apply_transaction( ctx, trx );
-      BOOST_FAIL( "no reversion when called from system context" );
    }
-   catch ( ... ) { /* do nothing, success */ }
+   catch ( ... )
+   {
+      BOOST_FAIL( ctx.get_pending_console_output() );
+   }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
