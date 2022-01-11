@@ -52,7 +52,7 @@ struct thunk_fixture
       auto seed = "test seed"s;
       _signing_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, seed ) );
 
-      chain::genesis_data genesis_data;
+      /*chain::genesis_data genesis_data;
       auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address_bytes() );
       genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< std::string >( chain_id );
 
@@ -69,7 +69,7 @@ struct thunk_fixture
                "encountered unexpected object in initial state"
             );
          }
-      } );
+      } );*/
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
       ctx.push_frame( chain::stack_frame {

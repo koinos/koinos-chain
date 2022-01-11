@@ -15,15 +15,13 @@ namespace koinos::chain {
 
 namespace detail { class controller_impl; }
 
-using genesis_data = std::map< std::pair< state_db::object_space, state_db::object_key >, state_db::object_value >;
-
 class controller final
 {
    public:
       controller();
       ~controller();
 
-      void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset );
       void set_client( std::shared_ptr< mq::client > c );
 
       rpc::chain::submit_block_response submit_block(

@@ -95,21 +95,32 @@ controller_impl::~controller_impl()
    _db.close();
 }
 
-void controller_impl::open( const std::filesystem::path& p, const genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
    _db.open( p, [&]( state_db::state_node_ptr root )
    {
-      for ( const auto& entry : data )
+      // Write genesis objects into the database
+      for ( const auto& entry : data.entries() )
       {
          KOINOS_ASSERT(
-            root->put_object( entry.first.first, entry.first.second, &entry.second ) == entry.second.size(),
+            root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
             koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
       }
-      LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
+      LOG(info) << "Wrote " << data.entries().size() << " genesis objects into new database";
+
+      // Calculate and write the chain ID into the database
+      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, data.SerializeAsString() );
+      auto chain_id_str = util::converter::as< std::string >( chain_id );
+      KOINOS_ASSERT(
+         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+         koinos::chain::unexpected_state,
+         "encountered unexpected chain id in initial state"
+      );
+      LOG(info) << "Wrote chain id into new database";
    } );
 
    if ( reset )
@@ -722,7 +733,7 @@ controller::controller() : _my( std::make_unique< detail::controller_impl >() ) 
 
 controller::~controller() = default;
 
-void controller::open( const std::filesystem::path& p, const genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
 {
    _my->open( p, data, reset );
 }

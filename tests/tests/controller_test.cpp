@@ -40,8 +40,8 @@ struct controller_fixture
       std::filesystem::create_directory( _state_dir );
 
       chain::genesis_data genesis_data;
-      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< state_db::object_value >( chain_id );
+      //auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
+      //genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< state_db::object_value >( chain_id );
 
       _controller.open( _state_dir, genesis_data, false );
    }
