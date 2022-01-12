@@ -52,24 +52,20 @@ struct thunk_fixture
       auto seed = "test seed"s;
       _signing_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, seed ) );
 
-      /*chain::genesis_data genesis_data;
-      auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< std::string >( chain_id );
-
+      chain::genesis_data genesis_data;
       db.open( temp, [&]( state_db::state_node_ptr root )
       {
-         for ( const auto& entry : genesis_data )
+         for ( const auto& entry : genesis_data.entries() )
          {
-            auto value = util::converter::as< state_db::object_value >( entry.second );
-            auto res = root->put_object( entry.first.first, entry.first.second, &value );
+            auto res = root->put_object( entry.space(), entry.key(), &entry.value() );
 
             KOINOS_ASSERT(
-               res == value.size(),
+               res == entry.value().size(),
                chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
          }
-      } );*/
+      } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
       ctx.push_frame( chain::stack_frame {
