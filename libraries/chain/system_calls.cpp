@@ -138,7 +138,7 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   crypto::multihash chain_id;
+   crypto::multihash genesis_key;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
@@ -147,13 +147,13 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
       context,
       privilege::kernel_mode,
       [&]() {
-         auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-         chain_id = util::converter::to< crypto::multihash >( obj.value() );
+         auto obj = system_call::get_object( context, state::space::metadata(), state::key::genesis_key );
+         genesis_key = util::converter::to< crypto::multihash >( obj.value() );
       }
    );
 
    process_block_signature_result ret;
-   ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
+   ret.set_value( genesis_key == crypto::public_key::recover( sig, block_id ).to_address_bytes() );
    return ret;
 }
 
@@ -439,14 +439,14 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
+   auto genesis_key = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value() );
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      genesis_key == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
@@ -484,14 +484,14 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
+   auto genesis_key = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value() );
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      genesis_key == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
