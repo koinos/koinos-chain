@@ -104,6 +104,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       // Write genesis objects into the database
       for ( const auto& entry : data.entries() )
       {
+         LOG(info) << util::to_base58( entry.key() );
          KOINOS_ASSERT(
             root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
             koinos::chain::unexpected_state,
@@ -111,6 +112,13 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
          );
       }
       LOG(info) << "Wrote " << data.entries().size() << " genesis objects into new database";
+
+      // Read genesis public key from the database, assert its existence at the correct location
+      KOINOS_ASSERT(
+         root->get_object( state::space::metadata(), state::key::genesis_key ),
+         koinos::chain::unexpected_state,
+         "could not find genesis public key in database"
+      );
 
       // Calculate and write the chain ID into the database
       auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, data.SerializeAsString() );
