@@ -90,13 +90,13 @@ class execution_context
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
 
-      const std::string& get_caller() const;
+      std::pair< const std::string*, uint32_t > get_caller() const;
       privilege get_caller_privilege() const;
 
       void set_privilege( privilege );
       privilege get_privilege() const;
 
-      bool get_system() const;
+      // bool get_system() const;
 
       const std::string& get_contract_id() const;
 

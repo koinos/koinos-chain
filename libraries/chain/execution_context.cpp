@@ -137,24 +137,18 @@ stack_frame execution_context::pop_frame()
    return frame;
 }
 
-const std::string& execution_context::get_caller() const
+std::pair< const std::string*, uint32_t > execution_context::get_caller() const
 {
-   for ( int32_t i = _stack.size() - 1; i >= 0; --i )
-   {
-      if ( !_stack[ i ].system )
-         return _stack[ i ].contract_id;
-   }
+   if ( _stack.size() > 1 )
+      return std::make_pair( &_stack[ _stack.size() - 2 ].contract_id, _stack[ _stack.size() - 2 ].sid );
 
-   return constants::system;
+   return std::make_pair( &constants::system, 0 );
 }
 
 privilege execution_context::get_caller_privilege() const
 {
-   for ( int32_t i = _stack.size() - 1; i >= 0; --i )
-   {
-      if ( !_stack[ i ].system )
-         return _stack[ i ].call_privilege;
-   }
+   if ( _stack.size() > 1 )
+      return _stack[ _stack.size() - 2 ].call_privilege;
 
    return privilege::kernel_mode;
 }
@@ -171,11 +165,11 @@ privilege execution_context::get_privilege() const
    return _stack[ _stack.size() - 1 ].call_privilege;
 }
 
-bool execution_context::get_system() const
-{
-   KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
-   return _stack[ _stack.size() - 1 ].system;
-}
+// bool execution_context::get_system() const
+// {
+//    KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
+//    return _stack[ _stack.size() - 1 ].system;
+// }
 
 const std::string& execution_context::get_contract_id() const
 {

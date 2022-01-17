@@ -271,16 +271,16 @@ namespace koinos::chain::detail {
                                                                                                                      \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                    \
                                                                                                                      \
-      if ( _target.thunk_id() )                                                                                      \
-      {                                                                                                              \
-         with_stack_frame (                                                                                          \
-            context,                                                                                                 \
-            stack_frame {                                                                                            \
-               .sid = _sid,                                                                                          \
-               .system = true,                                                                                       \
-               .call_privilege = context.get_privilege(),                                                            \
-            },                                                                                                       \
-            [&]() {                                                                                                  \
+      with_stack_frame (                                                                                          \
+         context,                                                                                                 \
+         stack_frame {                                                                                            \
+            .sid = _sid,                                                                                          \
+            .system = true,                                                                                       \
+            .call_privilege = privilege::kernel_mode                                                              \
+         },                                                                                                       \
+         [&]() {                                                                                                  \
+            if ( _target.thunk_id() )                                                                                      \
+            {                                                                                                             \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
                   thunk_dispatcher::instance().call_thunk<                                                           \
                      RETURN_TYPE                                                                                     \
@@ -288,23 +288,23 @@ namespace koinos::chain::detail {
                         _sid,                                                                                        \
                         context                                                                                      \
                         FWD );                                                                                       \
-            }                                                                                                        \
-         );                                                                                                          \
-      }                                                                                                              \
-      else if ( _target.has_system_call_bundle() )                                                                   \
-      {                                                                                                              \
-         const auto& _scb = _target.system_call_bundle();                                                            \
-         BOOST_PP_CAT( SYSCALL, _THUNK_ARGS_SUFFIX ) _args;                                                          \
-         BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
-         std::string _arg_str;                                                                                       \
-         _args.SerializeToString( &_arg_str );                                                                       \
-         auto _ret_str = thunk::_call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
-         BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
-      }                                                                                                              \
-      else                                                                                                           \
-      {                                                                                                              \
-         KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
-      }                                                                                                              \
+            }                                                                                                              \
+            else if ( _target.has_system_call_bundle() )                                                                   \
+            {                                                                                                              \
+               const auto& _scb = _target.system_call_bundle();                                                            \
+               BOOST_PP_CAT( SYSCALL, _THUNK_ARGS_SUFFIX ) _args;                                                          \
+               BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
+               std::string _arg_str;                                                                                       \
+               _args.SerializeToString( &_arg_str );                                                                       \
+               auto _ret_str = thunk::_call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
+            }                                                                                                              \
+            else                                                                                                           \
+            {                                                                                                              \
+               KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
+            }                                                                                                              \
+         }                                                                                                                 \
+      );                                                                                                          \
                                                                                                                      \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret.value();)                                                 \
    }                                                                                                                 \

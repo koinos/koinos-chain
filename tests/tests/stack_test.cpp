@@ -172,7 +172,14 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
    sign_transaction( trx, user_key );
 
    ctx.set_transaction( trx );
-   chain::system_call::apply_transaction( ctx, trx );
+   try
+   {
+      chain::system_call::apply_transaction( ctx, trx );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( ctx.get_pending_console_output() );
+   }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

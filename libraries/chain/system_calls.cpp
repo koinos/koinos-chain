@@ -138,19 +138,10 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   crypto::multihash chain_id;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
-
-   with_privilege(
-      context,
-      privilege::kernel_mode,
-      [&]() {
-         auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-         chain_id = util::converter::to< crypto::multihash >( obj.value() );
-      }
-   );
+   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
 
    process_block_signature_result ret;
    ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
@@ -419,13 +410,9 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    // Drop to user mode
-   with_stack_frame(
+   with_privilege(
       context,
-      stack_frame {
-         .contract_id = "call_contract_operation"s,
-         .system = false,
-         .call_privilege = privilege::user_mode,
-      },
+      privilege::user_mode,
       [&]() {
          system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
       }
@@ -618,21 +605,12 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    // We need to be in kernel mode to read the contract data
-   database_object contract_object;
-   contract_metadata_object contract_meta;
-   with_privilege(
-      context,
-      privilege::kernel_mode,
-      [&]()
-      {
-         contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
-         KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
-         auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), contract_id );
-         KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
-         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-         KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
-      }
-   );
+   auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
+   KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
+   auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), contract_id );
+   KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
+   auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
+   KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
 
    context.push_frame( stack_frame{
       .contract_id = contract_id,
@@ -710,15 +688,9 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    }
    else
    {
-      with_privilege(
-         context,
-         privilege::kernel_mode,
-         [&]() {
-            auto head_info_object = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
-            uint64_t time = head_info_object.exists() ? util::converter::to< uint64_t >( head_info_object.value() ) : 0;
-            hi.set_head_block_time( time );
-         }
-      );
+      auto head_info_object = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
+      uint64_t time = head_info_object.exists() ? util::converter::to< uint64_t >( head_info_object.value() ) : 0;
+      hi.set_head_block_time( time );
    }
 
    get_head_info_result ret;
@@ -815,7 +787,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
    try
    {
-      ret.mutable_value()->set_caller( context.get_caller() );
+      ret.mutable_value()->set_caller( *( context.get_caller().first ) );
       ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
    }
    catch( ... )
@@ -935,13 +907,13 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   auto caller = context.get_caller();
+   auto [ caller, sid ] = context.get_caller();
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-   context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
+   context.resource_meter().use_network_bandwidth( caller->size() + name.size() + data.size() );
 
    protocol::event_data ev;
-   ev.set_source( caller );
+   ev.set_source( *caller );
    ev.set_name( name );
    ev.set_data( data );
 
