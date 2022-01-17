@@ -40,6 +40,11 @@ struct controller_fixture
       std::filesystem::create_directory( _state_dir );
 
       chain::genesis_data genesis_data;
+      auto entry = genesis_data.add_entries();
+      entry->set_key( chain::state::key::genesis_key );
+      entry->set_value( _block_signing_private_key.get_public_key().to_address_bytes() );
+      *entry->mutable_space() = chain::state::space::metadata();
+
       _controller.open( _state_dir, genesis_data, false );
    }
 

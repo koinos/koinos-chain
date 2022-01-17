@@ -121,7 +121,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       );
 
       // Calculate and write the chain ID into the database
-      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, data.SerializeAsString() );
+      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, data );
       LOG(info) << "Calculated chain ID: " << chain_id;
       auto chain_id_str = util::converter::as< std::string >( chain_id );
       KOINOS_ASSERT(
