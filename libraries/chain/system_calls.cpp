@@ -17,7 +17,6 @@
 #include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
-#include <koinos/varint.hpp>
 
 using namespace std::string_literals;
 
@@ -894,7 +893,7 @@ THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) accou
 
    get_account_rc_result ret;
    ret.set_value( util::converter::to< chain::max_account_resources >( obj.value() ).value() );
-   LOG(info) << "mar: " << ret.value() << std::endl;
+
    return ret;
 }
 

@@ -112,7 +112,7 @@ struct thunk_fixture
             koinos::chain::unexpected_state,
             "encountered unexpected chain id in initial state"
          );
-         LOG(info) << "Wrote chain id into new database";
+         LOG(info) << "Wrote chain ID into new database";
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );

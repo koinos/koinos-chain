@@ -129,7 +129,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
          koinos::chain::unexpected_state,
          "encountered unexpected chain id in initial state"
       );
-      LOG(info) << "Wrote chain id into new database";
+      LOG(info) << "Wrote chain ID into new database";
    } );
 
    if ( reset )
