@@ -104,7 +104,6 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       // Write genesis objects into the database
       for ( const auto& entry : data.entries() )
       {
-         LOG(info) << util::to_base58( entry.key() );
          KOINOS_ASSERT(
             root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
             koinos::chain::unexpected_state,

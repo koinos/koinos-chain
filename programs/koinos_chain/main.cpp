@@ -464,7 +464,7 @@ int main( int argc, char** argv )
       KOINOS_ASSERT(
          std::filesystem::exists( genesis_key_file ),
          koinos::exception,
-         "Unable to locate genesis public key file at: ${loc}", ("loc", genesis_key_file.string())
+         "unable to locate genesis public key file at: ${loc}", ("loc", genesis_key_file.string())
       );
 
       std::ifstream ifs( genesis_key_file );
@@ -480,7 +480,7 @@ int main( int argc, char** argv )
       KOINOS_ASSERT(
          std::filesystem::exists( genesis_data_file ),
          koinos::exception,
-         "Unable to locate genesis data file at: ${loc}", ("loc", genesis_data_file.string())
+         "unable to locate genesis data file at: ${loc}", ("loc", genesis_data_file.string())
       );
 
       std::ifstream gifs( genesis_data_file );

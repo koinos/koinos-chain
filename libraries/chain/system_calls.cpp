@@ -17,6 +17,7 @@
 #include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
+#include <koinos/varint.hpp>
 
 using namespace std::string_literals;
 
@@ -888,9 +889,12 @@ THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) accou
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   uint64_t max_resources = 10'000'000;
+   auto obj = system_call::get_object( context, state::space::metadata(), state::key::max_account_resources );
+   KOINOS_ASSERT( obj.exists(), unexpected_state, "max_account_resources does not exist" );
+
    get_account_rc_result ret;
-   ret.set_value( max_resources );
+   ret.set_value( util::converter::to< chain::max_account_resources >( obj.value() ).value() );
+   LOG(info) << "mar: " << ret.value() << std::endl;
    return ret;
 }
 
@@ -909,17 +913,11 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 
    resource_limit_data rd;
 
-   rd.set_disk_storage_cost( 10 );
-   rd.set_disk_storage_limit( 204'800 );
-
-   rd.set_network_bandwidth_cost( 5 );
-   rd.set_network_bandwidth_limit( 1'048'576 );
-
-   rd.set_compute_bandwidth_cost( 1 );
-   rd.set_compute_bandwidth_limit( 100'000'000 );
+   auto obj = system_call::get_object( context, state::space::metadata(), state::key::resource_limit_data );
+   KOINOS_ASSERT( obj.exists(), unexpected_state, "resource_limit_data does not exist" );
 
    get_resource_limits_result ret;
-   *ret.mutable_value() = rd;
+   *ret.mutable_value() = util::converter::to< resource_limit_data >( obj.value() );
    return ret;
 }
 

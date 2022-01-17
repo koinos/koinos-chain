@@ -58,12 +58,36 @@ struct thunk_fixture
       entry->set_value( _signing_private_key.get_public_key().to_address_bytes() );
       *entry->mutable_space() = chain::state::space::metadata();
 
+      koinos::chain::resource_limit_data rd;
+
+      rd.set_disk_storage_cost( 10 );
+      rd.set_disk_storage_limit( 204'800 );
+
+      rd.set_network_bandwidth_cost( 5 );
+      rd.set_network_bandwidth_limit( 1'048'576 );
+
+      rd.set_compute_bandwidth_cost( 1 );
+      rd.set_compute_bandwidth_limit( 100'000'000 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::resource_limit_data );
+      entry->set_value( util::converter::as< std::string >( rd ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
+      koinos::chain::max_account_resources mar;
+
+      mar.set_value( 10'000'000 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::max_account_resources );
+      entry->set_value( util::converter::as< std::string >( mar ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
       db.open( temp, [&]( state_db::state_node_ptr root )
       {
          // Write genesis objects into the database
          for ( const auto& entry : _genesis_data.entries() )
          {
-            LOG(info) << util::to_base58( entry.key() );
             KOINOS_ASSERT(
                root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
                koinos::chain::unexpected_state,
