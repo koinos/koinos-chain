@@ -18,7 +18,7 @@ namespace detail { class controller_impl; }
 class controller final
 {
    public:
-      controller();
+      controller( uint64_t read_compute_bandwith_limit = 0 );
       ~controller();
 
       void open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset );

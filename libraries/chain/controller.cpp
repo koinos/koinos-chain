@@ -45,7 +45,7 @@ namespace detail {
 class controller_impl final
 {
    public:
-      controller_impl();
+      controller_impl( uint64_t read_compute_bandwith_limit );
       ~controller_impl();
 
       void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
@@ -71,6 +71,7 @@ class controller_impl final
       std::shared_mutex                         _db_mutex;
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
+      uint64_t                                  _read_compute_bandwidth_limit;
 
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
@@ -79,7 +80,7 @@ class controller_impl final
       fork_data get_fork_data_lockless();
 };
 
-controller_impl::controller_impl()
+controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _read_compute_bandwidth_limit( read_compute_bandwidth_limit )
 {
    _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
@@ -699,7 +700,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    ctx.set_state_node( head_node );
 
    resource_limit_data rl;
-   rl.set_compute_bandwidth_limit( 10'000'000 );
+   rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
 
    ctx.resource_meter().set_resource_limit_data( rl );
 
@@ -737,7 +738,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
 } // detail
 
-controller::controller() : _my( std::make_unique< detail::controller_impl >() ) {}
+controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit ) ) {}
 
 controller::~controller() = default;
 

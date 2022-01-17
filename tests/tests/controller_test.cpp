@@ -29,7 +29,7 @@ using namespace std::string_literals;
 
 struct controller_fixture
 {
-   controller_fixture()
+   controller_fixture() : _controller( 10'000'000 )
    {
       initialize_logging( "koinos_test", {}, "info" );
 
