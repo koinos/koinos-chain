@@ -11,6 +11,7 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/util/hex.hpp>
+#include <koinos/util/base58.hpp>
 
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
@@ -39,13 +40,12 @@ struct controller_fixture
       LOG(info) << "Test temp dir: " << _state_dir.string();
       std::filesystem::create_directory( _state_dir );
 
-      chain::genesis_data genesis_data;
-      auto entry = genesis_data.add_entries();
+      auto entry = _genesis_data.add_entries();
       entry->set_key( chain::state::key::genesis_key );
       entry->set_value( _block_signing_private_key.get_public_key().to_address_bytes() );
       *entry->mutable_space() = chain::state::space::metadata();
 
-      _controller.open( _state_dir, genesis_data, false );
+      _controller.open( _state_dir, _genesis_data, false );
    }
 
    virtual ~controller_fixture()
@@ -118,6 +118,7 @@ struct controller_fixture
    chain::controller      _controller;
    std::filesystem::path  _state_dir;
    crypto::private_key    _block_signing_private_key;
+   chain::genesis_data    _genesis_data;
 };
 
 BOOST_FIXTURE_TEST_SUITE( controller_tests, controller_fixture )
@@ -208,10 +209,9 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_TEST_MESSAGE( "Test chain ID retrieval" );
 
-   chain::genesis_data genesis_data;
    BOOST_CHECK_EQUAL(
       util::converter::to< crypto::multihash >( _controller.get_chain_id().chain_id() ),
-      koinos::crypto::hash( crypto::multicodec::sha2_256, genesis_data.SerializeAsString() )
+      koinos::crypto::hash( crypto::multicodec::sha2_256, _genesis_data )
    );
 
    BOOST_TEST_MESSAGE( "Test invalid transaction" );

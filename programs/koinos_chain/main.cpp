@@ -491,9 +491,9 @@ int main( int argc, char** argv )
 
       chain::genesis_data genesis_data;
       google::protobuf::util::JsonParseOptions jpo;
-      google::protobuf::util::JsonStringToMessage(genesis_json, &genesis_data, jpo);
+      google::protobuf::util::JsonStringToMessage( genesis_json, &genesis_data, jpo );
 
-      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_data.SerializeAsString() );
+      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_data );
 
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Genesis authority: " << genesis_address;
