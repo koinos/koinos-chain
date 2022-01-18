@@ -11,6 +11,7 @@
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/crypto/elliptic.hpp>
 #include <koinos/util/hex.hpp>
+#include <koinos/util/base58.hpp>
 
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
@@ -28,7 +29,7 @@ using namespace std::string_literals;
 
 struct controller_fixture
 {
-   controller_fixture()
+   controller_fixture() : _controller( 10'000'000 )
    {
       initialize_logging( "koinos_test", {}, "info" );
 
@@ -39,11 +40,37 @@ struct controller_fixture
       LOG(info) << "Test temp dir: " << _state_dir.string();
       std::filesystem::create_directory( _state_dir );
 
-      chain::genesis_data genesis_data;
-      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< state_db::object_value >( chain_id );
+      auto entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::genesis_key );
+      entry->set_value( _block_signing_private_key.get_public_key().to_address_bytes() );
+      *entry->mutable_space() = chain::state::space::metadata();
 
-      _controller.open( _state_dir, genesis_data, false );
+      koinos::chain::resource_limit_data rd;
+
+      rd.set_disk_storage_cost( 10 );
+      rd.set_disk_storage_limit( 204'800 );
+
+      rd.set_network_bandwidth_cost( 5 );
+      rd.set_network_bandwidth_limit( 1'048'576 );
+
+      rd.set_compute_bandwidth_cost( 1 );
+      rd.set_compute_bandwidth_limit( 100'000'000 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::resource_limit_data );
+      entry->set_value( util::converter::as< std::string >( rd ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
+      koinos::chain::max_account_resources mar;
+
+      mar.set_value( 10'000'000 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::max_account_resources );
+      entry->set_value( util::converter::as< std::string >( mar ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
+      _controller.open( _state_dir, _genesis_data, false );
    }
 
    virtual ~controller_fixture()
@@ -116,6 +143,7 @@ struct controller_fixture
    chain::controller      _controller;
    std::filesystem::path  _state_dir;
    crypto::private_key    _block_signing_private_key;
+   chain::genesis_data    _genesis_data;
 };
 
 BOOST_FIXTURE_TEST_SUITE( controller_tests, controller_fixture )
@@ -208,7 +236,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    BOOST_CHECK_EQUAL(
       util::converter::to< crypto::multihash >( _controller.get_chain_id().chain_id() ),
-      koinos::crypto::hash( crypto::multicodec::sha2_256, _block_signing_private_key.get_public_key().to_address_bytes() )
+      koinos::crypto::hash( crypto::multicodec::sha2_256, _genesis_data )
    );
 
    BOOST_TEST_MESSAGE( "Test invalid transaction" );

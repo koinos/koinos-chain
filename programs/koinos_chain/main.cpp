@@ -11,6 +11,8 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <google/protobuf/util/json_util.h>
+
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/state.hpp>
@@ -34,20 +36,22 @@
 #define KOINOS_MINOR_VERSION "1"
 #define KOINOS_PATCH_VERSION "0"
 
-#define HELP_OPTION              "help"
-#define VERSION_OPTION           "version"
-#define BASEDIR_OPTION           "basedir"
-#define AMQP_OPTION              "amqp"
-#define AMQP_DEFAULT             "amqp://guest:guest@localhost:5672/"
-#define LOG_LEVEL_OPTION         "log-level"
-#define LOG_LEVEL_DEFAULT        "info"
-#define INSTANCE_ID_OPTION       "instance-id"
-#define STATEDIR_OPTION          "statedir"
-#define JOBS_OPTION              "jobs"
-#define STATEDIR_DEFAULT         "blockchain"
-#define RESET_OPTION             "reset"
-#define GENESIS_KEY_FILE_OPTION  "genesis-key"
-#define GENESIS_KEY_FILE_DEFAULT "genesis.pub"
+#define HELP_OPTION                         "help"
+#define VERSION_OPTION                      "version"
+#define BASEDIR_OPTION                      "basedir"
+#define AMQP_OPTION                         "amqp"
+#define AMQP_DEFAULT                        "amqp://guest:guest@localhost:5672/"
+#define LOG_LEVEL_OPTION                    "log-level"
+#define LOG_LEVEL_DEFAULT                   "info"
+#define INSTANCE_ID_OPTION                  "instance-id"
+#define STATEDIR_OPTION                     "statedir"
+#define JOBS_OPTION                         "jobs"
+#define STATEDIR_DEFAULT                    "blockchain"
+#define RESET_OPTION                        "reset"
+#define GENESIS_DATA_FILE_OPTION            "genesis-data"
+#define GENESIS_DATA_FILE_DEFAULT           "genesis_data.json"
+#define READ_COMPUTE_BANDWITH_LIMIT_OPTION  "read-compute-bandwidth-limit"
+#define READ_COMPUTE_BANDWITH_LIMIT_DEFAULT 10'000'000
 
 using namespace boost;
 using namespace koinos;
@@ -376,18 +380,19 @@ int main( int argc, char** argv )
    {
       program_options::options_description options;
       options.add_options()
-         (HELP_OPTION            ",h", "Print this help message and exit")
-         (VERSION_OPTION         ",v", "Print version string and exit")
-         (BASEDIR_OPTION         ",d", program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ),
+         (HELP_OPTION                       ",h", "Print this help message and exit")
+         (VERSION_OPTION                    ",v", "Print version string and exit")
+         (BASEDIR_OPTION                    ",d", program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ),
             "Koinos base directory")
-         (AMQP_OPTION            ",a", program_options::value< std::string >(), "AMQP server URL")
-         (LOG_LEVEL_OPTION       ",l", program_options::value< std::string >(), "The log filtering level")
-         (INSTANCE_ID_OPTION     ",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
-         (JOBS_OPTION            ",j", program_options::value< uint64_t    >(), "The number of worker jobs")
-         (GENESIS_KEY_FILE_OPTION",g", program_options::value< std::string >(), "The genesis key file")
-         (STATEDIR_OPTION            , program_options::value< std::string >(),
+         (AMQP_OPTION                       ",a", program_options::value< std::string >(), "AMQP server URL")
+         (LOG_LEVEL_OPTION                  ",l", program_options::value< std::string >(), "The log filtering level")
+         (INSTANCE_ID_OPTION                ",i", program_options::value< std::string >(), "An ID that uniquely identifies the instance")
+         (JOBS_OPTION                       ",j", program_options::value< uint64_t    >(), "The number of worker jobs")
+         (READ_COMPUTE_BANDWITH_LIMIT_OPTION",b", program_options::value< uint64_t    >(), "The compute bandwidth when reading contracts via the API")
+         (GENESIS_DATA_FILE_OPTION          ",g", program_options::value< std::string >(), "The genesis data file")
+         (STATEDIR_OPTION                       , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
-         (RESET_OPTION               , program_options::bool_switch()->default_value(false), "Reset the database");
+         (RESET_OPTION                          , program_options::bool_switch()->default_value(false), "Reset the database");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -433,9 +438,10 @@ int main( int argc, char** argv )
       std::string log_level     = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
       std::string instance_id   = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
       auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
-      auto genesis_key_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_KEY_FILE_OPTION, GENESIS_KEY_FILE_DEFAULT, args, chain_config, global_config ) );
+      auto genesis_data_file    = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
       auto reset                = util::get_flag( RESET_OPTION, false, args, chain_config, global_config );
       auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
+      auto read_compute_limit   = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain );
 
@@ -452,32 +458,33 @@ int main( int argc, char** argv )
       if ( !std::filesystem::exists( statedir ) )
          std::filesystem::create_directories( statedir );
 
-      if ( genesis_key_file.is_relative() )
-         genesis_key_file = basedir / util::service::chain / genesis_key_file;
+
+      // Load genesis data
+      if ( genesis_data_file.is_relative() )
+         genesis_data_file = basedir / util::service::chain / genesis_data_file;
 
       KOINOS_ASSERT(
-         std::filesystem::exists( genesis_key_file ),
+         std::filesystem::exists( genesis_data_file ),
          koinos::exception,
-         "Unable to locate genesis public key file at: ${loc}", ("loc", genesis_key_file.string())
+         "unable to locate genesis data file at: ${loc}", ("loc", genesis_data_file.string())
       );
 
-      std::ifstream ifs( genesis_key_file );
-      std::string genesis_address;
-      std::getline( ifs, genesis_address );
-      ifs.close();
-
-      auto genesis_address_bytes = util::from_base58< std::string >( genesis_address );
-      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_address_bytes );
-
-      LOG(info) << "Chain ID: " << chain_id;
-      LOG(info) << "Genesis authority: " << genesis_address;
-      LOG(info) << "Number of jobs: " << jobs;
+      std::ifstream gifs( genesis_data_file );
+      std::stringstream genesis_data_stream;
+      genesis_data_stream << gifs.rdbuf();
+      std::string genesis_json = genesis_data_stream.str();
+      gifs.close();
 
       chain::genesis_data genesis_data;
-      chain::database_key chain_id_key;
-      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< std::string >( chain_id );
+      google::protobuf::util::JsonParseOptions jpo;
+      google::protobuf::util::JsonStringToMessage( genesis_json, &genesis_data, jpo );
 
-      chain::controller controller;
+      crypto::multihash chain_id = crypto::hash( crypto::multicodec::sha2_256, genesis_data );
+
+      LOG(info) << "Chain ID: " << chain_id;
+      LOG(info) << "Number of jobs: " << jobs;
+
+      chain::controller controller( read_compute_limit );
       controller.open( statedir, genesis_data, reset );
 
       asio::io_context main_context, work_context;
