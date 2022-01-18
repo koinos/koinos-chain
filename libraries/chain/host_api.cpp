@@ -55,7 +55,6 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
       _ctx,
       stack_frame {
          .sid = sid,
-         .system = true,
          .call_privilege = privilege::kernel_mode
       },
       [&]() {

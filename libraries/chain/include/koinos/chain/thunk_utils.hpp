@@ -230,64 +230,63 @@ namespace koinos::chain::detail {
 #define _THUNK_DETAIL_ARG_PACK(r, msg, i, elem) koinos::chain::detail::set_message_field( msg, i + 1, elem );
 #define _THUNK_ARG_PACK( FIRST, ... ) BOOST_PP_LIST_FOR_EACH_I(_THUNK_DETAIL_ARG_PACK, _args, BOOST_PP_TUPLE_TO_LIST((__VA_ARGS__)))
 
-#define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                               \
-   }                                                                                                                 \
-   namespace system_call {                                                                                           \
-   auto SYSCALL( execution_context& context ARGS ) ->                                                                \
-      BOOST_PP_IF(                                                                                                   \
-         _THUNK_IS_VOID(RETURN_TYPE),                                                                                \
-         void,                                                                                                       \
-         std::remove_reference_t< decltype( std::declval<RETURN_TYPE>().value() ) >                                  \
-      )                                                                                                              \
-   {                                                                                                                 \
-                                                                                                                     \
-      uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                  \
-                                                                                                                     \
-      auto _key = util::converter::as< std::string >( _sid );                                                        \
-      database_object _object;                                                                                       \
-                                                                                                                     \
-      with_privilege(                                                                                                \
-         context,                                                                                                    \
-         privilege::kernel_mode,                                                                                     \
-         [&]() {                                                                                                     \
-            _object = thunk::_get_object(                                                                            \
-               context,                                                                                              \
-               state::space::system_call_dispatch(),                                                                 \
-               _key                                                                                                  \
-            ).value();                                                                                               \
-         }                                                                                                           \
-      );                                                                                                             \
-                                                                                                                     \
-      protocol::system_call_target _target;                                                                          \
-                                                                                                                     \
-      if ( _object.exists() )                                                                                        \
-      {                                                                                                              \
-         _target.ParseFromString( _object.value() );                                                                 \
-      }                                                                                                              \
-      else                                                                                                           \
-      {                                                                                                              \
-         _target.set_thunk_id( _sid );                                                                               \
-      }                                                                                                              \
-                                                                                                                     \
-      BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                    \
-                                                                                                                     \
-      with_stack_frame (                                                                                          \
-         context,                                                                                                 \
-         stack_frame {                                                                                            \
-            .sid = _sid,                                                                                          \
-            .system = true,                                                                                       \
-            .call_privilege = privilege::kernel_mode                                                              \
-         },                                                                                                       \
-         [&]() {                                                                                                  \
+#define _THUNK_DETAIL_DEFINE( RETURN_TYPE, SYSCALL, ARGS, TYPES, FWD )                                                     \
+   }                                                                                                                       \
+   namespace system_call {                                                                                                 \
+   auto SYSCALL( execution_context& context ARGS ) ->                                                                      \
+      BOOST_PP_IF(                                                                                                         \
+         _THUNK_IS_VOID(RETURN_TYPE),                                                                                      \
+         void,                                                                                                             \
+         std::remove_reference_t< decltype( std::declval<RETURN_TYPE>().value() ) >                                        \
+      )                                                                                                                    \
+   {                                                                                                                       \
+                                                                                                                           \
+      uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                        \
+                                                                                                                           \
+      auto _key = util::converter::as< std::string >( _sid );                                                              \
+      database_object _object;                                                                                             \
+                                                                                                                           \
+      with_privilege(                                                                                                      \
+         context,                                                                                                          \
+         privilege::kernel_mode,                                                                                           \
+         [&]() {                                                                                                           \
+            _object = thunk::_get_object(                                                                                  \
+               context,                                                                                                    \
+               state::space::system_call_dispatch(),                                                                       \
+               _key                                                                                                        \
+            ).value();                                                                                                     \
+         }                                                                                                                 \
+      );                                                                                                                   \
+                                                                                                                           \
+      protocol::system_call_target _target;                                                                                \
+                                                                                                                           \
+      if ( _object.exists() )                                                                                              \
+      {                                                                                                                    \
+         _target.ParseFromString( _object.value() );                                                                       \
+      }                                                                                                                    \
+      else                                                                                                                 \
+      {                                                                                                                    \
+         _target.set_thunk_id( _sid );                                                                                     \
+      }                                                                                                                    \
+                                                                                                                           \
+      BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                          \
+                                                                                                                           \
+      with_stack_frame (                                                                                                   \
+         context,                                                                                                          \
+         stack_frame {                                                                                                     \
+            .sid = _sid,                                                                                                   \
+            .call_privilege = privilege::kernel_mode                                                                       \
+         },                                                                                                                \
+         [&]() {                                                                                                           \
             if ( _target.thunk_id() )                                                                                      \
-            {                                                                                                             \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                      \
-                  thunk_dispatcher::instance().call_thunk<                                                           \
-                     RETURN_TYPE                                                                                     \
-                     TYPES >(                                                                                        \
-                        _sid,                                                                                        \
-                        context                                                                                      \
-                        FWD );                                                                                       \
+            {                                                                                                              \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
+                  thunk_dispatcher::instance().call_thunk<                                                                 \
+                     RETURN_TYPE                                                                                           \
+                     TYPES >(                                                                                              \
+                        _sid,                                                                                              \
+                        context                                                                                            \
+                        FWD );                                                                                             \
             }                                                                                                              \
             else if ( _target.has_system_call_bundle() )                                                                   \
             {                                                                                                              \
@@ -304,12 +303,12 @@ namespace koinos::chain::detail {
                KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
             }                                                                                                              \
          }                                                                                                                 \
-      );                                                                                                          \
-                                                                                                                     \
-      BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret.value();)                                                 \
-   }                                                                                                                 \
-   }                                                                                                                 \
-   namespace thunk {                                                                                                 \
+      );                                                                                                                   \
+                                                                                                                           \
+      BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,return _ret.value();)                                                       \
+   }                                                                                                                       \
+   }                                                                                                                       \
+   namespace thunk {                                                                                                       \
    RETURN_TYPE BOOST_PP_CAT(_, SYSCALL)( execution_context& context ARGS )
 
 #define THUNK_DEFINE( RETURN_TYPE, SYSCALL, ... )                                                                    \

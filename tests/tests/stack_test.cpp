@@ -72,7 +72,6 @@ struct stack_fixture
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
       ctx.push_frame( chain::stack_frame {
          .contract_id = "stack_tests"s,
-         .system = true,
          .call_privilege = chain::privilege::kernel_mode
       } );
 

@@ -614,7 +614,6 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
 
    context.push_frame( stack_frame{
       .contract_id = contract_id,
-      .system = contract_meta.system(),
       .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
       .call_args = args,
       .entry_point = entry_point
