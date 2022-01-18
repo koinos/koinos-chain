@@ -138,7 +138,7 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   crypto::multihash chain_id;
+   std::string genesis_addr;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
@@ -147,13 +147,12 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
       context,
       privilege::kernel_mode,
       [&]() {
-         auto obj = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-         chain_id = util::converter::to< crypto::multihash >( obj.value() );
+         genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
       }
    );
 
    process_block_signature_result ret;
-   ret.set_value( chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, block_id ).to_address_bytes() ) );
+   ret.set_value( genesis_addr == crypto::public_key::recover( sig, block_id ).to_address_bytes() );
    return ret;
 }
 
@@ -439,14 +438,14 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
+   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      genesis_addr == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
@@ -484,14 +483,14 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
-   auto chain_id = util::converter::to< crypto::multihash >( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
+   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
-      chain_id == crypto::hash( crypto::multicodec::sha2_256, crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes() ),
+      genesis_addr == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
       insufficient_privileges,
       "transaction does not have the required authority to override system calls"
    );
@@ -511,7 +510,6 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot put object during read only call" );
 
-   context.resource_meter().use_disk_storage( obj.size() );
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    state::assert_permissions( context, space );
@@ -520,8 +518,13 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
    auto val = util::converter::as< state_db::object_value >( obj );
 
+   auto bytes_used = state->put_object( space, key, &val );
+
+   if ( bytes_used > 0 )
+      context.resource_meter().use_disk_storage( bytes_used );
+
    put_object_result ret;
-   ret.set_value( state->put_object( space, key, &val ) != val.size() );
+   ret.set_value( bytes_used );
 
    return ret;
 }
@@ -885,9 +888,12 @@ THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) accou
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   uint64_t max_resources = 10'000'000;
+   auto obj = system_call::get_object( context, state::space::metadata(), state::key::max_account_resources );
+   KOINOS_ASSERT( obj.exists(), unexpected_state, "max_account_resources does not exist" );
+
    get_account_rc_result ret;
-   ret.set_value( max_resources );
+   ret.set_value( util::converter::to< chain::max_account_resources >( obj.value() ).value() );
+
    return ret;
 }
 
@@ -906,17 +912,11 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 
    resource_limit_data rd;
 
-   rd.set_disk_storage_cost( 10 );
-   rd.set_disk_storage_limit( 204'800 );
-
-   rd.set_network_bandwidth_cost( 5 );
-   rd.set_network_bandwidth_limit( 1'048'576 );
-
-   rd.set_compute_bandwidth_cost( 1 );
-   rd.set_compute_bandwidth_limit( 100'000'000 );
+   auto obj = system_call::get_object( context, state::space::metadata(), state::key::resource_limit_data );
+   KOINOS_ASSERT( obj.exists(), unexpected_state, "resource_limit_data does not exist" );
 
    get_resource_limits_result ret;
-   *ret.mutable_value() = rd;
+   *ret.mutable_value() = util::converter::to< resource_limit_data >( obj.value() );
    return ret;
 }
 

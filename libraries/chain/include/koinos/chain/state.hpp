@@ -36,8 +36,11 @@ const object_space transaction_nonce();
 
 namespace key {
 
-const auto head_block_time = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
-const auto chain_id        = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
+const auto head_block_time       = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::head_block_time" ) ) );
+const auto chain_id              = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::chain_id" ) ) );
+const auto genesis_key           = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::genesis_key" ) ) );
+const auto resource_limit_data   = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::resource_limit_data" ) ) );
+const auto max_account_resources = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::max_account_resources" ) ) );
 
 } // key
 

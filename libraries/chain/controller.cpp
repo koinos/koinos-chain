@@ -46,7 +46,7 @@ namespace detail {
 class controller_impl final
 {
    public:
-      controller_impl();
+      controller_impl( uint64_t read_compute_bandwith_limit );
       ~controller_impl();
 
       void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
@@ -73,6 +73,7 @@ class controller_impl final
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
       pending_state                             _pending_state;
+      uint64_t                                  _read_compute_bandwidth_limit;
 
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
@@ -81,7 +82,7 @@ class controller_impl final
       fork_data get_fork_data_lockless();
 };
 
-controller_impl::controller_impl()
+controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _read_compute_bandwidth_limit( read_compute_bandwidth_limit )
 {
    _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
@@ -98,21 +99,40 @@ controller_impl::~controller_impl()
    _db.close();
 }
 
-void controller_impl::open( const std::filesystem::path& p, const genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
    _db.open( p, [&]( state_db::state_node_ptr root )
    {
-      for ( const auto& entry : data )
+      // Write genesis objects into the database
+      for ( const auto& entry : data.entries() )
       {
          KOINOS_ASSERT(
-            root->put_object( entry.first.first, entry.first.second, &entry.second ) == entry.second.size(),
+            root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
             koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
       }
-      LOG(info) << "Wrote " << data.size() << " genesis objects into new database";
+      LOG(info) << "Wrote " << data.entries().size() << " genesis objects into new database";
+
+      // Read genesis public key from the database, assert its existence at the correct location
+      KOINOS_ASSERT(
+         root->get_object( state::space::metadata(), state::key::genesis_key ),
+         koinos::chain::unexpected_state,
+         "could not find genesis public key in database"
+      );
+
+      // Calculate and write the chain ID into the database
+      auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, data );
+      LOG(info) << "Calculated chain ID: " << chain_id;
+      auto chain_id_str = util::converter::as< std::string >( chain_id );
+      KOINOS_ASSERT(
+         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+         koinos::chain::unexpected_state,
+         "encountered unexpected chain id in initial state"
+      );
+      LOG(info) << "Wrote chain ID into new database";
    } );
 
    if ( reset )
@@ -696,7 +716,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    ctx.set_state_node( _pending_state.get_state_node() );
 
    resource_limit_data rl;
-   rl.set_compute_bandwidth_limit( 10'000'000 );
+   rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
 
    ctx.resource_meter().set_resource_limit_data( rl );
 
@@ -734,11 +754,11 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
 } // detail
 
-controller::controller() : _my( std::make_unique< detail::controller_impl >() ) {}
+controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit ) ) {}
 
 controller::~controller() = default;
 
-void controller::open( const std::filesystem::path& p, const genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
 {
    _my->open( p, data, reset );
 }

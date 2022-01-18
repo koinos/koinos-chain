@@ -30,6 +30,7 @@
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
 
+#include <koinos/util/base58.hpp>
 #include <koinos/util/hex.hpp>
 
 using namespace koinos;
@@ -52,23 +53,66 @@ struct thunk_fixture
       auto seed = "test seed"s;
       _signing_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, seed ) );
 
-      chain::genesis_data genesis_data;
-      auto chain_id = crypto::hash( crypto::multicodec::sha2_256, _signing_private_key.get_public_key().to_address_bytes() );
-      genesis_data[ { chain::state::space::metadata(), chain::state::key::chain_id } ] = util::converter::as< std::string >( chain_id );
+      auto entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::genesis_key );
+      entry->set_value( _signing_private_key.get_public_key().to_address_bytes() );
+      *entry->mutable_space() = chain::state::space::metadata();
+
+      koinos::chain::resource_limit_data rd;
+
+      rd.set_disk_storage_cost( 10 );
+      rd.set_disk_storage_limit( 204'800 );
+
+      rd.set_network_bandwidth_cost( 5 );
+      rd.set_network_bandwidth_limit( 1'048'576 );
+
+      rd.set_compute_bandwidth_cost( 1 );
+      rd.set_compute_bandwidth_limit( 100'000'000 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::resource_limit_data );
+      entry->set_value( util::converter::as< std::string >( rd ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
+      koinos::chain::max_account_resources mar;
+
+      mar.set_value( 10'000'000 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::max_account_resources );
+      entry->set_value( util::converter::as< std::string >( mar ) );
+      *entry->mutable_space() = chain::state::space::metadata();
 
       db.open( temp, [&]( state_db::state_node_ptr root )
       {
-         for ( const auto& entry : genesis_data )
+         // Write genesis objects into the database
+         for ( const auto& entry : _genesis_data.entries() )
          {
-            auto value = util::converter::as< state_db::object_value >( entry.second );
-            auto res = root->put_object( entry.first.first, entry.first.second, &value );
-
             KOINOS_ASSERT(
-               res == value.size(),
-               chain::unexpected_state,
+               root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
+               koinos::chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
          }
+         LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
+
+         // Read genesis public key from the database, assert its existence at the correct location
+         KOINOS_ASSERT(
+            root->get_object( chain::state::space::metadata(), chain::state::key::genesis_key ),
+            koinos::chain::unexpected_state,
+            "could not find genesis public key in database"
+         );
+
+         // Calculate and write the chain ID into the database
+         auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data );
+         LOG(info) << "Calculated chain ID: " << chain_id;
+         auto chain_id_str = util::converter::as< std::string >( chain_id );
+         KOINOS_ASSERT(
+            root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+            koinos::chain::unexpected_state,
+            "encountered unexpected chain id in initial state"
+         );
+         LOG(info) << "Wrote chain ID into new database";
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
@@ -143,6 +187,7 @@ struct thunk_fixture
    koinos::chain::execution_context ctx;
    koinos::chain::host_api host;
    koinos::crypto::private_key _signing_private_key;
+   chain::genesis_data _genesis_data;
 };
 
 BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
@@ -155,6 +200,9 @@ BOOST_AUTO_TEST_CASE( db_crud )
    // we begin by removing it
    chain::system_call::remove_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id );
    BOOST_REQUIRE( !chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id ).exists() );
+
+   for ( const auto& entry : _genesis_data.entries() )
+      chain::system_call::remove_object( ctx, entry.space(), entry.key() );
 
    auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
@@ -172,7 +220,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ) == false );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), object_data.size() );
    auto db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( object_data == "object1" );
 
@@ -216,13 +264,13 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test object modification" );
    object_data = "object1.1"s;
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ) == true );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), object_data.size() - "object1"s.size() );
    db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.value() == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ) == true );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), int64_t( "object1.1"s.size() ) * -1 );
    db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.exists() );
    BOOST_REQUIRE( db_obj.value().size() == 0 );
