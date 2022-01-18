@@ -147,7 +147,8 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
 { try {
    /**
     * Top User Contract (User Mode, read from DB)
-    * |  Call Contract (Drop to User Mode)
+    * |  Call Contract (Kernel Mode)
+    * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
 
@@ -186,9 +187,10 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
 { try {
    /**
     * Top System Call (Kernel Mode, read from DB)
-    * |  < Call Contract, but no stack frame >
+    * |  Call Contract (Kernel Mode)
     * |  User Code (User Mode, read from DB)
-    * |  Call Contract (Drop to User Mode)
+    * |  Call Contract (Kernel Mode)
+    * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
 
@@ -267,9 +269,10 @@ BOOST_AUTO_TEST_CASE( user_from_user )
 {
    /**
     * Top User Code (User Mode, read from DB)
-    * |  Call Contract (User Mode, inherited)
+    * |  Call Contract (Kernel Mode)
     * |  User Code (User Mode, read from DB)
-    * |  Call Contract (Drop to User Mode)
+    * |  Call Contract (Kernel Mode)
+    * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
    // User contract checks if being called from user mode then asserts it is in user mode
@@ -332,10 +335,11 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 {
    /**
     * Top System Call (Kernel Mode, read from DB )
-    * |  < Call Contract, but no stack frame >
-    * |  System Call (Kernel Mode, implicit)
+    * |  Call Contract (Kernel Mode)
+    * |  System Call (Kernel Mode)
     * |  User Code (User Mode, read from DB)
-    * |  Call Contract (Drop to User Mode)
+    * |  Call Contract (Kernel Mode)
+    * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
    const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::prints_arguments, chain::prints_result >( 99, chain::thunk::dummy_thunk );
@@ -402,11 +406,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
 {
    /**
     * Top System Call (Kernel Mode, read from DB )
-    * |  < Call Contract, but no stack frame >
+    * |  Call Contract (Kernel Mode)
     * |  System Call (Kernel Mode, read from DB)
-    * |  < Call Contract, but no stack frame >
+    * |  Call Contract (Kernel Mode)
     * |  User Code (User Mode, read from DB)
-    * |  Call Contract (Kernel Mode, inherited)
+    * |  Call Contract (Kernel Mode)
+    * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
 
@@ -487,11 +492,12 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
 {
    /**
     * Top System Contract (Kernel Mode, read from DB )
-    * |  < Call Contract, but no stack frame >
+    * |  Call Contract (Kernel Mode)
     * |  System Call (Kernel Mode, read from DB)
-    * |  < Call Contract, but no stack frame >
+    * |  Call Contract (Kernel Mode)
     * |  User Code (User Mode, read from DB)
-    * |  Call Contract (Kernel Mode, inherited)
+    * |  Call Contract (Kernel Mode)
+    * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
 
