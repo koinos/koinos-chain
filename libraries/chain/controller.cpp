@@ -322,9 +322,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          _db.commit_node( node.value()->id() );
       }
 
-      if ( block_node == _db.get_head() )
-         _pending_state.rebuild( block_node );
-
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
@@ -385,6 +382,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          {
             LOG(error) << "Failed to publish block and transaction events to message broker: " << e.what();
          }
+      }
+
+      try
+      {
+         if ( block_node == _db.get_head() )
+         {
+            _pending_state.rebuild( block_node );
+         }
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Failed to rebuild pending state: " << e.what();
       }
    }
    catch ( const koinos::exception& e )
