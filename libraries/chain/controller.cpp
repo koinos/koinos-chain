@@ -587,7 +587,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 {
    std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
-   auto result = _pending_state.get_state_node()->get_object( state::space::metadata(), state::key::chain_id );
+   auto result = _db.get_head()->get_object( state::space::metadata(), state::key::chain_id );
 
    KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
 
@@ -661,7 +661,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _pending_state.get_state_node() );
+   ctx.set_state_node( _db.get_head() );
 
    auto value = system_call::get_resource_limits( ctx );
 
@@ -683,7 +683,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _pending_state.get_state_node() );
+   ctx.set_state_node( _db.get_head() );
 
    auto value = system_call::get_account_rc( ctx, request.account() );
 
@@ -722,7 +722,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
       .call_privilege = privilege::user_mode,
    } );
 
-   ctx.set_state_node( _pending_state.get_state_node() );
+   ctx.set_state_node( _db.get_head() );
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
@@ -751,7 +751,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _pending_state.get_state_node() );
+   ctx.set_state_node( _db.get_head() );
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() );
 
