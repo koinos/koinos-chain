@@ -560,21 +560,18 @@ BOOST_AUTO_TEST_CASE( stack_tests )
 
    auto call1 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call1"s ) );
    ctx.push_frame( chain::stack_frame{ .contract_id = call1 } );
-   auto caller = ctx.get_caller();
-   BOOST_CHECK_EQUAL( "", *caller.first );
+   BOOST_CHECK_EQUAL( "", ctx.get_caller() );
    BOOST_CHECK_EQUAL( call1, ctx.get_contract_id() );
 
    auto call2 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call2"s ) );
    ctx.push_frame( chain::stack_frame{ .contract_id = call2 } );
 
-   caller = ctx.get_caller();
-   BOOST_CHECK_EQUAL( call1, *caller.first );
+   BOOST_CHECK_EQUAL( call1, ctx.get_caller() );
    BOOST_CHECK_EQUAL( call2, ctx.get_contract_id() );
 
    auto last_frame = ctx.pop_frame();
-   caller = ctx.get_caller();
    BOOST_CHECK_EQUAL( call2, last_frame.contract_id );
-   BOOST_CHECK_EQUAL( "", *caller.first );
+   BOOST_CHECK_EQUAL( "", ctx.get_caller() );
 
    for ( int i = 2; i <= chain::execution_context::stack_limit; i++ )
    {

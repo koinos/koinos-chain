@@ -787,7 +787,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
    try
    {
-      ret.mutable_value()->set_caller( *( context.get_caller().first ) );
+      ret.mutable_value()->set_caller( context.get_caller() );
       ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
    }
    catch( ... )
@@ -904,13 +904,13 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   auto [ caller, sid ] = context.get_caller();
+   const auto& caller = context.get_caller();
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-   context.resource_meter().use_network_bandwidth( caller->size() + name.size() + data.size() );
+   context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
 
    protocol::event_data ev;
-   ev.set_source( *caller );
+   ev.set_source( caller );
    ev.set_name( name );
    ev.set_data( data );
 

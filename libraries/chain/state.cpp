@@ -117,8 +117,8 @@ const object_space transaction_nonce()
 void assert_permissions( execution_context& context, const object_space& space )
 {
    auto privilege = context.get_privilege();
-   auto [ caller, sid ] = context.get_caller();
-   if ( space.zone() != *caller )
+   const auto& caller = context.get_caller();
+   if ( space.zone() != caller )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
       {

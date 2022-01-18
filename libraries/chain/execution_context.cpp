@@ -137,12 +137,12 @@ stack_frame execution_context::pop_frame()
    return frame;
 }
 
-std::pair< const std::string*, uint32_t > execution_context::get_caller() const
+const std::string& execution_context::get_caller() const
 {
    if ( _stack.size() > 1 )
-      return std::make_pair( &_stack[ _stack.size() - 2 ].contract_id, _stack[ _stack.size() - 2 ].sid );
+      return _stack[ _stack.size() - 2 ].contract_id;
 
-   return std::make_pair( &constants::system, 0 );
+   return constants::system;
 }
 
 privilege execution_context::get_caller_privilege() const

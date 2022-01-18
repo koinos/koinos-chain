@@ -89,7 +89,7 @@ class execution_context
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
 
-      std::pair< const std::string*, uint32_t > get_caller() const;
+      const std::string& get_caller() const;
       privilege get_caller_privilege() const;
 
       void set_privilege( privilege );
