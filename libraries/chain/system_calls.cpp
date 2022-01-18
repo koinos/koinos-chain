@@ -171,7 +171,7 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
 
 THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
 
    block_guard guard( context, block );
@@ -248,7 +248,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    transaction_guard guard( context, trx );
@@ -381,7 +381,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
@@ -404,7 +404,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
@@ -421,7 +421,7 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
@@ -466,7 +466,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );

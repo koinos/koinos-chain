@@ -482,6 +482,7 @@ BOOST_AUTO_TEST_CASE( privileged_calls )
    BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::insufficient_privileges );
 }
 
 BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
