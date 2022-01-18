@@ -165,12 +165,6 @@ privilege execution_context::get_privilege() const
    return _stack[ _stack.size() - 1 ].call_privilege;
 }
 
-// bool execution_context::get_system() const
-// {
-//    KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
-//    return _stack[ _stack.size() - 1 ].system;
-// }
-
 const std::string& execution_context::get_contract_id() const
 {
    for ( int32_t i = _stack.size() - 1; i >= 0; --i )
