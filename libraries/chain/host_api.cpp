@@ -18,7 +18,7 @@ host_api::~host_api() {}
 
 uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
-   KOINOS_ASSERT( _ctx.get_privilege(), insufficient_privileges, "'invoke_thunk' must be called from a system context" );
+   KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges, "'invoke_thunk' must be called from a system context" );
    return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
 }
 
