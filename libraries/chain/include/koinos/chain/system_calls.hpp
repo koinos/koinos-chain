@@ -53,7 +53,7 @@ void register_thunks( thunk_dispatcher& td );
 THUNK_DECLARE( void, prints, const std::string& str );
 THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
 
-THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const std::string& active_data, const std::string& signature_data );
+THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const protocol::block_header& header, const std::string& signature_data );
 THUNK_DECLARE( verify_merkle_root_result, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
 
 THUNK_DECLARE( void, apply_block, const protocol::block& block );
