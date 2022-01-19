@@ -31,7 +31,6 @@ struct stack_frame
 {
    std::string contract_id;
    uint32_t    sid = 0;
-   bool        system = false;
    privilege   call_privilege;
    std::string call_args;
    uint32_t    entry_point = 0;
@@ -95,8 +94,6 @@ class execution_context
 
       void set_privilege( privilege );
       privilege get_privilege() const;
-
-      bool get_system() const;
 
       const std::string& get_contract_id() const;
 

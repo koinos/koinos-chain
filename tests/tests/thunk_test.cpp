@@ -118,7 +118,6 @@ struct thunk_fixture
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
       ctx.push_frame( chain::stack_frame {
          .contract_id = "thunk_tests"s,
-         .system = true,
          .call_privilege = chain::privilege::kernel_mode
       } );
 
@@ -443,7 +442,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_CHECK_EQUAL( ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 
-   ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .system = false, .call_privilege = chain::user_mode } );
+   ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .call_privilege = chain::user_mode } );
    BOOST_REQUIRE_THROW( host.invoke_thunk( protocol::system_call_id::prints, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -530,6 +529,7 @@ BOOST_AUTO_TEST_CASE( privileged_calls )
    BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
    BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::insufficient_privileges );
 }
 
 BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
@@ -559,24 +559,23 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    BOOST_REQUIRE_THROW( ctx.pop_frame(), chain::stack_exception );
 
    auto call1 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call1"s ) );
-   ctx.push_frame( chain::stack_frame{ .contract_id = call1, .system = false } );
-   BOOST_CHECK_EQUAL( call1, ctx.get_caller() );
+   ctx.push_frame( chain::stack_frame{ .contract_id = call1 } );
+   BOOST_CHECK_EQUAL( "", ctx.get_caller() );
    BOOST_CHECK_EQUAL( call1, ctx.get_contract_id() );
 
    auto call2 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call2"s ) );
-   ctx.push_frame( chain::stack_frame{ .contract_id = call2, .system = true } );
+   ctx.push_frame( chain::stack_frame{ .contract_id = call2 } );
 
    BOOST_CHECK_EQUAL( call1, ctx.get_caller() );
    BOOST_CHECK_EQUAL( call2, ctx.get_contract_id() );
 
    auto last_frame = ctx.pop_frame();
    BOOST_CHECK_EQUAL( call2, last_frame.contract_id );
-   BOOST_CHECK_EQUAL( call1, ctx.get_caller() );
+   BOOST_CHECK_EQUAL( "", ctx.get_caller() );
 
    for ( int i = 2; i <= chain::execution_context::stack_limit; i++ )
    {
-      ctx.push_frame( chain::stack_frame{ .system = true } );
-      BOOST_REQUIRE_EQUAL( call1, ctx.get_caller() );
+      ctx.push_frame( chain::stack_frame{} );
    }
 
    BOOST_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::stack_overflow );
@@ -705,7 +704,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    BOOST_TEST_MESSAGE( "Test executing a contract" );
 
-   ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .system = false, .call_privilege = chain::user_mode } );
+   ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .call_privilege = chain::user_mode } );
 
    auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
    auto name = util::converter::to< koinos::contracts::token::name_result >( response );

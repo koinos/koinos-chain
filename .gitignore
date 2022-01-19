@@ -2,6 +2,7 @@
 build
 Testing
 libraries/pack/gen
+*.wasm
 
 # Mac files
 .DS_Store

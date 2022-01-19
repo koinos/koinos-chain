@@ -138,18 +138,11 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   std::string genesis_addr;
    crypto::recoverable_signature sig;
    std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
    crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
 
-   with_privilege(
-      context,
-      privilege::kernel_mode,
-      [&]() {
-         genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
-      }
-   );
+   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    process_block_signature_result ret;
    ret.set_value( genesis_addr == crypto::public_key::recover( sig, block_id ).to_address_bytes() );
@@ -179,7 +172,7 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
 
 THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
 
    block_guard guard( context, block );
@@ -256,7 +249,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    transaction_guard guard( context, trx );
@@ -389,7 +382,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
@@ -400,7 +393,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    KOINOS_ASSERT(
       sig_account == o.contract_id(),
       invalid_signature,
-      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", o.contract_id())("signer_hash", sig_account)
+      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", util::to_base58( o.contract_id() ))("signer_hash", util::to_base58( sig_account ))
    );
 
    contract_metadata_object contract_meta;
@@ -412,19 +405,15 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    // Drop to user mode
-   with_stack_frame(
+   with_privilege(
       context,
-      stack_frame {
-         .contract_id = "call_contract_operation"s,
-         .system = false,
-         .call_privilege = privilege::user_mode,
-      },
+      privilege::user_mode,
       [&]() {
          system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
       }
@@ -433,7 +422,7 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
@@ -478,7 +467,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
 {
-   KOINOS_ASSERT( context.get_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
    context.resource_meter().use_compute_bandwidth( compute_load::heavy );
@@ -617,25 +606,15 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    // We need to be in kernel mode to read the contract data
-   database_object contract_object;
-   contract_metadata_object contract_meta;
-   with_privilege(
-      context,
-      privilege::kernel_mode,
-      [&]()
-      {
-         contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
-         KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
-         auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), contract_id );
-         KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
-         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-         KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
-      }
-   );
+   auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
+   KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
+   auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), contract_id );
+   KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
+   auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
+   KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
 
    context.push_frame( stack_frame{
       .contract_id = contract_id,
-      .system = contract_meta.system(),
       .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
       .call_args = args,
       .entry_point = entry_point
@@ -709,15 +688,9 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    }
    else
    {
-      with_privilege(
-         context,
-         privilege::kernel_mode,
-         [&]() {
-            auto head_info_object = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
-            uint64_t time = head_info_object.exists() ? util::converter::to< uint64_t >( head_info_object.value() ) : 0;
-            hi.set_head_block_time( time );
-         }
-      );
+      auto head_info_object = system_call::get_object( context, state::space::metadata(), state::key::head_block_time );
+      uint64_t time = head_info_object.exists() ? util::converter::to< uint64_t >( head_info_object.value() ) : 0;
+      hi.set_head_block_time( time );
    }
 
    get_head_info_result ret;
@@ -931,7 +904,7 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   auto caller = context.get_caller();
+   const auto& caller = context.get_caller();
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
    context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );

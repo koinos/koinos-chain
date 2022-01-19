@@ -41,7 +41,6 @@ void pending_state::rebuild( state_db::state_node_ptr head )
       ctx.set_state_node( _pending_state );
 
       ctx.push_frame( stack_frame {
-         .system = true,
          .call_privilege = privilege::kernel_mode
       } );
 
