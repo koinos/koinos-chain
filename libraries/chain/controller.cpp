@@ -173,7 +173,7 @@ void controller_impl::validate_transaction( const protocol::transaction& t )
    KOINOS_ASSERT( t.has_header(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "header")("transaction_id", util::to_hex( t.id() )) );
    KOINOS_ASSERT( t.header().rc_limit(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "rc_limit")("transaction_id", util::to_hex( t.id() )) );
    KOINOS_ASSERT( t.header().operation_merkle_root().size(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "operation_merkle_root")("transaction_id", util::to_hex( t.id() )) );
-   KOINOS_ASSERT( t.signature().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.signatures().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
 }
 
 rpc::chain::submit_block_response controller_impl::submit_block(

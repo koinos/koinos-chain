@@ -171,9 +171,11 @@ struct stack_fixture
 void stack_fixture::sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
 {
    // Signature is on the hash of the active data
+   transaction.mutable_header()->set_payer( transaction_signing_key.get_public_key().to_address_bytes() );
    auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
    transaction.set_id( util::converter::as< std::string >( id_mh ) );
-   transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
+   transaction.clear_signatures();
+   transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
 }
 
 namespace koinos::chain::thunk {

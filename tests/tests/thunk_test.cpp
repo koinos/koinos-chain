@@ -150,9 +150,11 @@ struct thunk_fixture
    void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       // Signature is on the hash of the active data
+      transaction.mutable_header()->set_payer( transaction_signing_key.get_public_key().to_address_bytes() );
       auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
       transaction.set_id( util::converter::as< std::string >( id_mh ) );
-      transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
+      transaction.clear_signatures();
+      transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
 
    std::vector< uint8_t > get_hello_wasm()
@@ -595,7 +597,7 @@ BOOST_AUTO_TEST_CASE( require_authority )
    ctx.set_transaction( trx );
    BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, foo_account_string ), chain::invalid_signature );
 
-   trx.set_signature( util::converter::as< std::string >( foo_key.sign_compact( crypto::hash( crypto::multicodec::sha2_256, trx.header() ) ) ) );
+   trx.add_signatures( util::converter::as< std::string >( foo_key.sign_compact( crypto::hash( crypto::multicodec::sha2_256, trx.header() ) ) ) );
    ctx.set_transaction( trx );
 
    chain::system_call::require_authority( ctx, foo_account_string );
@@ -618,9 +620,9 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    transaction.mutable_header()->set_rc_limit( 10'000 );
    transaction.mutable_header()->set_nonce( 0 );
+   transaction.mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
-   transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-   transaction.set_signature( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   sign_transaction( transaction, key );
 
    chain::system_call::apply_transaction( ctx, transaction );
    auto payer = chain::system_call::get_transaction_payer( ctx, transaction );
@@ -630,8 +632,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
    transaction.mutable_header()->set_rc_limit( 20'000 );
    transaction.mutable_header()->set_nonce( 0 );
-   transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-   transaction.set_signature( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, key );
 
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
@@ -640,8 +642,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
    transaction.mutable_header()->set_nonce( 1 );
-   transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-   transaction.set_signature( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, key );
 
    chain::system_call::apply_transaction( ctx, transaction );
 
@@ -650,8 +652,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
    transaction.mutable_header()->set_rc_limit( 30'000 );
-   transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-   transaction.set_signature( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, key );
 
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
@@ -660,8 +662,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
    transaction.mutable_header()->set_nonce( 2 );
-   transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-   transaction.set_signature( util::converter::as< std::string >( key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, key );
 
    chain::system_call::apply_transaction( ctx, transaction );
 
@@ -804,8 +806,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    }
    catch ( const koinos::chain::invalid_signature& ) {}
 
-   auto signature = bob_private_key.sign_compact( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, trx.header() ) );
-   trx.set_signature( util::converter::as< std::string >( signature ) );
+   sign_transaction( trx, bob_private_key );
    ctx.set_transaction( trx );
 
    try
@@ -815,8 +816,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    }
    catch ( const koinos::chain::invalid_signature& ) {}
 
-   signature = alice_private_key.sign_compact( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, trx.header() ) );
-   trx.set_signature( util::converter::as< std::string >( signature ) );
+   sign_transaction( trx, alice_private_key );
    ctx.set_transaction( trx );
 
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );

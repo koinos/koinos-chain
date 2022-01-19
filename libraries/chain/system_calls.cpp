@@ -193,7 +193,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    {
       transactions_bytes_size += trx.ByteSizeLong();
       hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.header() ) ) );
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signature() ) ) );
+      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signatures() ) ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
@@ -431,7 +431,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
+   std::memcpy( sig.data(), tx.signatures( 0 ).data(), std::min( sig.size(), tx.signatures( 0 ).size() ) );
 
    KOINOS_ASSERT(
       genesis_addr == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
@@ -476,7 +476,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
+   std::memcpy( sig.data(), tx.signatures( 0 ).data(), std::min( sig.size(), tx.signatures( 0 ).size() ) );
 
    KOINOS_ASSERT(
       genesis_addr == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
@@ -744,14 +744,8 @@ THUNK_DEFINE( recover_public_key_result, recover_public_key, ((const std::string
 
 THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const protocol::transaction&) transaction) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   std::string account = system_call::recover_public_key( context, transaction.signature(), util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-
-   LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
-
    get_transaction_payer_result ret;
-   ret.set_value( account );
+   ret.set_value( transaction.header().payer() );
    return ret;
 }
 
@@ -812,7 +806,13 @@ THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    get_transaction_signature_result ret;
-   ret.set_value( context.get_transaction().signature() );
+   const auto& trx = context.get_transaction();
+
+   if ( trx.signatures_size() )
+   {
+      ret.set_value( context.get_transaction().signatures( 0 ) );
+   }
+
    return ret;
 }
 
