@@ -5,6 +5,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/pending_state.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -71,6 +72,7 @@ class controller_impl final
       std::shared_mutex                         _db_mutex;
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
+      pending_state                             _pending_state;
       uint64_t                                  _read_compute_bandwidth_limit;
 
       void validate_block( const protocol::block& b );
@@ -86,8 +88,9 @@ controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _rea
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
 
    _vm_backend->initialize();
-
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " vm backend";
+
+   _pending_state.set_backend( _vm_backend );
 }
 
 controller_impl::~controller_impl()
@@ -139,12 +142,14 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
    }
 
    auto head = _db.get_head();
+   _pending_state.rebuild( head );
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
 {
    _client = c;
+   _pending_state.set_client( c );
 }
 
 void controller_impl::validate_block( const protocol::block& b )
@@ -276,8 +281,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          rpc::block_store::block_store_response resp;
          resp.ParseFromString( future.get() );
 
-         KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from block store: ${e}", ("e", resp.error()) );
-         KOINOS_ASSERT( resp.has_add_block(), koinos::exception, "unexpected response when submitting block: ${r}", ("r", resp) );
+         KOINOS_ASSERT( !resp.has_error(), rpc_failure, "received error from block store: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_add_block(), rpc_failure, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
       uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
@@ -378,10 +383,34 @@ rpc::chain::submit_block_response controller_impl::submit_block(
             LOG(error) << "Failed to publish block and transaction events to message broker: " << e.what();
          }
       }
+
+      try
+      {
+         if ( block_node == _db.get_head() )
+         {
+            _pending_state.rebuild( block_node );
+         }
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << "Failed to rebuild pending state: " << e.what();
+      }
    }
-   catch ( const std::exception& e )
+   catch ( const koinos::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
+
+      if ( _client && _client->is_running() )
+      {
+         auto exception_data = e.get_json();
+
+         if ( exception_data.count( "transaction_id" ) )
+         {
+            broadcast::transaction_failed ptf;
+            ptf.set_id( exception_data[ "transaction_id" ] );
+            _client->broadcast( "koinos.transaction.fail", util::converter::as< std::string >( ptf ) );
+         }
+      }
 
       auto output = ctx.get_pending_console_output();
 
@@ -436,8 +465,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
-   auto pending_trx_node = _db.get_head()->create_anonymous_node();
-   KOINOS_ASSERT( pending_trx_node, trx_state_error, "error creating pending transaction state node" );
+   auto pending_trx_node = _pending_state.get_state_node();
+   KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
 
    execution_context ctx( _vm_backend, intent::transaction_application );
 
@@ -476,8 +505,8 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          rpc::mempool::mempool_response resp;
          resp.ParseFromString( future.get() );
 
-         KOINOS_ASSERT( !resp.has_error(), koinos::exception, "received error from mempool: ${e}", ("e", resp.error()) );
-         KOINOS_ASSERT( resp.has_check_pending_account_resources(), koinos::exception, "received unexpected response from mempool" );
+         KOINOS_ASSERT( !resp.has_error(), rpc_failure, "received error from mempool: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_check_pending_account_resources(), rpc_failure, "received unexpected response from mempool" );
       }
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
@@ -687,17 +716,13 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "contract_id") );
 
-   state_db::state_node_ptr head_node;
-
-   head_node = _db.get_head();
-
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
       .system = true,
       .call_privilege = privilege::user_mode,
    } );
 
-   ctx.set_state_node( head_node );
+   ctx.set_state_node( _db.get_head() );
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
