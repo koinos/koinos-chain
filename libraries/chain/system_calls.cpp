@@ -398,6 +398,9 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    contract_metadata_object contract_meta;
    *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
+   contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
+   contract_meta.set_authorizes_use_rc( o.authorizes_use_rc() );
+   contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
 
    system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
    system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
