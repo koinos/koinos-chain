@@ -18,6 +18,8 @@
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
 
+#include <koinos/chain/authority.pb.h>
+
 using namespace std::string_literals;
 
 namespace koinos::chain {
@@ -112,6 +114,11 @@ struct transaction_guard
 
    execution_context& ctx;
 };
+
+inline bool authorize( execution_context& ctx, const std::string& contract_id, const authorize_arguments& args )
+{
+   return util::converter::to< authorize_result >( system_call::call_contract( ctx, contract_id, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
+}
 
 THUNK_DEFINE_BEGIN();
 
@@ -268,7 +275,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    protocol::transaction_receipt receipt;
 
-   std::string payer = system_call::get_transaction_payer( context, trx );
+   const auto& payer = trx.header().payer();
 
    auto payer_rc = system_call::get_account_rc( context, payer );
    KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
@@ -290,7 +297,34 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", trx.header().nonce())("e", account_nonce)
    );
 
-   system_call::require_authority( context, payer );
+   auto payer_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), payer );
+   bool authorize_override = false;
+
+   if ( payer_contract_meta_object.exists() )
+   {
+      auto payer_contract_meta = util::converter::to< contract_metadata_object >( payer_contract_meta_object.value() );
+      authorize_override = payer_contract_meta.authorizes_use_rc();
+   }
+
+   bool authorized = false;
+
+   if ( authorize_override )
+   {
+      authorize_arguments args;
+      args.set_type( authorization_type::use_rc );
+
+      authorized = authorize( context, payer, args );
+   }
+   else
+   {
+      for ( const auto& sig : trx.signatures() )
+      {
+         auto pub_key = system_call::recover_public_key( context, sig, trx.id() );
+         authorized = ( pub_key == payer );
+         if ( authorized )
+            break;
+      }
+   }
 
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
