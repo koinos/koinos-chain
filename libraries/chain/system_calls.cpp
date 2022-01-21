@@ -427,13 +427,41 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
-   auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( tx_id ) );
+   auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
+   bool authorize_override = false;
+
+   if ( contract_meta_object.exists() )
+   {
+      auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
+      authorize_override = contract_meta.authorizes_call_contract();
+   }
+
+   bool authorized = false;
+
+   if ( authorize_override )
+   {
+      authorize_arguments args;
+      args.set_type( authorization_type::call_contract );
+
+      authorized = authorize( context, o.contract_id(), args );
+   }
+   else
+   {
+      const auto& trx = context.get_transaction();
+
+      for ( const auto& sig : trx.signatures() )
+      {
+         auto pub_key = system_call::recover_public_key( context, sig, trx.id() );
+         authorized = ( pub_key == o.contract_id() );
+         if ( authorized )
+            break;
+      }
+   }
 
    KOINOS_ASSERT(
-      sig_account == o.contract_id(),
+      authorized,
       invalid_signature,
-      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", util::to_base58( o.contract_id() ))("signer_hash", util::to_base58( sig_account ))
+      "contract ${contract} has not authorized contract upload", ("contract", util::to_base58( o.contract_id() ))
    );
 
    contract_metadata_object contract_meta;
