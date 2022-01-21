@@ -118,6 +118,7 @@ struct controller_fixture
    {
       transaction.mutable_header()->set_payer( transaction_signing_key.get_public_key().to_address_bytes() );
       auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
+      transaction.set_id( util::converter::as< std::string >( id_mh ) );
       transaction.clear_signatures();
       transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
@@ -437,7 +438,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op1->set_bytecode( util::converter::as< std::string >( get_hello_wasm() ) );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
-   trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
+   //trx1.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx1.header() ) ) );
    sign_transaction( trx1, key1 );
 
    // Upload the return test contract
@@ -706,6 +707,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
    trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx2.header() ) ) );
    sign_transaction( trx3, alice_private_key );
+
+   LOG(info) << util::to_base58( alice_private_key.get_public_key().to_address_bytes() );
 
    koinos::rpc::chain::submit_transaction_request tx_req;
    *tx_req.mutable_transaction() = trx3;

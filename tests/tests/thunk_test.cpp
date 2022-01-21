@@ -593,16 +593,15 @@ BOOST_AUTO_TEST_CASE( require_authority )
    auto bar_account_string = bar_key.get_public_key().to_address_bytes();
 
    protocol::transaction trx;
-
-   ctx.set_transaction( trx );
-   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, foo_account_string ), chain::invalid_signature );
-
-   trx.add_signatures( util::converter::as< std::string >( foo_key.sign_compact( crypto::hash( crypto::multicodec::sha2_256, trx.header() ) ) ) );
+   sign_transaction( trx, foo_key );
    ctx.set_transaction( trx );
 
    chain::system_call::require_authority( ctx, foo_account_string );
 
    BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, bar_account_string ), chain::invalid_signature );
+
+   trx.clear_signatures();
+   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, foo_account_string ), chain::invalid_signature );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

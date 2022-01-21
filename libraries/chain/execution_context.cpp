@@ -153,6 +153,14 @@ privilege execution_context::get_caller_privilege() const
    return privilege::kernel_mode;
 }
 
+uint32_t execution_context::get_caller_entry_point() const
+{
+   if ( _stack.size() > 1 )
+      return _stack[ _stack.size() - 2 ].entry_point;
+
+   return 0;
+}
+
 void execution_context::set_privilege( privilege p )
 {
    KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );

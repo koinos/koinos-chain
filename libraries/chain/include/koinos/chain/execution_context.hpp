@@ -91,6 +91,7 @@ class execution_context
 
       const std::string& get_caller() const;
       privilege get_caller_privilege() const;
+      uint32_t get_caller_entry_point() const;
 
       void set_privilege( privilege );
       privilege get_privilege() const;

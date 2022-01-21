@@ -326,6 +326,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       }
    }
 
+   KOINOS_ASSERT(
+      authorized,
+      invalid_signature,
+      "payer ${payer} has not authorized this transaction", ("payer", util::to_base58( payer ))
+   );
+
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
    context.set_state_node( trx_node, block_node->get_parent() );
@@ -859,13 +865,43 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
-   auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
-   std::string sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( digest ) );
+   auto account_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), account );
+   bool authorize_override = false;
+
+   if ( account_contract_meta_object.exists() )
+   {
+      auto account_contract_meta = util::converter::to< contract_metadata_object >( account_contract_meta_object.value() );
+      authorize_override = account_contract_meta.authorizes_call_contract();
+   }
+
+   bool authorized = false;
+
+   if ( authorize_override )
+   {
+      authorize_arguments args;
+      args.set_type( authorization_type::call_contract );
+      args.mutable_call()->set_contract_id( context.get_caller() );
+      args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
+
+      authorized = authorize( context, account, args );
+   }
+   else
+   {
+      const auto& trx = context.get_transaction();
+
+      for ( const auto& sig : trx.signatures() )
+      {
+         auto pub_key = system_call::recover_public_key( context, sig, trx.id() );
+         authorized = ( pub_key == account );
+         if ( authorized )
+            break;
+      }
+   }
 
    KOINOS_ASSERT(
-      account == sig_account,
+      authorized,
       invalid_signature,
-      "signature does not match", ("account", account)("sig_account", sig_account)
+      "account ${account} has not authorized call to contract ${contract}", ("account", util::to_base58( account ))("contract", util::to_base58( context.get_caller() ))
    );
 }
 
