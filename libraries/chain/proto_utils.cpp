@@ -256,32 +256,33 @@ google::protobuf::Any get_repeated_field_value(
    return any;
 }
 
-google::protobuf::Any get_nested_field_value( execution_context& context, std::string top_level_message, std::string field_name )
+google::protobuf::Any get_nested_field_value( execution_context& context, const google::protobuf::Message& parent_message, std::string field_name )
 {
    google::protobuf::DescriptorPool dpool;
 
    initialize_descriptor_pool( context, dpool );
 
-   auto pool_descriptor = dpool.FindMessageTypeByName( top_level_message );
-   KOINOS_ASSERT( pool_descriptor, unexpected_state, "protocol descriptor is null" );
+   auto pool_descriptor = dpool.FindMessageTypeByName( parent_message.GetTypeName() );
+   KOINOS_ASSERT( pool_descriptor, unexpected_state, "${type} descriptor was not found", ("type", parent_message.GetTypeName()) );
 
    std::vector< std::string > field_path;
    boost::split( field_path, field_name, boost::is_any_of( "." ) );
 
-   const google::protobuf::Reflection* reflection            = context.get_transaction().GetReflection();
-   const google::protobuf::Message* message                  = &context.get_transaction();
+   const google::protobuf::Reflection* reflection            = parent_message.GetReflection();
+   const google::protobuf::Message* message                  = &parent_message;
    const google::protobuf::FieldDescriptor* field_descriptor = nullptr;
    google::protobuf::FieldDescriptor::Type type              = google::protobuf::FieldDescriptor::Type::MAX_TYPE;
 
    for ( const auto& segment : field_path )
    {
       auto pool_field_descriptor = pool_descriptor->FindFieldByName( segment );
-      KOINOS_ASSERT( pool_field_descriptor, field_not_found, "unable to find field: ${fname}", ("fname", segment) );
+      KOINOS_ASSERT( pool_field_descriptor, field_not_found, "unable to find field ${fname}", ("fname", segment) );
 
-      auto field_num             = pool_field_descriptor->number();
-      type                       = pool_field_descriptor->type();
-      auto message_descriptor    = message->GetDescriptor();
-      field_descriptor           = message_descriptor->FindFieldByNumber( field_num );
+      auto field_num          = pool_field_descriptor->number();
+      type                    = pool_field_descriptor->type();
+      auto message_descriptor = message->GetDescriptor();
+      field_descriptor        = message_descriptor->FindFieldByNumber( field_num );
+      KOINOS_ASSERT( field_descriptor, field_not_found, "unable to find field number ${fnum} on ${type} message", ("fnum", field_num)("type", message->GetTypeName()) );
 
       if ( &segment != &field_path.back() )
       {

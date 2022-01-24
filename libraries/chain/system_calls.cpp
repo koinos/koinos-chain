@@ -906,7 +906,7 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
 {
    get_transaction_field_result ret;
 
-   *ret.mutable_value() = get_nested_field_value( context, "koinos.protocol.transaction", field );
+   *ret.mutable_value() = get_nested_field_value( context, context.get_transaction(), field );
 
    return ret;
 }
@@ -915,7 +915,10 @@ THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) fie
 {
    get_block_field_result ret;
 
-   *ret.mutable_value() = get_nested_field_value( context, "koinos.protocol.block", field );
+   const auto* block = context.get_block();
+   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
+
+   *ret.mutable_value() = get_nested_field_value( context, *block, field );
 
    return ret;
 }
