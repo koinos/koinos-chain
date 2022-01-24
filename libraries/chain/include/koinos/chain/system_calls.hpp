@@ -1,5 +1,7 @@
 #pragma once
 
+#include <google/protobuf/struct.pb.h>
+
 #include <koinos/chain/thunk_utils.hpp>
 #include <koinos/chain/types.hpp>
 
@@ -13,10 +15,14 @@
 
 #include <koinos/state_db/state_db.hpp>
 
-#define KOINOS_EXIT_SUCCESS 0
-#define KOINOS_EXIT_FAILURE 1
-
 namespace koinos::chain {
+
+namespace exit_code {
+
+constexpr uint32_t success = 0;
+constexpr uint32_t failure = 1;
+
+} // exit_code
 
 class execution_context;
 class thunk_dispatcher;
@@ -50,7 +56,7 @@ void register_thunks( thunk_dispatcher& td );
  * unique, thunk_id.
  */
 
-THUNK_DECLARE( void, prints, const std::string& str );
+THUNK_DECLARE( void, log, const std::string& msg );
 THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
 
 THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const protocol::block_header& header, const std::string& signature_data );
@@ -80,15 +86,11 @@ THUNK_DECLARE( void, set_contract_result, const std::string& ret );
 THUNK_DECLARE_VOID( get_head_info_result, get_head_info );
 
 THUNK_DECLARE( hash_result, hash, uint64_t code, const std::string& obj, uint64_t size = 0 );
-THUNK_DECLARE( recover_public_key_result, recover_public_key, const std::string& signature_data, const std::string& digest );
-
-THUNK_DECLARE( get_transaction_payer_result, get_transaction_payer, const protocol::transaction& tx );
-THUNK_DECLARE( get_transaction_rc_limit_result, get_transaction_rc_limit, const protocol::transaction& tx );
+THUNK_DECLARE( recover_public_key_result, recover_public_key, dsa type, const std::string& signature_data, const std::string& digest );
 
 THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_block );
 
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE_VOID( get_transaction_signature_result, get_transaction_signature );
 THUNK_DECLARE( void, require_authority, const std::string& account );
 
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
@@ -102,5 +104,12 @@ THUNK_DECLARE_VOID( get_resource_limits_result, get_resource_limits );
 THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t disk, uint64_t network, uint64_t compute );
 
 THUNK_DECLARE( void, event, const std::string& name, const std::string& data, const std::vector< std::string >& impacted );
+
+THUNK_DECLARE( get_transaction_field_result, get_transaction_field, const std::string& field );
+THUNK_DECLARE( get_block_field_result, get_block_field, const std::string& field );
+
+THUNK_DECLARE( authorize_system_result, authorize_system, system_authorization_type type );
+
+THUNK_DECLARE( verify_signature_result, verify_signature, dsa type, const std::string& public_key, const std::string& signature, const std::string& digest );
 
 } // koinos::chain

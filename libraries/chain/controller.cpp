@@ -9,6 +9,8 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
+#include <koinos/protocol/value.pb.h>
+
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>
@@ -476,9 +478,15 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.set_state_node( pending_trx_node );
 
-      payer = system_call::get_transaction_payer( ctx, transaction );
+      koinos::protocol::bytes_value bytes;
+      KOINOS_ASSERT( system_call::get_transaction_field( ctx, "header.payer" ).UnpackTo( &bytes ), unexpected_field_type, "unexpected field type: ${f}", ("f", "header.payer") );
+      payer = bytes.value();
+
       max_payer_rc = system_call::get_account_rc( ctx, payer );
-      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction );
+
+      koinos::protocol::uint64_value uint;
+      KOINOS_ASSERT( system_call::get_transaction_field( ctx, "header.rc_limit" ).UnpackTo( &uint ), unexpected_field_type, "unexpected field type: ${f}", ("f", "header.rc_limit") );
+      trx_rc_limit = uint.value();
 
       ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
 

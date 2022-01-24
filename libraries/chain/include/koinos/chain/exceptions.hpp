@@ -39,6 +39,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unimplemented_feature, system_call_exception )
 KOINOS_DECLARE_DERIVED_EXCEPTION( thunk_not_found, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( read_only_context, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reverted, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_dsa, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
@@ -71,6 +72,8 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
 
 // Parse exception
 KOINOS_DECLARE_DERIVED_EXCEPTION( parse_failure, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_type, parse_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_size, parse_failure );
 
 // Context exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( context_exception, chain_exception );
