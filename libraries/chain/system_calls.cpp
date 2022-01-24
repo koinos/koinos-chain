@@ -2,8 +2,6 @@
 #include <string>
 #include <stdexcept>
 
-#include <boost/algorithm/string.hpp>
-
 #include <google/protobuf/util/message_differencer.h>
 
 #include <koinos/bigint.hpp>
@@ -908,39 +906,7 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
 {
    get_transaction_field_result ret;
 
-   google::protobuf::DescriptorPool dpool;
-
-   initialize_descriptor_pool( context, dpool );
-
-   auto tdesc = dpool.FindMessageTypeByName( "koinos.protocol.transaction" );
-   KOINOS_ASSERT( tdesc, unexpected_state, "transaction descriptor is null" );
-
-   std::vector< std::string > field_path;
-   boost::split( field_path, field, boost::is_any_of( "." ) );
-
-   const google::protobuf::Reflection* reflection            = context.get_transaction().GetReflection();
-   const google::protobuf::Message* message                  = &context.get_transaction();
-   const google::protobuf::FieldDescriptor* field_descriptor = nullptr;
-   google::protobuf::FieldDescriptor::Type type              = google::protobuf::FieldDescriptor::Type::MAX_TYPE;
-
-   for ( const auto& segment : field_path )
-   {
-      auto fnum        = tdesc->FindFieldByName( segment )->number();
-      type             = tdesc->FindFieldByNumber( fnum )->type();
-      auto mdescriptor = message->GetDescriptor();
-      field_descriptor = mdescriptor->FindFieldByNumber( fnum );
-
-      if ( &segment != &field_path.back() )
-      {
-         KOINOS_ASSERT( type == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE, unexpected_field_type, "expected nested field to be within a message" );
-
-         message    = &reflection->GetMessage( *message, field_descriptor );
-         reflection = message->GetReflection();
-         tdesc      = dpool.FindMessageTypeByName( message->GetTypeName() );
-      }
-   }
-
-   *ret.mutable_value() = get_field_value( reflection, *message, field_descriptor, type );
+   *ret.mutable_value() = get_nested_field_value( context, "koinos.protocol.transaction", field );
 
    return ret;
 }
@@ -948,6 +914,9 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
 THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) field) )
 {
    get_block_field_result ret;
+
+   *ret.mutable_value() = get_nested_field_value( context, "koinos.protocol.block", field );
+
    return ret;
 }
 

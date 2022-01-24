@@ -218,27 +218,71 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
    op3->set_entry_point( 0x62efa292 );
    op3->set_args( xfer_arg.SerializeAsString() );
    trx3.mutable_header()->set_rc_limit( 10'000'000 );
-   trx3.mutable_header()->set_nonce( 1 );
+   trx3.mutable_header()->set_nonce( 12 );
+   trx3.mutable_header()->set_payer( util::from_hex< std::string >( "0x1234" ) );
+   trx3.mutable_header()->set_payee( util::from_hex< std::string >( "0xABCD" ) );
    set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
    trx3.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx3.header() ) ) );
    sign_transaction( trx3, _signing_private_key );
    ctx.set_transaction( trx3 );
 
+   BOOST_TEST_MESSAGE( "Testing dynamic transaction field retrieval" );
+
+   BOOST_TEST_MESSAGE( "Retrieving ID" );
    auto val = koinos::chain::system_call::get_transaction_field( ctx, "id" );
    koinos::protocol::bytes_value b;
    val.UnpackTo( &b );
    BOOST_REQUIRE_EQUAL( b.value(), trx3.id() );
 
+   BOOST_TEST_MESSAGE( "Retrieving header" );
    val = koinos::chain::system_call::get_transaction_field( ctx, "header" );
    koinos::protocol::transaction_header hdr;
    val.UnpackTo( &hdr );
 
    BOOST_REQUIRE( google::protobuf::util::MessageDifferencer::Equals( hdr, trx3.header() ) );
 
+   BOOST_TEST_MESSAGE( "Retrieving header.rc_limit" );
    val = koinos::chain::system_call::get_transaction_field( ctx, "header.rc_limit" );
    koinos::protocol::uint64_value i64;
    val.UnpackTo( &i64 );
    BOOST_REQUIRE_EQUAL( i64.value(), trx3.header().rc_limit() );
+
+   BOOST_TEST_MESSAGE( "Retrieving header.nonce" );
+   val = koinos::chain::system_call::get_transaction_field( ctx, "header.nonce" );
+   val.UnpackTo( &i64 );
+   BOOST_REQUIRE_EQUAL( i64.value(), trx3.header().nonce() );
+
+   BOOST_TEST_MESSAGE( "Retrieving header.operation_merkle_root" );
+   val = koinos::chain::system_call::get_transaction_field( ctx, "header.operation_merkle_root" );
+   val.UnpackTo( &b );
+   BOOST_REQUIRE_EQUAL( b.value(), trx3.header().operation_merkle_root() );
+
+   BOOST_TEST_MESSAGE( "Retrieving header.payer" );
+   val = koinos::chain::system_call::get_transaction_field( ctx, "header.payer" );
+   val.UnpackTo( &b );
+   BOOST_REQUIRE_EQUAL( b.value(), trx3.header().payer() );
+
+   BOOST_TEST_MESSAGE( "Retrieving header.payee" );
+   val = koinos::chain::system_call::get_transaction_field( ctx, "header.payee" );
+   val.UnpackTo( &b );
+   BOOST_REQUIRE_EQUAL( b.value(), trx3.header().payee() );
+
+   BOOST_TEST_MESSAGE( "Retrieving operations" );
+   val = koinos::chain::system_call::get_transaction_field( ctx, "operations" );
+   koinos::protocol::list_value list;
+   val.UnpackTo( &list );
+   koinos::protocol::operation op;
+   list.value( 0 ).any_value().UnpackTo( &op );
+   BOOST_REQUIRE( google::protobuf::util::MessageDifferencer::Equals( op, trx3.operations( 0 ) ) );
+
+   BOOST_TEST_MESSAGE( "Retrieving signatures" );
+   val = koinos::chain::system_call::get_transaction_field( ctx, "signatures" );
+   val.UnpackTo( &list );
+   for ( int i = 0; i < list.value_size(); i++ )
+   {
+      BOOST_REQUIRE_EQUAL( trx3.signatures( i ), list.value( i ).bytes_value() );
+   }
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( db_crud )
