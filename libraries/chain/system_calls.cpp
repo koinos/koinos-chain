@@ -915,15 +915,32 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
    auto tdesc = dpool.FindMessageTypeByName( "koinos.protocol.transaction" );
    KOINOS_ASSERT( tdesc, unexpected_state, "transaction descriptor is null" );
 
-   auto fnum            = tdesc->FindFieldByName( field )->number();
-   auto ftype           = tdesc->FindFieldByNumber( fnum )->type();
-   auto fctype          = tdesc->FindFieldByNumber( fnum )->cpp_type();
-   auto reflection      = context.get_transaction().GetReflection();
-   auto mdescriptor     = context.get_transaction().GetDescriptor();
-   const auto& message  = context.get_transaction();
-   auto fdescriptor     = mdescriptor->FindFieldByNumber( fnum );
+   std::vector< std::string > field_path;
+   boost::split( field_path, field, boost::is_any_of( "." ) );
 
-   *ret.mutable_value() = get_field_value( reflection, message, fdescriptor, ftype );
+   const google::protobuf::Reflection* reflection            = context.get_transaction().GetReflection();
+   const google::protobuf::Message* message                  = &context.get_transaction();
+   const google::protobuf::FieldDescriptor* field_descriptor = nullptr;
+   google::protobuf::FieldDescriptor::Type type              = google::protobuf::FieldDescriptor::Type::MAX_TYPE;
+
+   for ( const auto& segment : field_path )
+   {
+      auto fnum        = tdesc->FindFieldByName( segment )->number();
+      type             = tdesc->FindFieldByNumber( fnum )->type();
+      auto mdescriptor = message->GetDescriptor();
+      field_descriptor = mdescriptor->FindFieldByNumber( fnum );
+
+      if ( &segment != &field_path.back() )
+      {
+         KOINOS_ASSERT( type == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE, unexpected_field_type, "expected nested field to be within a message" );
+
+         message    = &reflection->GetMessage( *message, field_descriptor );
+         reflection = message->GetReflection();
+         tdesc      = dpool.FindMessageTypeByName( message->GetTypeName() );
+      }
+   }
+
+   *ret.mutable_value() = get_field_value( reflection, *message, field_descriptor, type );
 
    return ret;
 }

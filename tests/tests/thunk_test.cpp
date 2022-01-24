@@ -234,6 +234,11 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
    val.UnpackTo( &hdr );
 
    BOOST_REQUIRE( google::protobuf::util::MessageDifferencer::Equals( hdr, trx3.header() ) );
+
+   val = koinos::chain::system_call::get_transaction_field( ctx, "header.rc_limit" );
+   koinos::protocol::uint64_value i64;
+   val.UnpackTo( &i64 );
+   BOOST_REQUIRE_EQUAL( i64.value(), trx3.header().rc_limit() );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( db_crud )
