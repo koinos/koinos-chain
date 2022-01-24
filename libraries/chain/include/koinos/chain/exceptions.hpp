@@ -71,6 +71,8 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
 
 // Parse exception
 KOINOS_DECLARE_DERIVED_EXCEPTION( parse_failure, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_type, parse_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_size, parse_failure );
 
 // Context exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( context_exception, chain_exception );

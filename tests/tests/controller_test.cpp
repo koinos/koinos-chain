@@ -87,7 +87,7 @@ struct controller_fixture
       for ( const auto& trx : block.transactions() )
       {
          hashes.emplace_back( crypto::hash( code, trx.header(), size ) );
-         hashes.emplace_back( crypto::hash( code, trx.signature(), size ) );
+//         hashes.emplace_back( crypto::hash( code, trx.signatures(), size ) );
       }
 
       auto transaction_merkle_tree = crypto::merkle_tree( code, hashes );
@@ -117,7 +117,7 @@ struct controller_fixture
    void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
-      transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
+      *transaction.add_signatures() = util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) );
    }
 
    std::vector< uint8_t > get_hello_wasm()

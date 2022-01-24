@@ -1,19 +1,26 @@
 #include <algorithm>
 #include <string>
+#include <stdexcept>
 
-#include <google/protobuf/message.h>
+#include <boost/algorithm/string.hpp>
+
 #include <google/protobuf/util/message_differencer.h>
 
 #include <koinos/bigint.hpp>
 #include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/host_api.hpp>
+#include <koinos/chain/proto_utils.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
+
 #include <koinos/log.hpp>
+
+#include <koinos/protocol/value.pb.h>
+
 #include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
@@ -25,12 +32,8 @@ namespace koinos::chain {
 void register_thunks( thunk_dispatcher& td )
 {
    THUNK_REGISTER( td,
-      (prints)
-      (exit_contract)
-
-      (process_block_signature)
-      (verify_merkle_root)
-
+      // General Blockchain Management
+      (get_head_info)
       (apply_block)
       (apply_transaction)
       (apply_upload_contract_operation)
@@ -38,42 +41,47 @@ void register_thunks( thunk_dispatcher& td )
       (apply_set_system_call_operation)
       (apply_set_system_contract_operation)
 
+      // System Helpers
+      (process_block_signature)
+      (get_transaction_field)
+      (get_block_field)
+      (get_last_irreversible_block)
+      (get_account_nonce)
+      (authorize_system)
+
+      // Resource Subsystem
+      (get_account_rc)
+      (consume_account_rc)
+      (get_resource_limits)
+      (consume_block_resources)
+
+      // Database
       (put_object)
       (remove_object)
       (get_object)
       (get_next_object)
       (get_prev_object)
 
-      (call_contract)
+      // Logging
+      (log)
+      (event)
 
+      // Cryptography
+      (hash)
+      (recover_public_key)
+      (verify_merkle_root)
+      (verify_signature)
+
+      // Contract Management
+      (call_contract)
       (get_entry_point)
       (get_contract_arguments_size)
       (get_contract_arguments)
       (set_contract_result)
-
-      (get_head_info)
-      (hash)
-      (recover_public_key)
-
-      (get_transaction_payer)
-      (get_transaction_rc_limit)
-
-      (get_last_irreversible_block)
-
-      (get_caller)
-      (get_transaction_signature)
-      (require_authority)
-
+      (exit_contract)
       (get_contract_id)
-
-      (get_account_nonce)
-
-      (get_account_rc)
-      (consume_account_rc)
-      (get_resource_limits)
-      (consume_block_resources)
-
-      (event)
+      (get_caller)
+      (require_authority)
    )
 }
 
@@ -115,19 +123,19 @@ struct transaction_guard
 
 THUNK_DEFINE_BEGIN();
 
-THUNK_DEFINE( void, prints, ((const std::string&) str) )
+THUNK_DEFINE( void, log, ((const std::string&) msg) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-   context.console_append( str );
+   context.console_append( msg );
 }
 
 THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
 {
    switch( exit_code )
    {
-      case KOINOS_EXIT_SUCCESS:
+      case exit_code::success:
           KOINOS_THROW( exit_success, "" );
-      case KOINOS_EXIT_FAILURE:
+      case exit_code::failure:
           KOINOS_THROW( exit_failure, "" );
       default:
           KOINOS_THROW( unknown_exit_code, "contract specified unknown exit code" );
@@ -193,7 +201,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    {
       transactions_bytes_size += trx.ByteSizeLong();
       hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.header() ) ) );
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signature() ) ) );
+//      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signature() ) ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
@@ -268,7 +276,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    protocol::transaction_receipt receipt;
 
-   std::string payer = system_call::get_transaction_payer( context, trx );
+   koinos::protocol::bytes_value bytes;
+   KOINOS_ASSERT( system_call::get_transaction_field( context, "header.payer" ).UnpackTo( &bytes ), unexpected_field_type, "unexpected field type: ${f}", ("f", "header.payer") );
+   auto payer = bytes.value();
 
    auto payer_rc = system_call::get_account_rc( context, payer );
    KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
@@ -387,14 +397,20 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   auto tx_id       = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
-   auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( tx_id ) );
+   auto tx_id = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
 
-   KOINOS_ASSERT(
-      sig_account == o.contract_id(),
-      invalid_signature,
-      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", util::to_base58( o.contract_id() ))("signer_hash", util::to_base58( sig_account ))
-   );
+   google::protobuf::ListValue list;
+   KOINOS_ASSERT( system_call::get_transaction_field( context, "signatures" ).UnpackTo( &list ), unexpected_field_type, "unexpected field type: ${f}", ("f", "signatures") );
+   auto signatures = list.values();
+   KOINOS_ASSERT( signatures.size() == 1, unexpected_field_size, "expected one signature, was: ${s}", ("s", signatures.size()) );
+
+//   auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( tx_id ) );
+//
+//   KOINOS_ASSERT(
+//      sig_account == o.contract_id(),
+//      invalid_signature,
+//      "signature does not match: ${contract_id} != ${signer_hash}", ("contract_id", util::to_base58( o.contract_id() ))("signer_hash", util::to_base58( sig_account ))
+//   );
 
    contract_metadata_object contract_meta;
    *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
@@ -431,7 +447,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
+//   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
       genesis_addr == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
@@ -476,7 +492,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    const auto& tx = context.get_transaction();
    crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
+//   std::memcpy( sig.data(), tx.signature().data(), std::min( sig.size(), tx.signature().size() ) );
 
    KOINOS_ASSERT(
       genesis_addr == crypto::public_key::recover( sig, util::converter::to< crypto::multihash >( tx.id() ) ).to_address_bytes(),
@@ -724,7 +740,7 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
    return ret;
 }
 
-THUNK_DEFINE( recover_public_key_result, recover_public_key, ((const std::string&) signature_data, (const std::string&) digest) )
+THUNK_DEFINE( recover_public_key_result, recover_public_key, ((protocol::system_authorization_type) type, (const std::string&) signature_data, (const std::string&) digest) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -739,28 +755,6 @@ THUNK_DEFINE( recover_public_key_result, recover_public_key, ((const std::string
    auto address = pub_key.to_address_bytes();
    recover_public_key_result ret;
    ret.set_value( address );
-   return ret;
-}
-
-THUNK_DEFINE( get_transaction_payer_result, get_transaction_payer, ((const protocol::transaction&) transaction) )
-{
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   std::string account = system_call::recover_public_key( context, transaction.signature(), util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
-
-   LOG(debug) << "(get_transaction_payer) transaction: " << transaction;
-
-   get_transaction_payer_result ret;
-   ret.set_value( account );
-   return ret;
-}
-
-THUNK_DEFINE( get_transaction_rc_limit_result, get_transaction_rc_limit, ((const protocol::transaction&) transaction) )
-{
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   get_transaction_rc_limit_result ret;
-   ret.set_value( transaction.header().rc_limit() );
    return ret;
 }
 
@@ -805,17 +799,6 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_transaction_signature_result, get_transaction_signature )
-{
-   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   get_transaction_signature_result ret;
-   ret.set_value( context.get_transaction().signature() );
-   return ret;
-}
-
 THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
@@ -823,13 +806,14 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
    auto digest = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
-   std::string sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( digest ) );
 
-   KOINOS_ASSERT(
-      account == sig_account,
-      invalid_signature,
-      "signature does not match", ("account", account)("sig_account", sig_account)
-   );
+//   std::string sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( digest ) );
+//
+//   KOINOS_ASSERT(
+//      account == sig_account,
+//      invalid_signature,
+//      "signature does not match", ("account", account)("sig_account", sig_account)
+//   );
 }
 
 THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
@@ -918,6 +902,48 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
       *ev.add_impacted() = imp;
 
    context.event_recorder().push_event( std::move( ev ) );
+}
+
+THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::string&) field) )
+{
+   get_transaction_field_result ret;
+
+   google::protobuf::DescriptorPool dpool;
+
+   initialize_descriptor_pool( context, dpool );
+
+   auto tdesc = dpool.FindMessageTypeByName( "koinos.protocol.transaction" );
+   KOINOS_ASSERT( tdesc, unexpected_state, "transaction descriptor is null" );
+
+   auto fnum            = tdesc->FindFieldByName( field )->number();
+   auto ftype           = tdesc->FindFieldByNumber( fnum )->type();
+   auto fctype          = tdesc->FindFieldByNumber( fnum )->cpp_type();
+   auto reflection      = context.get_transaction().GetReflection();
+   auto mdescriptor     = context.get_transaction().GetDescriptor();
+   const auto& message  = context.get_transaction();
+   auto fdescriptor     = mdescriptor->FindFieldByNumber( fnum );
+
+   *ret.mutable_value() = get_field_value( reflection, message, fdescriptor, ftype );
+
+   return ret;
+}
+
+THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) field) )
+{
+   get_block_field_result ret;
+   return ret;
+}
+
+THUNK_DEFINE( authorize_system_result, authorize_system, ((protocol::system_authorization_type) type) )
+{
+   authorize_system_result ret;
+   return ret;
+}
+
+THUNK_DEFINE( verify_signature_result, verify_signature, ((protocol::system_authorization_type) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
+{
+   verify_signature_result ret;
+   return ret;
 }
 
 THUNK_DEFINE_END();

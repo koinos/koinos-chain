@@ -30,7 +30,7 @@ using namespace std::string_literals;
  * The ones chosen for this are set_contract_result and event because both have void return types
  * and are not needed for these tests.
  *
- * prints also has a void return type, but is used for logging error messages by the contracts
+ * log also has a void return type, but is used for logging error messages by the contracts
  */
 
 struct stack_fixture
@@ -173,7 +173,7 @@ void stack_fixture::sign_transaction( protocol::transaction& transaction, crypto
    // Signature is on the hash of the active data
    auto id_mh = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
    transaction.set_id( util::converter::as< std::string >( id_mh ) );
-   transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
+//   transaction.set_signature( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
 }
 
 namespace koinos::chain::thunk {
@@ -386,7 +386,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
     * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
-   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::prints_arguments, chain::prints_result >( 99, chain::thunk::dummy_thunk );
+   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 99, chain::thunk::dummy_thunk );
 
    // Upload and override event
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
