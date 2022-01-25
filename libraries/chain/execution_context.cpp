@@ -80,7 +80,7 @@ void execution_context::set_transaction( const protocol::transaction& trx )
 
 const protocol::transaction& execution_context::get_transaction() const
 {
-   KOINOS_ASSERT( _trx != nullptr, unexpected_access, "attempting to dereference a null pointer" );
+   KOINOS_ASSERT( _trx != nullptr, unexpected_access, "transaction does not exist" );
    return *_trx;
 }
 

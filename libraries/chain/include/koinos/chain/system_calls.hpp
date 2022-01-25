@@ -10,8 +10,8 @@
 
 #include <koinos/chain/chain.pb.h>
 #include <koinos/chain/system_calls.pb.h>
+#include <koinos/chain/system_call_ids.pb.h>
 #include <koinos/protocol/protocol.pb.h>
-#include <koinos/protocol/system_call_ids.pb.h>
 
 #include <koinos/state_db/state_db.hpp>
 

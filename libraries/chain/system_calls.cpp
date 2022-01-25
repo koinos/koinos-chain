@@ -2,8 +2,6 @@
 #include <string>
 #include <stdexcept>
 
-#include <boost/algorithm/string.hpp>
-
 #include <google/protobuf/util/message_differencer.h>
 
 #include <koinos/bigint.hpp>
@@ -18,8 +16,6 @@
 #include <koinos/crypto/multihash.hpp>
 
 #include <koinos/log.hpp>
-
-#include <koinos/protocol/value.pb.h>
 
 #include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
@@ -319,7 +315,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    if ( authorize_override )
    {
       authorize_arguments args;
-      args.set_type( authorization_type::use_rc );
+      args.set_type( authorization_type::rc_use );
 
       authorized = authorize( context, payer, args );
    }
@@ -449,7 +445,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    if ( authorize_override )
    {
       authorize_arguments args;
-      args.set_type( authorization_type::call_contract );
+      args.set_type( authorization_type::contract_call );
 
       authorized = authorize( context, o.contract_id(), args );
    }
@@ -520,7 +516,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
       auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
       KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
-      KOINOS_ASSERT( ( o.call_id() != protocol::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
+      KOINOS_ASSERT( ( o.call_id() != chain::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
       LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
@@ -535,7 +531,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    }
 
    // Place the override in the database
-   system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::protocol::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
+   system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::chain::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
 }
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
@@ -872,7 +868,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    if ( authorize_override )
    {
       authorize_arguments args;
-      args.set_type( authorization_type::call_contract );
+      args.set_type( authorization_type::contract_call );
       args.mutable_call()->set_contract_id( context.get_caller() );
       args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
 
@@ -990,39 +986,7 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
 {
    get_transaction_field_result ret;
 
-   google::protobuf::DescriptorPool dpool;
-
-   initialize_descriptor_pool( context, dpool );
-
-   auto tdesc = dpool.FindMessageTypeByName( "koinos.protocol.transaction" );
-   KOINOS_ASSERT( tdesc, unexpected_state, "transaction descriptor is null" );
-
-   std::vector< std::string > field_path;
-   boost::split( field_path, field, boost::is_any_of( "." ) );
-
-   const google::protobuf::Reflection* reflection            = context.get_transaction().GetReflection();
-   const google::protobuf::Message* message                  = &context.get_transaction();
-   const google::protobuf::FieldDescriptor* field_descriptor = nullptr;
-   google::protobuf::FieldDescriptor::Type type              = google::protobuf::FieldDescriptor::Type::MAX_TYPE;
-
-   for ( const auto& segment : field_path )
-   {
-      auto fnum        = tdesc->FindFieldByName( segment )->number();
-      type             = tdesc->FindFieldByNumber( fnum )->type();
-      auto mdescriptor = message->GetDescriptor();
-      field_descriptor = mdescriptor->FindFieldByNumber( fnum );
-
-      if ( &segment != &field_path.back() )
-      {
-         KOINOS_ASSERT( type == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE, unexpected_field_type, "expected nested field to be within a message" );
-
-         message    = &reflection->GetMessage( *message, field_descriptor );
-         reflection = message->GetReflection();
-         tdesc      = dpool.FindMessageTypeByName( message->GetTypeName() );
-      }
-   }
-
-   *ret.mutable_value() = get_field_value( reflection, *message, field_descriptor, type );
+   *ret.mutable_value() = get_nested_field_value( context, context.get_transaction(), field );
 
    return ret;
 }
@@ -1030,6 +994,12 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
 THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) field) )
 {
    get_block_field_result ret;
+
+   const auto* block = context.get_block();
+   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
+
+   *ret.mutable_value() = get_nested_field_value( context, *block, field );
+
    return ret;
 }
 

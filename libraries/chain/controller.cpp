@@ -478,15 +478,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.set_state_node( pending_trx_node );
 
-      koinos::protocol::bytes_value bytes;
-      KOINOS_ASSERT( system_call::get_transaction_field( ctx, "header.payer" ).UnpackTo( &bytes ), unexpected_field_type, "unexpected field type: ${f}", ("f", "header.payer") );
-      payer = bytes.value();
+      payer = transaction.header().payer();
 
       max_payer_rc = system_call::get_account_rc( ctx, payer );
 
-      koinos::protocol::uint64_value uint;
-      KOINOS_ASSERT( system_call::get_transaction_field( ctx, "header.rc_limit" ).UnpackTo( &uint ), unexpected_field_type, "unexpected field type: ${f}", ("f", "header.rc_limit") );
-      trx_rc_limit = uint.value();
+      trx_rc_limit = transaction.header().rc_limit();
 
       ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
 
