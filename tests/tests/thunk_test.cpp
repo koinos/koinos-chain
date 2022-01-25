@@ -282,6 +282,16 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
       BOOST_REQUIRE_EQUAL( trx.signatures( i ), list.value( i ).bytes_value() );
    }
 
+   BOOST_TEST_MESSAGE( "Testing dynamic transaction field not found" );
+
+   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::field_not_found );
+
+   ctx.clear_transaction();
+
+   BOOST_TEST_MESSAGE( "Testing dynamic transaction field unexpected access" );
+
+   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::unexpected_access );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( get_block_field )
@@ -377,6 +387,16 @@ BOOST_AUTO_TEST_CASE( get_block_field )
    val = koinos::chain::system_call::get_block_field( ctx, "signature" );
    val.UnpackTo( &b );
    BOOST_REQUIRE_EQUAL( b.value(), block.signature() );
+
+   BOOST_TEST_MESSAGE( "Testing dynamic block field not found" );
+
+   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::field_not_found );
+
+   ctx.clear_block();
+
+   BOOST_TEST_MESSAGE( "Testing dynamic block field unexpected access" );
+
+   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::unexpected_access );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
