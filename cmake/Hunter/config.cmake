@@ -55,6 +55,14 @@ hunter_config(yaml-cpp
       CMAKE_C_FLAGS=-fvisibility=hidden
 )
 
+hunter_config(ethash
+   URL "https://github.com/chfast/ethash/archive/refs/tags/v0.8.0.tar.gz"
+   SHA1 "41fd440f70b6a8dfc3fd29b20f471dcbd1345ad0"
+   CMAKE_ARGS
+      CMAKE_CXX_STANDARD=17
+      CMAKE_CXX_STANDARD_REQUIRED=ON
+)
+
 hunter_config(koinos_log
    GIT_SUBMODULE "libraries/log"
    CMAKE_ARGS

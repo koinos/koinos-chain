@@ -323,7 +323,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    {
       for ( const auto& sig : trx.signatures() )
       {
-         auto pub_key = system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() );
+         auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
          authorized = ( pub_key == payer );
          if ( authorized )
             break;
@@ -455,7 +455,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
       for ( const auto& sig : trx.signatures() )
       {
-         auto pub_key = system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() );
+         auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
          authorized = ( pub_key == o.contract_id() );
          if ( authorized )
             break;
@@ -801,9 +801,8 @@ THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const
    auto pub_key = crypto::public_key::recover( signature, util::converter::to< crypto::multihash >( digest ) );
    KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
 
-   auto address = pub_key.to_address_bytes();
    recover_public_key_result ret;
-   ret.set_value( address );
+   ret.set_value( util::converter::as< std::string >( pub_key ) );
    return ret;
 }
 
@@ -880,7 +879,7 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 
       for ( const auto& sig : trx.signatures() )
       {
-         auto pub_key = system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() );
+         auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
          authorized = ( pub_key == account );
          if ( authorized )
             break;
@@ -1006,6 +1005,23 @@ THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) fie
 THUNK_DEFINE( authorize_system_result, authorize_system, ((system_authorization_type) type) )
 {
    authorize_system_result ret;
+
+   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
+
+   const auto& trx = context.get_transaction();
+
+   bool authorized = false;
+
+   for ( const auto& sig : trx.signatures() )
+   {
+      auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
+      authorized = ( pub_key == genesis_addr );
+      if ( authorized )
+         break;
+   }
+
+   ret.set_value( authorized );
+
    return ret;
 }
 
@@ -1014,7 +1030,7 @@ THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std
    KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
 
    verify_signature_result ret;
-   ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == util::converter::to< crypto::public_key >( public_key ).to_address_bytes() );
+   ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == public_key );
    return ret;
 }
 
