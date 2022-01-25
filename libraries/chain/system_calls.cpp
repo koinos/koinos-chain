@@ -17,8 +17,6 @@
 
 #include <koinos/log.hpp>
 
-#include <koinos/protocol/value.pb.h>
-
 #include <koinos/util/base58.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/hex.hpp>
@@ -274,9 +272,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    protocol::transaction_receipt receipt;
 
-   koinos::protocol::bytes_value bytes;
-   KOINOS_ASSERT( system_call::get_transaction_field( context, "header.payer" ).UnpackTo( &bytes ), unexpected_field_type, "unexpected field type: ${f}", ("f", "header.payer") );
-   auto payer = bytes.value();
+   auto payer = trx.header().payer();
 
    auto payer_rc = system_call::get_account_rc( context, payer );
    KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
@@ -397,9 +393,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    auto tx_id = crypto::hash( crypto::multicodec::sha2_256, context.get_transaction().header() );
 
-   google::protobuf::ListValue list;
-   KOINOS_ASSERT( system_call::get_transaction_field( context, "signatures" ).UnpackTo( &list ), unexpected_field_type, "unexpected field type: ${f}", ("f", "signatures") );
-   auto signatures = list.values();
+   auto signatures = context.get_transaction().signatures();
    KOINOS_ASSERT( signatures.size() == 1, unexpected_field_size, "expected one signature, was: ${s}", ("s", signatures.size()) );
 
 //   auto sig_account = system_call::recover_public_key( context, system_call::get_transaction_signature( context ), util::converter::as< std::string >( tx_id ) );
@@ -738,7 +732,7 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
    return ret;
 }
 
-THUNK_DEFINE( recover_public_key_result, recover_public_key, ((protocol::system_authorization_type) type, (const std::string&) signature_data, (const std::string&) digest) )
+THUNK_DEFINE( recover_public_key_result, recover_public_key, ((system_authorization_type) type, (const std::string&) signature_data, (const std::string&) digest) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
 
@@ -923,13 +917,13 @@ THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) fie
    return ret;
 }
 
-THUNK_DEFINE( authorize_system_result, authorize_system, ((protocol::system_authorization_type) type) )
+THUNK_DEFINE( authorize_system_result, authorize_system, ((system_authorization_type) type) )
 {
    authorize_system_result ret;
    return ret;
 }
 
-THUNK_DEFINE( verify_signature_result, verify_signature, ((protocol::system_authorization_type) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
+THUNK_DEFINE( verify_signature_result, verify_signature, ((system_authorization_type) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
 {
    verify_signature_result ret;
    return ret;
