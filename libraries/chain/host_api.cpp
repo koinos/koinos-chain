@@ -4,9 +4,9 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/system_call_ids.pb.h>
 
 #include <koinos/log.hpp>
-#include <koinos/protocol/system_call_ids.pb.h>
 #include <koinos/util/conversion.hpp>
 
 using namespace std::string_literals;

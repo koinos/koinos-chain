@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::set_contract_result ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
@@ -407,13 +407,13 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::event ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::event ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
    // Override set_contract_result with dummy_thunk
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::set_contract_result ) );
    set_syscall_op.mutable_target()->set_thunk_id( 99 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::event ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::event ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
@@ -498,7 +498,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    ctx.set_transaction( trx );
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::set_contract_result ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
@@ -564,7 +564,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::set_contract_result ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::set_contract_result ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );

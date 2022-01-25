@@ -565,7 +565,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    // Set the system call
    koinos::protocol::set_system_call_operation set_op;
-   set_op.set_call_id( std::underlying_type_t< protocol::system_call_id >( protocol::system_call_id::log ) );
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( contract_op2.contract_id() );
    set_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
 
@@ -633,7 +633,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    args.SerializeToString( &arg );
 
    host.invoke_thunk(
-      protocol::system_call_id::log,
+      chain::system_call_id::log,
       ret.data(),
       ret.size(),
       arg.data(),
@@ -644,7 +644,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.get_pending_console_output() );
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .call_privilege = chain::user_mode } );
-   BOOST_REQUIRE_THROW( host.invoke_thunk( protocol::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
@@ -660,7 +660,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    args.SerializeToString( &arg );
 
    host.invoke_system_call(
-      protocol::system_call_id::log,
+      chain::system_call_id::log,
       ret.data(),
       ret.size(),
       arg.data(),

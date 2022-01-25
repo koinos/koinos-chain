@@ -5,7 +5,7 @@
 
 #include <koinos/crypto/merkle_tree.hpp>
 
-#include <koinos/protocol/system_call_ids.pb.h>
+#include <koinos/chain/system_call_ids.pb.h>
 
 #include <koinos/util/conversion.hpp>
 
@@ -22,7 +22,7 @@
 #define _THUNK_RET_SUFFIX  _result
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( protocol::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( chain::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
 
 #define THUNK_REGISTER( dispatcher, args ) \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
@@ -241,7 +241,7 @@ namespace koinos::chain::detail {
       )                                                                                                                    \
    {                                                                                                                       \
                                                                                                                            \
-      uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                        \
+      uint32_t _sid = static_cast< uint32_t >( chain::system_call_id::SYSCALL );                                           \
                                                                                                                            \
       auto _key = util::converter::as< std::string >( _sid );                                                              \
       database_object _object;                                                                                             \
