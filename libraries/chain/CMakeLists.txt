@@ -1,7 +1,7 @@
 file(GLOB HEADERS "include/koinos/chain/*.hpp" "include/koinos/chain/wasm/*.hpp")
 add_library(koinos_chain_lib
             controller.cpp
-            event_recorder.cpp
+            chronicler.cpp
             execution_context.cpp
             host_api.cpp
             pending_state.cpp

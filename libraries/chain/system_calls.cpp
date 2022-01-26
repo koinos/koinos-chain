@@ -253,7 +253,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
    receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
 
-   for ( const auto& [ within_session, event ] : context.event_recorder().events() )
+   for ( const auto& [ within_session, event ] : context.chronicler().events() )
       if ( !within_session )
          *receipt.add_events() = event;
 }
@@ -978,7 +978,7 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
    for ( auto& imp : impacted )
       *ev.add_impacted() = imp;
 
-   context.event_recorder().push_event( std::move( ev ) );
+   context.chronicler().push_event( std::move( ev ) );
 }
 
 THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::string&) field) )

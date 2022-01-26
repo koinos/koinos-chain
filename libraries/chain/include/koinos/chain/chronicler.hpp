@@ -7,19 +7,19 @@ namespace koinos::chain {
 
 using event_bundle = std::pair< bool, protocol::event_data >;
 
-struct abstract_event_session
+struct abstract_chronicler_session
 {
    virtual void push_event( const protocol::event_data& ev )   = 0;
    virtual const std::vector< protocol::event_data >& events() = 0;
 };
 
-class event_recorder final {
+class chronicler final {
 public:
-   void set_session( std::shared_ptr< abstract_event_session > s );
+   void set_session( std::shared_ptr< abstract_chronicler_session > s );
    void push_event( protocol::event_data&& ev );
    const std::vector< event_bundle >& events();
 private:
-   std::weak_ptr< abstract_event_session > _session;
+   std::weak_ptr< abstract_chronicler_session > _session;
    std::vector< event_bundle >             _events;
    uint32_t                                _seq_no = 0;
 };

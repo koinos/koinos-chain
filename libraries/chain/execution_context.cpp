@@ -194,16 +194,16 @@ resource_meter& execution_context::resource_meter()
    return _resource_meter;
 }
 
-event_recorder& execution_context::event_recorder()
+chronicler& execution_context::chronicler()
 {
-   return _event_recorder;
+   return _chronicler;
 }
 
 std::shared_ptr< session > execution_context::make_session( uint64_t rc )
 {
    auto session = std::make_shared< chain::session >( rc );
    resource_meter().set_session( session );
-   event_recorder().set_session( session );
+   chronicler().set_session( session );
    return session;
 }
 

@@ -1,13 +1,13 @@
 #pragma once
 
 #include <koinos/chain/resource_meter.hpp>
-#include <koinos/chain/event_recorder.hpp>
+#include <koinos/chain/chronicler.hpp>
 
 #include <cstdint>
 
 namespace koinos::chain {
 
-class session final : public abstract_rc_session, public abstract_event_session
+class session final : public abstract_rc_session, public abstract_chronicler_session
 {
 public:
    session( uint64_t begin_rc );

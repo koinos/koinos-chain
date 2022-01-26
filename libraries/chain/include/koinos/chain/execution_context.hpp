@@ -1,6 +1,6 @@
 #pragma once
 
-#include <koinos/chain/event_recorder.hpp>
+#include <koinos/chain/chronicler.hpp>
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/resource_meter.hpp>
 #include <koinos/chain/session.hpp>
@@ -101,7 +101,7 @@ class execution_context
       bool read_only() const;
 
       chain::resource_meter& resource_meter();
-      chain::event_recorder& event_recorder();
+      chain::chronicler& chronicler();
 
       std::shared_ptr< session > make_session( uint64_t rc );
 
@@ -125,7 +125,7 @@ class execution_context
       const protocol::transaction*              _trx = nullptr;
 
       chain::resource_meter                     _resource_meter;
-      chain::event_recorder                     _event_recorder;
+      chain::chronicler                         _chronicler;
 
       chain::intent                             _intent;
       chain::receipt                            _receipt;

@@ -373,7 +373,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          try
          {
-            for ( const auto& [ unused, event ] : ctx.event_recorder().events() )
+            for ( const auto& [ unused, event ] : ctx.chronicler().events() )
             {
                _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
             }

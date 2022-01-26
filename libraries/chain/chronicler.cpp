@@ -1,13 +1,13 @@
-#include <koinos/chain/event_recorder.hpp>
+#include <koinos/chain/chronicler.hpp>
 
 namespace koinos::chain {
 
-void event_recorder::set_session( std::shared_ptr< abstract_event_session > s )
+void chronicler::set_session( std::shared_ptr< abstract_chronicler_session > s )
 {
    _session = s;
 }
 
-void event_recorder::push_event( protocol::event_data&& ev )
+void chronicler::push_event( protocol::event_data&& ev )
 {
    ev.set_sequence( _seq_no );
    bool within_session = false;
@@ -22,7 +22,7 @@ void event_recorder::push_event( protocol::event_data&& ev )
    _seq_no++;
 }
 
-const std::vector< event_bundle >& event_recorder::events()
+const std::vector< event_bundle >& chronicler::events()
 {
    return _events;
 }
