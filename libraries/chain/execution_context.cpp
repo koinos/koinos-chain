@@ -18,18 +18,6 @@ std::shared_ptr< vm_manager::vm_backend > execution_context::get_backend() const
    return _vm_backend;
 }
 
-void execution_context::console_append( const std::string& val )
-{
-   _pending_console_output += val;
-}
-
-std::string execution_context::get_pending_console_output()
-{
-   std::string buf = _pending_console_output;
-   _pending_console_output.clear();
-   return buf;
-}
-
 void execution_context::set_state_node( abstract_state_node_ptr node, abstract_state_node_ptr parent )
 {
    _current_state_node = node;

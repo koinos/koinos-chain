@@ -22,9 +22,22 @@ void chronicler::push_event( protocol::event_data&& ev )
    _seq_no++;
 }
 
+void chronicler::push_log( const std::string& message )
+{
+   if ( auto session = _session.lock() )
+      session->push_log( message );
+   else
+      _logs.push_back( message );
+}
+
 const std::vector< event_bundle >& chronicler::events()
 {
    return _events;
+}
+
+const std::vector< std::string >& chronicler::logs()
+{
+   return _logs;
 }
 
 } // koinos::chain

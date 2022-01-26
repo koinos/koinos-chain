@@ -54,10 +54,6 @@ class execution_context
 
       std::shared_ptr< vm_manager::vm_backend > get_backend() const;
 
-      /// Console methods:
-      void console_append( const std::string& val );
-      std::string get_pending_console_output();
-
       void set_state_node( abstract_state_node_ptr, abstract_state_node_ptr = abstract_state_node_ptr() );
       abstract_state_node_ptr get_state_node() const;
       abstract_state_node_ptr get_parent_node() const;
@@ -118,7 +114,6 @@ class execution_context
 
       abstract_state_node_ptr                   _current_state_node;
       abstract_state_node_ptr                   _parent_state_node;
-      std::string                               _pending_console_output;
       std::optional< crypto::public_key >       _key_auth;
 
       const protocol::block*                    _block = nullptr;

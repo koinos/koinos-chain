@@ -305,13 +305,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          LOG(info) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
       }
 
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       auto lib = system_call::get_last_irreversible_block( ctx );
 
       _db.finalize_node( block_node->id() );
@@ -412,13 +405,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       if ( block_node )
       {
          _db.discard_node( block_node->id() );
@@ -429,13 +415,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    catch ( ... )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
-
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
 
       if ( block_node )
       {
@@ -535,26 +514,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    catch( const std::exception& e )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       throw;
    }
    catch( ... )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
-
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       throw;
    }
 
@@ -729,7 +693,8 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    rpc::chain::read_contract_response resp;
    resp.set_result( result );
-   resp.set_logs( ctx.get_pending_console_output() );
+   for ( const auto& message : ctx.chronicler().logs() )
+      *resp.add_logs() = message;
 
    return resp;
 }

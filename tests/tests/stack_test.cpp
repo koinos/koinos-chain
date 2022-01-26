@@ -212,6 +212,7 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -224,7 +225,10 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
    }
    catch ( ... )
    {
-      BOOST_FAIL( ctx.get_pending_console_output() );
+      for ( const auto& message : ctx.chronicler().logs() )
+         LOG(error) << message;
+
+      throw;
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -277,6 +281,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -289,7 +294,10 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    }
    catch ( ... )
    {
-      BOOST_FAIL( ctx.get_pending_console_output() );
+      for ( const auto& message : ctx.chronicler().logs() )
+         LOG(error) << message;
+
+      throw;
    }
 
    set_system_op.set_contract_id( call_op->contract_id() );
@@ -341,6 +349,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -353,7 +362,10 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    }
    catch ( ... )
    {
-      BOOST_FAIL( ctx.get_pending_console_output() );
+      for ( const auto& message : ctx.chronicler().logs() )
+         LOG(error) << message;
+
+      throw;
    }
 
    protocol::set_system_contract_operation set_system_op;
@@ -432,6 +444,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -444,7 +457,10 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    }
    catch ( ... )
    {
-      BOOST_FAIL( ctx.get_pending_console_output() );
+      for ( const auto& message : ctx.chronicler().logs() )
+         LOG(error) << message;
+
+      throw;
    }
 }
 
@@ -518,6 +534,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -530,7 +547,10 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    }
    catch ( ... )
    {
-      BOOST_FAIL( ctx.get_pending_console_output() );
+      for ( const auto& message : ctx.chronicler().logs() )
+         LOG(error) << message;
+
+      throw;
    }
 }
 
@@ -599,6 +619,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
 
    trx.mutable_header()->set_rc_limit( 100'000 );
    trx.mutable_header()->set_nonce( 0 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -611,7 +632,10 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    }
    catch ( ... )
    {
-      BOOST_FAIL( ctx.get_pending_console_output() );
+      for ( const auto& message : ctx.chronicler().logs() )
+         LOG(error) << message;
+
+      throw;
    }
 }
 

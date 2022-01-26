@@ -84,11 +84,12 @@ int main( int argc, char** argv, char** envp )
 
       vm_backend->run( hapi, bytecode );
 
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.size() )
+      if ( ctx.chronicler().logs().size() )
+      {
          LOG(info) << "Contract output:";
-         LOG(info) << ctx.get_pending_console_output();
+         for ( const auto& message : ctx.chronicler().logs() )
+            LOG(info) << message;
+      }
    }
    catch( const koinos::exception& e )
    {

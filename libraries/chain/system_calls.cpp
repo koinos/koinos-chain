@@ -129,7 +129,7 @@ THUNK_DEFINE_BEGIN();
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
-   context.console_append( msg );
+   context.chronicler().push_log( msg );
 }
 
 THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
@@ -256,12 +256,19 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    for ( const auto& [ within_session, event ] : context.chronicler().events() )
       if ( !within_session )
          *receipt.add_events() = event;
+
+   for ( const auto& message : context.chronicler().logs() )
+      *receipt.add_logs() = message;
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
+
+   auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
+   KOINOS_ASSERT( chain_id.exists(), unexpected_state, "chain id does not exist" );
+   KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), koinos::exception, "chain id mismatch" );
 
    transaction_guard guard( context, trx );
 
@@ -391,8 +398,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() - start_network_used );
    receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() - start_compute_used );
 
-   for ( auto& e : payer_session->events() )
+   for ( const auto& e : payer_session->events() )
       *receipt.add_events() = e;
+
+   for ( const auto& message : payer_session->logs() )
+      *receipt.add_logs() = message;
 
    payer_session.reset();
 
