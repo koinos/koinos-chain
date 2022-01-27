@@ -21,13 +21,13 @@ void initialize_descriptor_pool( execution_context& context, google::protobuf::D
       descriptor_pool.BuildFile( fd );
 }
 
-value get_field_value(
+value_type get_field_value(
    const google::protobuf::Reflection* reflection,
    const google::protobuf::Message& message,
    const google::protobuf::FieldDescriptor* field_descriptor,
    google::protobuf::FieldDescriptor::Type type )
 {
-   value v;
+   value_type v;
 
    switch ( type )
    {
@@ -69,7 +69,7 @@ value get_field_value(
          break;
       case google::protobuf::FieldDescriptor::TYPE_ENUM:
          {
-            koinos::chain::enum_value e;
+            koinos::chain::enum_type e;
             auto ed = reflection->GetEnum( message, field_descriptor );
             e.set_number( ed->number() );
             e.set_name( ed->name() );
@@ -96,14 +96,14 @@ value get_field_value(
    return v;
 }
 
-value get_repeated_field_value(
+value_type get_repeated_field_value(
    const google::protobuf::Reflection* reflection,
    const google::protobuf::Message& message,
    const google::protobuf::FieldDescriptor* field_descriptor,
    google::protobuf::FieldDescriptor::Type type )
 {
-   value v;
-   list_value list;
+   value_type v;
+   list_type list;
 
    int len = reflection->FieldSize( message, field_descriptor );
 
@@ -111,77 +111,77 @@ value get_repeated_field_value(
    {
       case google::protobuf::FieldDescriptor::TYPE_DOUBLE:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_double_value( reflection->GetRepeatedDouble( message, field_descriptor, i ) );
+            list.add_values()->set_double_value( reflection->GetRepeatedDouble( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_FLOAT:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_float_value( reflection->GetRepeatedFloat( message, field_descriptor, i ) );
+            list.add_values()->set_float_value( reflection->GetRepeatedFloat( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_INT64:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_int64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
+            list.add_values()->set_int64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_UINT64:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_uint64_value( reflection->GetRepeatedUInt64( message, field_descriptor, i ) );
+            list.add_values()->set_uint64_value( reflection->GetRepeatedUInt64( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_INT32:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_int32_value( reflection->GetRepeatedInt32( message, field_descriptor, i ) );
+            list.add_values()->set_int32_value( reflection->GetRepeatedInt32( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_FIXED64:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_fixed64_value( reflection->GetRepeatedUInt64( message, field_descriptor, i ) );
+            list.add_values()->set_fixed64_value( reflection->GetRepeatedUInt64( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_FIXED32:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_fixed32_value( reflection->GetRepeatedUInt32( message, field_descriptor, i ) );
+            list.add_values()->set_fixed32_value( reflection->GetRepeatedUInt32( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_BOOL:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_bool_value( reflection->GetRepeatedBool( message, field_descriptor, i ) );
+            list.add_values()->set_bool_value( reflection->GetRepeatedBool( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_STRING:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_string_value( reflection->GetRepeatedString( message, field_descriptor, i ) );
+            list.add_values()->set_string_value( reflection->GetRepeatedString( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->mutable_message_value()->PackFrom( reflection->GetRepeatedMessage( message, field_descriptor, i ) );
+            list.add_values()->mutable_message_value()->PackFrom( reflection->GetRepeatedMessage( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_BYTES:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_bytes_value( reflection->GetRepeatedString( message, field_descriptor, i ) );
+            list.add_values()->set_bytes_value( reflection->GetRepeatedString( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_UINT32:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_uint32_value( reflection->GetRepeatedUInt32( message, field_descriptor, i ) );
+            list.add_values()->set_uint32_value( reflection->GetRepeatedUInt32( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_ENUM:
          for ( int i = 0; i < len; i++ )
          {
-            koinos::chain::enum_value e;
+            koinos::chain::enum_type e;
             auto ed = reflection->GetRepeatedEnum( message, field_descriptor, i );
             e.set_number( ed->number() );
             e.set_name( ed->name() );
-            list.add_value()->mutable_message_value()->PackFrom( e );
+            list.add_values()->mutable_message_value()->PackFrom( e );
          }
          break;
       case google::protobuf::FieldDescriptor::TYPE_SFIXED32:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_sfixed32_value( reflection->GetRepeatedInt32( message, field_descriptor, i ) );
+            list.add_values()->set_sfixed32_value( reflection->GetRepeatedInt32( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_SFIXED64:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_sfixed64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
+            list.add_values()->set_sfixed64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_SINT32:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_sint32_value( reflection->GetRepeatedInt32( message, field_descriptor, i ) );
+            list.add_values()->set_sint32_value( reflection->GetRepeatedInt32( message, field_descriptor, i ) );
          break;
       case google::protobuf::FieldDescriptor::TYPE_SINT64:
          for ( int i = 0; i < len; i++ )
-            list.add_value()->set_sint64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
+            list.add_values()->set_sint64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
          break;
       default:
          KOINOS_ASSERT( false, unexpected_field_type, "attempted to retrieve the value of an unexpected field type" );
@@ -193,7 +193,7 @@ value get_repeated_field_value(
    return v;
 }
 
-value get_nested_field_value( execution_context& context, const google::protobuf::Message& parent_message, std::string field_name )
+value_type get_nested_field_value( execution_context& context, const google::protobuf::Message& parent_message, std::string field_name )
 {
    google::protobuf::DescriptorPool dpool;
 
