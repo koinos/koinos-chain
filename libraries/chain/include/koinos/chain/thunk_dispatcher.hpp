@@ -202,9 +202,17 @@ namespace detail
       t.CopyFrom( *ptr );
    }
 
+   // Overload to capture when field is an Enum
+   template< typename T >
+   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T > && std::is_enum_v< T >, void >
+   get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, T& t )
+   {
+      t = T( std::any_cast< std::underlying_type_t< T > >( get_type_from_field_impl( msg, fd ) ) );
+   }
+
    // Overload to capture when field is neither
    template< typename T >
-   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T >, void >
+   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T > && !std::is_enum_v< T >, void >
    get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, T& t )
    {
       t = std::any_cast< T >( get_type_from_field_impl( msg, fd ) );

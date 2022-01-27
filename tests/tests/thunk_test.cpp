@@ -29,6 +29,7 @@
 
 #include <koinos/contracts/token/token.pb.h>
 
+#include <koinos/tests/wasm/authorize.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/forever.hpp>
 #include <koinos/tests/wasm/hello.hpp>
@@ -193,6 +194,11 @@ struct thunk_fixture
    std::vector< uint8_t > get_forever_wasm()
    {
       return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
+   }
+
+   std::vector< uint8_t > get_authorize_wasm()
+   {
+      return std::vector< uint8_t >( authorize_wasm, authorize_wasm + authorize_wasm_len );
    }
 
    std::filesystem::path temp;
@@ -1099,5 +1105,127 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    BOOST_REQUIRE_EQUAL( ctx.resource_meter().compute_bandwidth_remaining(), 0 );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( authorize_tests )
+{
+   using namespace koinos;
+
+   auto key_a = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "test_key_a"s ) );
+   auto key_b = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "test_key_b"s ) );
+
+   // Upload KOIN contract
+   auto contract_private_key = crypto::private_key::regenerate( crypto::hash( koinos::crypto::multicodec::sha2_256, "token_contract"s ) );
+   auto contract_address = contract_private_key.get_public_key().to_address_bytes();
+   protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   koinos::protocol::upload_contract_operation upload_op;
+   upload_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
+   upload_op.set_bytecode( std::string( (const char*)koin_wasm, koin_wasm_len ) );
+
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   // Mint to key_a
+   koinos::contracts::token::mint_arguments mint_args;
+   mint_args.set_to( util::converter::as< std::string >( key_a.get_public_key().to_address_bytes() ) );
+   mint_args.set_value( 100 );
+
+   auto session = ctx.make_session( 100'000'000 );
+
+   //ctx.set_privilege( chain::privilege::kernel_mode );
+   auto response = koinos::chain::system_call::call_contract( ctx, upload_op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
+   auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
+   BOOST_REQUIRE( success.value() );
+
+   BOOST_TEST_MESSAGE( "Override authorize call contract" );
+   upload_op.set_contract_id( key_a.get_public_key().to_address_bytes() );
+   upload_op.set_bytecode( std::string( (const char*)authorize_wasm, authorize_wasm_len ) );
+   upload_op.set_authorizes_call_contract( true );
+
+   sign_transaction( trx, key_a );
+   ctx.set_transaction( trx );
+   //ctx.set_privilege( chain::privilege::user_mode );
+
+   //session = ctx.make_session( 1'000'000 );
+
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   BOOST_TEST_MESSAGE( "Transfer from 'a' to 'b'" );
+   koinos::contracts::token::transfer_arguments transfer_args;
+   transfer_args.set_from( util::converter::as< std::string >( key_a.get_public_key().to_address_bytes() ) );
+   transfer_args.set_to( util::converter::as< std::string >( key_b.get_public_key().to_address_bytes() ) );
+   transfer_args.set_value( 25 );
+
+   sign_transaction( trx, key_a );
+
+   try
+   {
+      koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+      BOOST_FAIL( "Expected invalid signature" );
+   }
+   catch ( const koinos::exception& ) {}
+
+   //session = ctx.make_session( 1'000'000 );
+   sign_transaction( trx, key_b );
+   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+   BOOST_TEST_PASSPOINT();
+
+   BOOST_TEST_MESSAGE( "Override authorize upload contract" );
+
+   upload_op.set_authorizes_upload_contract( true );
+   upload_op.set_authorizes_call_contract( false );
+
+   //session = ctx.make_session( 1'000'000 );
+   sign_transaction( trx, key_a );
+
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+
+   upload_op.set_authorizes_upload_contract( false );
+   upload_op.set_authorizes_use_rc( true );
+
+   //session = ctx.make_session( 1'000'000 );
+
+   try
+   {
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+      BOOST_FAIL( "Expected invalid signature" );
+   }
+   catch ( const koinos::exception& ) {}
+
+   sign_transaction( trx, key_b );
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+   BOOST_TEST_PASSPOINT();
+
+   BOOST_TEST_MESSAGE( "Override authorize use rc" );
+
+   ctx.set_intent( koinos::chain::intent::transaction_application );
+   auto op = trx.add_operations()->mutable_call_contract();
+   op->set_contract_id( util::converter::as< std::string >( contract_address ) );
+   op->set_entry_point( 0x62efa292 );
+   op->set_args( util::converter::as< std::string >( transfer_args ) );
+   set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
+   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_payer( key_a.get_public_key().to_address_bytes() );
+   trx.mutable_header()->set_rc_limit( 10'000'000 );
+   trx.mutable_header()->set_nonce( 0 );
+   auto id_mh = crypto::hash( crypto::multicodec::sha2_256, trx.header() );
+   trx.set_id( util::converter::as< std::string >( id_mh ) );
+   trx.clear_signatures();
+   trx.add_signatures( util::converter::as< std::string >( key_a.sign_compact( id_mh ) ) );
+
+   try
+   {
+      koinos::chain::system_call::apply_transaction( ctx, trx );
+      BOOST_FAIL( "Expected invalid signature" );
+   }
+   catch( const koinos::exception& ) {}
+
+   trx.add_signatures( util::converter::as< std::string >( key_b.sign_compact( id_mh ) ) );
+
+   koinos::chain::system_call::apply_transaction( ctx, trx );
+}
 
 BOOST_AUTO_TEST_SUITE_END()

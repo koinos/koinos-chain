@@ -129,6 +129,7 @@ THUNK_DEFINE_BEGIN();
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
 {
    context.resource_meter().use_compute_bandwidth( compute_load::light );
+
    context.chronicler().push_log( msg );
 }
 
@@ -447,7 +448,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    if ( contract_meta_object.exists() )
    {
       auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-      authorize_override = contract_meta.authorizes_call_contract();
+      authorize_override = contract_meta.authorizes_upload_contract();
    }
 
    bool authorized = false;
@@ -455,7 +456,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    if ( authorize_override )
    {
       authorize_arguments args;
-      args.set_type( authorization_type::contract_call );
+      args.set_type( authorization_type::contract_upload );
 
       authorized = authorize( context, o.contract_id(), args );
    }
