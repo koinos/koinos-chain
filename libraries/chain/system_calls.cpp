@@ -119,11 +119,6 @@ struct transaction_guard
    execution_context& ctx;
 };
 
-inline bool authorize( execution_context& ctx, const std::string& contract_id, const authorize_arguments& args )
-{
-   return util::converter::to< authorize_result >( system_call::call_contract( ctx, contract_id, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
-}
-
 THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
@@ -309,40 +304,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", trx.header().nonce())("e", account_nonce)
    );
 
-   auto payer_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), payer );
-   bool authorize_override = false;
-
-   if ( payer_contract_meta_object.exists() )
-   {
-      auto payer_contract_meta = util::converter::to< contract_metadata_object >( payer_contract_meta_object.value() );
-      authorize_override = payer_contract_meta.authorizes_use_rc();
-   }
-
-   bool authorized = false;
-
-   if ( authorize_override )
-   {
-      authorize_arguments args;
-      args.set_type( authorization_type::rc_use );
-
-      authorized = authorize( context, payer, args );
-   }
-   else
-   {
-      for ( const auto& sig : trx.signatures() )
-      {
-         auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
-         authorized = ( pub_key == payer );
-         if ( authorized )
-            break;
-      }
-   }
-
-   KOINOS_ASSERT(
-      authorized,
-      invalid_signature,
-      "payer ${payer} has not authorized this transaction", ("payer", util::to_base58( payer ))
-   );
+   system_call::require_authority( context, rc_use, payer );
 
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
@@ -442,42 +404,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
    context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
-   auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
-   bool authorize_override = false;
-
-   if ( contract_meta_object.exists() )
-   {
-      auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-      authorize_override = contract_meta.authorizes_upload_contract();
-   }
-
-   bool authorized = false;
-
-   if ( authorize_override )
-   {
-      authorize_arguments args;
-      args.set_type( authorization_type::contract_upload );
-
-      authorized = authorize( context, o.contract_id(), args );
-   }
-   else
-   {
-      const auto& trx = context.get_transaction();
-
-      for ( const auto& sig : trx.signatures() )
-      {
-         auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
-         authorized = ( pub_key == o.contract_id() );
-         if ( authorized )
-            break;
-      }
-   }
-
-   KOINOS_ASSERT(
-      authorized,
-      invalid_signature,
-      "contract ${contract} has not authorized contract upload", ("contract", util::to_base58( o.contract_id() ))
-   );
+   system_call::require_authority( context, contract_upload, o.contract_id() );
 
    contract_metadata_object contract_meta;
    *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
@@ -858,11 +785,11 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    return ret;
 }
 
-THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
+THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::string&) account) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
+   context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    auto account_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), account );
    bool authorize_override = false;
@@ -870,7 +797,20 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    if ( account_contract_meta_object.exists() )
    {
       auto account_contract_meta = util::converter::to< contract_metadata_object >( account_contract_meta_object.value() );
-      authorize_override = account_contract_meta.authorizes_call_contract();
+
+      switch ( type )
+      {
+         case contract_call:
+            authorize_override = account_contract_meta.authorizes_call_contract();
+            break;
+         case rc_use:
+            authorize_override = account_contract_meta.authorizes_use_rc();
+            break;
+         case contract_upload:
+            authorize_override = account_contract_meta.authorizes_upload_contract();
+            break;
+         default:;
+      }
    }
 
    bool authorized = false;
@@ -879,10 +819,14 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
    {
       authorize_arguments args;
       args.set_type( authorization_type::contract_call );
-      args.mutable_call()->set_contract_id( context.get_caller() );
-      args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
 
-      authorized = authorize( context, account, args );
+      if ( type == contract_call )
+      {
+         args.mutable_call()->set_contract_id( context.get_caller() );
+         args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
+      }
+
+      authorized = util::converter::to< authorize_result >( system_call::call_contract( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
    }
    else
    {
@@ -890,18 +834,14 @@ THUNK_DEFINE( void, require_authority, ((const std::string&) account) )
 
       for ( const auto& sig : trx.signatures() )
       {
-         auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
-         authorized = ( pub_key == account );
+         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
+         authorized = ( signer_address == account );
          if ( authorized )
             break;
       }
    }
 
-   KOINOS_ASSERT(
-      authorized,
-      invalid_signature,
-      "account ${account} has not authorized call to contract ${contract}", ("account", util::to_base58( account ))("contract", util::to_base58( context.get_caller() ))
-   );
+   KOINOS_ASSERT( authorized, authorization_failed, "account ${account} has not authorized action", ("account", util::to_base58( account )) );
 }
 
 THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )

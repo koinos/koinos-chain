@@ -91,7 +91,7 @@ THUNK_DECLARE( recover_public_key_result, recover_public_key, dsa type, const st
 THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_block );
 
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE( void, require_authority, const std::string& account );
+THUNK_DECLARE( void, require_authority, authorization_type type, const std::string& account );
 
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 

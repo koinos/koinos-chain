@@ -196,11 +196,6 @@ struct thunk_fixture
       return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
    }
 
-   std::vector< uint8_t > get_authorize_wasm()
-   {
-      return std::vector< uint8_t >( authorize_wasm, authorize_wasm + authorize_wasm_len );
-   }
-
    std::filesystem::path temp;
    koinos::state_db::database db;
    std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
@@ -805,12 +800,12 @@ BOOST_AUTO_TEST_CASE( require_authority )
    sign_transaction( trx, foo_key );
    ctx.set_transaction( trx );
 
-   chain::system_call::require_authority( ctx, foo_account_string );
+   chain::system_call::require_authority( ctx, koinos::chain::contract_call, foo_account_string );
 
-   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, bar_account_string ), chain::invalid_signature );
+   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, koinos::chain::contract_call, bar_account_string ), chain::authorization_failed );
 
    trx.clear_signatures();
-   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, foo_account_string ), chain::invalid_signature );
+   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, koinos::chain::contract_call, foo_account_string ), chain::authorization_failed );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -826,7 +821,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    protocol::transaction transaction;
 
-   transaction.mutable_header()->set_rc_limit( 10'000 );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
    transaction.mutable_header()->set_nonce( 0 );
    transaction.mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
    transaction.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id ).value() );
@@ -841,7 +836,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    BOOST_REQUIRE_EQUAL( next_nonce, 1 );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
-   transaction.mutable_header()->set_rc_limit( 20'000 );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
    transaction.mutable_header()->set_nonce( 0 );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
@@ -1013,7 +1008,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
       koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
-   catch ( const koinos::chain::invalid_signature& ) {}
+   catch ( const koinos::chain::authorization_failed& ) {}
 
    sign_transaction( trx, bob_private_key );
    ctx.set_transaction( trx );
@@ -1023,7 +1018,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
       koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
-   catch ( const koinos::chain::invalid_signature& ) {}
+   catch ( const koinos::chain::authorization_failed& ) {}
 
    sign_transaction( trx, alice_private_key );
    ctx.set_transaction( trx );
@@ -1133,7 +1128,6 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    auto session = ctx.make_session( 100'000'000 );
 
-   //ctx.set_privilege( chain::privilege::kernel_mode );
    auto response = koinos::chain::system_call::call_contract( ctx, upload_op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
    auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( success.value() );
@@ -1145,9 +1139,6 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    sign_transaction( trx, key_a );
    ctx.set_transaction( trx );
-   //ctx.set_privilege( chain::privilege::user_mode );
-
-   //session = ctx.make_session( 1'000'000 );
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
@@ -1164,9 +1155,8 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
       koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature" );
    }
-   catch ( const koinos::exception& ) {}
+   catch ( const koinos::chain::authorization_failed& ) {}
 
-   //session = ctx.make_session( 1'000'000 );
    sign_transaction( trx, key_b );
    koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
    BOOST_TEST_PASSPOINT();
@@ -1176,7 +1166,6 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    upload_op.set_authorizes_upload_contract( true );
    upload_op.set_authorizes_call_contract( false );
 
-   //session = ctx.make_session( 1'000'000 );
    sign_transaction( trx, key_a );
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -1186,14 +1175,12 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    upload_op.set_authorizes_upload_contract( false );
    upload_op.set_authorizes_use_rc( true );
 
-   //session = ctx.make_session( 1'000'000 );
-
    try
    {
       koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
       BOOST_FAIL( "Expected invalid signature" );
    }
-   catch ( const koinos::exception& ) {}
+   catch ( const koinos::chain::authorization_failed& ) {}
 
    sign_transaction( trx, key_b );
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -1221,7 +1208,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
       koinos::chain::system_call::apply_transaction( ctx, trx );
       BOOST_FAIL( "Expected invalid signature" );
    }
-   catch( const koinos::exception& ) {}
+   catch( const koinos::chain::authorization_failed& ) {}
 
    trx.add_signatures( util::converter::as< std::string >( key_b.sign_compact( id_mh ) ) );
 
