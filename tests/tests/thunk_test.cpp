@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
 
    BOOST_TEST_MESSAGE( "Testing dynamic transaction field retrieval" );
 
-   koinos::chain::value val;
+   koinos::chain::value_type val;
 
    BOOST_TEST_MESSAGE( "Retrieving ID" );
    val = koinos::chain::system_call::get_transaction_field( ctx, "id" );
@@ -266,19 +266,19 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
    BOOST_TEST_MESSAGE( "Retrieving operations" );
    val = koinos::chain::system_call::get_transaction_field( ctx, "operations" );
    BOOST_REQUIRE( val.has_message_value() );
-   koinos::chain::list_value list;
+   koinos::chain::list_type list;
    val.message_value().UnpackTo( &list );
-   BOOST_REQUIRE_EQUAL( list.value_size(), 1 );
+   BOOST_REQUIRE_EQUAL( list.values_size(), 1 );
    koinos::protocol::operation op_;
-   list.value( 0 ).message_value().UnpackTo( &op_ );
+   list.values( 0 ).message_value().UnpackTo( &op_ );
    BOOST_REQUIRE( google::protobuf::util::MessageDifferencer::Equals( op_, trx.operations( 0 ) ) );
 
    BOOST_TEST_MESSAGE( "Retrieving signatures" );
    val = koinos::chain::system_call::get_transaction_field( ctx, "signatures" );
    val.message_value().UnpackTo( &list );
-   for ( int i = 0; i < list.value_size(); i++ )
+   for ( int i = 0; i < list.values_size(); i++ )
    {
-      BOOST_REQUIRE_EQUAL( trx.signatures( i ), list.value( i ).bytes_value() );
+      BOOST_REQUIRE_EQUAL( trx.signatures( i ), list.values( i ).bytes_value() );
    }
 
    BOOST_TEST_MESSAGE( "Testing dynamic transaction field not found" );
@@ -328,7 +328,7 @@ BOOST_AUTO_TEST_CASE( get_block_field )
 
    BOOST_TEST_MESSAGE( "Testing dynamic block field retrieval" );
 
-   koinos::chain::value val;
+   koinos::chain::value_type val;
 
    BOOST_TEST_MESSAGE( "Retrieving ID" );
    val = koinos::chain::system_call::get_block_field( ctx, "id" );
@@ -368,13 +368,13 @@ BOOST_AUTO_TEST_CASE( get_block_field )
    BOOST_TEST_MESSAGE( "Retrieving transactions" );
    val = koinos::chain::system_call::get_block_field( ctx, "transactions" );
    BOOST_REQUIRE( val.has_message_value() );
-   koinos::chain::list_value list;
+   koinos::chain::list_type list;
    val.message_value().UnpackTo( &list );
-   BOOST_REQUIRE_EQUAL( list.value_size(), 1 );
-   for ( int i = 0; i < list.value_size(); i++ )
+   BOOST_REQUIRE_EQUAL( list.values_size(), 1 );
+   for ( int i = 0; i < list.values_size(); i++ )
    {
       koinos::protocol::transaction tx;
-      list.value( i ).message_value().UnpackTo( &tx );
+      list.values( i ).message_value().UnpackTo( &tx );
       BOOST_REQUIRE( google::protobuf::util::MessageDifferencer::Equals( block.transactions( i ), tx ) );
    }
 
