@@ -104,7 +104,9 @@ THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t
 
 THUNK_DECLARE( void, event, const std::string& name, const std::string& data, const std::vector< std::string >& impacted );
 
+THUNK_DECLARE_VOID( get_transaction_result, get_transaction );
 THUNK_DECLARE( get_transaction_field_result, get_transaction_field, const std::string& field );
+THUNK_DECLARE_VOID( get_block_result, get_block );
 THUNK_DECLARE( get_block_field_result, get_block_field, const std::string& field );
 
 THUNK_DECLARE( authorize_system_result, authorize_system, system_authorization_type type );

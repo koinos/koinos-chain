@@ -41,7 +41,9 @@ void register_thunks( thunk_dispatcher& td )
 
       // System Helpers
       (process_block_signature)
+      (get_transaction)
       (get_transaction_field)
+      (get_block)
       (get_block_field)
       (get_last_irreversible_block)
       (get_account_nonce)
@@ -922,11 +924,32 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
    context.chronicler().push_event( std::move( ev ) );
 }
 
+THUNK_DEFINE_VOID( get_transaction_result, get_transaction )
+{
+   get_transaction_result ret;
+
+   *ret.mutable_value() = context.get_transaction();
+
+   return ret;
+}
+
 THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::string&) field) )
 {
    get_transaction_field_result ret;
 
    *ret.mutable_value() = get_nested_field_value( context, context.get_transaction(), field );
+
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_block_result, get_block )
+{
+   get_block_result ret;
+
+   const auto* block = context.get_block();
+   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
+
+   *ret.mutable_value() = *block;
 
    return ret;
 }

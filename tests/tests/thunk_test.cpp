@@ -1449,7 +1449,9 @@ int main()
       { "apply_set_system_call_operation", [&]() { chain::system_call::apply_set_system_call_operation( ctx, sscop ); } },
       { "apply_set_system_contract_operation", [&]() { chain::system_call::apply_set_system_contract_operation( ctx, ssconp ); } },
       { "apply_call_contract_operation", [&]() { chain::system_call::apply_call_contract_operation( ctx, cco ); } },
-      { "apply_upload_contract_operation", [&]() { chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op ); } }
+      { "apply_upload_contract_operation", [&]() { chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op ); } },
+      { "get_transaction", [&]() { chain::system_call::get_transaction( ctx ); } },
+      { "get_block", [&]() { chain::system_call::get_block( ctx ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )
