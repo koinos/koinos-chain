@@ -1,3 +1,4 @@
+#include <koinos/chain/state.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/execution_context.hpp>
 
@@ -208,6 +209,42 @@ void execution_context::set_intent( chain::intent i )
 chain::intent execution_context::intent() const
 {
    return _intent;
+}
+
+#pragma message( "Optimize this behavior in to the per block cache" )
+uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name )
+{
+   static std::map< std::string, uint64_t > local_cache;
+
+   uint64_t compute = 0;
+   bool found = false;
+
+   if ( local_cache.find( thunk_name ) == local_cache.end() )
+   {
+      auto obj = _current_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
+      KOINOS_ASSERT( obj, unexpected_state, "compute bandwidth registry does not exist" );
+      auto compute_registry = util::converter::to< compute_bandwidth_registry >( *obj );
+
+      for ( const auto& entry : compute_registry.entries() )
+      {
+         if ( entry.name() == thunk_name )
+         {
+            found = true;
+            compute = entry.compute();
+            local_cache[ thunk_name ] = compute;
+            break;
+         }
+      }
+   }
+   else
+   {
+      found = true;
+      compute = local_cache.at( thunk_name );
+   }
+
+   KOINOS_ASSERT( found, unexpected_state, "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
+
+   return compute;
 }
 
 } // koinos::chain

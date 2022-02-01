@@ -124,8 +124,6 @@ THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    context.chronicler().push_log( msg );
 }
 
@@ -144,25 +142,15 @@ THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
 
 THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const std::string&) id, (const protocol::block_header&) header, (const std::string&) signature_data) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   crypto::recoverable_signature sig;
-   std::memcpy( sig.data(), signature_data.data(), std::min( sig.size(), signature_data.size() ) );
-   crypto::multihash block_id = util::converter::to< crypto::multihash >( id );
-
    auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    process_block_signature_result ret;
-   ret.set_value( genesis_addr == crypto::public_key::recover( sig, block_id ).to_address_bytes() );
+   ret.set_value( genesis_addr == util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, signature_data, id ) ).to_address_bytes() );
    return ret;
 }
 
 THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
-   uint128_t compute_bandwidth = uint128_t( compute_load::light ) * hashes.size();
-   compute_bandwidth = compute_bandwidth > std::numeric_limits< uint64_t >::max() ? std::numeric_limits< uint64_t >::max() : compute_bandwidth;
-   context.resource_meter().use_compute_bandwidth( compute_bandwidth.convert_to< uint64_t >() );
-
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
@@ -403,8 +391,6 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    system_call::require_authority( context, contract_upload, o.contract_id() );
 
    contract_metadata_object contract_meta;
@@ -422,8 +408,6 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    // Drop to user mode
    with_privilege(
       context,
@@ -438,8 +422,6 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
    KOINOS_ASSERT(
       system_call::authorize_system( context, set_system_call ),
@@ -459,14 +441,10 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
       LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
-   else if ( o.target().thunk_id() )
+   else
    {
       KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), thunk_not_found, "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
       LOG(info) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
-   }
-   else
-   {
-      KOINOS_THROW( unknown_system_call, "set_system_call invoked with unknown override" );
    }
 
    // Place the override in the database
@@ -477,8 +455,6 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   context.resource_meter().use_compute_bandwidth( compute_load::heavy );
 
    KOINOS_ASSERT(
       system_call::authorize_system( context, set_system_contract ),
@@ -501,8 +477,6 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot put object during read only call" );
 
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    state::assert_permissions( context, space );
 
    auto state = context.get_state_node();
@@ -524,8 +498,6 @@ THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::str
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot remove object during read only call" );
 
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    state::assert_permissions( context, space );
 
    auto state = context.get_state_node();
@@ -536,8 +508,6 @@ THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::str
 
 THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (const std::string&) key) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    state::assert_permissions( context, space );
 
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
@@ -559,8 +529,6 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
 THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) space, (const std::string&) key) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    state::assert_permissions( context, space );
 
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
@@ -582,8 +550,6 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
 
 THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) space, (const std::string&) key) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    state::assert_permissions( context, space );
 
    abstract_state_node_ptr state = google::protobuf::util::MessageDifferencer::Equals( space, state::space::system_call_dispatch() ) ? context.get_parent_node() : context.get_state_node();
@@ -605,8 +571,6 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 
 THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    // We need to be in kernel mode to read the contract data
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
    KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
@@ -640,8 +604,6 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
 
 THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    get_entry_point_result ret;
    ret.set_value( context.get_contract_entry_point() );
    return ret;
@@ -649,8 +611,6 @@ THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
 
 THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    get_contract_arguments_result ret;
    ret.set_value( context.get_contract_call_args() );
    return ret;
@@ -658,15 +618,11 @@ THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
 
 THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    context.set_contract_return( ret );
 }
 
 THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
-
    auto head = context.get_state_node();
 
    chain::head_info hi;
@@ -694,8 +650,6 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 
 THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    auto multicodec = static_cast< crypto::multicodec >( id );
    switch ( multicodec )
    {
@@ -719,8 +673,6 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
 
 THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const std::string&) signature_data, (const std::string&) digest) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
 
    KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
@@ -738,8 +690,6 @@ THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const
 
 THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_block )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    auto head = context.get_state_node();
 
    get_last_irreversible_block_result ret;
@@ -750,8 +700,6 @@ THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_blo
 
 THUNK_DEFINE_VOID( get_caller_result, get_caller )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    get_caller_result ret;
    auto frame0 = context.pop_frame(); // get_caller frame
    auto frame1 = context.pop_frame(); // contract frame
@@ -780,8 +728,6 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::string&) account) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   context.resource_meter().use_compute_bandwidth( compute_load::medium );
 
    auto account_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), account );
    bool authorize_override = false;
@@ -838,8 +784,6 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
 
 THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    get_contract_id_result ret;
    ret.set_value( context.get_contract_id() );
    return ret;
@@ -847,8 +791,6 @@ THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
 
 THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&) account ) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    auto obj = system_call::get_object( context, state::space::transaction_nonce(), account );
 
    get_account_nonce_result ret;
@@ -863,8 +805,6 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
 
 THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    auto obj = system_call::get_object( context, state::space::metadata(), state::key::max_account_resources );
    KOINOS_ASSERT( obj.exists(), unexpected_state, "max_account_resources does not exist" );
 
@@ -876,8 +816,6 @@ THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) accou
 
 THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    consume_account_rc_result ret;
    ret.set_value( true );
    return ret;
@@ -885,8 +823,6 @@ THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string
 
 THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    resource_limit_data rd;
 
    auto obj = system_call::get_object( context, state::space::metadata(), state::key::resource_limit_data );
@@ -899,8 +835,6 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
 
 THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
 {
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
    consume_block_resources_result ret;
    ret.set_value( true );
    return ret;
@@ -910,7 +844,6 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
 {
    const auto& caller = context.get_caller();
 
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
    context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
 
    protocol::event_data ev;

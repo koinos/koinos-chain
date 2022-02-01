@@ -80,6 +80,62 @@ struct stack_fixture
       entry->set_value( util::converter::as< std::string >( mar ) );
       *entry->mutable_space() = chain::state::space::metadata();
 
+      std::map< std::string, uint64_t > thunk_compute {
+         { "reserved_id", 1 }, // just for dummy thunk test!
+         { "apply_call_contract_operation", 22785 },
+         { "apply_set_system_call_operation", 42105 },
+         { "apply_set_system_contract_operation", 21175 },
+         { "apply_upload_contract_operation", 19985 },
+         { "authorize_system", 19915 },
+         { "call_contract", 17325 },
+         { "consume_account_rc", 2905 },
+         { "consume_block_resources", 3920 },
+         { "event", 3815 },
+         { "exit_contract", 3745 },
+         { "get_account_nonce", 4690 },
+         { "get_account_rc", 2800 },
+         { "get_block", 3185 },
+         { "get_block_field", 157150 },
+         { "get_caller", 4410 },
+         { "get_contract_arguments", 4375 },
+         { "get_contract_id", 4165 },
+         { "get_entry_point", 2520 },
+         { "get_last_irreversible_block", 1750 },
+         { "get_next_object", 26145 },
+         { "get_object", 2170 },
+         { "get_prev_object", 19600 },
+         { "get_resource_limits", 2450 },
+         { "get_transaction", 1575 },
+         { "get_transaction_field", 109865 },
+         { "hash", 2975 },
+         { "log", 1995 },
+         { "process_block_signature", 10850 },
+         { "put_object", 1435 },
+         { "recover_public_key", 5495 },
+         { "require_authority", 6965 },
+         { "set_contract_result", 875 },
+         { "verify_signature", 8120 },
+         { "apply_transaction", 27335 },
+         { "apply_block", 19355 },
+         { "verify_merkle_root", 10506 },
+         { "get_head_info", 7178 },
+         { "remove_object", 3108 }
+      };
+
+      koinos::chain::compute_bandwidth_registry cbr;
+
+      for ( const auto& [ key, value ] : thunk_compute )
+      {
+         auto centry = cbr.add_entries();
+         centry->set_name( key );
+         centry->set_compute( value );
+      }
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::compute_bandwidth_registry );
+      entry->set_value( util::converter::as< std::string >( cbr ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
       db.open( temp, [&]( state_db::state_node_ptr root )
       {
          // Write genesis objects into the database
@@ -210,7 +266,7 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
-   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( 0 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
@@ -279,7 +335,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    // We need to update the state node after a system call override
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
-   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( 0 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
@@ -347,7 +403,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
-   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( 0 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
@@ -400,7 +456,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
     * |  Apply Call Contract Operation (Drop to User Mode)
     * V  Apply Transaction (Kernel Mode)
     */
-   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 99, chain::thunk::dummy_thunk );
+   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 0, chain::thunk::dummy_thunk );
 
    // Upload and override event
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
@@ -428,7 +484,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 
    // Override set_contract_result with dummy_thunk
    set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::set_contract_result ) );
-   set_syscall_op.mutable_target()->set_thunk_id( 99 );
+   set_syscall_op.mutable_target()->set_thunk_id( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
    // Upload user contract
@@ -442,7 +498,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    // We need to update the state node after a system call override
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
-   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( 0 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
@@ -532,7 +588,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    // We need to update the state node after a system call override
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
-   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( 0 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
@@ -617,7 +673,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    // We need to update the state node after a system call override
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
-   trx.mutable_header()->set_rc_limit( 100'000 );
+   trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( 0 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();

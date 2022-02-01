@@ -97,6 +97,61 @@ struct thunk_fixture
       entry->set_value( protocol_descriptor );
       *entry->mutable_space() = chain::state::space::metadata();
 
+      std::map< std::string, uint64_t > thunk_compute {
+         { "apply_call_contract_operation", 22785 },
+         { "apply_set_system_call_operation", 42105 },
+         { "apply_set_system_contract_operation", 21175 },
+         { "apply_upload_contract_operation", 19985 },
+         { "authorize_system", 19915 },
+         { "call_contract", 17325 },
+         { "consume_account_rc", 2905 },
+         { "consume_block_resources", 3920 },
+         { "event", 3815 },
+         { "exit_contract", 3745 },
+         { "get_account_nonce", 4690 },
+         { "get_account_rc", 2800 },
+         { "get_block", 3185 },
+         { "get_block_field", 157150 },
+         { "get_caller", 4410 },
+         { "get_contract_arguments", 4375 },
+         { "get_contract_id", 4165 },
+         { "get_entry_point", 2520 },
+         { "get_last_irreversible_block", 1750 },
+         { "get_next_object", 26145 },
+         { "get_object", 2170 },
+         { "get_prev_object", 19600 },
+         { "get_resource_limits", 2450 },
+         { "get_transaction", 1575 },
+         { "get_transaction_field", 109865 },
+         { "hash", 2975 },
+         { "log", 1995 },
+         { "process_block_signature", 10850 },
+         { "put_object", 1435 },
+         { "recover_public_key", 5495 },
+         { "require_authority", 6965 },
+         { "set_contract_result", 875 },
+         { "verify_signature", 8120 },
+         { "apply_transaction", 27335 },
+         { "apply_block", 19355 },
+         { "verify_merkle_root", 10506 },
+         { "get_head_info", 7178 },
+         { "remove_object", 3108 }
+      };
+
+      koinos::chain::compute_bandwidth_registry cbr;
+
+      for ( const auto& [ key, value ] : thunk_compute )
+      {
+         auto centry = cbr.add_entries();
+         centry->set_name( key );
+         centry->set_compute( value );
+      }
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::compute_bandwidth_registry );
+      entry->set_value( util::converter::as< std::string >( cbr ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
       db.open( temp, [&]( state_db::state_node_ptr root )
       {
          // Write genesis objects into the database
@@ -399,23 +454,20 @@ BOOST_AUTO_TEST_CASE( db_crud )
 { try {
    std::string object_data;
 
-   // This test expects chain ID not to be present in the database, so
-   // we begin by removing it
-   chain::system_call::remove_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id );
-   BOOST_REQUIRE( !chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id ).exists() );
-
-   for ( const auto& entry : _genesis_data.entries() )
-      chain::system_call::remove_object( ctx, entry.space(), entry.key() );
+   chain::object_space test_space;
+   test_space.set_system( true );
+   test_space.set_zone( chain::state::zone::kernel );
+   test_space.set_id( 100 );
 
    auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
    ctx.clear_state_node();
 
    BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
 
-   BOOST_REQUIRE_THROW( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_next_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_prev_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_prev_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
 
    ctx.set_state_node( node );
 
@@ -423,42 +475,42 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), object_data.size() );
-   auto db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data ), object_data.size() );
+   auto db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( object_data == "object1" );
 
    BOOST_TEST_MESSAGE( "Testing getting a non-existent object" );
 
-   db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 2 ) );
+   db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 2 ) );
    BOOST_REQUIRE( !db_obj.exists() );
 
    BOOST_TEST_MESSAGE( "Test iteration" );
 
    object_data = "object2"s;
-   chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 2 ), object_data );
+   chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 2 ), object_data );
    object_data = "object3"s;
-   chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 3 ), object_data );
+   chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 3 ), object_data );
 
-   db_obj = chain::system_call::get_next_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 2 ) );
+   db_obj = chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 2 ) );
    BOOST_REQUIRE( db_obj.value() == "object3" );
 
-   db_obj = chain::system_call::get_prev_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 2 ) );
+   db_obj = chain::system_call::get_prev_object( ctx, test_space, util::converter::as< std::string >( 2 ) );
    BOOST_REQUIRE( db_obj.value() == "object1" );
 
    BOOST_TEST_MESSAGE( "Test iterator overrun" );
 
-   db_obj = chain::system_call::get_next_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 3 ) );
+   db_obj = chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 3 ) );
    BOOST_REQUIRE( !db_obj.exists() );
-   db_obj = chain::system_call::get_next_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 4 ) );
+   db_obj = chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 4 ) );
    BOOST_REQUIRE( !db_obj.exists() );
-   db_obj = chain::system_call::get_prev_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
+   db_obj = chain::system_call::get_prev_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( !db_obj.exists() );
-   db_obj = chain::system_call::get_prev_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 0 ) );
+   db_obj = chain::system_call::get_prev_object( ctx, test_space, util::converter::as< std::string >( 0 ) );
    BOOST_REQUIRE( !db_obj.exists() );
 
    object_data = "space1.object1"s;
    chain::system_call::put_object( ctx, chain::state::space::contract_bytecode(), util::converter::as< std::string >( 1 ), object_data );
-   db_obj = chain::system_call::get_next_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 3 ) );
+   db_obj = chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 3 ) );
    BOOST_REQUIRE( !db_obj.exists() );
    db_obj = chain::system_call::get_next_object( ctx, chain::state::space::contract_bytecode(), util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( !db_obj.exists() );
@@ -467,19 +519,19 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test object modification" );
    object_data = "object1.1"s;
-   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), object_data.size() - "object1"s.size() );
-   db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data ), object_data.size() - "object1"s.size() );
+   db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.value() == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ), object_data ), int64_t( "object1.1"s.size() ) * -1 );
-   db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
+   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data ), int64_t( "object1.1"s.size() ) * -1 );
+   db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.exists() );
    BOOST_REQUIRE( db_obj.value().size() == 0 );
 
-   chain::system_call::remove_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
-   db_obj = chain::system_call::get_object( ctx, chain::state::space::metadata(), util::converter::as< std::string >( 1 ) );
+   chain::system_call::remove_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
+   db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( !db_obj.exists() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -1409,6 +1461,8 @@ int main()
    objs.set_zone( std::string{ "test" } );
    objs.set_system( true );
 
+   chain::system_call::put_object( ctx, objs, std::string{ "remove_key" }, std::string{ "stuff" } );
+
    protocol::set_system_call_operation sscop;
    sscop.mutable_target()->mutable_system_call_bundle()->set_contract_id( empty_contract_op.contract_id() );
    sscop.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x00 );
@@ -1417,6 +1471,13 @@ int main()
    protocol::call_contract_operation cco;
    cco.set_entry_point( 0x00 );
    cco.set_contract_id( empty_contract_pk.get_public_key().to_address_bytes() );
+
+   std::vector< std::string > hashes;
+
+   for ( int i = 0; i < 10; i++ )
+      hashes.push_back( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( (char*)&i ) ) ) );
+
+   auto mtree = crypto::merkle_tree( crypto::multicodec::sha2_256, hashes );
 
    std::map< std::string, std::function< void( void ) > > system_call_map {
       { "authorize_system", [&]() { chain::system_call::authorize_system( ctx, chain::set_system_call ); } },
@@ -1451,7 +1512,10 @@ int main()
       { "apply_call_contract_operation", [&]() { chain::system_call::apply_call_contract_operation( ctx, cco ); } },
       { "apply_upload_contract_operation", [&]() { chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op ); } },
       { "get_transaction", [&]() { chain::system_call::get_transaction( ctx ); } },
-      { "get_block", [&]() { chain::system_call::get_block( ctx ); } }
+      { "get_block", [&]() { chain::system_call::get_block( ctx ); } },
+      { "verify_merkle_root", [&]() { chain::system_call::verify_merkle_root( ctx, util::converter::as< std::string >( mtree.root()->hash() ), hashes ); } },
+      { "get_head_info", [&]() { chain::system_call::get_head_info( ctx ); } },
+      { "remove_object", [&]() { chain::system_call::remove_object( ctx, objs, std::string{ "remove_key" } ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )

@@ -58,11 +58,7 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          .call_privilege = privilege::kernel_mode
       },
       [&]() {
-         if ( target.thunk_id() )
-         {
-            bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
-         }
-         else if ( target.has_system_call_bundle() )
+         if ( target.has_system_call_bundle() )
          {
             const auto& scb = target.system_call_bundle();
             #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
@@ -74,7 +70,13 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          }
          else
          {
-            KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", sid) );
+            auto desc = chain::system_call_id_descriptor();
+            auto enum_value = desc->FindValueByNumber( target.thunk_id() );
+            KOINOS_ASSERT( enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", target.thunk_id()) );
+            KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( target.thunk_id() ), thunk_not_found, "thunk ${tid} does not exist", ("tid", target.thunk_id()) );
+            auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
+            _ctx.resource_meter().use_compute_bandwidth( compute );
+            bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
          }
       }
    );
