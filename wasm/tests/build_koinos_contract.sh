@@ -3,8 +3,8 @@
 set -e
 set -x
 
-CDT_INSTALL_PATH=/Users/mdv/opt/koinos-cdt
-KOINOS_WASI_SDK_ROOT=/Users/mdv/opt/wasi-sdk-12.0
+CDT_INSTALL_PATH=~/opt/koinos-cdt
+KOINOS_WASI_SDK_ROOT=~/opt/wasi-sdk-12.0
 
 "$KOINOS_WASI_SDK_ROOT/bin/clang++" \
    \

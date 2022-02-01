@@ -12,13 +12,7 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/crypto/elliptic.hpp>
 
-#include <koinos/tests/wasm/stack/call_contract.hpp>
-#include <koinos/tests/wasm/stack/call_system_call.hpp>
-#include <koinos/tests/wasm/stack/call_system_call2.hpp>
-#include <koinos/tests/wasm/stack/stack_assertion.hpp>
-#include <koinos/tests/wasm/stack/system_from_user.hpp>
-#include <koinos/tests/wasm/stack/system_from_system.hpp>
-#include <koinos/tests/wasm/stack/user_from_user.hpp>
+#include <koinos/tests/contracts.hpp>
 
 #include <koinos/util/hex.hpp>
 
@@ -126,7 +120,7 @@ struct stack_fixture
       _stack_assertion_private_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "stack_assertion"s ) );
       koinos::protocol::upload_contract_operation op;
       op.set_contract_id( util::converter::as< std::string >( _stack_assertion_private_key.get_public_key().to_address_bytes() ) );
-      op.set_bytecode( std::string( (const char*)stack_assertion_wasm, stack_assertion_wasm_len ) );
+      op.set_bytecode( get_stack_assertion_wasm() );
 
       koinos::protocol::transaction trx;
       sign_transaction( trx, _stack_assertion_private_key );
@@ -205,7 +199,7 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
    koinos::protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)user_from_user_wasm, user_from_user_wasm_len ) );
+   upload_op.set_bytecode( get_user_from_user_wasm() );
    sign_transaction( trx, user_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -251,7 +245,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)system_from_user_wasm, system_from_user_wasm_len ) );
+   upload_op.set_bytecode( get_system_from_user_wasm() );
    sign_transaction( trx, override_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -272,7 +266,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
 
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
+   upload_op.set_bytecode( get_call_system_call_wasm() );
    sign_transaction( trx, user_key );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
@@ -335,14 +329,14 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    koinos::protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)user_from_user_wasm, user_from_user_wasm_len ) );
+   upload_op.set_bytecode( get_user_from_user_wasm() );
    sign_transaction( trx, user_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    auto calling_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "calling_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( calling_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_contract_wasm, call_contract_wasm_len ) );
+   upload_op.set_bytecode( get_call_contract_wasm() );
    sign_transaction( trx, calling_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -407,7 +401,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)system_from_system_wasm, system_from_system_wasm_len ) );
+   upload_op.set_bytecode( get_system_from_system_wasm() );
    sign_transaction( trx, override_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -434,7 +428,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    // Upload user contract
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
+   upload_op.set_bytecode( get_call_system_call_wasm() );
    sign_transaction( trx, user_key );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
@@ -482,7 +476,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)system_from_system_wasm, system_from_system_wasm_len ) );
+   upload_op.set_bytecode( get_system_from_system_wasm() );
    sign_transaction( trx, override_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -504,7 +498,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    // Upload and override set_contract_result
    auto override_key2 = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key2"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( override_key2.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_system_call2_wasm, call_system_call2_wasm_len ) );
+   upload_op.set_bytecode( get_call_system_call2_wasm() );
    sign_transaction( trx, override_key2 );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -524,7 +518,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    // Upload user contract
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
+   upload_op.set_bytecode( get_call_system_call_wasm() );
    sign_transaction( trx, user_key );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
@@ -572,7 +566,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    protocol::transaction trx;
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_contract_wasm, call_contract_wasm_len ) );
+   upload_op.set_bytecode( get_call_contract_wasm() );
    sign_transaction( trx, override_key );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -594,7 +588,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    // Upload system contract
    auto system_contract = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( system_contract.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)system_from_system_wasm, system_from_system_wasm_len ) );
+   upload_op.set_bytecode( get_system_from_system_wasm() );
    sign_transaction( trx, system_contract );
    ctx.set_transaction( trx );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -609,7 +603,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    // Upload user contract
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "user_key"s ) );
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
-   upload_op.set_bytecode( std::string( (const char*)call_system_call_wasm, call_system_call_wasm_len ) );
+   upload_op.set_bytecode( get_call_system_call_wasm() );
    sign_transaction( trx, user_key );
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 

@@ -13,10 +13,7 @@
 #include <koinos/util/hex.hpp>
 #include <koinos/util/base58.hpp>
 
-#include <koinos/tests/wasm/contract_return.hpp>
-#include <koinos/tests/wasm/db_write.hpp>
-#include <koinos/tests/wasm/hello.hpp>
-#include <koinos/tests/wasm/koin.hpp>
+#include <koinos/tests/contracts.hpp>
 
 #include <koinos/contracts/token/token.pb.h>
 
@@ -121,26 +118,6 @@ struct controller_fixture
       transaction.set_id( util::converter::as< std::string >( id_mh ) );
       transaction.clear_signatures();
       transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
-   }
-
-   std::vector< uint8_t > get_hello_wasm()
-   {
-      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
-   }
-
-   std::vector< uint8_t > get_contract_return_wasm()
-   {
-      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
-   }
-
-   std::vector< uint8_t > get_db_write_wasm()
-   {
-      return std::vector< uint8_t >( db_write_wasm, db_write_wasm + db_write_wasm_len );
-   }
-
-   std::vector< uint8_t > get_koin_wasm()
-   {
-      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
    }
 
    chain::controller      _controller;
@@ -435,7 +412,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
    auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( key1.get_public_key().to_address_bytes() ) );
-   op1->set_bytecode( util::converter::as< std::string >( get_hello_wasm() ) );
+   op1->set_bytecode( get_hello_wasm() );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
@@ -446,7 +423,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
    auto op2 = trx2.add_operations()->mutable_upload_contract();
    op2->set_contract_id( util::converter::as< std::string >( key2.get_public_key().to_address_bytes() ) );
-   op2->set_bytecode( util::converter::as< std::string >( get_contract_return_wasm() ) );
+   op2->set_bytecode( get_contract_return_wasm() );
    trx2.mutable_header()->set_rc_limit( 10'000'000 );
    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
@@ -457,7 +434,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
 
    auto op3 = trx3.add_operations()->mutable_upload_contract();
    op3->set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
-   op3->set_bytecode( util::converter::as< std::string >( get_db_write_wasm() ) );
+   op3->set_bytecode( get_db_write_wasm() );
    trx3.mutable_header()->set_rc_limit( 10'000'000 );
    trx3.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
@@ -522,7 +499,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    // Upload the KOIN contract
    auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
-   op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
+   op1->set_bytecode( get_koin_wasm() );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
@@ -592,7 +569,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    // Upload the KOIN contract
    auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
-   op1->set_bytecode( util::converter::as< std::string >( get_koin_wasm() ) );
+   op1->set_bytecode( get_koin_wasm() );
    trx1.mutable_header()->set_rc_limit( rc_limit1 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );

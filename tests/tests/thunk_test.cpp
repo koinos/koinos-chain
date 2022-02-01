@@ -29,12 +29,7 @@
 
 #include <koinos/contracts/token/token.pb.h>
 
-#include <koinos/tests/wasm/authorize.hpp>
-#include <koinos/tests/wasm/contract_return.hpp>
-#include <koinos/tests/wasm/forever.hpp>
-#include <koinos/tests/wasm/hello.hpp>
-#include <koinos/tests/wasm/koin.hpp>
-#include <koinos/tests/wasm/syscall_override.hpp>
+#include <koinos/tests/contracts.hpp>
 
 #include <koinos/util/base58.hpp>
 #include <koinos/util/hex.hpp>
@@ -169,31 +164,6 @@ struct thunk_fixture
       transaction.set_id( util::converter::as< std::string >( id_mh ) );
       transaction.clear_signatures();
       transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
-   }
-
-   std::vector< uint8_t > get_hello_wasm()
-   {
-      return std::vector< uint8_t >( hello_wasm, hello_wasm + hello_wasm_len );
-   }
-
-   std::vector< uint8_t > get_contract_return_wasm()
-   {
-      return std::vector< uint8_t >( contract_return_wasm, contract_return_wasm + contract_return_wasm_len );
-   }
-
-   std::vector< uint8_t > get_syscall_override_wasm()
-   {
-      return std::vector< uint8_t >( syscall_override_wasm, syscall_override_wasm + syscall_override_wasm_len );
-   }
-
-   std::vector< uint8_t > get_koin_wasm()
-   {
-      return std::vector< uint8_t >( koin_wasm, koin_wasm + koin_wasm_len );
-   }
-
-   std::vector< uint8_t > get_forever_wasm()
-   {
-      return std::vector< uint8_t >( forever_wasm, forever_wasm + forever_wasm_len );
    }
 
    std::filesystem::path temp;
@@ -496,7 +466,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    koinos::protocol::upload_contract_operation op;
    op.set_contract_id( util::converter::as< std::string >( contract_address ) );
-   op.set_bytecode( std::string( (const char*)hello_wasm, hello_wasm_len ) );
+   op.set_bytecode( get_hello_wasm() );
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
@@ -518,7 +488,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    BOOST_TEST_MESSAGE( "Test contract return" );
 
    // Upload the return test contract
-   op.set_bytecode( std::string( (const char*)contract_return_wasm, contract_return_wasm_len ) );
+   op.set_bytecode( get_contract_return_wasm() );
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
    auto contract_ret = koinos::chain::system_call::call_contract(ctx, op.contract_id(), 0, "echo");
@@ -543,7 +513,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    koinos::protocol::upload_contract_operation contract_op;
    contract_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
-   contract_op.set_bytecode( std::string( (const char*)hello_wasm, hello_wasm_len ) );
+   contract_op.set_bytecode( get_hello_wasm() );
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op );
 
@@ -561,7 +531,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    koinos::protocol::upload_contract_operation contract_op2;
    contract_op2.set_contract_id( util::converter::as< std::string >( contract_address2 ) );
-   contract_op2.set_bytecode( std::string( (const char*)syscall_override_wasm, syscall_override_wasm_len ) );
+   contract_op2.set_bytecode( get_syscall_override_wasm() );
 
    sign_transaction( tx, random_private_key2 );
    ctx.set_transaction( tx );
@@ -906,7 +876,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    koinos::protocol::upload_contract_operation op;
    op.set_contract_id( util::converter::as< std::string >( contract_address ) );
-   op.set_bytecode( std::string( (const char*)koin_wasm, koin_wasm_len ) );
+   op.set_bytecode( get_koin_wasm() );
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
@@ -1062,7 +1032,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
    protocol::upload_contract_operation op;
    op.set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
-   op.set_bytecode( util::converter::as< std::string >( get_forever_wasm() ) );
+   op.set_bytecode( get_forever_wasm() );
 
    chain::system_call::apply_upload_contract_operation( ctx, op );
 
@@ -1117,7 +1087,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    koinos::protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
-   upload_op.set_bytecode( std::string( (const char*)koin_wasm, koin_wasm_len ) );
+   upload_op.set_bytecode( get_koin_wasm() );
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
@@ -1134,7 +1104,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    BOOST_TEST_MESSAGE( "Override authorize call contract" );
    upload_op.set_contract_id( key_a.get_public_key().to_address_bytes() );
-   upload_op.set_bytecode( std::string( (const char*)authorize_wasm, authorize_wasm_len ) );
+   upload_op.set_bytecode( get_authorize_wasm() );
    upload_op.set_authorizes_call_contract( true );
 
    sign_transaction( trx, key_a );
