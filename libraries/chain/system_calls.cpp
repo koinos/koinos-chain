@@ -810,7 +810,7 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
    if ( authorize_override )
    {
       authorize_arguments args;
-      args.set_type( authorization_type::contract_call );
+      args.set_type( type );
 
       if ( type == contract_call )
       {
