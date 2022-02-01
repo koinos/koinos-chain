@@ -73,7 +73,6 @@ void register_thunks( thunk_dispatcher& td )
       // Contract Management
       (call_contract)
       (get_entry_point)
-      (get_contract_arguments_size)
       (get_contract_arguments)
       (set_contract_result)
       (exit_contract)
@@ -643,15 +642,6 @@ THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
 
    get_entry_point_result ret;
    ret.set_value( context.get_contract_entry_point() );
-   return ret;
-}
-
-THUNK_DEFINE_VOID( get_contract_arguments_size_result, get_contract_arguments_size )
-{
-   context.resource_meter().use_compute_bandwidth( compute_load::light );
-
-   get_contract_arguments_size_result ret;
-   ret.set_value( (uint32_t)context.get_contract_call_args().size() );
    return ret;
 }
 

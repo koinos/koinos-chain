@@ -78,7 +78,6 @@ THUNK_DECLARE( get_prev_object_result, get_prev_object, const object_space& spac
 THUNK_DECLARE( call_contract_result, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 
 THUNK_DECLARE_VOID( get_entry_point_result, get_entry_point );
-THUNK_DECLARE_VOID( get_contract_arguments_size_result, get_contract_arguments_size );
 THUNK_DECLARE_VOID( get_contract_arguments_result, get_contract_arguments );
 
 THUNK_DECLARE( void, set_contract_result, const std::string& ret );

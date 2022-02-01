@@ -12,7 +12,7 @@ int main()
 
    if ( privilege != koinos::chain::privilege::kernel_mode )
    {
-      koinos::system::print( "expected kernel mode, was user mode" );
+      koinos::system::log( "expected kernel mode, was user mode" );
       return 1;
    }
 

@@ -67,7 +67,7 @@ struct thunk_fixture
       koinos::chain::resource_limit_data rd;
 
       rd.set_disk_storage_cost( 10 );
-      rd.set_disk_storage_limit( 204'800 );
+      rd.set_disk_storage_limit( 500'800 );
 
       rd.set_network_bandwidth_cost( 5 );
       rd.set_network_bandwidth_limit( 1'048'576 );
@@ -1439,7 +1439,6 @@ int main()
       { "exit_contract", [&]() { try { chain::system_call::exit_contract( ctx, 0 ); } catch ( ... ) {} } },
       { "process_block_signature", [&]() { chain::system_call::process_block_signature( ctx, b.id(), b.header(), b.signature() ); } },
       { "get_entry_point", [&]() { chain::system_call::get_entry_point( ctx ); } },
-      { "get_contract_arguments_size", [&]() { chain::system_call::get_contract_arguments_size( ctx ); } },
       { "get_contract_arguments", [&] { chain::system_call::get_contract_arguments( ctx ); } },
       { "set_contract_result", [&]() { chain::system_call::set_contract_result( ctx, std::string{ "value" } ); } },
       { "put_object", [&]() { chain::system_call::put_object( ctx, objs, std::string{ "key" }, std::string{ "value" } ); } },
