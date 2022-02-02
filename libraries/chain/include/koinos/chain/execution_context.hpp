@@ -75,6 +75,8 @@ class execution_context
       std::string get_contract_return() const;
       void set_contract_return( const std::string& ret );
 
+      uint64_t get_compute_bandwidth( const std::string& thunk_name );
+
       /**
        * For now, authority lives on the context.
        * This should be moved, made generic, or otherwise re-architected.

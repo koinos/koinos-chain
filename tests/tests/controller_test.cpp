@@ -67,6 +67,61 @@ struct controller_fixture
       entry->set_value( util::converter::as< std::string >( mar ) );
       *entry->mutable_space() = chain::state::space::metadata();
 
+      std::map< std::string, uint64_t > thunk_compute {
+         { "apply_call_contract_operation", 22785 },
+         { "apply_set_system_call_operation", 42105 },
+         { "apply_set_system_contract_operation", 21175 },
+         { "apply_upload_contract_operation", 19985 },
+         { "authorize_system", 19915 },
+         { "call_contract", 17325 },
+         { "consume_account_rc", 2905 },
+         { "consume_block_resources", 3920 },
+         { "event", 3815 },
+         { "exit_contract", 3745 },
+         { "get_account_nonce", 4690 },
+         { "get_account_rc", 2800 },
+         { "get_block", 3185 },
+         { "get_block_field", 157150 },
+         { "get_caller", 4410 },
+         { "get_contract_arguments", 4375 },
+         { "get_contract_id", 4165 },
+         { "get_entry_point", 2520 },
+         { "get_last_irreversible_block", 1750 },
+         { "get_next_object", 26145 },
+         { "get_object", 2170 },
+         { "get_prev_object", 19600 },
+         { "get_resource_limits", 2450 },
+         { "get_transaction", 1575 },
+         { "get_transaction_field", 109865 },
+         { "hash", 2975 },
+         { "log", 1995 },
+         { "process_block_signature", 10850 },
+         { "put_object", 1435 },
+         { "recover_public_key", 5495 },
+         { "require_authority", 6965 },
+         { "set_contract_result", 875 },
+         { "verify_signature", 8120 },
+         { "apply_transaction", 27335 },
+         { "apply_block", 19355 },
+         { "verify_merkle_root", 10506 },
+         { "get_head_info", 7178 },
+         { "remove_object", 3108 }
+      };
+
+      koinos::chain::compute_bandwidth_registry cbr;
+
+      for ( const auto& [ key, value ] : thunk_compute )
+      {
+         auto centry = cbr.add_entries();
+         centry->set_name( key );
+         centry->set_compute( value );
+      }
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::compute_bandwidth_registry );
+      entry->set_value( util::converter::as< std::string >( cbr ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
       _controller.open( _state_dir, _genesis_data, false );
    }
 

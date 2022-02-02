@@ -278,17 +278,7 @@ namespace koinos::chain::detail {
             .call_privilege = privilege::kernel_mode                                                                       \
          },                                                                                                                \
          [&]() {                                                                                                           \
-            if ( _target.thunk_id() )                                                                                      \
-            {                                                                                                              \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
-                  thunk_dispatcher::instance().call_thunk<                                                                 \
-                     RETURN_TYPE                                                                                           \
-                     TYPES >(                                                                                              \
-                        _sid,                                                                                              \
-                        context                                                                                            \
-                        FWD );                                                                                             \
-            }                                                                                                              \
-            else if ( _target.has_system_call_bundle() )                                                                   \
+            if ( _target.has_system_call_bundle() )                                                                        \
             {                                                                                                              \
                const auto& _scb = _target.system_call_bundle();                                                            \
                BOOST_PP_CAT( SYSCALL, _THUNK_ARGS_SUFFIX ) _args;                                                          \
@@ -300,7 +290,15 @@ namespace koinos::chain::detail {
             }                                                                                                              \
             else                                                                                                           \
             {                                                                                                              \
-               KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
+               auto compute = context.get_compute_bandwidth( BOOST_PP_STRINGIZE( SYSCALL ) );                              \
+               context.resource_meter().use_compute_bandwidth( compute );                                                  \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
+                  thunk_dispatcher::instance().call_thunk<                                                                 \
+                     RETURN_TYPE                                                                                           \
+                     TYPES >(                                                                                              \
+                        _sid,                                                                                              \
+                        context                                                                                            \
+                        FWD );                                                                                             \
             }                                                                                                              \
          }                                                                                                                 \
       );                                                                                                                   \
