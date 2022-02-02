@@ -1,5 +1,7 @@
 #pragma once
 
+#include <google/protobuf/descriptor.h>
+
 #include <koinos/chain/chronicler.hpp>
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/resource_meter.hpp>
@@ -13,6 +15,7 @@
 #include <koinos/protocol/protocol.pb.h>
 
 #include <deque>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
@@ -42,6 +45,12 @@ enum class intent : uint64_t
    read_only,
    block_application,
    transaction_application
+};
+
+struct execution_context_cache
+{
+   std::map< std::string, uint64_t > compute_bandwidth;
+   std::unique_ptr< google::protobuf::DescriptorPool > descriptor_pool;
 };
 
 class execution_context
@@ -75,7 +84,7 @@ class execution_context
       std::string get_contract_return() const;
       void set_contract_return( const std::string& ret );
 
-      uint64_t get_compute_bandwidth( const std::string& thunk_name );
+      uint64_t get_compute_bandwidth( const std::string& thunk_name ) const;
 
       /**
        * For now, authority lives on the context.
@@ -108,6 +117,10 @@ class execution_context
 
       chain::receipt& receipt();
 
+      void build_cache();
+
+      const google::protobuf::DescriptorPool& descriptor_pool() const;
+
    private:
       friend struct frame_restorer;
 
@@ -126,6 +139,8 @@ class execution_context
 
       chain::intent                             _intent;
       chain::receipt                            _receipt;
+
+      execution_context_cache                   _cache;
 };
 
 namespace detail {

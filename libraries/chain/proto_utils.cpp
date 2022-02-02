@@ -195,11 +195,7 @@ value_type get_repeated_field_value(
 
 value_type get_nested_field_value( execution_context& context, const google::protobuf::Message& parent_message, std::string field_name )
 {
-   google::protobuf::DescriptorPool dpool;
-
-   initialize_descriptor_pool( context, dpool );
-
-   auto pool_descriptor = dpool.FindMessageTypeByName( parent_message.GetTypeName() );
+   auto pool_descriptor = context.descriptor_pool().FindMessageTypeByName( parent_message.GetTypeName() );
    KOINOS_ASSERT( pool_descriptor, unexpected_state, "${type} descriptor was not found", ("type", parent_message.GetTypeName()) );
 
    std::vector< std::string > field_path;
@@ -227,7 +223,7 @@ value_type get_nested_field_value( execution_context& context, const google::pro
 
          message         = &reflection->GetMessage( *message, field_descriptor );
          reflection      = message->GetReflection();
-         pool_descriptor = dpool.FindMessageTypeByName( message->GetTypeName() );
+         pool_descriptor = context.descriptor_pool().FindMessageTypeByName( message->GetTypeName() );
       }
    }
 

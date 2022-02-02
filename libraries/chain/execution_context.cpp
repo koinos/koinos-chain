@@ -211,40 +211,42 @@ chain::intent execution_context::intent() const
    return _intent;
 }
 
-#pragma message( "Optimize this behavior in to the per block cache" )
-uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name )
+void execution_context::build_cache()
 {
-   static std::map< std::string, uint64_t > local_cache;
+   KOINOS_ASSERT( _current_state_node, unexpected_state, "cannot rebuild execution context cache without a state node" );
 
-   uint64_t compute = 0;
-   bool found = false;
+   // Compute bandwidth registry
+   auto obj = _current_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
+   KOINOS_ASSERT( obj, unexpected_state, "compute bandwidth registry does not exist" );
+   auto compute_registry = util::converter::to< compute_bandwidth_registry >( *obj );
 
-   if ( local_cache.find( thunk_name ) == local_cache.end() )
-   {
-      auto obj = _current_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
-      KOINOS_ASSERT( obj, unexpected_state, "compute bandwidth registry does not exist" );
-      auto compute_registry = util::converter::to< compute_bandwidth_registry >( *obj );
+   _cache.compute_bandwidth.clear();
+   for ( const auto& entry : compute_registry.entries() )
+      _cache.compute_bandwidth[ entry.name() ] = entry.compute();
 
-      for ( const auto& entry : compute_registry.entries() )
-      {
-         if ( entry.name() == thunk_name )
-         {
-            found = true;
-            compute = entry.compute();
-            local_cache[ thunk_name ] = compute;
-            break;
-         }
-      }
-   }
-   else
-   {
-      found = true;
-      compute = local_cache.at( thunk_name );
-   }
+   // Descriptor pool
+   auto pdesc = _current_state_node->get_object( state::space::metadata(), state::key::protocol_descriptor );
+   KOINOS_ASSERT( pdesc, unexpected_state, "file descriptor set does not exist" );
 
-   KOINOS_ASSERT( found, unexpected_state, "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
+   google::protobuf::FileDescriptorSet fdesc;
+   KOINOS_ASSERT( fdesc.ParseFromString( *pdesc ), unexpected_state, "file descriptor set is malformed" );
 
-   return compute;
+   _cache.descriptor_pool = std::make_unique< google::protobuf::DescriptorPool >();
+   for ( const auto& fd : fdesc.file() )
+      _cache.descriptor_pool->BuildFile( fd );
+}
+
+uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name ) const
+{
+   auto iter = _cache.compute_bandwidth.find( thunk_name );
+   KOINOS_ASSERT( iter != _cache.compute_bandwidth.end(), unexpected_state, "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
+   return iter->second;
+}
+
+const google::protobuf::DescriptorPool& execution_context::descriptor_pool() const
+{
+   KOINOS_ASSERT( _cache.descriptor_pool, unexpected_state, "descriptor pool has not been built" );
+   return *_cache.descriptor_pool;
 }
 
 } // koinos::chain
