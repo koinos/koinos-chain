@@ -180,6 +180,7 @@ struct thunk_fixture
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
+      ctx.build_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "thunk_tests"s,
          .call_privilege = chain::privilege::kernel_mode

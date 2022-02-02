@@ -225,6 +225,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       } );
 
       parent_ctx.set_state_node( parent_node );
+      parent_ctx.build_cache();
       auto head_info = system_call::get_head_info( parent_ctx );
       parent_height = head_info.head_topology().height();
       time_lower_bound = head_info.head_block_time();
@@ -268,6 +269,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       } );
 
       ctx.set_state_node( block_node );
+      ctx.build_cache();
 
       system_call::apply_block( ctx, block );
 
@@ -456,6 +458,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    try
    {
       ctx.set_state_node( pending_trx_node );
+      ctx.build_cache();
 
       payer = transaction.header().payer();
 
@@ -535,6 +538,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto head_info = system_call::get_head_info( ctx );
    block_topology topo = head_info.head_topology();
@@ -581,6 +585,7 @@ fork_data controller_impl::get_fork_data_lockless()
    std::vector< state_db::state_node_ptr > fork_heads;
 
    ctx.set_state_node( _db.get_root() );
+   ctx.build_cache();
    fork_heads = _db.get_fork_heads();
 
    auto head_info = system_call::get_head_info( ctx );
@@ -624,6 +629,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto value = system_call::get_resource_limits( ctx );
 
@@ -645,6 +651,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto value = system_call::get_account_rc( ctx, request.account() );
 
@@ -683,6 +690,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
@@ -712,6 +720,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() );
 
