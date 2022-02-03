@@ -32,8 +32,12 @@ void register_thunks( thunk_dispatcher& td )
    THUNK_REGISTER( td,
       // General Blockchain Management
       (get_head_info)
+      (pre_block_callback)
+      (pre_transaction_callback)
       (apply_block)
       (apply_transaction)
+      (post_block_callback)
+      (post_transaction_callback)
       (apply_upload_contract_operation)
       (apply_call_contract_operation)
       (apply_set_system_call_operation)
@@ -166,6 +170,10 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    return ret;
 }
 
+THUNK_DEFINE_VOID( void, pre_block_callback ) { }
+
+THUNK_DEFINE_VOID( void, pre_transaction_callback ) { }
+
 THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
@@ -176,6 +184,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    context.receipt() = protocol::block_receipt();
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
+
+   system_call::pre_block_callback( context );
 
    const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
    size_t tx_count = block.transactions_size();
@@ -231,6 +241,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       "unable to consume block resources"
    );
 
+   system_call::post_block_callback( context );
+
    auto& receipt = std::get< protocol::block_receipt >( context.receipt() );
 
    receipt.set_id( block.id() );
@@ -256,6 +268,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), koinos::exception, "chain id mismatch" );
 
    transaction_guard guard( context, trx );
+
+   system_call::pre_transaction_callback( context );
 
    const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
    size_t op_count = trx.operations_size();
@@ -298,6 +312,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
    context.set_state_node( trx_node, block_node->get_parent() );
+
+   system_call::post_transaction_callback( context );
 
    std::exception_ptr reverted_exception_ptr;
 
@@ -465,6 +481,10 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    contract_meta.set_system( o.system_contract() );
    system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
+
+THUNK_DEFINE_VOID( void, post_block_callback ) { }
+
+THUNK_DEFINE_VOID( void, post_transaction_callback ) { }
 
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
