@@ -32,16 +32,16 @@ void register_thunks( thunk_dispatcher& td )
    THUNK_REGISTER( td,
       // General Blockchain Management
       (get_head_info)
-      (pre_block_callback)
-      (pre_transaction_callback)
       (apply_block)
       (apply_transaction)
-      (post_block_callback)
-      (post_transaction_callback)
       (apply_upload_contract_operation)
       (apply_call_contract_operation)
       (apply_set_system_call_operation)
       (apply_set_system_contract_operation)
+      (pre_block_callback)
+      (post_block_callback)
+      (pre_transaction_callback)
+      (post_transaction_callback)
 
       // System Helpers
       (process_block_signature)
@@ -230,6 +230,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
    }
 
+   system_call::post_block_callback( context );
+
    KOINOS_ASSERT(
       system_call::consume_block_resources(
          context,
@@ -240,8 +242,6 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       unable_to_consume_resources,
       "unable to consume block resources"
    );
-
-   system_call::post_block_callback( context );
 
    auto& receipt = std::get< protocol::block_receipt >( context.receipt() );
 
@@ -268,8 +268,6 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), koinos::exception, "chain id mismatch" );
 
    transaction_guard guard( context, trx );
-
-   system_call::pre_transaction_callback( context );
 
    const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
    size_t op_count = trx.operations_size();
@@ -300,6 +298,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     */
    auto payer_session = context.make_session( trx.header().rc_limit() );
 
+   system_call::pre_transaction_callback( context );
+
    auto account_nonce = system_call::get_account_nonce( context, payer );
    KOINOS_ASSERT(
       account_nonce == ( trx.header().nonce().size() == 0 ? util::converter::as< std::string >( uint64_t( 0 ) ) : trx.header().nonce() ),
@@ -312,8 +312,6 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
    context.set_state_node( trx_node, block_node->get_parent() );
-
-   system_call::post_transaction_callback( context );
 
    std::exception_ptr reverted_exception_ptr;
 
@@ -362,6 +360,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    if ( trx.header().nonce().size() )
       nonce = util::converter::to< uint64_t >( trx.header().nonce() );
    system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( nonce + 1 ) );
+
+   system_call::post_transaction_callback( context );
+
    auto used_rc = payer_session->used_rc();
 
    receipt.set_rc_used( used_rc );
