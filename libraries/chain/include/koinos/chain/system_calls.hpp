@@ -62,12 +62,18 @@ THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
 THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const protocol::block_header& header, const std::string& signature_data );
 THUNK_DECLARE( verify_merkle_root_result, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
 
+THUNK_DECLARE_VOID( void, pre_block_callback );
+THUNK_DECLARE_VOID( void, pre_transaction_callback );
+
 THUNK_DECLARE( void, apply_block, const protocol::block& block );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
 THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
 THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 THUNK_DECLARE( void, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
+
+THUNK_DECLARE_VOID( void, post_block_callback );
+THUNK_DECLARE_VOID( void, post_transaction_callback );
 
 THUNK_DECLARE( put_object_result, put_object, const object_space& space, const std::string& key, const std::string& obj );
 THUNK_DECLARE( void, remove_object, const object_space& space, const std::string& key );
