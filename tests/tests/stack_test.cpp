@@ -337,6 +337,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
 
    // We need to update the state node after a system call override
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.build_cache();
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );

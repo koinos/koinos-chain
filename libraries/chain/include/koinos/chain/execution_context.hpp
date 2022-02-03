@@ -18,6 +18,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <variant>
 
 namespace koinos::chain {
@@ -49,8 +50,11 @@ enum class intent : uint64_t
 
 struct execution_context_cache
 {
+   using system_call_cache_bundle = std::tuple< std::string, std::string, uint32_t, chain::contract_metadata_object >;
+
    std::map< std::string, uint64_t > compute_bandwidth;
    std::unique_ptr< google::protobuf::DescriptorPool > descriptor_pool;
+   std::map< uint32_t, system_call_cache_bundle > system_call;
 };
 
 class execution_context
@@ -121,8 +125,15 @@ class execution_context
 
       const google::protobuf::DescriptorPool& descriptor_pool() const;
 
+      std::string system_call( uint32_t id, const std::string& args );
+      bool system_call_exists( uint32_t id ) const;
+
    private:
       friend struct frame_restorer;
+
+      void build_compute_registry_cache();
+      void build_descriptor_pool();
+      void build_system_call_cache();
 
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::vector< stack_frame >                _stack;

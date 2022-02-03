@@ -1,3 +1,4 @@
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/execution_context.hpp>
@@ -211,11 +212,8 @@ chain::intent execution_context::intent() const
    return _intent;
 }
 
-void execution_context::build_cache()
+void execution_context::build_compute_registry_cache()
 {
-   KOINOS_ASSERT( _current_state_node, unexpected_state, "cannot rebuild execution context cache without a state node" );
-
-   // Compute bandwidth registry
    auto obj = _current_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
    KOINOS_ASSERT( obj, unexpected_state, "compute bandwidth registry does not exist" );
    auto compute_registry = util::converter::to< compute_bandwidth_registry >( *obj );
@@ -223,8 +221,10 @@ void execution_context::build_cache()
    _cache.compute_bandwidth.clear();
    for ( const auto& entry : compute_registry.entries() )
       _cache.compute_bandwidth[ entry.name() ] = entry.compute();
+}
 
-   // Descriptor pool
+void execution_context::build_descriptor_pool()
+{
    auto pdesc = _current_state_node->get_object( state::space::metadata(), state::key::protocol_descriptor );
    KOINOS_ASSERT( pdesc, unexpected_state, "file descriptor set does not exist" );
 
@@ -234,6 +234,45 @@ void execution_context::build_cache()
    _cache.descriptor_pool = std::make_unique< google::protobuf::DescriptorPool >();
    for ( const auto& fd : fdesc.file() )
       _cache.descriptor_pool->BuildFile( fd );
+}
+
+void execution_context::build_system_call_cache()
+{
+   _cache.system_call.clear();
+   state_db::object_key next = std::string{};
+   for (;;)
+   {
+      auto obj = _current_state_node->get_next_object( state::space::system_call_dispatch(), next );
+      if ( obj.first == nullptr )
+         break;
+
+      next = obj.second;
+
+      auto system_call_target = util::converter::to< protocol::system_call_target >( *obj.first );
+
+      if ( system_call_target.has_system_call_bundle() )
+      {
+         auto call_id           = util::converter::to< uint32_t >( obj.second );
+         auto contract_id       = system_call_target.system_call_bundle().contract_id();
+         auto entry_point       = system_call_target.system_call_bundle().entry_point();
+         auto contract_meta     = _current_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
+         auto contract_bytecode = _current_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
+
+         KOINOS_ASSERT( contract_meta, unexpected_state, "contract metadata for call id ${id} not found", ("id", call_id) );
+         KOINOS_ASSERT( contract_meta, unexpected_state, "contract bytecode for call id ${id} not found", ("id", call_id) );
+
+         _cache.system_call[ call_id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
+      }
+   }
+}
+
+void execution_context::build_cache()
+{
+   KOINOS_ASSERT( _current_state_node, unexpected_state, "cannot rebuild execution context cache without a state node" );
+
+   build_compute_registry_cache();
+   build_descriptor_pool();
+   build_system_call_cache();
 }
 
 uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name ) const
@@ -247,6 +286,42 @@ const google::protobuf::DescriptorPool& execution_context::descriptor_pool() con
 {
    KOINOS_ASSERT( _cache.descriptor_pool, unexpected_state, "descriptor pool has not been built" );
    return *_cache.descriptor_pool;
+}
+
+std::string execution_context::system_call( uint32_t id, const std::string& args )
+{
+   auto iter = _cache.system_call.find( id );
+   KOINOS_ASSERT( iter != _cache.system_call.end(), unexpected_state, "unable to find call id ${id} in system call cache", ("id", id) );
+
+   const auto& cid      = std::get< 0 >( iter->second );
+   const auto& bytecode = std::get< 1 >( iter->second );
+   auto entry_point     = std::get< 2 >( iter->second );
+   const auto& meta     = std::get< 3 >( iter->second );
+
+   push_frame( stack_frame{
+      .contract_id = cid,
+      .call_privilege = meta.system() ? privilege::kernel_mode : privilege::user_mode,
+      .call_args = args,
+      .entry_point = entry_point
+   } );
+
+   try
+   {
+      chain::host_api hapi( *this );
+      get_backend()->run( hapi, bytecode, meta.hash() );
+   }
+   catch( const exit_success& ) {}
+   catch( ... ) {
+      pop_frame();
+      throw;
+   }
+
+   return pop_frame().call_return;
+}
+
+bool execution_context::system_call_exists( uint32_t id ) const
+{
+   return _cache.system_call.find( id ) != _cache.system_call.end();
 }
 
 } // koinos::chain

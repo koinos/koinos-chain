@@ -620,11 +620,11 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
 
-   // Fetch the created call bundle from the database and check it
-   // The call bundle should be read from the parent context
+   // Fetch the created call bundle from the database and check it has been updated
    auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
-   BOOST_REQUIRE( !call_target.has_system_call_bundle() );
+   BOOST_REQUIRE( call_target.has_system_call_bundle() );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.build_cache();
    call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
    BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
@@ -714,10 +714,6 @@ BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
    chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
    BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).head_block_time() == block.header().timestamp() );
-
-   // Test exception when null state pointer is passed
-   ctx.set_state_node( std::shared_ptr< chain::abstract_state_node >() );
-   BOOST_REQUIRE_THROW( chain::system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
