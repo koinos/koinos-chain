@@ -38,6 +38,10 @@ void register_thunks( thunk_dispatcher& td )
       (apply_call_contract_operation)
       (apply_set_system_call_operation)
       (apply_set_system_contract_operation)
+      (pre_block_callback)
+      (post_block_callback)
+      (pre_transaction_callback)
+      (post_transaction_callback)
 
       // System Helpers
       (process_block_signature)
@@ -166,6 +170,10 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    return ret;
 }
 
+THUNK_DEFINE_VOID( void, pre_block_callback ) { }
+
+THUNK_DEFINE_VOID( void, pre_transaction_callback ) { }
+
 THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
@@ -176,6 +184,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    context.receipt() = protocol::block_receipt();
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
+
+   system_call::pre_block_callback( context );
 
    const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
    size_t tx_count = block.transactions_size();
@@ -219,6 +229,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       catch( const transaction_reverted& ) {} /* do nothing */
       KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
    }
+
+   system_call::post_block_callback( context );
 
    KOINOS_ASSERT(
       system_call::consume_block_resources(
@@ -286,6 +298,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     */
    auto payer_session = context.make_session( trx.header().rc_limit() );
 
+   system_call::pre_transaction_callback( context );
+
    auto account_nonce = system_call::get_account_nonce( context, payer );
    KOINOS_ASSERT(
       account_nonce == ( trx.header().nonce().size() == 0 ? util::converter::as< std::string >( uint64_t( 0 ) ) : trx.header().nonce() ),
@@ -346,6 +360,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    if ( trx.header().nonce().size() )
       nonce = util::converter::to< uint64_t >( trx.header().nonce() );
    system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( nonce + 1 ) );
+
+   system_call::post_transaction_callback( context );
+
    auto used_rc = payer_session->used_rc();
 
    receipt.set_rc_used( used_rc );
@@ -465,6 +482,10 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    contract_meta.set_system( o.system_contract() );
    system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
+
+THUNK_DEFINE_VOID( void, post_block_callback ) { }
+
+THUNK_DEFINE_VOID( void, post_transaction_callback ) { }
 
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
