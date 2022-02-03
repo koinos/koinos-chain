@@ -188,15 +188,22 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    for ( const auto& trx : block.transactions() )
    {
       transactions_bytes_size += trx.ByteSizeLong();
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.header() ) ) );
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signatures() ) ) );
+      hashes.emplace_back( system_call::hash( context, static_cast< uint64_t >( tx_root.code() ), util::converter::as< std::string >( trx.header() ) ) );
+      std::stringstream ss;
+
+      for ( const auto& sig : trx.signatures() )
+      {
+         ss << sig;
+      }
+
+      hashes.emplace_back( system_call::hash( context, static_cast< uint64_t >( tx_root.code() ), ss.str() ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
 
-   crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header() );
+   auto block_hash = util::converter::to< crypto::multihash >( system_call::hash( context, static_cast< uint64_t >( tx_root.code() ), util::converter::as< std::string >( block.header() ) ) );
    KOINOS_ASSERT(
       system_call::process_block_signature(
          context,
@@ -265,7 +272,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    hashes.reserve( op_count );
 
    for ( const auto& op : trx.operations() )
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( op_root.code(), op ) ) );
+      hashes.emplace_back( system_call::hash( context, static_cast< uint64_t >( op_root.code() ), util::converter::as< std::string >( op ) ) );
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
 
@@ -395,7 +402,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    system_call::require_authority( context, contract_upload, o.contract_id() );
 
    contract_metadata_object contract_meta;
-   *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
+   *contract_meta.mutable_hash() = system_call::hash( context, static_cast< uint64_t >( crypto::multicodec::sha2_256 ), o.bytecode() );
    contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
    contract_meta.set_authorizes_use_rc( o.authorizes_use_rc() );
    contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
