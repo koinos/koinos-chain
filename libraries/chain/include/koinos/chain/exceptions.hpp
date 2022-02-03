@@ -41,6 +41,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( thunk_not_found, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( read_only_context, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reverted, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_dsa, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_nonce, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );

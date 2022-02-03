@@ -5,21 +5,8 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/protocol/value.pb.h>
 
 namespace koinos::chain {
-
-void initialize_descriptor_pool( execution_context& context, google::protobuf::DescriptorPool& descriptor_pool )
-{
-   auto pdesc = system_call::get_object( context, state::space::metadata(), state::key::protocol_descriptor );
-   KOINOS_ASSERT( pdesc.exists(), unexpected_state, "file descriptor set does not exist" );
-
-   google::protobuf::FileDescriptorSet fdesc;
-   KOINOS_ASSERT( fdesc.ParseFromString( pdesc.value() ), unexpected_state, "file descriptor set is malformed" );
-
-   for ( const auto& fd : fdesc.file() )
-      descriptor_pool.BuildFile( fd );
-}
 
 value_type get_field_value(
    const google::protobuf::Reflection* reflection,

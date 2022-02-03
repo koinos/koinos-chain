@@ -47,7 +47,7 @@ void register_thunks( thunk_dispatcher& td )
       (get_block_field)
       (get_last_irreversible_block)
       (get_account_nonce)
-      (authorize_system)
+      (require_system_authority)
 
       // Resource Subsystem
       (get_account_rc)
@@ -288,8 +288,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    auto account_nonce = system_call::get_account_nonce( context, payer );
    KOINOS_ASSERT(
-      account_nonce == trx.header().nonce(),
-      chain::chain_exception,
+      account_nonce == ( trx.header().nonce().size() == 0 ? util::converter::as< std::string >( uint64_t( 0 ) ) : trx.header().nonce() ),
+      invalid_nonce,
       "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", trx.header().nonce())("e", account_nonce)
    );
 
@@ -342,7 +342,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    context.set_state_node( block_node );
 
    // Next nonce should be the current nonce + 1
-   system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( trx.header().nonce() + 1 ) );
+   uint64_t nonce = 0;
+   if ( trx.header().nonce().size() )
+      nonce = util::converter::to< uint64_t >( trx.header().nonce() );
+   system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( nonce + 1 ) );
    auto used_rc = payer_session->used_rc();
 
    receipt.set_rc_used( used_rc );
@@ -382,8 +385,6 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    {
       std::rethrow_exception( reverted_exception_ptr );
    }
-
-   LOG(debug) << "(apply_transaction) transaction " << trx.id();
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
@@ -423,11 +424,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   KOINOS_ASSERT(
-      system_call::authorize_system( context, set_system_call ),
-      insufficient_privileges,
-      "transaction does not have the required authority to override system calls"
-   );
+   system_call::require_system_authority( context, set_system_call );
 
    if ( o.target().has_system_call_bundle() )
    {
@@ -456,11 +453,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   KOINOS_ASSERT(
-      system_call::authorize_system( context, set_system_contract ),
-      insufficient_privileges,
-      "transaction does not have the required authority to set a system contract"
-   );
+   system_call::require_system_authority( context, set_system_contract );
 
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
    KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
@@ -796,9 +789,9 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
    get_account_nonce_result ret;
 
    if ( obj.exists() )
-      ret.set_value( util::converter::to< uint64_t >( obj.value() ) );
+      ret.set_value( obj.value() );
    else
-      ret.set_value( 0 );
+      ret.set_value( util::converter::as< std::string >( uint64_t( 0 ) ) );
 
    return ret;
 }
@@ -899,10 +892,8 @@ THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) fie
    return ret;
 }
 
-THUNK_DEFINE( authorize_system_result, authorize_system, ((system_authorization_type) type) )
+THUNK_DEFINE( void, require_system_authority, ((system_authorization_type) type) )
 {
-   authorize_system_result ret;
-
    auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    const auto& trx = context.get_transaction();
@@ -911,15 +902,13 @@ THUNK_DEFINE( authorize_system_result, authorize_system, ((system_authorization_
 
    for ( const auto& sig : trx.signatures() )
    {
-      auto pub_key = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
-      authorized = ( pub_key == genesis_addr );
+      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
+      authorized = ( addr == genesis_addr );
       if ( authorized )
          break;
    }
 
-   ret.set_value( authorized );
-
-   return ret;
+   KOINOS_ASSERT( authorized, authorization_failed, "system authority required" );
 }
 
 THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )

@@ -9,8 +9,6 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <koinos/protocol/value.pb.h>
-
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>

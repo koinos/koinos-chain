@@ -9,8 +9,6 @@
 
 namespace koinos::chain {
 
-void initialize_descriptor_pool( execution_context& context, google::protobuf::DescriptorPool& descriptor_pool );
-
 value_type get_nested_field_value( execution_context& context, const google::protobuf::Message& parent_message, std::string field_name );
 
 value_type get_field_value(

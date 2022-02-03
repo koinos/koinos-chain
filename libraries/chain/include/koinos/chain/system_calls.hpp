@@ -109,7 +109,7 @@ THUNK_DECLARE( get_transaction_field_result, get_transaction_field, const std::s
 THUNK_DECLARE_VOID( get_block_result, get_block );
 THUNK_DECLARE( get_block_field_result, get_block_field, const std::string& field );
 
-THUNK_DECLARE( authorize_system_result, authorize_system, system_authorization_type type );
+THUNK_DECLARE( void, require_system_authority, system_authorization_type type );
 
 THUNK_DECLARE( verify_signature_result, verify_signature, dsa type, const std::string& public_key, const std::string& signature, const std::string& digest );
 
