@@ -120,6 +120,25 @@ struct transaction_guard
    execution_context& ctx;
 };
 
+void validate_hash_code( crypto::multicodec id )
+{
+   switch ( id )
+   {
+      case crypto::multicodec::sha1:
+         [[fallthrough]];
+      case crypto::multicodec::sha2_256:
+         [[fallthrough]];
+      case crypto::multicodec::sha2_512:
+         [[fallthrough]];
+      case crypto::multicodec::keccak_256:
+         [[fallthrough]];
+      case crypto::multicodec::ripemd_160:
+         break;
+      default:
+         KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
+   }
+}
+
 THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
@@ -151,12 +170,14 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 
 THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
+   auto root_hash = util::converter::to< crypto::multihash >( root );
+   validate_hash_code( root_hash.code() );
+
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
    std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return util::converter::to< crypto::multihash >( s ); } );
 
-   auto root_hash = util::converter::to< crypto::multihash >( root );
    auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
 
    auto merkle_root = mtree.root()->hash();
@@ -644,19 +665,8 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
    auto multicodec = static_cast< crypto::multicodec >( id );
-   switch ( multicodec )
-   {
-      case crypto::multicodec::sha1:
-         [[fallthrough]];
-      case crypto::multicodec::sha2_256:
-         [[fallthrough]];
-      case crypto::multicodec::sha2_512:
-         [[fallthrough]];
-      case crypto::multicodec::ripemd_160:
-         break;
-      default:
-         KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
-   }
+   validate_hash_code( multicodec );
+
    auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
    hash_result ret;
