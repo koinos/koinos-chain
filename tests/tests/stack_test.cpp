@@ -125,7 +125,7 @@ struct stack_fixture
          { "pre_transaction_callback", 500 },
          { "pre_block_callback", 500 },
          { "post_block_callback", 500 },
-         { "post_transaction_callback", 500 }
+         { "post_transaction_callback", 500 },
          { "verify_account_nonce", 6000 },
          { "set_account_nonce", 3000 }
       };
