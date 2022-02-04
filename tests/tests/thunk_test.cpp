@@ -229,6 +229,15 @@ struct thunk_fixture
    chain::genesis_data _genesis_data;
 };
 
+namespace koinos::chain::thunk {
+
+void test_thunk( execution_context& ctx, const std::string& s )
+{
+   thunk::_log( ctx, "thunk: " + s );
+}
+
+} // koinos::chain::thunk
+
 BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
 
 BOOST_AUTO_TEST_CASE( get_transaction_field )
@@ -642,7 +651,16 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "test: Hello World", host._ctx.chronicler().logs()[2] );
 
-   ctx.clear_transaction();
+   BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
+
+   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 0, chain::thunk::test_thunk );
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
+   set_op.mutable_target()->set_thunk_id( 0 );
+   koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
+   ctx.build_cache();
+
+   koinos::chain::system_call::log( host._ctx, "Hello World" );
+   BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
