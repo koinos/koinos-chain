@@ -133,6 +133,8 @@ struct thunk_fixture
          { "pre_block_callback", 500 },
          { "post_block_callback", 500 },
          { "post_transaction_callback", 500 }
+         { "verify_account_nonce", 6000 },
+         { "set_account_nonce", 3000 }
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -846,8 +848,11 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
 
    protocol::transaction transaction;
 
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+
    transaction.mutable_header()->set_rc_limit( 1'000'000 );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    transaction.mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
    transaction.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id ).value() );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
@@ -856,50 +861,59 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    chain::system_call::apply_transaction( ctx, transaction );
 
    auto payer = transaction.header().payer();
-
-   auto next_nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( next_nonce, util::converter::as< std::string >( uint64_t( 1 ) ) );
+   auto nonce = chain::system_call::get_account_nonce( ctx, payer );
+   BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
    transaction.mutable_header()->set_rc_limit( 1'000'000 );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( next_nonce, util::converter::as< std::string >( uint64_t( 1 ) ) );
+   nonce = chain::system_call::get_account_nonce( ctx, payer );
+   BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
 
    BOOST_TEST_MESSAGE( "Test next transaction nonce" );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 1 ) ) );
+   nonce_value.set_uint64_value( 2 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
    chain::system_call::apply_transaction( ctx, transaction );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( next_nonce, util::converter::as< std::string >( uint64_t( 2 ) ) );
+   nonce = chain::system_call::get_account_nonce( ctx, payer );
+   BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
 
    BOOST_TEST_MESSAGE( "Test duplicate transaction nonce" );
-   transaction.mutable_header()->set_rc_limit( 30'000 );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
    BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( next_nonce, util::converter::as< std::string >( uint64_t( 2 ) ) );
+   nonce = chain::system_call::get_account_nonce( ctx, payer );
+   BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
 
-   BOOST_TEST_MESSAGE( "Test next transaction nonce" );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 2 ) ) );
+   BOOST_TEST_MESSAGE( "Test skipping transaction nonce" );
+   nonce_value.set_uint64_value( 10 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
    chain::system_call::apply_transaction( ctx, transaction );
 
-   next_nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( next_nonce, util::converter::as< std::string >( uint64_t( 3 ) ) );
+   nonce = chain::system_call::get_account_nonce( ctx, payer );
+   BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
+
+   BOOST_TEST_MESSAGE( "Test old nonce" );
+   nonce_value.set_uint64_value( 5 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, key );
+
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( get_contract_id_test )
@@ -1137,6 +1151,9 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    auto contract_private_key = crypto::private_key::regenerate( crypto::hash( koinos::crypto::multicodec::sha2_256, "token_contract"s ) );
    auto contract_address = contract_private_key.get_public_key().to_address_bytes();
    protocol::transaction trx;
+   chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    sign_transaction( trx, contract_private_key );
    ctx.set_transaction( trx );
 
@@ -1222,7 +1239,6 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    trx.mutable_header()->set_payer( key_a.get_public_key().to_address_bytes() );
    trx.mutable_header()->set_rc_limit( 10'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    auto id_mh = crypto::hash( crypto::multicodec::sha2_256, trx.header() );
    trx.set_id( util::converter::as< std::string >( id_mh ) );
    trx.clear_signatures();

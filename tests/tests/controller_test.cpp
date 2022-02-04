@@ -118,6 +118,8 @@ struct controller_fixture
          { "pre_block_callback", 500 },
          { "post_block_callback", 500 },
          { "post_transaction_callback", 500 }
+         { "verify_account_nonce", 6000 },
+         { "set_account_nonce", 3000 }
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -293,8 +295,10 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_timestamp( block_req.block().header().timestamp() + 2 );
 
    auto trx = block_req.mutable_block()->add_transactions();
+   chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 2 );
    trx->mutable_header()->set_rc_limit( 10'000 );
-   trx->mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 2 ) ) );
+   trx->mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( *trx, crypto::multicodec::sha2_256 );
 
    trx->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, trx->header() ) ) );
@@ -476,12 +480,15 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    auto key3 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "foobar3"s ) );
 
    koinos::protocol::transaction trx1;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
 
    auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( key1.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( get_hello_wasm() );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx1.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx1, key1 );
 
@@ -493,6 +500,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op2->set_bytecode( get_contract_return_wasm() );
    trx2.mutable_header()->set_rc_limit( 10'000'000 );
    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx2.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx2, key2 );
 
@@ -504,6 +512,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    op3->set_bytecode( get_db_write_wasm() );
    trx3.mutable_header()->set_rc_limit( 10'000'000 );
    trx3.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx3.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx3, key3 );
 
@@ -562,6 +571,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx1;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
 
    // Upload the KOIN contract
    auto op1 = trx1.add_operations()->mutable_upload_contract();
@@ -569,6 +580,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    op1->set_bytecode( get_koin_wasm() );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx1.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx1, contract_private_key );
 
@@ -584,6 +596,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    op2->set_args( mint_arg.SerializeAsString() );
    trx2.mutable_header()->set_rc_limit( 10'000'000 );
    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx2.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx2, alice_private_key );
 
@@ -632,6 +645,8 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    auto alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
    koinos::protocol::transaction trx1;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
 
    // Upload the KOIN contract
    auto op1 = trx1.add_operations()->mutable_upload_contract();
@@ -639,6 +654,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    op1->set_bytecode( get_koin_wasm() );
    trx1.mutable_header()->set_rc_limit( rc_limit1 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx1.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx1, contract_private_key );
 
@@ -654,6 +670,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    op2->set_args( mint_arg.SerializeAsString() );
    trx2.mutable_header()->set_rc_limit( rc_limit2 );
    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx2.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx2, alice_private_key );
 
@@ -736,6 +753,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    auto rc_limit3 = 8'000'000;
 
    koinos::protocol::transaction trx3;
+   nonce_value.set_uint64_value( 2 );
 
    koinos::contracts::token::transfer_arguments xfer_arg;
    xfer_arg.set_from( alice_address );
@@ -747,7 +765,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    op3->set_entry_point( 0x62efa292 );
    op3->set_args( xfer_arg.SerializeAsString() );
    trx3.mutable_header()->set_rc_limit( rc_limit3 );
-   trx3.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 1 ) ) );
+   trx3.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    trx3.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx3, alice_private_key );

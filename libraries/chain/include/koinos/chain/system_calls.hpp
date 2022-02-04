@@ -101,6 +101,8 @@ THUNK_DECLARE( void, require_authority, authorization_type type, const std::stri
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 
 THUNK_DECLARE( get_account_nonce_result, get_account_nonce, const std::string& account );
+THUNK_DECLARE( verify_account_nonce_result, verify_account_nonce, const std::string& account, const std::string& nonce );
+THUNK_DECLARE( void, set_account_nonce, const std::string& account, const std::string& nonce );
 
 THUNK_DECLARE( get_account_rc_result, get_account_rc, const std::string& account );
 THUNK_DECLARE( consume_account_rc_result, consume_account_rc, const std::string& account, uint64_t rc );

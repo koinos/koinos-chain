@@ -51,6 +51,8 @@ void register_thunks( thunk_dispatcher& td )
       (get_block_field)
       (get_last_irreversible_block)
       (get_account_nonce)
+      (verify_account_nonce)
+      (set_account_nonce)
       (require_system_authority)
 
       // Resource Subsystem
@@ -124,6 +126,25 @@ struct transaction_guard
    execution_context& ctx;
 };
 
+void validate_hash_code( crypto::multicodec id )
+{
+   switch ( id )
+   {
+      case crypto::multicodec::sha1:
+         [[fallthrough]];
+      case crypto::multicodec::sha2_256:
+         [[fallthrough]];
+      case crypto::multicodec::sha2_512:
+         [[fallthrough]];
+      case crypto::multicodec::keccak_256:
+         [[fallthrough]];
+      case crypto::multicodec::ripemd_160:
+         break;
+      default:
+         KOINOS_THROW( unknown_hash_code, "unknown hash code" );
+   }
+}
+
 THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
@@ -155,12 +176,14 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 
 THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
+   auto root_hash = util::converter::to< crypto::multihash >( root );
+   validate_hash_code( root_hash.code() );
+
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
    std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return util::converter::to< crypto::multihash >( s ); } );
 
-   auto root_hash = util::converter::to< crypto::multihash >( root );
    auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
 
    auto merkle_root = mtree.root()->hash();
@@ -198,15 +221,22 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    for ( const auto& trx : block.transactions() )
    {
       transactions_bytes_size += trx.ByteSizeLong();
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.header() ) ) );
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( tx_root.code(), trx.signatures() ) ) );
+      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( tx_root.code() ), util::converter::as< std::string >( trx.header() ) ) );
+      std::stringstream ss;
+
+      for ( const auto& sig : trx.signatures() )
+      {
+         ss << sig;
+      }
+
+      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( tx_root.code() ), ss.str() ) );
    }
 
    context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
 
-   crypto::multihash block_hash = crypto::hash( tx_root.code(), block.header() );
+   auto block_hash = util::converter::to< crypto::multihash >( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( tx_root.code() ), util::converter::as< std::string >( block.header() ) ) );
    KOINOS_ASSERT(
       system_call::process_block_signature(
          context,
@@ -277,7 +307,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    hashes.reserve( op_count );
 
    for ( const auto& op : trx.operations() )
-      hashes.emplace_back( util::converter::as< std::string >( crypto::hash( op_root.code(), op ) ) );
+      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( op_root.code() ), util::converter::as< std::string >( op ) ) );
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
 
@@ -300,14 +330,26 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    system_call::pre_transaction_callback( context );
 
-   auto account_nonce = system_call::get_account_nonce( context, payer );
-   KOINOS_ASSERT(
-      account_nonce == ( trx.header().nonce().size() == 0 ? util::converter::as< std::string >( uint64_t( 0 ) ) : trx.header().nonce() ),
-      invalid_nonce,
-      "mismatching transaction nonce - trx nonce: ${d}, expected: ${e}", ("d", trx.header().nonce())("e", account_nonce)
-   );
-
    system_call::require_authority( context, rc_use, payer );
+
+   const auto& payee = trx.header().payee();
+
+   // If the payee is set and not the payer, then the payee account's nonce is used.
+   bool use_payee_nonce = payee.size() && payee != payer;
+   const auto& nonce_account = use_payee_nonce ? payee : payer;
+
+   // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
+   if ( use_payee_nonce )
+   {
+      system_call::require_authority( context, signature_exists, payee );
+   }
+
+   KOINOS_ASSERT(
+      system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
+      invalid_nonce,
+      "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
+      ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
+   );
 
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
@@ -355,11 +397,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    context.set_state_node( block_node );
 
-   // Next nonce should be the current nonce + 1
-   uint64_t nonce = 0;
-   if ( trx.header().nonce().size() )
-      nonce = util::converter::to< uint64_t >( trx.header().nonce() );
-   system_call::put_object( context, state::space::transaction_nonce(), payer, util::converter::as< std::string >( nonce + 1 ) );
+   system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
 
    system_call::post_transaction_callback( context );
 
@@ -412,7 +450,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    system_call::require_authority( context, contract_upload, o.contract_id() );
 
    contract_metadata_object contract_meta;
-   *contract_meta.mutable_hash() = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, o.bytecode() ) );
+   *contract_meta.mutable_hash() = system_call::hash( context, std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ), o.bytecode() );
    contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
    contract_meta.set_authorizes_use_rc( o.authorizes_use_rc() );
    contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
@@ -665,19 +703,8 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
 {
    auto multicodec = static_cast< crypto::multicodec >( id );
-   switch ( multicodec )
-   {
-      case crypto::multicodec::sha1:
-         [[fallthrough]];
-      case crypto::multicodec::sha2_256:
-         [[fallthrough]];
-      case crypto::multicodec::sha2_512:
-         [[fallthrough]];
-      case crypto::multicodec::ripemd_160:
-         break;
-      default:
-         KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
-   }
+   validate_hash_code( multicodec );
+
    auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
    hash_result ret;
@@ -810,11 +837,52 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
    get_account_nonce_result ret;
 
    if ( obj.exists() )
+   {
       ret.set_value( obj.value() );
+   }
    else
-      ret.set_value( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   {
+      value_type nonce_value;
+      nonce_value.set_uint64_value( 0 );
+      ret.set_value( util::converter::as< std::string >( nonce_value ) );
+   }
 
    return ret;
+}
+
+THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
+{
+   auto nonce_value = util::converter::to< value_type >( nonce );
+   KOINOS_ASSERT(
+      nonce_value.has_uint64_value(),
+      invalid_nonce,
+      "nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
+      ("n", util::to_hex( nonce ))("a", util::to_base58( account ))
+   );
+
+   auto current_nonce_value = util::converter::to< value_type >( system_call::get_account_nonce( context, account ) );
+   KOINOS_ASSERT(
+      current_nonce_value.has_uint64_value(),
+      unexpected_state,
+      "current nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
+      ("n", util::to_hex( current_nonce_value ))("a", util::to_base58( account ))
+   );
+
+   verify_account_nonce_result res;
+   res.set_value( nonce_value.uint64_value() > current_nonce_value.uint64_value() );
+   return res;
+}
+
+THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
+{
+   auto nonce_value = util::converter::to< value_type >( nonce );
+   KOINOS_ASSERT(
+      nonce_value.has_uint64_value(),
+      invalid_nonce,
+      "set nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
+      ("n", util::to_hex( nonce ))("a", util::to_base58( account )) );
+
+   system_call::put_object( context, state::space::transaction_nonce(), account, nonce );
 }
 
 THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )

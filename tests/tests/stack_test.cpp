@@ -126,6 +126,8 @@ struct stack_fixture
          { "pre_block_callback", 500 },
          { "post_block_callback", 500 },
          { "post_transaction_callback", 500 }
+         { "verify_account_nonce", 6000 },
+         { "set_account_nonce", 3000 }
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -266,6 +268,9 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
 
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    koinos::protocol::transaction trx;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( get_user_from_user_wasm() );
@@ -274,7 +279,6 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
@@ -312,6 +316,9 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
 
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
    protocol::transaction trx;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( get_system_from_user_wasm() );
@@ -343,7 +350,6 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
@@ -368,7 +374,8 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    ctx.set_transaction( trx );
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 1 ) ) );
+   nonce_value.set_uint64_value( 2 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx, user_key );
 
@@ -396,6 +403,9 @@ BOOST_AUTO_TEST_CASE( user_from_user )
 
    auto user_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "contract_key"s ) );
    koinos::protocol::transaction trx;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( get_user_from_user_wasm() );
@@ -411,7 +421,6 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
@@ -439,7 +448,8 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    ctx.set_transaction( trx );
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 1 ) ) );
+   nonce_value.set_uint64_value( 2 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx, user_key );
 
@@ -468,6 +478,9 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    // Upload and override event
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
    protocol::transaction trx;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( get_system_from_system_wasm() );
@@ -506,7 +519,6 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
@@ -543,6 +555,9 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    // Upload and override event
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
    protocol::transaction trx;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( get_system_from_system_wasm() );
@@ -596,7 +611,6 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
@@ -633,6 +647,9 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    // Upload and override set_contract_result
    auto override_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "override_key"s ) );
    protocol::transaction trx;
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   trx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    protocol::upload_contract_operation upload_op;
    upload_op.set_contract_id( util::converter::as< std::string >( override_key.get_public_key().to_address_bytes() ) );
    upload_op.set_bytecode( get_call_contract_wasm() );
@@ -681,7 +698,6 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 0 ) ) );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
