@@ -113,7 +113,11 @@ struct controller_fixture
          { "apply_block", 19355 },
          { "verify_merkle_root", 10506 },
          { "get_head_info", 7178 },
-         { "remove_object", 3108 }
+         { "remove_object", 3108 },
+         { "pre_transaction_callback", 500 },
+         { "pre_block_callback", 500 },
+         { "post_block_callback", 500 },
+         { "post_transaction_callback", 500 }
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
