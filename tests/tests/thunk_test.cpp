@@ -1353,10 +1353,16 @@ int main()
    LOG(info) << "empty contract key: " << util::to_base58( empty_contract_pk.get_public_key().to_address_bytes() );
 
    std::vector< double > benchmarks;
-   for ( uint64_t i = 0; i < 100; i++ )
+
+   LOG(info) << "Calibrating compute from smart contract benchmark...";
+
+   for ( uint64_t i = 0; i < 10000; i++ )
    {
       try
       {
+         ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
+         auto session = ctx.make_session( 1'000'000 );
+
          uint64_t compute_bandwidth_start = ctx.resource_meter().compute_bandwidth_used();
          uint64_t network_bandwidth_start = ctx.resource_meter().network_bandwidth_used();
          uint64_t disk_storage_start      = ctx.resource_meter().disk_storage_used();
@@ -1442,8 +1448,10 @@ int main()
    std::map< std::string, uint64_t > calls;
    auto timer = [&]( const std::string& name, std::function< void(void) > call )
    {
+      LOG(info) << "Testing " << name << "...";
+
       uint64_t total_time = 0;
-      uint64_t runs = 1000;
+      uint64_t runs = 10000;
 
       for ( uint64_t i = 0; i < runs; i++ )
       {
@@ -1452,9 +1460,9 @@ int main()
             ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
             auto session = ctx.make_session( 1'000'000 );
             uint64_t compute_bandwidth_start = ctx.resource_meter().compute_bandwidth_used();
-            auto start = std::chrono::high_resolution_clock::now();
+            auto start = std::chrono::steady_clock::now();
             call();
-            auto stop = std::chrono::high_resolution_clock::now();
+            auto stop = std::chrono::steady_clock::now();
             uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
 
             uint64_t compute_used = compute_bandwidth_stop - compute_bandwidth_start;
@@ -1508,7 +1516,10 @@ int main()
    transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    auto operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
    transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
-   transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
+   trx_id = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
+   transaction.set_id( util::converter::as< std::string >( trx_id ) );
+   transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
+   transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
    transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
    auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
@@ -1554,7 +1565,6 @@ int main()
       { "apply_set_system_call_operation", [&]() { chain::system_call::apply_set_system_call_operation( ctx, sscop ); } },
       { "apply_set_system_contract_operation", [&]() { chain::system_call::apply_set_system_contract_operation( ctx, ssconp ); } },
       { "apply_call_contract_operation", [&]() { chain::system_call::apply_call_contract_operation( ctx, cco ); } },
-      { "apply_upload_contract_operation", [&]() { chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op ); } },
       { "get_transaction", [&]() { chain::system_call::get_transaction( ctx ); } },
       { "get_block", [&]() { chain::system_call::get_block( ctx ); } },
       { "verify_merkle_root", [&]() { chain::system_call::verify_merkle_root( ctx, util::converter::as< std::string >( mtree.root()->hash() ), std::vector< std::string >{} ); } },
@@ -1573,21 +1583,56 @@ int main()
 
    ctx.clear_block();
    ctx.clear_transaction();
+   ctx.set_transaction( transaction );
 
    ctx.set_intent( chain::intent::transaction_application );
    timer( "apply_transaction", [&]()
       {
          transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
-         auto operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
+         operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
          transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
-         transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
+         trx_id = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
+         transaction.set_id( util::converter::as< std::string >( trx_id ) );
          transaction.clear_signatures();
+         transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
+         transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
          transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
 
          chain::system_call::apply_transaction( ctx, transaction );
          nonce_value.set_uint64_value( nonce_value.uint64_value() + 1 );
       }
    );
+
+   nonce_value.set_uint64_value( 1 );
+
+   timer( "apply_transaction_setup", [&]()
+      {
+         transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
+         operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
+         transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
+         trx_id = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
+         transaction.set_id( util::converter::as< std::string >( trx_id ) );
+         transaction.clear_signatures();
+         transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
+         transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
+         transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+
+         nonce_value.set_uint64_value( nonce_value.uint64_value() + 1 );
+      }
+   );
+
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
+   operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
+   transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
+   trx_id = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
+   transaction.set_id( util::converter::as< std::string >( trx_id ) );
+   transaction.clear_signatures();
+   transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
+   transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
+   ctx.set_transaction( transaction );
+
+   timer( "apply_upload_contract_operation", [&](){ chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op ); } );
 
    ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
 
@@ -1597,7 +1642,7 @@ int main()
    std::map< std::string, std::vector< std::string > > subcalls;
    subcalls[ "process_block_signature" ] = { "get_object", "recover_public_key" };
    subcalls[ "apply_block" ] = { "get_resource_limits", "pre_block_callback", "verify_merkle_root", "hash", "process_block_signature", "put_object", "post_block_callback", "consume_block_resources" };
-   subcalls[ "apply_transaction" ] = { "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "require_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
+   subcalls[ "apply_transaction" ] = { "apply_transaction_setup", "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "require_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
    subcalls[ "apply_upload_contract_operation" ] = { "require_authority", "hash", "put_object", "put_object" };
    subcalls[ "apply_call_contract_operation" ] = { "call_contract" };
    subcalls[ "apply_set_system_call_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
