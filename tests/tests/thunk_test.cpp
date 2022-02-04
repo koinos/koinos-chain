@@ -234,6 +234,7 @@ namespace koinos::chain::thunk {
 
 void test_thunk( execution_context& ctx, const std::string& s )
 {
+   LOG(info) << "thunk_test";
    thunk::_log( ctx, "thunk: " + s );
 }
 
@@ -660,6 +661,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.build_cache();
 
    koinos::chain::system_call::log( host._ctx, "Hello World" );
+   LOG(info) << host._ctx.chronicler().logs().size();
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

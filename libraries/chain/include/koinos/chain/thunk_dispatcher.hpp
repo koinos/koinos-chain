@@ -4,14 +4,13 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <boost/container/flat_map.hpp>
-
 #include <google/protobuf/message.h>
 #include <google/protobuf/descriptor.h>
 
 #include <any>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <type_traits>
 
 namespace koinos::chain {
@@ -318,14 +317,14 @@ class thunk_dispatcher
       void register_thunk( uint32_t id, ThunkReturn (*thunk_ptr)(execution_context&, ThunkArgs...) )
       {
          std::function<ThunkReturn(execution_context&, ThunkArgs...)> thunk = thunk_ptr;
-         _dispatch_map.emplace( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) -> uint32_t
+         _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) -> uint32_t
          {
             ArgStruct args;
             std::string s( arg_ptr, arg_len );
             args.ParseFromString( s );
             return detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );
          });
-         _pass_through_map.emplace( id, thunk );
+         _pass_through_map.insert_or_assign( id, thunk );
       }
 
       bool thunk_exists( uint32_t id ) const;
@@ -336,8 +335,8 @@ class thunk_dispatcher
 
       typedef std::function< uint32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
 
-      boost::container::flat_map< uint32_t, generic_thunk_handler >  _dispatch_map;
-      boost::container::flat_map< uint32_t, std::any >               _pass_through_map;
+      std::map< uint32_t, generic_thunk_handler > _dispatch_map;
+      std::map< uint32_t, std::any >              _pass_through_map;
 };
 
 } // koinos::chain
