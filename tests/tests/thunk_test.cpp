@@ -1352,8 +1352,8 @@ int main()
    LOG(info) << "benchmark contract key: " << util::to_base58( contract_pk.get_public_key().to_address_bytes() );
    LOG(info) << "empty contract key: " << util::to_base58( empty_contract_pk.get_public_key().to_address_bytes() );
 
-   std::vector< uint64_t > benchmarks;
-   for ( uint64_t i = 0; i < 10; i++ )
+   std::vector< double > benchmarks;
+   for ( uint64_t i = 0; i < 100; i++ )
    {
       try
       {
@@ -1373,13 +1373,13 @@ int main()
          uint64_t network_used = network_bandwidth_stop - network_bandwidth_start;
          uint64_t disk_used = disk_storage_stop - disk_storage_start;
 
-         auto duration = std::chrono::duration_cast< std::chrono::microseconds >( stop - start );
-         LOG(info) << "benchmark contract took: " << duration.count() << "us";
-         LOG(info) << " -> compute: " << compute_used;
-         LOG(info) << " -> network: " << network_used;
-         LOG(info) << " -> disk: " << disk_used;
-         benchmarks.push_back( compute_used / duration.count() );
-         LOG(info) << " -> approximate compute per microsecond: " << compute_used / duration.count();
+         auto duration = std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start );
+         //LOG(info) << "benchmark contract took: " << duration.count() << "us";
+         //LOG(info) << " -> compute: " << compute_used;
+         //LOG(info) << " -> network: " << network_used;
+         //LOG(info) << " -> disk: " << disk_used;
+         benchmarks.push_back( compute_used / double( duration.count() ) );
+         //LOG(info) << " -> approximate nanoseconds per compute: " << compute_used / double( duration.count() );
       }
       catch ( const koinos::exception& e )
       {
@@ -1387,25 +1387,25 @@ int main()
       }
    }
 
-   auto mean = []( const std::vector< uint64_t >& v ) -> uint64_t {
-      uint64_t sum = 0;
+   auto mean = []( const std::vector< double >& v ) -> double {
+      double sum = 0;
       for ( const auto& e : v )
          sum += e;
 
       return sum / v.size();
    };
 
-   auto median = []( std::vector< uint64_t > v ) -> uint64_t {
+   auto median = []( std::vector< double > v ) -> double {
       std::sort( v.begin(), v.end() );
       if ( v.size() % 2 == 0 )
          return ( v[ v.size() / 2 - 1 ] + v[ v.size() / 2 ] ) / 2;
       return v[ v.size() / 2 ];
    };
 
-   auto mode = []( std::vector< uint64_t > v ) -> uint64_t {
+   auto mode = []( std::vector< double > v ) -> double {
       std::sort( v.begin(), v.end() );
 
-      uint64_t max_count = 1, res = v[ 0 ], count = 1;
+      double max_count = 1, res = v[ 0 ], count = 1;
       for ( int i = 1; i < v.size(); i++ )
       {
          if ( v[i] == v[ i - 1 ] )
@@ -1437,29 +1437,40 @@ int main()
    LOG(info) << "min: " << *std::min_element( benchmarks.begin(), benchmarks.end() );
    LOG(info) << "max: " << *std::max_element( benchmarks.begin(), benchmarks.end() );
 
-   uint64_t compute_per_microsecond = mean( benchmarks );
+   double compute_per_nanosecond = mean( benchmarks );
 
    std::map< std::string, uint64_t > calls;
    auto timer = [&]( const std::string& name, std::function< void(void) > call )
    {
-      try
-      {
-         uint64_t compute_bandwidth_start = ctx.resource_meter().compute_bandwidth_used();
-         auto start = std::chrono::high_resolution_clock::now();
-         call();
-         auto stop = std::chrono::high_resolution_clock::now();
-         uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
+      uint64_t total_time = 0;
+      uint64_t runs = 1000;
 
-         uint64_t compute_used = compute_bandwidth_stop - compute_bandwidth_start;
-         auto duration = std::chrono::duration_cast< std::chrono::microseconds >( stop - start );
-
-         LOG(info) << "system call: " << name << ", took: " << duration.count() << "us, actual compute used: " << compute_used << ", proposed compute cost: " << duration.count() * compute_per_microsecond;
-         calls[ name ] = duration.count();
-      }
-      catch ( const koinos::exception& e )
+      for ( uint64_t i = 0; i < runs; i++ )
       {
-         LOG(error) << "error: " << e.what();
+         try
+         {
+            ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
+            auto session = ctx.make_session( 1'000'000 );
+            uint64_t compute_bandwidth_start = ctx.resource_meter().compute_bandwidth_used();
+            auto start = std::chrono::high_resolution_clock::now();
+            call();
+            auto stop = std::chrono::high_resolution_clock::now();
+            uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
+
+            uint64_t compute_used = compute_bandwidth_stop - compute_bandwidth_start;
+            auto duration = std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start );
+
+            //LOG(info) << "system call: " << name << ", took: " << duration.count() << "ns, actual compute used: " << compute_used << ", proposed compute cost: " << duration.count() / compute_per_nanosecond ;
+            total_time += duration.count();
+         }
+         catch ( const koinos::exception& e )
+         {
+            LOG(error) << "error: " << e.what();
+            throw e;
+         }
       }
+
+      calls[ name ] = (total_time + runs - 1) / runs;
    };
 
    chain::object_space objs;
@@ -1564,7 +1575,19 @@ int main()
    ctx.clear_transaction();
 
    ctx.set_intent( chain::intent::transaction_application );
-   timer( "apply_transaction", [&]() { chain::system_call::apply_transaction( ctx, transaction ); } );
+   timer( "apply_transaction", [&]()
+      {
+         transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
+         auto operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
+         transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
+         transaction.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, transaction.header() ) ) );
+         transaction.clear_signatures();
+         transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+
+         chain::system_call::apply_transaction( ctx, transaction );
+         nonce_value.set_uint64_value( nonce_value.uint64_value() + 1 );
+      }
+   );
 
    ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
 
@@ -1577,7 +1600,7 @@ int main()
    subcalls[ "apply_transaction" ] = { "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "require_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
    subcalls[ "apply_upload_contract_operation" ] = { "require_authority", "hash", "put_object", "put_object" };
    subcalls[ "apply_call_contract_operation" ] = { "call_contract" };
-   subcalls[ "apply_set_system_call_operation" ] = { "require_system_authority", "put_object" };
+   subcalls[ "apply_set_system_call_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
    subcalls[ "apply_set_system_contract_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
    subcalls[ "call_contract" ] = { "get_object", "get_object" };
    subcalls[ "require_authority" ] = { "get_object", "recover_public_key" };
@@ -1605,7 +1628,7 @@ int main()
             time -= siter->second;
          }
       }
-      std::cout << "   { " << key << ", " << ( time * compute_per_microsecond ) << " }," << std::endl;
+      std::cout << "   { " << key << ", " << uint64_t( time * compute_per_nanosecond ) << " }," << std::endl;
    }
    std::cout << "};" << std::endl;
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
