@@ -1496,11 +1496,6 @@ int main()
    cco.set_entry_point( 0x00 );
    cco.set_contract_id( empty_contract_pk.get_public_key().to_address_bytes() );
 
-   std::vector< std::string > hashes;
-
-//   for ( int i = 0; i < 10; i++ )
-//      hashes.push_back( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( (char*)&i ) ) ) );
-
    auto mtree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::transaction >{} );
 
    koinos::chain::value_type nonce_value;
