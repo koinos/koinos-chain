@@ -211,7 +211,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    KOINOS_ASSERT(
       system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
       block_id_mismatch,
-      "block contains an invalid block ID"
+      "block contains an invalid block id"
    );
 
    const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
@@ -330,7 +330,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    KOINOS_ASSERT(
       system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
       transaction_id_mismatch,
-      "transaction contains an invalid transaction ID"
+      "transaction contains an invalid transaction id"
    );
 
    const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
