@@ -122,6 +122,10 @@ struct stack_fixture
          { "verify_merkle_root", 10506 },
          { "get_head_info", 7178 },
          { "remove_object", 3108 },
+         { "pre_transaction_callback", 500 },
+         { "pre_block_callback", 500 },
+         { "post_block_callback", 500 },
+         { "post_transaction_callback", 500 },
          { "verify_account_nonce", 6000 },
          { "set_account_nonce", 3000 }
       };
