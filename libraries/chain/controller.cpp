@@ -239,12 +239,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          KOINOS_ASSERT( block_height == 1, unexpected_height, "first block must have height of 1" );
       }
 
-      KOINOS_ASSERT(
-         crypto::hash( crypto::multicodec::sha2_256, block.header() ) == block_id,
-         block_id_mismatch,
-         "block contains an invalid block ID"
-      );
-
       KOINOS_ASSERT( block_node, unknown_previous_block, "unknown previous block" );
 
       KOINOS_ASSERT(
@@ -268,6 +262,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       ctx.set_state_node( block_node );
       ctx.build_cache();
+
+      KOINOS_ASSERT(
+         system_call::hash( ctx, std::underlying_type_t< crypto::multicodec >( ctx.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
+         block_id_mismatch,
+         "block contains an invalid block ID"
+      );
 
       system_call::apply_block( ctx, block );
 

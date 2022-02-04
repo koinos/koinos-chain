@@ -152,6 +152,11 @@ struct thunk_fixture
       entry->set_value( util::converter::as< std::string >( cbr ) );
       *entry->mutable_space() = chain::state::space::metadata();
 
+      entry = _genesis_data.add_entries();
+      entry->set_key( chain::state::key::block_hash_code );
+      entry->set_value( util::converter::as< std::string >( unsigned_varint{ std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ) } ) );
+      *entry->mutable_space() = chain::state::space::metadata();
+
       db.open( temp, [&]( state_db::state_node_ptr root )
       {
          // Write genesis objects into the database
