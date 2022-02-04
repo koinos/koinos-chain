@@ -265,11 +265,12 @@ namespace koinos::chain::detail {
             {                                                                                                              \
                auto compute = context.get_compute_bandwidth( BOOST_PP_STRINGIZE( SYSCALL ) );                              \
                context.resource_meter().use_compute_bandwidth( compute );                                                  \
+               auto thunk_id = context.thunk_translation( _sid );                                                          \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
                   thunk_dispatcher::instance().call_thunk<                                                                 \
                      RETURN_TYPE                                                                                           \
                      TYPES >(                                                                                              \
-                        _sid,                                                                                              \
+                        thunk_id,                                                                                          \
                         context                                                                                            \
                         FWD );                                                                                             \
             }                                                                                                              \

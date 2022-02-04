@@ -55,6 +55,7 @@ struct execution_context_cache
    std::map< std::string, uint64_t > compute_bandwidth;
    std::unique_ptr< google::protobuf::DescriptorPool > descriptor_pool;
    std::map< uint32_t, system_call_cache_bundle > system_call;
+   std::map< uint32_t, uint32_t > thunk;
 };
 
 class execution_context
@@ -126,6 +127,7 @@ class execution_context
       const google::protobuf::DescriptorPool& descriptor_pool() const;
 
       std::string system_call( uint32_t id, const std::string& args );
+      uint32_t thunk_translation( uint32_t id ) const;
       bool system_call_exists( uint32_t id ) const;
 
    private:

@@ -250,18 +250,23 @@ void execution_context::build_system_call_cache()
 
       auto system_call_target = util::converter::to< protocol::system_call_target >( *obj.first );
 
+      auto call_id = util::converter::to< uint32_t >( obj.second );
       if ( system_call_target.has_system_call_bundle() )
       {
-         auto call_id           = util::converter::to< uint32_t >( obj.second );
          auto contract_id       = system_call_target.system_call_bundle().contract_id();
          auto entry_point       = system_call_target.system_call_bundle().entry_point();
          auto contract_meta     = _current_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
          auto contract_bytecode = _current_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
 
          KOINOS_ASSERT( contract_meta, unexpected_state, "contract metadata for call id ${id} not found", ("id", call_id) );
-         KOINOS_ASSERT( contract_meta, unexpected_state, "contract bytecode for call id ${id} not found", ("id", call_id) );
+         KOINOS_ASSERT( contract_bytecode, unexpected_state, "contract bytecode for call id ${id} not found", ("id", call_id) );
 
          _cache.system_call[ call_id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
+      }
+      else
+      {
+         KOINOS_ASSERT( system_call_target.has_thunk_id(), unexpected_state, "expected thunk id for call id ${id}", ("id", call_id) );
+         _cache.thunk[ call_id ] = system_call_target.thunk_id();
       }
    }
 }
@@ -322,6 +327,14 @@ std::string execution_context::system_call( uint32_t id, const std::string& args
 bool execution_context::system_call_exists( uint32_t id ) const
 {
    return _cache.system_call.find( id ) != _cache.system_call.end();
+}
+
+uint32_t execution_context::thunk_translation( uint32_t id ) const
+{
+   auto iter = _cache.thunk.find( id );
+   if ( iter != _cache.thunk.end() )
+      *iter;
+   return id;
 }
 
 } // koinos::chain
