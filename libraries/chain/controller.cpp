@@ -263,12 +263,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       ctx.set_state_node( block_node );
       ctx.build_cache();
 
-      KOINOS_ASSERT(
-         system_call::hash( ctx, std::underlying_type_t< crypto::multicodec >( ctx.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
-         block_id_mismatch,
-         "block contains an invalid block ID"
-      );
-
       system_call::apply_block( ctx, block );
 
       if ( _client && _client->is_running() )

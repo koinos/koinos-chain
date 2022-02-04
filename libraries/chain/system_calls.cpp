@@ -208,12 +208,16 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
    context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
 
-   system_call::pre_block_callback( context );
+   KOINOS_ASSERT(
+      system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
+      transaction_id_mismatch,
+      "block contains an invalid block ID"
+   );
 
    const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
    KOINOS_ASSERT(
       tx_root.code() == context.block_hash_code(),
-      koinos::exception,
+      hash_code_mismatch,
       "unexpected transaction merkle root hash code - was: ${t}, expected: ${e}",
       ("t", std::underlying_type_t< crypto::multicodec >( tx_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
    );
@@ -252,6 +256,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       invalid_block_signature,
       "block signature does not match"
    );
+
+   system_call::pre_block_callback( context );
 
    system_call::put_object( context, state::space::metadata(), state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
@@ -298,28 +304,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-   KOINOS_ASSERT( chain_id.exists(), unexpected_state, "chain id does not exist" );
-   KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), koinos::exception, "chain id mismatch" );
-
    transaction_guard guard( context, trx );
-
-   const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
-   KOINOS_ASSERT(
-      op_root.code() == context.block_hash_code(),
-      koinos::exception,
-      "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
-      ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
-   );
-
-   // Check operation merkle root
-   std::vector< std::string > hashes;
-   hashes.reserve( trx.operations_size() );
-
-   for ( const auto& op : trx.operations() )
-      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
-
-   KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
 
    protocol::transaction_receipt receipt;
 
@@ -338,7 +323,32 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
     */
    auto payer_session = context.make_session( trx.header().rc_limit() );
 
-   system_call::pre_transaction_callback( context );
+   auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
+   KOINOS_ASSERT( chain_id.exists(), unexpected_state, "chain id does not exist" );
+   KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), chain_id_mismatch, "chain id mismatch" );
+
+   KOINOS_ASSERT(
+      system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
+      block_id_mismatch,
+      "transaction contains an invalid transaction ID"
+   );
+
+   const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
+   KOINOS_ASSERT(
+      op_root.code() == context.block_hash_code(),
+      hash_code_mismatch,
+      "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
+      ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
+   );
+
+   // Check operation merkle root
+   std::vector< std::string > hashes;
+   hashes.reserve( trx.operations_size() );
+
+   for ( const auto& op : trx.operations() )
+      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
+
+   KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
 
    system_call::require_authority( context, rc_use, payer );
 
@@ -361,6 +371,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
    );
 
+   system_call::pre_transaction_callback( context );
+
+   // The anonymous node must be created after requiring authority and the pre transaction callback
+   // because those calls might write to database and those writes must persist regardless of whether
+   // the rest of the transaction is reverted or not.
    auto block_node = context.get_state_node();
    auto trx_node = block_node->create_anonymous_node();
    context.set_state_node( trx_node, block_node->get_parent() );
@@ -395,10 +410,13 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    }
    catch ( const block_resource_limit_exception& e )
    {
+      // If the block resources are exceeded, the exception propagates, failing the block
       throw e;
    }
    catch ( const std::exception& e )
    {
+      // If the transaction fails for any other reason within the operations, it is reverted.
+      // Mana is still charged, but the block does not fail
       LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << e.what();
       transaction_reverted tr( e.what() );
       reverted_exception_ptr = std::make_exception_ptr( tr );
