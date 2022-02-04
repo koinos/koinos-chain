@@ -91,51 +91,51 @@ struct thunk_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
-         { "reserved_id", 1 }, // just for test thunk!
-         { "apply_call_contract_operation", 22785 },
-         { "apply_set_system_call_operation", 42105 },
-         { "apply_set_system_contract_operation", 21175 },
-         { "apply_upload_contract_operation", 19985 },
-         { "require_system_authority", 19915 },
-         { "call_contract", 17325 },
-         { "consume_account_rc", 2905 },
-         { "consume_block_resources", 3920 },
-         { "event", 3815 },
-         { "exit_contract", 3745 },
-         { "get_account_nonce", 4690 },
-         { "get_account_rc", 2800 },
-         { "get_block", 3185 },
-         { "get_block_field", 157150 },
-         { "get_caller", 4410 },
-         { "get_contract_arguments", 4375 },
-         { "get_contract_id", 4165 },
-         { "get_entry_point", 2520 },
-         { "get_last_irreversible_block", 1750 },
-         { "get_next_object", 26145 },
-         { "get_object", 2170 },
-         { "get_prev_object", 19600 },
-         { "get_resource_limits", 2450 },
-         { "get_transaction", 1575 },
-         { "get_transaction_field", 109865 },
-         { "hash", 2975 },
-         { "log", 1995 },
-         { "process_block_signature", 10850 },
-         { "put_object", 1435 },
-         { "recover_public_key", 5495 },
-         { "require_authority", 6965 },
-         { "set_contract_result", 875 },
-         { "verify_signature", 8120 },
-         { "apply_transaction", 27335 },
-         { "apply_block", 19355 },
-         { "verify_merkle_root", 10506 },
-         { "get_head_info", 7178 },
-         { "remove_object", 3108 },
-         { "pre_transaction_callback", 500 },
-         { "pre_block_callback", 500 },
-         { "post_block_callback", 500 },
-         { "post_transaction_callback", 500 },
-         { "verify_account_nonce", 6000 },
-         { "set_account_nonce", 3000 }
+         { "reserved_id", 1 },
+         { "apply_block", 7277 },
+         { "apply_call_contract_operation", 134 },
+         { "apply_set_system_call_operation", 1 },
+         { "apply_set_system_contract_operation", 531 },
+         { "apply_transaction", 8449 },
+         { "apply_upload_contract_operation", 1 },
+         { "call_contract", 3530 },
+         { "consume_account_rc", 95 },
+         { "consume_block_resources", 101 },
+         { "event", 595 },
+         { "exit_contract", 9616 },
+         { "get_account_nonce", 243 },
+         { "get_account_rc", 368 },
+         { "get_block", 488 },
+         { "get_block_field", 775 },
+         { "get_caller", 199 },
+         { "get_contract_arguments", 165 },
+         { "get_contract_id", 149 },
+         { "get_entry_point", 120 },
+         { "get_head_info", 1039 },
+         { "get_last_irreversible_block", 124 },
+         { "get_next_object", 10431 },
+         { "get_object", 525 },
+         { "get_prev_object", 15275 },
+         { "get_resource_limits", 433 },
+         { "get_transaction", 959 },
+         { "get_transaction_field", 901 },
+         { "hash", 963 },
+         { "log", 122 },
+         { "post_block_callback", 98 },
+         { "post_transaction_callback", 109 },
+         { "pre_block_callback", 114 },
+         { "pre_transaction_callback", 105 },
+         { "process_block_signature", 4078 },
+         { "put_object", 410 },
+         { "recover_public_key", 30300 },
+         { "remove_object", 320 },
+         { "require_authority", 11314 },
+         { "require_system_authority", 10527 },
+         { "set_account_nonce", 170 },
+         { "set_contract_result", 119 },
+         { "verify_account_nonce", 148 },
+         { "verify_merkle_root", 1086 },
+         { "verify_signature", 1 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -1643,13 +1643,13 @@ int main()
    subcalls[ "apply_set_system_call_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
    subcalls[ "apply_set_system_contract_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
    subcalls[ "call_contract" ] = { "get_object", "get_object" };
-   subcalls[ "require_authority" ] = { "get_object", "recover_public_key" };
+   subcalls[ "require_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
    subcalls[ "get_account_nonce" ] = { "get_object" };
    subcalls[ "verify_account_nonce" ] = { "get_account_nonce" };
    subcalls[ "set_account_nonce" ] = { "put_object" };
    subcalls[ "get_account_rc" ] = { "get_object" };
    subcalls[ "get_resource_limits" ] = { "get_object" };
-   subcalls[ "require_system_authority" ] = { "get_object", "recover_public_key" };
+   subcalls[ "require_system_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
    subcalls[ "verify_signature" ] = { "recover_public_key" };
 
    std::cout << "std::map< std::string, uint64_t > compute_bandwidth_registry {" << std::endl;
@@ -1672,7 +1672,7 @@ int main()
       }
       uint64_t compute = uint64_t( time * compute_per_nanosecond );
       compute = compute ? compute : 1;
-      std::cout << "   { " << key << ", " << compute << " }," << std::endl;
+      std::cout << "   { \"" << key << "\", " << compute << " }," << std::endl;
    }
    std::cout << "};" << std::endl;
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
