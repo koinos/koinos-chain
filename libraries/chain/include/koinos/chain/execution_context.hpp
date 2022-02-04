@@ -56,6 +56,7 @@ struct execution_context_cache
    std::unique_ptr< google::protobuf::DescriptorPool > descriptor_pool;
    std::map< uint32_t, system_call_cache_bundle > system_call;
    std::map< uint32_t, uint32_t > thunk;
+   std::optional< crypto::multicodec > block_hash_code;
 };
 
 class execution_context
@@ -129,6 +130,7 @@ class execution_context
       std::string system_call( uint32_t id, const std::string& args );
       uint32_t thunk_translation( uint32_t id ) const;
       bool system_call_exists( uint32_t id ) const;
+      const crypto::multicodec& block_hash_code() const;
 
    private:
       friend struct frame_restorer;
@@ -136,6 +138,7 @@ class execution_context
       void build_compute_registry_cache();
       void build_descriptor_pool();
       void build_system_call_cache();
+      void build_block_hash_code_cache();
 
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::vector< stack_frame >                _stack;

@@ -43,6 +43,7 @@ const auto resource_limit_data        = util::converter::as< std::string >( cryp
 const auto max_account_resources      = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::max_account_resources" ) ) );
 const auto protocol_descriptor        = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::protocol_descriptor" ) ) );
 const auto compute_bandwidth_registry = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::compute_bandwidth_registry" ) ) );
+const auto block_hash_code            = util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::block_hash_code" ) ) );
 
 } // key
 

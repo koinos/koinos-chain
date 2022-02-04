@@ -271,7 +271,7 @@ namespace detail
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, uint32_t >::type
    call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      static_assert( std::is_same< RetStruct, ThunkReturn >::value, "Thunk return does not match defined return in koinos-types" );
+      static_assert( std::is_same< RetStruct, ThunkReturn >::value, "thunk return does not match defined return in koinos-proto" );
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
       auto ret = std::apply( thunk, thunk_args );
       std::string s;

@@ -42,11 +42,14 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( read_only_context, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reverted, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_dsa, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_nonce, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_id_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_id_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( chain_id_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( hash_code_mismatch, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_height, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( block_id_mismatch, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( duplicate_trx_state, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( pending_state_error, controller_exception );

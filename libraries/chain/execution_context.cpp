@@ -271,6 +271,14 @@ void execution_context::build_system_call_cache()
    }
 }
 
+void execution_context::build_block_hash_code_cache()
+{
+   auto bhash = _current_state_node->get_object( state::space::metadata(), state::key::block_hash_code );
+   KOINOS_ASSERT( bhash, unexpected_state, "block hash code does not exist" );
+
+   _cache.block_hash_code.emplace( crypto::multicodec( util::converter::to< unsigned_varint >( *bhash ).value ) );
+}
+
 void execution_context::build_cache()
 {
    KOINOS_ASSERT( _current_state_node, unexpected_state, "cannot rebuild execution context cache without a state node" );
@@ -278,6 +286,7 @@ void execution_context::build_cache()
    build_compute_registry_cache();
    build_descriptor_pool();
    build_system_call_cache();
+   build_block_hash_code_cache();
 }
 
 uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name ) const
@@ -335,6 +344,12 @@ uint32_t execution_context::thunk_translation( uint32_t id ) const
    if ( iter != _cache.thunk.end() )
       return iter->second;
    return id;
+}
+
+const crypto::multicodec& execution_context::block_hash_code() const
+{
+   KOINOS_ASSERT( _cache.block_hash_code.has_value(), unexpected_state, "unable to find block hash code" );
+   return *_cache.block_hash_code;
 }
 
 } // koinos::chain
