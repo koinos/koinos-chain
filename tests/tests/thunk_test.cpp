@@ -91,6 +91,7 @@ struct thunk_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
+         { "reserved_id", 1 }, // just for test thunk!
          { "apply_call_contract_operation", 22785 },
          { "apply_set_system_call_operation", 42105 },
          { "apply_set_system_contract_operation", 21175 },
@@ -234,6 +235,15 @@ struct thunk_fixture
    koinos::crypto::private_key _signing_private_key;
    chain::genesis_data _genesis_data;
 };
+
+namespace koinos::chain::thunk {
+
+void test_thunk( execution_context& ctx, const std::string& s )
+{
+   thunk::_log( ctx, "thunk: " + s );
+}
+
+} // koinos::chain::thunk
 
 BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
 
@@ -626,11 +636,10 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
 
-   // Fetch the created call bundle from the database and check it
-   // The call bundle should be read from the parent context
+   // Fetch the created call bundle from the database and check it has been updated
    auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
-   BOOST_REQUIRE( !call_target.has_system_call_bundle() );
-   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   BOOST_REQUIRE( call_target.has_system_call_bundle() );
+   ctx.build_cache();
    call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
    BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
@@ -648,7 +657,16 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "test: Hello World", host._ctx.chronicler().logs()[2] );
 
-   ctx.clear_transaction();
+   BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
+
+   const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 0, chain::thunk::test_thunk );
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
+   set_op.mutable_target()->set_thunk_id( 0 );
+   koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
+   ctx.build_cache();
+
+   koinos::chain::system_call::log( host._ctx, "Hello World" );
+   BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -720,10 +738,6 @@ BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
    chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
 
    BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).head_block_time() == block.header().timestamp() );
-
-   // Test exception when null state pointer is passed
-   ctx.set_state_node( std::shared_ptr< chain::abstract_state_node >() );
-   BOOST_REQUIRE_THROW( chain::system_call::get_head_info( ctx ), koinos::chain::database_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

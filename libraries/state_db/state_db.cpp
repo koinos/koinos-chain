@@ -371,7 +371,7 @@ std::pair< const object_value*, const object_key > state_node_impl::get_next_obj
    auto state = merge_state( _state );
    auto it = state.lower_bound( key_string );
 
-   if ( it != state.end() )
+   if ( it != state.end() && it.key() == key_string )
    {
       it++;
    }

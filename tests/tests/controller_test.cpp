@@ -802,4 +802,173 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( system_call_override_test )
+{ try {
+   BOOST_TEST_MESSAGE( "Upload a contract that calls the log system call" );
+
+   auto random_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, std::string( "alpha" ) ) );
+
+   auto contract_address = random_private_key.get_public_key().to_address_bytes();
+
+   koinos::protocol::upload_contract_operation upload_contract_op;
+   upload_contract_op.set_contract_id( contract_address );
+   upload_contract_op.set_bytecode( get_hello_wasm() );
+
+   koinos::protocol::transaction transaction;
+   transaction.mutable_header()->set_payer( random_private_key.get_public_key().to_address_bytes() );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
+   transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   *transaction.add_operations()->mutable_upload_contract() = upload_contract_op;
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, random_private_key );
+
+   koinos::protocol::block block;
+   block.mutable_header()->set_height( 1 );
+   block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
+   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+   block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+   *block.add_transactions() = transaction;
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   sign_block( block, _block_signing_private_key );
+
+   koinos::rpc::chain::submit_block_request block_request;
+   *block_request.mutable_block() = block;
+
+   _controller.submit_block( block_request );
+
+   BOOST_TEST_MESSAGE( "Read contract that calls the log system call" );
+
+   koinos::rpc::chain::read_contract_request contract_request;
+   contract_request.set_contract_id( contract_address );
+   auto contract_response = _controller.read_contract( contract_request );
+
+   BOOST_REQUIRE_EQUAL( contract_response.logs( 0 ), "Greetings from koinos vm" );
+
+   auto random_private_key2 = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, std::string( "bravo" ) ) );
+
+   BOOST_TEST_MESSAGE( "Upload a contract that preprends log messages" );
+
+   auto contract_address2 = random_private_key2.get_public_key().to_address_bytes();
+
+   koinos::protocol::upload_contract_operation upload_contract_op2;
+   upload_contract_op2.set_contract_id( contract_address2 );
+   upload_contract_op2.set_bytecode( get_syscall_override_wasm() );
+
+   transaction.Clear();
+   transaction.mutable_header()->set_payer( random_private_key2.get_public_key().to_address_bytes() );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
+   transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   *transaction.add_operations()->mutable_upload_contract() = upload_contract_op2;
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, random_private_key2 );
+
+   auto previous_id = block.id();
+
+   block.Clear();
+   block.mutable_header()->set_height( 2 );
+   block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
+   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+   block.mutable_header()->set_previous( previous_id );
+   *block.add_transactions() = transaction;
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   sign_block( block, _block_signing_private_key );
+
+   block_request.Clear();
+   *block_request.mutable_block() = block;
+
+   _controller.submit_block( block_request );
+
+   BOOST_TEST_MESSAGE( "Set contract as a system call override, call it in the same transaction" );
+
+   koinos::protocol::set_system_contract_operation system_contract_op;
+   system_contract_op.set_contract_id( contract_address2 );
+   system_contract_op.set_system_contract( true );
+
+   koinos::protocol::set_system_call_operation set_op;
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
+   set_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( contract_address2 );
+   set_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
+
+   koinos::protocol::call_contract_operation call_op;
+   call_op.set_contract_id( contract_address );
+
+   transaction.Clear();
+   transaction.mutable_header()->set_payer( _block_signing_private_key.get_public_key().to_address_bytes() );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
+   transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   *transaction.add_operations()->mutable_set_system_contract() = system_contract_op;
+   *transaction.add_operations()->mutable_set_system_call() = set_op;
+   *transaction.add_operations()->mutable_call_contract() = call_op;
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, _block_signing_private_key );
+
+   previous_id = block.id();
+
+   block.Clear();
+   block.mutable_header()->set_height( 3 );
+   block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
+   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+   block.mutable_header()->set_previous( previous_id );
+   *block.add_transactions() = transaction;
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   sign_block( block, _block_signing_private_key );
+
+   block_request.Clear();
+   *block_request.mutable_block() = block;
+
+   auto block_response = _controller.submit_block( block_request );
+
+   BOOST_TEST_MESSAGE( "Ensure log behavior did not change during block application" );
+
+   BOOST_REQUIRE_EQUAL( block_response.receipt().transaction_receipts( 0 ).logs( 0 ), "Greetings from koinos vm" );
+
+   transaction.Clear();
+   transaction.mutable_header()->set_payer( _block_signing_private_key.get_public_key().to_address_bytes() );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 1 ) ) );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
+   transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   *transaction.add_operations()->mutable_call_contract() = call_op;
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, _block_signing_private_key );
+
+   previous_id = block.id();
+
+   block.Clear();
+   block.mutable_header()->set_height( 4 );
+   block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
+   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+   block.mutable_header()->set_previous( previous_id );
+   *block.add_transactions() = transaction;
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   sign_block( block, _block_signing_private_key );
+
+   block_request.Clear();
+   *block_request.mutable_block() = block;
+
+   block_response = _controller.submit_block( block_request );
+
+   BOOST_TEST_MESSAGE( "Ensure log behavior changed during subsequent block application" );
+
+   BOOST_REQUIRE_EQUAL( block_response.receipt().transaction_receipts( 0 ).logs( 0 ), "test: Greetings from koinos vm" );
+
+   BOOST_TEST_MESSAGE( "Ensure log behavior changed during read contract" );
+
+   contract_request.Clear();
+   contract_request.set_contract_id( contract_address );
+   contract_response = _controller.read_contract( contract_request );
+
+   BOOST_REQUIRE_EQUAL( contract_response.logs( 0 ), "test: Greetings from koinos vm" );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 BOOST_AUTO_TEST_SUITE_END()
