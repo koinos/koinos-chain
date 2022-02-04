@@ -263,14 +263,17 @@ namespace koinos::chain::detail {
             }                                                                                                              \
             else                                                                                                           \
             {                                                                                                              \
-               auto compute = context.get_compute_bandwidth( BOOST_PP_STRINGIZE( SYSCALL ) );                              \
-               context.resource_meter().use_compute_bandwidth( compute );                                                  \
-               auto thunk_id = context.thunk_translation( _sid );                                                          \
+               auto _thunk_id = context.thunk_translation( _sid );                                                         \
+               auto _desc = chain::system_call_id_descriptor();                                                            \
+               auto _enum_value = _desc->FindValueByNumber( _thunk_id );                                                   \
+               KOINOS_ASSERT( _enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", _thunk_id) );            \
+               auto _compute = context.get_compute_bandwidth( _enum_value->name() );                                       \
+               context.resource_meter().use_compute_bandwidth( _compute );                                                 \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
                   thunk_dispatcher::instance().call_thunk<                                                                 \
                      RETURN_TYPE                                                                                           \
                      TYPES >(                                                                                              \
-                        thunk_id,                                                                                          \
+                        _thunk_id,                                                                                         \
                         context                                                                                            \
                         FWD );                                                                                             \
             }                                                                                                              \

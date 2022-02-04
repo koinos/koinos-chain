@@ -46,11 +46,11 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          }
          else
          {
-            auto desc = chain::system_call_id_descriptor();
-            auto enum_value = desc->FindValueByNumber( sid );
-            KOINOS_ASSERT( enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", sid) );
             auto thunk_id = _ctx.thunk_translation( sid );
             KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), thunk_not_found, "thunk ${tid} does not exist", ("tid", thunk_id) );
+            auto desc = chain::system_call_id_descriptor();
+            auto enum_value = desc->FindValueByNumber( thunk_id );
+            KOINOS_ASSERT( enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", thunk_id) );
             auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
             _ctx.resource_meter().use_compute_bandwidth( compute );
             bytes_returned = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );

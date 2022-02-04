@@ -333,7 +333,7 @@ uint32_t execution_context::thunk_translation( uint32_t id ) const
 {
    auto iter = _cache.thunk.find( id );
    if ( iter != _cache.thunk.end() )
-      *iter;
+      return iter->second;
    return id;
 }
 

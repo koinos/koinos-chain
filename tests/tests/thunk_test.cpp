@@ -91,6 +91,7 @@ struct thunk_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
+         { "reserved_id", 1 }, // just for test thunk!
          { "apply_call_contract_operation", 22785 },
          { "apply_set_system_call_operation", 42105 },
          { "apply_set_system_contract_operation", 21175 },
@@ -632,7 +633,6 @@ BOOST_AUTO_TEST_CASE( override_tests )
    // Fetch the created call bundle from the database and check it has been updated
    auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
-   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.build_cache();
    call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
