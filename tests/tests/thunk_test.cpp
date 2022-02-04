@@ -1624,11 +1624,15 @@ int main()
          {
             auto siter = calls.find( element );
             KOINOS_ASSERT( siter != calls.end(), koinos::exception, "unable to find call timing for ${name}", ("name", element) );
-//            KOINOS_ASSERT( time > siter->second, koinos::exception, "estimation would underflow considering ${name} for ${call}", ("name", element)("call", key) );
-            time -= siter->second;
+            if ( siter->second > time )
+               time = 1;
+            else
+               time -= siter->second;
          }
       }
-      std::cout << "   { " << key << ", " << uint64_t( time * compute_per_nanosecond ) << " }," << std::endl;
+      uint64_t compute = uint64_t( time * compute_per_nanosecond );
+      compute = compute ? compute : 1;
+      std::cout << "   { " << key << ", " << compute << " }," << std::endl;
    }
    std::cout << "};" << std::endl;
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
