@@ -519,7 +519,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
       KOINOS_ASSERT( ( o.call_id() != chain::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
+      //LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else
    {
