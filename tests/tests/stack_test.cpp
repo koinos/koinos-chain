@@ -34,7 +34,7 @@ struct stack_fixture
       ctx( vm_backend, chain::intent::transaction_application ),
       host( ctx )
    {
-      KOINOS_ASSERT( vm_backend, koinos::chain::unknown_backend_exception, "Couldn't get VM backend" );
+      KOINOS_ASSERT( vm_backend, koinos::chain::unknown_backend_exception, "couldn't get vm backend" );
 
       initialize_logging( "koinos_test", {}, "info" );
 
