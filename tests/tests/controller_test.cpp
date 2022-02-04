@@ -810,6 +810,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 BOOST_AUTO_TEST_CASE( system_call_override_test )
 { try {
    BOOST_TEST_MESSAGE( "Upload a contract that calls the log system call" );
+   koinos::chain::value_type nonce_value;
 
    auto random_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, std::string( "alpha" ) ) );
 
@@ -821,7 +822,8 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
 
    koinos::protocol::transaction transaction;
    transaction.mutable_header()->set_payer( random_private_key.get_public_key().to_address_bytes() );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   nonce_value.set_uint64_value( 1 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    transaction.mutable_header()->set_rc_limit( 1'000'000 );
    transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    *transaction.add_operations()->mutable_upload_contract() = upload_contract_op;
@@ -864,7 +866,8 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
 
    transaction.Clear();
    transaction.mutable_header()->set_payer( random_private_key2.get_public_key().to_address_bytes() );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   nonce_value.set_uint64_value( 1 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    transaction.mutable_header()->set_rc_limit( 1'000'000 );
    transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    *transaction.add_operations()->mutable_upload_contract() = upload_contract_op2;
@@ -905,7 +908,8 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
 
    transaction.Clear();
    transaction.mutable_header()->set_payer( _block_signing_private_key.get_public_key().to_address_bytes() );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 0 ) ) );
+   nonce_value.set_uint64_value( 1 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    transaction.mutable_header()->set_rc_limit( 1'000'000 );
    transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    *transaction.add_operations()->mutable_set_system_contract() = system_contract_op;
@@ -938,7 +942,8 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
 
    transaction.Clear();
    transaction.mutable_header()->set_payer( _block_signing_private_key.get_public_key().to_address_bytes() );
-   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( uint64_t( 1 ) ) );
+   nonce_value.set_uint64_value( 2 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    transaction.mutable_header()->set_rc_limit( 1'000'000 );
    transaction.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    *transaction.add_operations()->mutable_call_contract() = call_op;
