@@ -135,7 +135,7 @@ void validate_hash_code( crypto::multicodec id )
       case crypto::multicodec::ripemd_160:
          break;
       default:
-         KOINOS_THROW( unknown_hash_code, "unknown_hash_code" );
+         KOINOS_THROW( unknown_hash_code, "unknown hash code" );
    }
 }
 
