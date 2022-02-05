@@ -1357,11 +1357,12 @@ int main()
    LOG(info) << "benchmark contract key: " << util::to_base58( contract_pk.get_public_key().to_address_bytes() );
    LOG(info) << "empty contract key: " << util::to_base58( empty_contract_pk.get_public_key().to_address_bytes() );
 
+   const uint64_t global_run = 1;
    std::vector< double > benchmarks;
 
    LOG(info) << "Calibrating compute from smart contract benchmark...";
 
-   for ( uint64_t i = 0; i < 10000; i++ )
+   for ( uint64_t i = 0; i < global_run; i++ )
    {
       try
       {
@@ -1451,12 +1452,12 @@ int main()
    double compute_per_nanosecond = mean( benchmarks );
 
    std::map< std::string, uint64_t > calls;
-   auto timer = [&]( const std::string& name, std::function< void(void) > call )
+   auto timer = [&]( const std::string& name, std::function< void(void) > call, std::function< void(void) > pre = [](){}, std::function< void(void) > post = [](){} )
    {
       LOG(info) << "Testing " << name << "...";
 
       uint64_t total_time = 0;
-      uint64_t runs = 10000;
+      uint64_t runs = global_run;
 
       for ( uint64_t i = 0; i < runs; i++ )
       {
@@ -1464,11 +1465,13 @@ int main()
          {
             ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
             auto session = ctx.make_session( 1'000'000 );
+            pre();
             uint64_t compute_bandwidth_start = ctx.resource_meter().compute_bandwidth_used();
             auto start = std::chrono::steady_clock::now();
             call();
             auto stop = std::chrono::steady_clock::now();
             uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
+            post();
 
             uint64_t compute_used = compute_bandwidth_stop - compute_bandwidth_start;
             auto duration = std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start );
@@ -1586,7 +1589,12 @@ int main()
    ctx.set_transaction( transaction );
 
    ctx.set_intent( chain::intent::transaction_application );
-   timer( "apply_transaction", [&]()
+   timer( "apply_transaction",
+      [&]()
+      {
+         chain::system_call::apply_transaction( ctx, transaction );
+      },
+      [&]()
       {
          transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
          operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
@@ -1597,29 +1605,14 @@ int main()
          transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
          transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
          transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
-
-         chain::system_call::apply_transaction( ctx, transaction );
+      },
+      [&]()
+      {
          nonce_value.set_uint64_value( nonce_value.uint64_value() + 1 );
       }
    );
 
    nonce_value.set_uint64_value( 1 );
-
-   timer( "apply_transaction_setup", [&]()
-      {
-         transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
-         operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
-         transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
-         trx_id = crypto::hash( crypto::multicodec::sha2_256, transaction.header() );
-         transaction.set_id( util::converter::as< std::string >( trx_id ) );
-         transaction.clear_signatures();
-         transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
-         transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
-         transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
-
-         nonce_value.set_uint64_value( nonce_value.uint64_value() + 1 );
-      }
-   );
 
    transaction.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    operation_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
@@ -1642,7 +1635,7 @@ int main()
    std::map< std::string, std::vector< std::string > > subcalls;
    subcalls[ "process_block_signature" ] = { "get_object", "recover_public_key" };
    subcalls[ "apply_block" ] = { "get_resource_limits", "pre_block_callback", "verify_merkle_root", "hash", "process_block_signature", "put_object", "post_block_callback", "consume_block_resources" };
-   subcalls[ "apply_transaction" ] = { "apply_transaction_setup", "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "require_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
+   subcalls[ "apply_transaction" ] = { "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "require_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
    subcalls[ "apply_upload_contract_operation" ] = { "require_authority", "hash", "put_object", "put_object" };
    subcalls[ "apply_call_contract_operation" ] = { "call_contract" };
    subcalls[ "apply_set_system_call_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
@@ -1657,7 +1650,7 @@ int main()
    subcalls[ "require_system_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
    subcalls[ "verify_signature" ] = { "recover_public_key" };
 
-   std::cout << "std::map< std::string, uint64_t > compute_bandwidth_registry {" << std::endl;
+   std::cout << "std::map< std::string, uint64_t > thunk_compute {" << std::endl;
    for ( const auto& [ key, value ] : calls )
    {
       auto time = value;
