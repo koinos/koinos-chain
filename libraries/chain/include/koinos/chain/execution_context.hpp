@@ -1,6 +1,8 @@
 #pragma once
 
-#include <koinos/chain/event_recorder.hpp>
+#include <google/protobuf/descriptor.h>
+
+#include <koinos/chain/chronicler.hpp>
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/resource_meter.hpp>
 #include <koinos/chain/session.hpp>
@@ -9,12 +11,14 @@
 #include <koinos/vm_manager/vm_backend.hpp>
 
 #include <koinos/chain/chain.pb.h>
+#include <koinos/chain/system_call_ids.pb.h>
 #include <koinos/protocol/protocol.pb.h>
-#include <koinos/protocol/system_call_ids.pb.h>
 
 #include <deque>
+#include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <variant>
 
 namespace koinos::chain {
@@ -44,6 +48,17 @@ enum class intent : uint64_t
    transaction_application
 };
 
+struct execution_context_cache
+{
+   using system_call_cache_bundle = std::tuple< std::string, std::string, uint32_t, chain::contract_metadata_object >;
+
+   std::map< std::string, uint64_t > compute_bandwidth;
+   std::unique_ptr< google::protobuf::DescriptorPool > descriptor_pool;
+   std::map< uint32_t, system_call_cache_bundle > system_call;
+   std::map< uint32_t, uint32_t > thunk;
+   std::optional< crypto::multicodec > block_hash_code;
+};
+
 class execution_context
 {
    public:
@@ -53,10 +68,6 @@ class execution_context
       static constexpr std::size_t stack_limit = 256;
 
       std::shared_ptr< vm_manager::vm_backend > get_backend() const;
-
-      /// Console methods:
-      void console_append( const std::string& val );
-      std::string get_pending_console_output();
 
       void set_state_node( abstract_state_node_ptr, abstract_state_node_ptr = abstract_state_node_ptr() );
       abstract_state_node_ptr get_state_node() const;
@@ -79,6 +90,8 @@ class execution_context
       std::string get_contract_return() const;
       void set_contract_return( const std::string& ret );
 
+      uint64_t get_compute_bandwidth( const std::string& thunk_name ) const;
+
       /**
        * For now, authority lives on the context.
        * This should be moved, made generic, or otherwise re-architected.
@@ -91,6 +104,7 @@ class execution_context
 
       const std::string& get_caller() const;
       privilege get_caller_privilege() const;
+      uint32_t get_caller_entry_point() const;
 
       void set_privilege( privilege );
       privilege get_privilege() const;
@@ -100,7 +114,7 @@ class execution_context
       bool read_only() const;
 
       chain::resource_meter& resource_meter();
-      chain::event_recorder& event_recorder();
+      chain::chronicler& chronicler();
 
       std::shared_ptr< session > make_session( uint64_t rc );
 
@@ -109,25 +123,40 @@ class execution_context
 
       chain::receipt& receipt();
 
+      void build_cache();
+
+      const google::protobuf::DescriptorPool& descriptor_pool() const;
+
+      std::string system_call( uint32_t id, const std::string& args );
+      uint32_t thunk_translation( uint32_t id ) const;
+      bool system_call_exists( uint32_t id ) const;
+      const crypto::multicodec& block_hash_code() const;
+
    private:
       friend struct frame_restorer;
+
+      void build_compute_registry_cache();
+      void build_descriptor_pool();
+      void build_system_call_cache();
+      void build_block_hash_code_cache();
 
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::vector< stack_frame >                _stack;
 
       abstract_state_node_ptr                   _current_state_node;
       abstract_state_node_ptr                   _parent_state_node;
-      std::string                               _pending_console_output;
       std::optional< crypto::public_key >       _key_auth;
 
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
 
       chain::resource_meter                     _resource_meter;
-      chain::event_recorder                     _event_recorder;
+      chain::chronicler                         _chronicler;
 
       chain::intent                             _intent;
       chain::receipt                            _receipt;
+
+      execution_context_cache                   _cache;
 };
 
 namespace detail {

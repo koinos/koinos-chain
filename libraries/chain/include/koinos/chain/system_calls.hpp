@@ -1,5 +1,7 @@
 #pragma once
 
+#include <google/protobuf/struct.pb.h>
+
 #include <koinos/chain/thunk_utils.hpp>
 #include <koinos/chain/types.hpp>
 
@@ -8,15 +10,19 @@
 
 #include <koinos/chain/chain.pb.h>
 #include <koinos/chain/system_calls.pb.h>
+#include <koinos/chain/system_call_ids.pb.h>
 #include <koinos/protocol/protocol.pb.h>
-#include <koinos/protocol/system_call_ids.pb.h>
 
 #include <koinos/state_db/state_db.hpp>
 
-#define KOINOS_EXIT_SUCCESS 0
-#define KOINOS_EXIT_FAILURE 1
-
 namespace koinos::chain {
+
+namespace exit_code {
+
+constexpr uint32_t success = 0;
+constexpr uint32_t failure = 1;
+
+} // exit_code
 
 class execution_context;
 class thunk_dispatcher;
@@ -50,11 +56,14 @@ void register_thunks( thunk_dispatcher& td );
  * unique, thunk_id.
  */
 
-THUNK_DECLARE( void, prints, const std::string& str );
+THUNK_DECLARE( void, log, const std::string& msg );
 THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
 
 THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const protocol::block_header& header, const std::string& signature_data );
 THUNK_DECLARE( verify_merkle_root_result, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
+
+THUNK_DECLARE_VOID( void, pre_block_callback );
+THUNK_DECLARE_VOID( void, pre_transaction_callback );
 
 THUNK_DECLARE( void, apply_block, const protocol::block& block );
 THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
@@ -62,6 +71,9 @@ THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_con
 THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
 THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
 THUNK_DECLARE( void, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
+
+THUNK_DECLARE_VOID( void, post_block_callback );
+THUNK_DECLARE_VOID( void, post_transaction_callback );
 
 THUNK_DECLARE( put_object_result, put_object, const object_space& space, const std::string& key, const std::string& obj );
 THUNK_DECLARE( void, remove_object, const object_space& space, const std::string& key );
@@ -72,7 +84,6 @@ THUNK_DECLARE( get_prev_object_result, get_prev_object, const object_space& spac
 THUNK_DECLARE( call_contract_result, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 
 THUNK_DECLARE_VOID( get_entry_point_result, get_entry_point );
-THUNK_DECLARE_VOID( get_contract_arguments_size_result, get_contract_arguments_size );
 THUNK_DECLARE_VOID( get_contract_arguments_result, get_contract_arguments );
 
 THUNK_DECLARE( void, set_contract_result, const std::string& ret );
@@ -80,20 +91,18 @@ THUNK_DECLARE( void, set_contract_result, const std::string& ret );
 THUNK_DECLARE_VOID( get_head_info_result, get_head_info );
 
 THUNK_DECLARE( hash_result, hash, uint64_t code, const std::string& obj, uint64_t size = 0 );
-THUNK_DECLARE( recover_public_key_result, recover_public_key, const std::string& signature_data, const std::string& digest );
-
-THUNK_DECLARE( get_transaction_payer_result, get_transaction_payer, const protocol::transaction& tx );
-THUNK_DECLARE( get_transaction_rc_limit_result, get_transaction_rc_limit, const protocol::transaction& tx );
+THUNK_DECLARE( recover_public_key_result, recover_public_key, dsa type, const std::string& signature_data, const std::string& digest );
 
 THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_block );
 
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE_VOID( get_transaction_signature_result, get_transaction_signature );
-THUNK_DECLARE( void, require_authority, const std::string& account );
+THUNK_DECLARE( void, require_authority, authorization_type type, const std::string& account );
 
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 
 THUNK_DECLARE( get_account_nonce_result, get_account_nonce, const std::string& account );
+THUNK_DECLARE( verify_account_nonce_result, verify_account_nonce, const std::string& account, const std::string& nonce );
+THUNK_DECLARE( void, set_account_nonce, const std::string& account, const std::string& nonce );
 
 THUNK_DECLARE( get_account_rc_result, get_account_rc, const std::string& account );
 THUNK_DECLARE( consume_account_rc_result, consume_account_rc, const std::string& account, uint64_t rc );
@@ -102,5 +111,14 @@ THUNK_DECLARE_VOID( get_resource_limits_result, get_resource_limits );
 THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t disk, uint64_t network, uint64_t compute );
 
 THUNK_DECLARE( void, event, const std::string& name, const std::string& data, const std::vector< std::string >& impacted );
+
+THUNK_DECLARE_VOID( get_transaction_result, get_transaction );
+THUNK_DECLARE( get_transaction_field_result, get_transaction_field, const std::string& field );
+THUNK_DECLARE_VOID( get_block_result, get_block );
+THUNK_DECLARE( get_block_field_result, get_block_field, const std::string& field );
+
+THUNK_DECLARE( void, require_system_authority, system_authorization_type type );
+
+THUNK_DECLARE( verify_signature_result, verify_signature, dsa type, const std::string& public_key, const std::string& signature, const std::string& digest );
 
 } // koinos::chain

@@ -35,15 +35,21 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( passive_root_mismatch, system_call_exception )
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_block_signature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_transaction_signature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_signature, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( authorization_failed, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unimplemented_feature, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( thunk_not_found, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( read_only_context, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reverted, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_dsa, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_nonce, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_id_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_id_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( chain_id_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( hash_code_mismatch, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_height, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( block_id_mismatch, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( duplicate_trx_state, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( pending_state_error, controller_exception );
@@ -71,6 +77,9 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
 
 // Parse exception
 KOINOS_DECLARE_DERIVED_EXCEPTION( parse_failure, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_type, parse_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_size, parse_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION( field_not_found, parse_failure );
 
 // Context exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( context_exception, chain_exception );

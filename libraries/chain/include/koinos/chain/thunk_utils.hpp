@@ -5,7 +5,7 @@
 
 #include <koinos/crypto/merkle_tree.hpp>
 
-#include <koinos/protocol/system_call_ids.pb.h>
+#include <koinos/chain/system_call_ids.pb.h>
 
 #include <koinos/util/conversion.hpp>
 
@@ -22,7 +22,7 @@
 #define _THUNK_RET_SUFFIX  _result
 
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
-data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( protocol::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
+data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( chain::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
 
 #define THUNK_REGISTER( dispatcher, args ) \
    BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION, dispatcher, args )
@@ -241,33 +241,7 @@ namespace koinos::chain::detail {
       )                                                                                                                    \
    {                                                                                                                       \
                                                                                                                            \
-      uint32_t _sid = static_cast< uint32_t >( protocol::system_call_id::SYSCALL );                                        \
-                                                                                                                           \
-      auto _key = util::converter::as< std::string >( _sid );                                                              \
-      database_object _object;                                                                                             \
-                                                                                                                           \
-      with_privilege(                                                                                                      \
-         context,                                                                                                          \
-         privilege::kernel_mode,                                                                                           \
-         [&]() {                                                                                                           \
-            _object = thunk::_get_object(                                                                                  \
-               context,                                                                                                    \
-               state::space::system_call_dispatch(),                                                                       \
-               _key                                                                                                        \
-            ).value();                                                                                                     \
-         }                                                                                                                 \
-      );                                                                                                                   \
-                                                                                                                           \
-      protocol::system_call_target _target;                                                                                \
-                                                                                                                           \
-      if ( _object.exists() )                                                                                              \
-      {                                                                                                                    \
-         _target.ParseFromString( _object.value() );                                                                       \
-      }                                                                                                                    \
-      else                                                                                                                 \
-      {                                                                                                                    \
-         _target.set_thunk_id( _sid );                                                                                     \
-      }                                                                                                                    \
+      uint32_t _sid = static_cast< uint32_t >( chain::system_call_id::SYSCALL );                                           \
                                                                                                                            \
       BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,RETURN_TYPE _ret;)                                                          \
                                                                                                                            \
@@ -278,29 +252,30 @@ namespace koinos::chain::detail {
             .call_privilege = privilege::kernel_mode                                                                       \
          },                                                                                                                \
          [&]() {                                                                                                           \
-            if ( _target.thunk_id() )                                                                                      \
+            if ( context.system_call_exists( _sid ) )                                                                      \
             {                                                                                                              \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
-                  thunk_dispatcher::instance().call_thunk<                                                                 \
-                     RETURN_TYPE                                                                                           \
-                     TYPES >(                                                                                              \
-                        _sid,                                                                                              \
-                        context                                                                                            \
-                        FWD );                                                                                             \
-            }                                                                                                              \
-            else if ( _target.has_system_call_bundle() )                                                                   \
-            {                                                                                                              \
-               const auto& _scb = _target.system_call_bundle();                                                            \
                BOOST_PP_CAT( SYSCALL, _THUNK_ARGS_SUFFIX ) _args;                                                          \
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
                std::string _arg_str;                                                                                       \
                _args.SerializeToString( &_arg_str );                                                                       \
-               auto _ret_str = thunk::_call_contract( context, _scb.contract_id(), _scb.entry_point(), _arg_str ).value(); \
+               auto _ret_str = context.system_call( _sid, _arg_str );                                                      \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
             }                                                                                                              \
             else                                                                                                           \
             {                                                                                                              \
-               KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", _sid) );          \
+               auto _thunk_id = context.thunk_translation( _sid );                                                         \
+               auto _desc = chain::system_call_id_descriptor();                                                            \
+               auto _enum_value = _desc->FindValueByNumber( _thunk_id );                                                   \
+               KOINOS_ASSERT( _enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", _thunk_id) );            \
+               auto _compute = context.get_compute_bandwidth( _enum_value->name() );                                       \
+               context.resource_meter().use_compute_bandwidth( _compute );                                                 \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \
+                  thunk_dispatcher::instance().call_thunk<                                                                 \
+                     RETURN_TYPE                                                                                           \
+                     TYPES >(                                                                                              \
+                        _thunk_id,                                                                                         \
+                        context                                                                                            \
+                        FWD );                                                                                             \
             }                                                                                                              \
          }                                                                                                                 \
       );                                                                                                                   \

@@ -4,9 +4,9 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
+#include <koinos/chain/system_call_ids.pb.h>
 
 #include <koinos/log.hpp>
-#include <koinos/protocol/system_call_ids.pb.h>
 #include <koinos/util/conversion.hpp>
 
 using namespace std::string_literals;
@@ -28,29 +28,6 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
    auto key = util::converter::as< std::string >( sid );
    database_object object;
 
-   with_privilege(
-      _ctx,
-      privilege::kernel_mode,
-      [&]() {
-         object = thunk::_get_object(
-            _ctx,
-            state::space::system_call_dispatch(),
-            key
-         ).value();
-      }
-   );
-
-   protocol::system_call_target target;
-
-   if ( object.exists() )
-   {
-      target.ParseFromString( object.value() );
-   }
-   else
-   {
-      target.set_thunk_id( sid );
-   }
-
    with_stack_frame(
       _ctx,
       stack_frame {
@@ -58,23 +35,25 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          .call_privilege = privilege::kernel_mode
       },
       [&]() {
-         if ( target.thunk_id() )
+         if ( _ctx.system_call_exists( sid ) )
          {
-            bytes_returned = thunk_dispatcher::instance().call_thunk( target.thunk_id(), _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
-         }
-         else if ( target.has_system_call_bundle() )
-         {
-            const auto& scb = target.system_call_bundle();
             #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
             std::string args( arg_ptr, arg_len );
-            auto ret = thunk::_call_contract( _ctx, scb.contract_id(), scb.entry_point(), args ).value();
+            auto ret = _ctx.system_call( sid, args );
             KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
             std::memcpy( ret.data(), ret_ptr, ret.size() );
             bytes_returned = ret.size();
          }
          else
          {
-            KOINOS_THROW( thunk_not_found, "did not find system call or thunk with id: ${id}", ("id", sid) );
+            auto thunk_id = _ctx.thunk_translation( sid );
+            KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), thunk_not_found, "thunk ${tid} does not exist", ("tid", thunk_id) );
+            auto desc = chain::system_call_id_descriptor();
+            auto enum_value = desc->FindValueByNumber( thunk_id );
+            KOINOS_ASSERT( enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", thunk_id) );
+            auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
+            _ctx.resource_meter().use_compute_bandwidth( compute );
+            bytes_returned = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
          }
       }
    );

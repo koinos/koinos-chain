@@ -173,7 +173,7 @@ void controller_impl::validate_transaction( const protocol::transaction& t )
    KOINOS_ASSERT( t.has_header(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "header")("transaction_id", util::to_hex( t.id() )) );
    KOINOS_ASSERT( t.header().rc_limit(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "rc_limit")("transaction_id", util::to_hex( t.id() )) );
    KOINOS_ASSERT( t.header().operation_merkle_root().size(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "operation_merkle_root")("transaction_id", util::to_hex( t.id() )) );
-   KOINOS_ASSERT( t.signature().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.signatures().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
 }
 
 rpc::chain::submit_block_response controller_impl::submit_block(
@@ -223,6 +223,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       } );
 
       parent_ctx.set_state_node( parent_node );
+      parent_ctx.build_cache();
       auto head_info = system_call::get_head_info( parent_ctx );
       parent_height = head_info.head_topology().height();
       time_lower_bound = head_info.head_block_time();
@@ -237,12 +238,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       {
          KOINOS_ASSERT( block_height == 1, unexpected_height, "first block must have height of 1" );
       }
-
-      KOINOS_ASSERT(
-         crypto::hash( crypto::multicodec::sha2_256, block.header() ) == block_id,
-         block_id_mismatch,
-         "block contains an invalid block ID"
-      );
 
       KOINOS_ASSERT( block_node, unknown_previous_block, "unknown previous block" );
 
@@ -266,6 +261,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       } );
 
       ctx.set_state_node( block_node );
+      ctx.build_cache();
 
       system_call::apply_block( ctx, block );
 
@@ -301,13 +297,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       {
          auto progress = block_height / static_cast< double >( index_to ) * 100;
          LOG(info) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
-      }
-
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
       }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
@@ -371,7 +360,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          try
          {
-            for ( const auto& [ unused, event ] : ctx.event_recorder().events() )
+            for ( const auto& [ unused, event ] : ctx.chronicler().events() )
             {
                _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
             }
@@ -410,13 +399,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       if ( block_node )
       {
          _db.discard_node( block_node->id() );
@@ -427,13 +409,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    catch ( ... )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
-
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
 
       if ( block_node )
       {
@@ -475,10 +450,13 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    try
    {
       ctx.set_state_node( pending_trx_node );
+      ctx.build_cache();
 
-      payer = system_call::get_transaction_payer( ctx, transaction );
+      payer = transaction.header().payer();
+
       max_payer_rc = system_call::get_account_rc( ctx, payer );
-      trx_rc_limit = system_call::get_transaction_rc_limit( ctx, transaction );
+
+      trx_rc_limit = transaction.header().rc_limit();
 
       ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
 
@@ -531,26 +509,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    catch( const std::exception& e )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       throw;
    }
    catch( ... )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
-
-      auto output = ctx.get_pending_console_output();
-
-      if ( output.length() > 0 )
-      {
-         LOG(info) << "Output:\n" << output;
-      }
-
       throw;
    }
 
@@ -567,6 +530,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto head_info = system_call::get_head_info( ctx );
    block_topology topo = head_info.head_topology();
@@ -613,6 +577,7 @@ fork_data controller_impl::get_fork_data_lockless()
    std::vector< state_db::state_node_ptr > fork_heads;
 
    ctx.set_state_node( _db.get_root() );
+   ctx.build_cache();
    fork_heads = _db.get_fork_heads();
 
    auto head_info = system_call::get_head_info( ctx );
@@ -656,6 +621,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto value = system_call::get_resource_limits( ctx );
 
@@ -677,6 +643,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto value = system_call::get_account_rc( ctx, request.account() );
 
@@ -715,6 +682,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    resource_limit_data rl;
    rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
@@ -725,7 +693,8 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    rpc::chain::read_contract_response resp;
    resp.set_result( result );
-   resp.set_logs( ctx.get_pending_console_output() );
+   for ( const auto& message : ctx.chronicler().logs() )
+      *resp.add_logs() = message;
 
    return resp;
 }
@@ -743,6 +712,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.build_cache();
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() );
 

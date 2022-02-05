@@ -4,14 +4,13 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/system_calls.hpp>
 
-#include <boost/container/flat_map.hpp>
-
 #include <google/protobuf/message.h>
 #include <google/protobuf/descriptor.h>
 
 #include <any>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <type_traits>
 
 namespace koinos::chain {
@@ -202,9 +201,17 @@ namespace detail
       t.CopyFrom( *ptr );
    }
 
+   // Overload to capture when field is an Enum
+   template< typename T >
+   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T > && std::is_enum_v< T >, void >
+   get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, T& t )
+   {
+      t = T( std::any_cast< std::underlying_type_t< T > >( get_type_from_field_impl( msg, fd ) ) );
+   }
+
    // Overload to capture when field is neither
    template< typename T >
-   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T >, void >
+   std::enable_if_t< !std::is_base_of_v< google::protobuf::Message, T > && !std::is_enum_v< T >, void >
    get_type_from_field( const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* fd, T& t )
    {
       t = std::any_cast< T >( get_type_from_field_impl( msg, fd ) );
@@ -264,7 +271,7 @@ namespace detail
    typename std::enable_if< !std::is_same< ThunkReturn, void >::value, uint32_t >::type
    call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
-      static_assert( std::is_same< RetStruct, ThunkReturn >::value, "Thunk return does not match defined return in koinos-types" );
+      static_assert( std::is_same< RetStruct, ThunkReturn >::value, "thunk return does not match defined return in koinos-proto" );
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
       auto ret = std::apply( thunk, thunk_args );
       std::string s;
@@ -310,14 +317,14 @@ class thunk_dispatcher
       void register_thunk( uint32_t id, ThunkReturn (*thunk_ptr)(execution_context&, ThunkArgs...) )
       {
          std::function<ThunkReturn(execution_context&, ThunkArgs...)> thunk = thunk_ptr;
-         _dispatch_map.emplace( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) -> uint32_t
+         _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) -> uint32_t
          {
             ArgStruct args;
             std::string s( arg_ptr, arg_len );
             args.ParseFromString( s );
             return detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );
          });
-         _pass_through_map.emplace( id, thunk );
+         _pass_through_map.insert_or_assign( id, thunk );
       }
 
       bool thunk_exists( uint32_t id ) const;
@@ -328,8 +335,8 @@ class thunk_dispatcher
 
       typedef std::function< uint32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
 
-      boost::container::flat_map< uint32_t, generic_thunk_handler >  _dispatch_map;
-      boost::container::flat_map< uint32_t, std::any >               _pass_through_map;
+      std::map< uint32_t, generic_thunk_handler > _dispatch_map;
+      std::map< uint32_t, std::any >              _pass_through_map;
 };
 
 } // koinos::chain
