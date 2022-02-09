@@ -798,44 +798,9 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   auto account_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), account );
-   bool authorize_override = false;
-
-   if ( account_contract_meta_object.exists() )
-   {
-      auto account_contract_meta = util::converter::to< contract_metadata_object >( account_contract_meta_object.value() );
-
-      switch ( type )
-      {
-         case contract_call:
-            authorize_override = account_contract_meta.authorizes_call_contract();
-            break;
-         case rc_use:
-            authorize_override = account_contract_meta.authorizes_use_rc();
-            break;
-         case contract_upload:
-            authorize_override = account_contract_meta.authorizes_upload_contract();
-            break;
-         default:;
-      }
-   }
-
    bool authorized = false;
 
-   if ( authorize_override )
-   {
-      authorize_arguments args;
-      args.set_type( type );
-
-      if ( type == contract_call )
-      {
-         args.mutable_call()->set_contract_id( context.get_caller() );
-         args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
-      }
-
-      authorized = util::converter::to< authorize_result >( system_call::call_contract( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
-   }
-   else
+   if ( type == signature_exists )
    {
       const auto& trx = context.get_transaction();
 
@@ -845,6 +810,44 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
          authorized = ( signer_address == account );
          if ( authorized )
             break;
+      }
+   }
+   else
+   {
+      auto account_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), account );
+      bool authorize_override = false;
+
+      if ( account_contract_meta_object.exists() )
+      {
+         auto account_contract_meta = util::converter::to< contract_metadata_object >( account_contract_meta_object.value() );
+
+         switch ( type )
+         {
+            case contract_call:
+               authorize_override = account_contract_meta.authorizes_call_contract();
+               break;
+            case rc_use:
+               authorize_override = account_contract_meta.authorizes_use_rc();
+               break;
+            case contract_upload:
+               authorize_override = account_contract_meta.authorizes_upload_contract();
+               break;
+            default:;
+         }
+      }
+
+      if ( authorize_override )
+      {
+         authorize_arguments args;
+         args.set_type( type );
+
+         if ( type == contract_call )
+         {
+            args.mutable_call()->set_contract_id( context.get_caller() );
+            args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
+         }
+
+         authorized = util::converter::to< authorize_result >( system_call::call_contract( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
       }
    }
 
