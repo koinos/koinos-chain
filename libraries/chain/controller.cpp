@@ -263,7 +263,19 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       ctx.set_state_node( block_node );
       ctx.build_cache();
 
-      system_call::apply_block( ctx, block );
+      try
+      {
+         system_call::apply_block( ctx, block );
+      }
+      catch ( ... )
+      {
+         for ( const auto l : ctx.chronicler().logs() )
+         {
+            LOG(info) << l;
+         }
+
+         throw;
+      }
 
       if ( _client && _client->is_running() )
       {

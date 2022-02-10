@@ -145,6 +145,25 @@ void validate_hash_code( crypto::multicodec id )
    }
 }
 
+std::pair< std::string, std::string > hash_compute_keys( crypto::multicodec id )
+{
+   switch ( id )
+   {
+      case crypto::multicodec::sha1:
+         return { "sha1_base", "sha1_per_byte" };
+      case crypto::multicodec::sha2_256:
+         return { "sha2_256_base", "sha2_256_per_byte" };
+      case crypto::multicodec::sha2_512:
+         return { "sha2_512_base", "sha2_512_per_byte" };
+      case crypto::multicodec::keccak_256:
+         return { "keccak_256_base", "keccak_256_per_byte" };
+      case crypto::multicodec::ripemd_160:
+         return { "ripemd_160_base", "ripemd_160_per_byte" };
+      default:
+         KOINOS_THROW( unknown_hash_code, "unknown hash code" );
+   }
+}
+
 THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
@@ -174,15 +193,39 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
    return ret;
 }
 
+uint64_t hashes_per_leaves( uint64_t leaves )
+{
+   if ( leaves <= 2 ) return 1;
+   auto even_leaves = ( ( leaves + 1 ) / 2 ) * 2;
+   if ( !( even_leaves & ( even_leaves - 1 ) ) ) return even_leaves - 1; // When we get to a power of 2, we can short-circuit
+   return even_leaves / 2 + hashes_per_leaves( even_leaves / 2 );
+}
+
 THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
+   uint64_t deserialize_multihash_base = context.get_compute_bandwidth( "deserialize_multihash_base" );
+   uint64_t deserialize_multihash_per_hash = context.get_compute_bandwidth( "deserialzie_multihash_per_hash" );
+
    auto root_hash = util::converter::to< crypto::multihash >( root );
+
+   auto [ hash_base_key, hash_per_byte_key ] = hash_compute_keys( root_hash.code() );
+   uint64_t hash_base = context.get_compute_bandwidth( hash_base_key );
+   uint64_t hash_per_byte = context.get_compute_bandwidth( hash_per_byte_key );
+   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest().size() * hash_per_byte ) );
+
    validate_hash_code( root_hash.code() );
 
    std::vector< crypto::multihash > leaves;
 
    leaves.resize( hashes.size() );
-   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return util::converter::to< crypto::multihash >( s ); } );
+   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), [&]( const std::string& s )
+      {
+         auto mh = util::converter::to< crypto::multihash >( s );
+         KOINOS_ASSERT( mh.code() == root_hash.code(), merkle_hash_mismatch, "leaf and merkle root hash codes do not match" );
+         KOINOS_ASSERT( mh.digest().size() == root_hash.digest().size(), merkle_hash_mismatch, "leaf and merkle root hash sizes do not match" );
+         return mh;
+      }
+   );
 
    auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
 
@@ -254,7 +297,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          block.signature()
       ),
       invalid_block_signature,
-      "block signature does not match"
+      "failed to process block signature"
    );
 
    system_call::pre_block_callback( context );
@@ -733,6 +776,9 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
    auto multicodec = static_cast< crypto::multicodec >( id );
    validate_hash_code( multicodec );
 
+   auto [ hash_base, hash_per_byte ] = hash_compute_keys( multicodec );
+   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( hash_base ) + context.get_compute_bandwidth( hash_per_byte ) * obj.size() );
+
    auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
 
    hash_result ret;
@@ -952,9 +998,9 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   const auto& caller = context.get_caller();
+   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "event_per_impacted" ) * impacted.size() );
 
-   context.resource_meter().use_network_bandwidth( caller.size() + name.size() + data.size() );
+   const auto& caller = context.get_caller();
 
    protocol::event_data ev;
    ev.set_source( caller );
