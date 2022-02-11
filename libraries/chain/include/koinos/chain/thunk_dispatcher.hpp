@@ -320,6 +320,7 @@ class thunk_dispatcher
          _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) -> uint32_t
          {
             ArgStruct args;
+            ctx.resource_meter().use_compute_bandwidth( ctx.get_compute_bandwidth( "deserialize_message_per_byte" ) * arg_len );
             std::string s( arg_ptr, arg_len );
             args.ParseFromString( s );
             return detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );

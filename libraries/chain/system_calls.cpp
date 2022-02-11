@@ -599,6 +599,7 @@ THUNK_DEFINE_VOID( void, post_transaction_callback ) { }
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot put object during read only call" );
+   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" ) * obj.size() );
 
    state::assert_permissions( context, space );
 
@@ -643,6 +644,7 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
    if( result )
    {
+      context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" ) * result->size() );
       ret.mutable_value()->set_exists( true );
       ret.mutable_value()->set_value( result->data(), result->size() );
    }
@@ -663,6 +665,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
 
    if( result )
    {
+      context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" ) * result->size() );
       ret.mutable_value()->set_exists( true );
       ret.mutable_value()->set_value( result->data(), result->size() );
       ret.mutable_value()->set_key( next_key );
@@ -684,6 +687,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 
    if( result )
    {
+      context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" ) * result->size() );
       ret.mutable_value()->set_exists( true );
       ret.mutable_value()->set_value( result->data(), result->size() );
       ret.mutable_value()->set_key( next_key );

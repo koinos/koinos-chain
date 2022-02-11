@@ -104,6 +104,7 @@ struct thunk_fixture
          { "call_contract", 4848 },
          { "consume_account_rc", 110 },
          { "consume_block_resources", 110 },
+         { "deserialize_message_per_byte", 1 },
          { "deserialize_multihash_base", 48 },
          { "deserialzie_multihash_per_hash", 415 },
          { "event", 381 },
@@ -129,6 +130,7 @@ struct thunk_fixture
          { "keccak_256_base", 779 },
          { "keccak_256_per_byte", 2 },
          { "log", 113 },
+         { "object_serialization_per_byte", 1 },
          { "post_block_callback", 120 },
          { "post_transaction_callback", 104 },
          { "pre_block_callback", 100 },
@@ -136,6 +138,7 @@ struct thunk_fixture
          { "process_block_signature", 4350 },
          { "put_object", 396 },
          { "recover_public_key", 30096 },
+         { "reserved_id", 1 },
          { "remove_object", 284 },
          { "require_authority", 12758 },
          { "require_system_authority", 12879 },
@@ -1079,6 +1082,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_transaction( trx );
    try
    {
+      session = ctx.make_session( 1'000'000 );
       koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
@@ -1089,6 +1093,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    try
    {
+      session = ctx.make_session( 1'000'000 );
       koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
@@ -1097,22 +1102,26 @@ BOOST_AUTO_TEST_CASE( token_tests )
    sign_transaction( trx, alice_private_key );
    ctx.set_transaction( trx );
 
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
    auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response );
    BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
    supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
