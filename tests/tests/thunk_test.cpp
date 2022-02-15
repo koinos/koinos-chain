@@ -1732,40 +1732,40 @@ int main()
       LOG(info) << "Testing sha1...";
       auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::sha1 );
       auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
-      calls[ "sha1_base" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "sha1_per_byte" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "sha1_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "sha1_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
       LOG(info) << "Testing sha2_256...";
       auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::sha2_256 );
       auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
-      calls[ "sha2_256_base" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "sha2_256_per_byte" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "sha2_256_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "sha2_256_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
       LOG(info) << "Testing sha2_512...";
       auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::sha2_512 );
       auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
-      calls[ "sha2_512_base" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "sha2_512_per_byte" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "sha2_512_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "sha2_512_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
       LOG(info) << "Testing keccak_256...";
       auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::keccak_256 );
       auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
-      calls[ "keccak_256_base" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "keccak_256_per_byte" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "keccak_256_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "keccak_256_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
       LOG(info) << "Testing ripemd_160...";
       auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::ripemd_160 );
       auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
-      calls[ "ripemd_160_base" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "ripemd_160_per_byte" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "ripemd_160_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "ripemd_160_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
@@ -1802,8 +1802,8 @@ int main()
       }
 
       auto [b_0, b_1] = lin_reg( payload_sizes, event_times );
-      calls[ "event" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "event_per_impacted" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "event" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "event_per_impacted" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
@@ -1841,8 +1841,8 @@ int main()
 
       auto [b_0, b_1] = lin_reg( number_of_hashes, deserialize_times );
       LOG(info) << b_0 << ", " << b_1;
-      calls[ "deserialize_multihash_base" ] = std::max( 1ll, int64_t( ceil( b_0 ) ) );
-      calls[ "deserialzie_multihash_per_hash" ] = std::max( 1ll, int64_t( ceil( b_1 ) ) );
+      calls[ "deserialize_multihash_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "deserialzie_multihash_per_hash" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
@@ -1877,7 +1877,7 @@ int main()
       time /= runs;
       time -= ( string_leafs.size() + 1 ) * calls[ "deserialzie_multihash_per_hash" ] + calls[ "deserialize_multihash_base" ];
       time -= 21 * ( calls[ "sha2_256_base" ] + 2 * 32 * calls[ "sha2_256_per_byte" ] );
-      calls[ "verify_merkle_root" ] = std::max( 1ll, int64_t( ceil( time ) ) );
+      calls[ "verify_merkle_root" ] = std::max( int64_t(1), int64_t( ceil( time ) ) );
    }
 
    std::map< std::string, std::vector< std::string > > subcalls;
