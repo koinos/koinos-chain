@@ -798,24 +798,11 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   bool authorized = false;
+   bool authorize_override = false;
 
-   if ( type == signature_exists )
-   {
-      const auto& trx = context.get_transaction();
-
-      for ( const auto& sig : trx.signatures() )
-      {
-         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
-         authorized = ( signer_address == account );
-         if ( authorized )
-            break;
-      }
-   }
-   else
+   if ( type != signature_exists )
    {
       auto account_contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), account );
-      bool authorize_override = false;
 
       if ( account_contract_meta_object.exists() )
       {
@@ -835,19 +822,33 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
             default:;
          }
       }
+   }
 
-      if ( authorize_override )
+   bool authorized = false;
+
+   if ( authorize_override )
+   {
+      authorize_arguments args;
+      args.set_type( type );
+
+      if ( type == contract_call )
       {
-         authorize_arguments args;
-         args.set_type( type );
+         args.mutable_call()->set_contract_id( context.get_caller() );
+         args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
+      }
 
-         if ( type == contract_call )
-         {
-            args.mutable_call()->set_contract_id( context.get_caller() );
-            args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
-         }
+      authorized = util::converter::to< authorize_result >( system_call::call_contract( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
+   }
+   else
+   {
+      const auto& trx = context.get_transaction();
 
-         authorized = util::converter::to< authorize_result >( system_call::call_contract( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
+      for ( const auto& sig : trx.signatures() )
+      {
+         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
+         authorized = ( signer_address == account );
+         if ( authorized )
+            break;
       }
    }
 
