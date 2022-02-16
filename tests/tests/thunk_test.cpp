@@ -1234,7 +1234,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
 
    upload_op.set_authorizes_upload_contract( false );
-   upload_op.set_authorizes_use_rc( true );
+   upload_op.set_authorizes_transaction_application( true );
 
    try
    {
