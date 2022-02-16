@@ -26,11 +26,12 @@ void pending_state::set_client( std::shared_ptr< mq::client > client )
 
 void pending_state::rebuild( state_db::state_node_ptr head )
 {
-   LOG(debug) << "Rebuilding pending state";
    _pending_state = head->create_anonymous_node();
 
-   if ( _client && _client->is_running() )
+   if ( _client && _client->ready() )
    {
+      LOG(debug) << "Rebuilding pending state";
+
       rpc::mempool::mempool_request req;
       req.mutable_get_pending_transactions();
 
