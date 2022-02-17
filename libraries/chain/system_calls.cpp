@@ -913,7 +913,7 @@ THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::st
    );
 
    verify_account_nonce_result res;
-   res.set_value( nonce_value.uint64_value() > current_nonce_value.uint64_value() );
+   res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
    return res;
 }
 
