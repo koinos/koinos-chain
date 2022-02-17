@@ -48,7 +48,7 @@
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
-#define JOBS_DEFAULT                        uint64_t( 4 )
+#define JOBS_DEFAULT                        uint64_t( 8 )
 #define STATEDIR_DEFAULT                    "blockchain"
 #define RESET_OPTION                        "reset"
 #define GENESIS_DATA_FILE_OPTION            "genesis-data"
@@ -70,6 +70,7 @@ int main( int argc, char** argv )
 {
    std::atomic< bool > stopped = false;
    int retcode = EXIT_SUCCESS;
+   std::vector< std::thread > threads;
 
    try
    {
@@ -182,7 +183,7 @@ int main( int argc, char** argv )
       auto client = std::make_shared< mq::client >( client_ioc );
       auto request_handler = mq::request_handler( server_ioc );
 
-      asio::signal_set signals( main_ioc );
+      asio::signal_set signals( server_ioc );
       signals.add( SIGINT );
       signals.add( SIGTERM );
 #if defined( SIGQUIT )
@@ -198,13 +199,11 @@ int main( int argc, char** argv )
          server_ioc.stop();
       } );
 
-      std::vector< std::thread > client_threads;
       for ( std::size_t i = 0; i < jobs; i++ )
-         client_threads.emplace_back( [&]() { client_ioc.run(); } );
+         threads.emplace_back( [&]() { client_ioc.run(); } );
 
-      std::vector< std::thread > server_threads;
       for ( std::size_t i = 0; i < jobs; i++ )
-         server_threads.emplace_back( [&]() { server_ioc.run(); } );
+         threads.emplace_back( [&]() { server_ioc.run(); } );
 
       chain::controller controller( read_compute_limit );
       controller.open( statedir, genesis_data, reset );
@@ -240,12 +239,6 @@ int main( int argc, char** argv )
          auto work = asio::make_work_guard( main_ioc );
          main_ioc.run();
       }
-
-      for ( auto& t : client_threads )
-         t.join();
-
-      for ( auto& t : server_threads )
-         t.join();
    }
    catch ( const invalid_argument& e )
    {
@@ -275,6 +268,9 @@ int main( int argc, char** argv )
       LOG(fatal) << "An unexpected error has occurred";
       retcode = EXIT_FAILURE;
    }
+
+   for ( auto& t : threads )
+      t.join();
 
    LOG(info) << "Shut down gracefully";
 
