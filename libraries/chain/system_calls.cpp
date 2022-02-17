@@ -211,7 +211,7 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    uint64_t deserialize_multihash_per_byte = context.get_compute_bandwidth( "deserialize_multihash_per_byte" );
 
    // Charge for all deserialization
-   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * ( deserialize_multihash_base + root_hash.digest().size() * deserialize_multihash_per_byte ) );
+   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * ( deserialize_multihash_base + root.size() * deserialize_multihash_per_byte ) );
 
    auto root_hash = util::converter::to< crypto::multihash >( root );
 
@@ -219,7 +219,7 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    uint64_t hash_base = context.get_compute_bandwidth( hash_base_key );
    uint64_t hash_per_byte = context.get_compute_bandwidth( hash_per_byte_key );
    // Charge for all hashing to compute merkle root
-   context.resource_meter().use_compute_bandwidth( hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest.size() * hash_per_byte ) );
+   context.resource_meter().use_compute_bandwidth( hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest().size() * hash_per_byte ) );
 
    validate_hash_code( root_hash.code() );
 
