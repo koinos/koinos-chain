@@ -190,7 +190,7 @@ struct thunk_fixture
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
-      ctx.build_cache();
+      ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "thunk_tests"s,
          .call_privilege = chain::privilege::kernel_mode
@@ -449,18 +449,6 @@ BOOST_AUTO_TEST_CASE( db_crud )
    test_space.set_zone( chain::state::zone::kernel );
    test_space.set_id( 100 );
 
-   auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
-   ctx.clear_state_node();
-
-   BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
-
-   BOOST_REQUIRE_THROW( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_prev_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-
-   ctx.set_state_node( node );
-
    object_data = "object1"s;
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
@@ -644,7 +632,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    // Fetch the created call bundle from the database and check it has been updated
    auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
-   ctx.build_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
    call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
    BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
@@ -668,7 +657,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
-   ctx.build_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
 
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
