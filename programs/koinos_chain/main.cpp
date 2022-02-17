@@ -47,7 +47,7 @@
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
-#define JOBS_DEFAULT                        2
+#define JOBS_DEFAULT                        3
 #define STATEDIR_DEFAULT                    "blockchain"
 #define RESET_OPTION                        "reset"
 #define GENESIS_DATA_FILE_OPTION            "genesis-data"
