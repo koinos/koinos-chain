@@ -176,11 +176,11 @@ int main( int argc, char** argv )
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Number of jobs: " << jobs;
 
-      asio::io_context ioc;
-      auto client = std::make_shared< mq::client >( ioc );
-      auto request_handler = mq::request_handler( ioc );
+      asio::io_context client_ioc, server_ioc, main_ioc;
+      auto client = std::make_shared< mq::client >( client_ioc );
+      auto request_handler = mq::request_handler( server_ioc );
 
-      asio::signal_set signals( ioc );
+      asio::signal_set signals( main_ioc );
       signals.add( SIGINT );
       signals.add( SIGTERM );
 #if defined( SIGQUIT )
@@ -191,12 +191,18 @@ int main( int argc, char** argv )
       {
          LOG(info) << "Caught signal, shutting down...";
          stopped = true;
-         ioc.stop();
+         main_ioc.stop();
+         client_ioc.stop();
+         server_ioc.stop();
       } );
 
-      std::vector< std::thread > threads;
-      for ( std::size_t i = 0; i < jobs; i++ )
-         threads.emplace_back( [&]() { ioc.run(); } );
+      std::vector< std::thread > client_threads;
+      for ( std::size_t i = 0; i < 4; i++ )
+         client_threads.emplace_back( [&]() { client_ioc.run(); } );
+
+      std::vector< std::thread > server_threads;
+      for ( std::size_t i = 0; i < jobs + 1; i++ )
+         server_threads.emplace_back( [&]() { server_ioc.run(); } );
 
       chain::controller controller( read_compute_limit );
       controller.open( statedir, genesis_data, reset );
@@ -217,7 +223,7 @@ int main( int argc, char** argv )
       client->rpc( util::service::mempool, m_req.SerializeAsString() ).get();
       LOG(info) << "Established connection to mempool";
 
-      chain::indexer indexer( ioc, controller, client );
+      chain::indexer indexer( client_ioc, controller, client );
 
       if ( indexer.index().get() )
       {
@@ -229,10 +235,14 @@ int main( int argc, char** argv )
          LOG(info) << "Established request handler connection to the AMQP server";
 
          LOG(info) << "Listening for requests over AMQP";
-         ioc.run();
+         auto work = asio::make_work_guard( main_ioc );
+         main_ioc.run();
       }
 
-      for ( auto& t : threads )
+      for ( auto& t : client_threads )
+         t.join();
+
+      for ( auto& t : server_threads )
          t.join();
    }
    catch ( const invalid_argument& e )
