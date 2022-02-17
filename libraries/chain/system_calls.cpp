@@ -14,6 +14,7 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/chain/events.pb.h>
 
 #include <koinos/log.hpp>
 
@@ -529,6 +530,12 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
    // Place the override in the database
    system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::chain::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
+
+   // Emit an event
+   set_system_call_event event;
+   event.set_call_id( o.call_id() );
+   event.mutable_target()->CopyFrom( o.target() );
+   system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
 }
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
@@ -547,6 +554,12 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 
    contract_meta.set_system( o.system_contract() );
    system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
+
+   // Emit an event
+   set_system_contract_event event;
+   event.set_contract_id( o.contract_id() );
+   event.set_system_contract( o.system_contract() );
+   system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
 }
 
 THUNK_DEFINE_VOID( void, post_block_callback ) { }
