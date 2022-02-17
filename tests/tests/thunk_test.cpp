@@ -1,5 +1,9 @@
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <numeric>
+#include <random>
 #include <type_traits>
 #include <vector>
 
@@ -91,51 +95,66 @@ struct thunk_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
+         { "apply_block", 4702 },
+         { "apply_call_contract_operation", 1 },
+         { "apply_set_system_call_operation", 1420 },
+         { "apply_set_system_contract_operation", 1446 },
+         { "apply_transaction", 11075 },
+         { "apply_upload_contract_operation", 3496 },
+         { "call_contract", 4848 },
+         { "consume_account_rc", 110 },
+         { "consume_block_resources", 110 },
+         { "deserialize_message_per_byte", 1 },
+         { "deserialize_multihash_base", 48 },
+         { "deserialize_multihash_per_byte", 415 },
+         { "event", 381 },
+         { "event_per_impacted", 113 },
+         { "exit_contract", 10254 },
+         { "get_account_nonce", 232 },
+         { "get_account_rc", 355 },
+         { "get_block", 487 },
+         { "get_block_field", 778 },
+         { "get_caller", 204 },
+         { "get_contract_arguments", 166 },
+         { "get_contract_id", 152 },
+         { "get_entry_point", 115 },
+         { "get_head_info", 1063 },
+         { "get_last_irreversible_block", 141 },
+         { "get_next_object", 10932 },
+         { "get_object", 478 },
+         { "get_prev_object", 15759 },
+         { "get_resource_limits", 660 },
+         { "get_transaction", 941 },
+         { "get_transaction_field", 862 },
+         { "hash", 922 },
+         { "keccak_256_base", 779 },
+         { "keccak_256_per_byte", 2 },
+         { "log", 113 },
+         { "object_serialization_per_byte", 1 },
+         { "post_block_callback", 120 },
+         { "post_transaction_callback", 104 },
+         { "pre_block_callback", 100 },
+         { "pre_transaction_callback", 116 },
+         { "process_block_signature", 4350 },
+         { "put_object", 396 },
+         { "recover_public_key", 30096 },
          { "reserved_id", 1 },
-         { "apply_block", 7277 },
-         { "apply_call_contract_operation", 134 },
-         { "apply_set_system_call_operation", 1 },
-         { "apply_set_system_contract_operation", 531 },
-         { "apply_transaction", 8449 },
-         { "apply_upload_contract_operation", 1 },
-         { "call_contract", 3530 },
-         { "consume_account_rc", 95 },
-         { "consume_block_resources", 101 },
-         { "event", 595 },
-         { "exit_contract", 9616 },
-         { "get_account_nonce", 243 },
-         { "get_account_rc", 368 },
-         { "get_block", 488 },
-         { "get_block_field", 775 },
-         { "get_caller", 199 },
-         { "get_contract_arguments", 165 },
-         { "get_contract_id", 149 },
-         { "get_entry_point", 120 },
-         { "get_head_info", 1039 },
-         { "get_last_irreversible_block", 124 },
-         { "get_next_object", 10431 },
-         { "get_object", 525 },
-         { "get_prev_object", 15275 },
-         { "get_resource_limits", 433 },
-         { "get_transaction", 959 },
-         { "get_transaction_field", 901 },
-         { "hash", 963 },
-         { "log", 122 },
-         { "post_block_callback", 98 },
-         { "post_transaction_callback", 109 },
-         { "pre_block_callback", 114 },
-         { "pre_transaction_callback", 105 },
-         { "process_block_signature", 4078 },
-         { "put_object", 410 },
-         { "recover_public_key", 30300 },
-         { "remove_object", 320 },
-         { "require_authority", 11314 },
-         { "require_system_authority", 10527 },
-         { "set_account_nonce", 170 },
-         { "set_contract_result", 119 },
-         { "verify_account_nonce", 148 },
-         { "verify_merkle_root", 1086 },
-         { "verify_signature", 1 },
+         { "remove_object", 284 },
+         { "require_authority", 12758 },
+         { "require_system_authority", 12879 },
+         { "ripemd_160_base", 675 },
+         { "ripemd_160_per_byte", 1 },
+         { "set_account_nonce", 102 },
+         { "set_contract_result", 100 },
+         { "sha1_base", 527 },
+         { "sha1_per_byte", 1 },
+         { "sha2_256_base", 681 },
+         { "sha2_256_per_byte", 1 },
+         { "sha2_512_base", 750 },
+         { "sha2_512_per_byte", 1 },
+         { "verify_account_nonce", 120 },
+         { "verify_merkle_root", 229 },
+         { "verify_signature", 156 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -190,7 +209,7 @@ struct thunk_fixture
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
-      ctx.build_cache();
+      ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "thunk_tests"s,
          .call_privilege = chain::privilege::kernel_mode
@@ -449,18 +468,6 @@ BOOST_AUTO_TEST_CASE( db_crud )
    test_space.set_zone( chain::state::zone::kernel );
    test_space.set_id( 100 );
 
-   auto node = std::dynamic_pointer_cast< koinos::state_db::state_node >( ctx.get_state_node() );
-   ctx.clear_state_node();
-
-   BOOST_TEST_MESSAGE( "Test failure when apply context is not set to a state node" );
-
-   BOOST_REQUIRE_THROW( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( uint256_t( 0 ) ), object_data ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_next_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_prev_object( ctx, test_space, util::converter::as< std::string >( 0 ) ), chain::state_node_not_found );
-
-   ctx.set_state_node( node );
-
    object_data = "object1"s;
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
@@ -644,7 +651,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    // Fetch the created call bundle from the database and check it has been updated
    auto call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
-   ctx.build_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
    call_target = koinos::util::converter::to< koinos::protocol::system_call_target >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::system_call_dispatch(), util::converter::as< std::string >( set_op.call_id() ) ).value() );
    BOOST_REQUIRE( call_target.has_system_call_bundle() );
    BOOST_REQUIRE( call_target.system_call_bundle().contract_id() == set_op.target().system_call_bundle().contract_id() );
@@ -668,7 +676,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
-   ctx.build_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
 
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
@@ -1064,6 +1073,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_transaction( trx );
    try
    {
+      session = ctx.make_session( 1'000'000 );
       koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
@@ -1074,6 +1084,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    try
    {
+      session = ctx.make_session( 1'000'000 );
       koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
@@ -1082,22 +1093,26 @@ BOOST_AUTO_TEST_CASE( token_tests )
    sign_transaction( trx, alice_private_key );
    ctx.set_transaction( trx );
 
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
    auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response );
    BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
+   session = ctx.make_session( 1'000'000 );
    response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
    supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
@@ -1358,7 +1373,7 @@ int main()
    LOG(info) << "benchmark contract key: " << util::to_base58( contract_pk.get_public_key().to_address_bytes() );
    LOG(info) << "empty contract key: " << util::to_base58( empty_contract_pk.get_public_key().to_address_bytes() );
 
-   const uint64_t global_run = 1;
+   const uint64_t global_run = 100;
    std::vector< double > benchmarks;
 
    LOG(info) << "Calibrating compute from smart contract benchmark...";
@@ -1538,18 +1553,20 @@ int main()
    block.set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
    block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
 
+   auto header_str = util::converter::as< std::string >( block.header() );
+   auto nonce_str = util::converter::as< std::string >( nonce_value );
+
    std::map< std::string, std::function< void( void ) > > system_call_map {
       { "require_system_authority", [&]() { chain::system_call::require_system_authority( ctx, chain::set_system_call ); } },
       { "recover_public_key", [&]() { chain::system_call::recover_public_key( ctx, chain::dsa::ecdsa_secp256k1, transaction.signatures( 0 ), transaction.id() ); } },
       { "require_authority", [&]() { chain::system_call::require_authority( ctx, chain::contract_call, transaction.header().payer() ); } },
       { "get_last_irreversible_block", [&]() { chain::system_call::get_last_irreversible_block( ctx ); } },
-      { "hash", [&]() { chain::system_call::hash( ctx, std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ), util::converter::as< std::string >( block.header() ) ); } },
+      { "hash", [&]() { chain::system_call::hash( ctx, std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ), header_str ); } },
       { "get_caller", [&]() { chain::system_call::get_caller( ctx ); } },
       { "get_contract_id", [&]() { chain::system_call::get_contract_id( ctx ); } },
       { "get_account_nonce", [&]() { chain::system_call::get_account_nonce( ctx, transaction.header().payer() ); } },
       { "get_account_rc", [&]() { chain::system_call::get_account_rc( ctx, transaction.header().payer() ); } },
       { "consume_account_rc", [&]() { chain::system_call::consume_account_rc( ctx, transaction.header().payer(), 1 ); } },
-      { "event", [&]() { chain::system_call::event( ctx, transaction.header().payer(), transaction.header().payer(), { transaction.header().payer() } ); } },
       { "get_transaction_field", [&]() { chain::system_call::get_transaction_field( ctx, "header" ); } },
       { "get_block_field", [&]() { chain::system_call::get_block_field( ctx, "header" ); } },
       { "verify_signature", [&]() { chain::system_call::verify_signature( ctx, chain::dsa::ecdsa_secp256k1, trx.signatures( 0 ), trx.signatures( 0 ), trx.id() ); } },
@@ -1561,7 +1578,7 @@ int main()
       { "get_entry_point", [&]() { chain::system_call::get_entry_point( ctx ); } },
       { "get_contract_arguments", [&] { chain::system_call::get_contract_arguments( ctx ); } },
       { "set_contract_result", [&]() { chain::system_call::set_contract_result( ctx, std::string{ "value" } ); } },
-      { "put_object", [&]() { chain::system_call::put_object( ctx, objs, std::string{ "key" }, util::converter::as< std::string >( block.header().timestamp() ) ); } },
+      { "put_object", [&]() { chain::system_call::put_object( ctx, objs, std::string{ "key" }, header_str ); } },
       { "get_object", [&]() { chain::system_call::get_object( ctx, objs, std::string{ "key" } ); } },
       { "get_next_object", [&]() { chain::system_call::get_next_object( ctx, objs, std::string{ "key" } ); } },
       { "get_prev_object", [&]() { chain::system_call::get_prev_object( ctx, objs, std::string{ "key" } ); } },
@@ -1571,15 +1588,14 @@ int main()
       { "apply_call_contract_operation", [&]() { chain::system_call::apply_call_contract_operation( ctx, cco ); } },
       { "get_transaction", [&]() { chain::system_call::get_transaction( ctx ); } },
       { "get_block", [&]() { chain::system_call::get_block( ctx ); } },
-      { "verify_merkle_root", [&]() { chain::system_call::verify_merkle_root( ctx, util::converter::as< std::string >( mtree.root()->hash() ), std::vector< std::string >{} ); } },
       { "get_head_info", [&]() { chain::system_call::get_head_info( ctx ); } },
       { "remove_object", [&]() { chain::system_call::remove_object( ctx, objs, std::string{ "remove_key" } ); } },
       { "pre_transaction_callback", [&]() { chain::system_call::pre_transaction_callback( ctx ); } },
       { "post_transaction_callback", [&]() { chain::system_call::post_transaction_callback( ctx ); } },
       { "pre_block_callback", [&]() { chain::system_call::pre_block_callback( ctx ); } },
       { "post_block_callback", [&]() { chain::system_call::post_block_callback( ctx ); } },
-      { "verify_account_nonce", [&]() { chain::system_call::verify_account_nonce( ctx, std::string{ "0x123" }, util::converter::as< std::string >( nonce_value ) ); } },
-      { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, util::converter::as< std::string >( nonce_value ) ); } }
+      { "verify_account_nonce", [&]() { chain::system_call::verify_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
+      { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )
@@ -1632,6 +1648,228 @@ int main()
 
    ctx.set_intent( chain::intent::block_application );
    timer( "apply_block", [&]() { chain::system_call::apply_block( ctx, block ); } );
+
+   std::fstream rand_stream( "/dev/random", std::ios_base::in );
+
+   auto create_random_payload = [&]( uint64_t payload_size ) -> std::string {
+      std::string res( payload_size, 0x00 );
+      rand_stream.read( const_cast< char* >( res.data() ), payload_size );
+      BOOST_REQUIRE_EQUAL( payload_size, res.size() );
+      return res;
+   };
+
+   auto lin_reg = []( const std::vector< uint64_t >& x_points, const std::vector< uint64_t >& y_points ) -> std::pair< double, double > {
+      double x_mean = std::accumulate( std::begin( x_points ), std::end( x_points ), 0 ) / double( x_points.size() );
+      double y_mean = std::accumulate( std::begin( y_points ), std::end( y_points ), 0 ) / double( y_points.size() );
+      double ss_xy = 0;
+      double ss_xx = 0;
+
+      {
+         std::vector< uint64_t > xy;
+         for( std::size_t i = 0; i < x_points.size(); i++ )
+         {
+            xy.push_back( x_points[i] * y_points[i] );
+         }
+
+         ss_xy = std::accumulate( std::begin( xy ), std::end( xy ), 0 ) - ( x_points.size() * x_mean * y_mean );
+      }
+
+      {
+         std::vector< uint64_t > xx;
+
+         for( std::size_t i = 0; i < x_points.size(); i++ )
+         {
+            xx.push_back( x_points[i] * x_points[i] );
+         }
+
+         ss_xx = std::accumulate( std::begin( xx ), std::end( xx ), 0 ) - ( x_points.size() * x_mean * x_mean );
+      }
+
+      double b_1 = double( ss_xy ) / ss_xx;
+      double b_0 = y_mean - ( b_1 * x_mean );
+      return { b_0, b_1 };
+   };
+
+   auto sample_hash_algorithm = [&]( koinos::crypto::multicodec code ) -> std::pair< std::vector< uint64_t >, std::vector< uint64_t > > {
+      std::vector< uint64_t > payload_sizes;
+      std::vector< uint64_t > hash_times;
+
+      chain::resource_limit_data rld;
+      rld.set_compute_bandwidth_limit( 1'000'000'000 );
+
+      ctx.resource_meter().set_resource_limit_data( rld );
+      auto session = ctx.make_session( 1'000'000'000 );
+
+
+      for ( int i = 0; i < 1024; i += 4 )
+      {
+         auto payload = create_random_payload( i );
+
+         auto start = std::chrono::steady_clock::now();
+         for ( int i = 0; i < 1000; i++ )
+         {
+            koinos::chain::system_call::hash( ctx, std::underlying_type_t< koinos::crypto::multicodec >( code ), payload );
+         }
+         auto stop = std::chrono::steady_clock::now();
+
+         payload_sizes.push_back( payload.size() );
+         hash_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / 1000 );
+      }
+
+      return { payload_sizes, hash_times };
+   };
+
+   {
+      LOG(info) << "Testing sha1...";
+      auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::sha1 );
+      auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
+      calls[ "sha1_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "sha1_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing sha2_256...";
+      auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::sha2_256 );
+      auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
+      calls[ "sha2_256_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "sha2_256_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing sha2_512...";
+      auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::sha2_512 );
+      auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
+      calls[ "sha2_512_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "sha2_512_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing keccak_256...";
+      auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::keccak_256 );
+      auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
+      calls[ "keccak_256_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "keccak_256_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing ripemd_160...";
+      auto [payload_sizes, hash_times] = sample_hash_algorithm( koinos::crypto::multicodec::ripemd_160 );
+      auto [b_0, b_1] = lin_reg( payload_sizes, hash_times );
+      calls[ "ripemd_160_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "ripemd_160_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing event...";
+
+      std::vector< uint64_t > payload_sizes;
+      std::vector< uint64_t > event_times;
+
+      auto address = _signing_private_key.get_public_key().to_address_bytes();
+
+      std::vector< std::string > impacted;
+
+      for ( int i = 0; i <= 50; i++ )
+      {
+         chain::resource_limit_data rld;
+         rld.set_compute_bandwidth_limit( 100'000'000 );
+
+         ctx.resource_meter().set_resource_limit_data( rld );
+         auto session = ctx.make_session( 100'000'000 );
+
+         auto start = std::chrono::steady_clock::now();
+
+         for ( int j = 0; j < global_run / 50; j++ )
+         {
+            koinos::chain::system_call::event( ctx, address, address, impacted );
+         }
+
+         auto stop = std::chrono::steady_clock::now();
+
+         payload_sizes.push_back( i );
+         event_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / ( global_run / 50 ) );
+
+         impacted.push_back( address );
+      }
+
+      auto [b_0, b_1] = lin_reg( payload_sizes, event_times );
+      calls[ "event" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "event_per_impacted" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing deserialize multihash...";
+
+      std::vector< uint64_t > number_of_hashes;
+      std::vector< uint64_t > deserialize_times;
+
+      auto address = _signing_private_key.get_public_key().to_address_bytes();
+
+      std::vector< std::string > hashes;
+
+      for ( int i = 0; i <= 20; i++ )
+      {
+         chain::resource_limit_data rld;
+         rld.set_compute_bandwidth_limit( 100'000'000 );
+
+         ctx.resource_meter().set_resource_limit_data( rld );
+         auto session = ctx.make_session( 100'000'000 );
+
+         auto start = std::chrono::steady_clock::now();
+         for ( int j = 0; j < global_run; j++ )
+         {
+            std::vector< crypto::multihash > leaves;
+            leaves.resize( hashes.size() );
+            std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), []( const std::string& s ) { return util::converter::to< crypto::multihash >( s ); } );
+         }
+         auto stop = std::chrono::steady_clock::now();
+
+         number_of_hashes.push_back( i );
+         deserialize_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / global_run );
+
+         hashes.push_back( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, create_random_payload( 32 ) ) ) );
+      }
+
+      auto [b_0, b_1] = lin_reg( number_of_hashes, deserialize_times );
+      LOG(info) << b_0 << ", " << b_1;
+      calls[ "deserialize_multihash_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
+      calls[ "deserialize_multihash_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+   }
+
+   {
+      LOG(info) << "Testing verify_merkle_root...";
+
+      std::vector< crypto::multihash > merkle_leafs;
+      std::vector< std::string > string_leafs;
+      for ( std::size_t i = 0; i < 20; i++ )
+      {
+         merkle_leafs.push_back( crypto::hash( koinos::crypto::multicodec::sha2_256, create_random_payload( 32 ) ) );
+         string_leafs.push_back( util::converter::as< std::string >( merkle_leafs.back() ) );
+      }
+
+      auto merkle_root = util::converter::as< std::string >( crypto::merkle_tree( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash() );
+      int64_t time = 0;
+      int64_t runs = global_run / 10;
+
+      chain::resource_limit_data rld;
+      rld.set_compute_bandwidth_limit( 10'000'000'000 );
+
+      ctx.resource_meter().set_resource_limit_data( rld );
+      auto session = ctx.make_session( 10'000'000'000 );
+
+      auto start = std::chrono::steady_clock::now();
+      for ( int i = 0; i < runs; i++ )
+      {
+         koinos::chain::system_call::verify_merkle_root( ctx, merkle_root, string_leafs );
+      }
+      auto stop = std::chrono::steady_clock::now();
+      time += std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count();
+
+      time /= runs;
+      time -= ( string_leafs.size() + 1 ) * calls[ "deserialize_multihash_per_byte" ] + calls[ "deserialize_multihash_base" ];
+      time -= 21 * ( calls[ "sha2_256_base" ] + 2 * 32 * calls[ "sha2_256_per_byte" ] );
+      calls[ "verify_merkle_root" ] = std::max( int64_t(1), int64_t( ceil( time ) ) );
+   }
 
    std::map< std::string, std::vector< std::string > > subcalls;
    subcalls[ "process_block_signature" ] = { "get_object", "recover_public_key" };

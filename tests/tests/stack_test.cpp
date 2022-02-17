@@ -83,51 +83,66 @@ struct stack_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
+         { "apply_block", 4702 },
+         { "apply_call_contract_operation", 1 },
+         { "apply_set_system_call_operation", 1420 },
+         { "apply_set_system_contract_operation", 1446 },
+         { "apply_transaction", 11075 },
+         { "apply_upload_contract_operation", 3496 },
+         { "call_contract", 4848 },
+         { "consume_account_rc", 110 },
+         { "consume_block_resources", 110 },
+         { "deserialize_message_per_byte", 1 },
+         { "deserialize_multihash_base", 48 },
+         { "deserialize_multihash_per_byte", 415 },
+         { "event", 381 },
+         { "event_per_impacted", 113 },
+         { "exit_contract", 10254 },
+         { "get_account_nonce", 232 },
+         { "get_account_rc", 355 },
+         { "get_block", 487 },
+         { "get_block_field", 778 },
+         { "get_caller", 204 },
+         { "get_contract_arguments", 166 },
+         { "get_contract_id", 152 },
+         { "get_entry_point", 115 },
+         { "get_head_info", 1063 },
+         { "get_last_irreversible_block", 141 },
+         { "get_next_object", 10932 },
+         { "get_object", 478 },
+         { "get_prev_object", 15759 },
+         { "get_resource_limits", 660 },
+         { "get_transaction", 941 },
+         { "get_transaction_field", 862 },
+         { "hash", 922 },
+         { "keccak_256_base", 779 },
+         { "keccak_256_per_byte", 2 },
+         { "log", 113 },
+         { "object_serialization_per_byte", 1 },
+         { "post_block_callback", 120 },
+         { "post_transaction_callback", 104 },
+         { "pre_block_callback", 100 },
+         { "pre_transaction_callback", 116 },
+         { "process_block_signature", 4350 },
+         { "put_object", 396 },
+         { "recover_public_key", 30096 },
          { "reserved_id", 1 },
-         { "apply_block", 7277 },
-         { "apply_call_contract_operation", 134 },
-         { "apply_set_system_call_operation", 1 },
-         { "apply_set_system_contract_operation", 531 },
-         { "apply_transaction", 8449 },
-         { "apply_upload_contract_operation", 1 },
-         { "call_contract", 3530 },
-         { "consume_account_rc", 95 },
-         { "consume_block_resources", 101 },
-         { "event", 595 },
-         { "exit_contract", 9616 },
-         { "get_account_nonce", 243 },
-         { "get_account_rc", 368 },
-         { "get_block", 488 },
-         { "get_block_field", 775 },
-         { "get_caller", 199 },
-         { "get_contract_arguments", 165 },
-         { "get_contract_id", 149 },
-         { "get_entry_point", 120 },
-         { "get_head_info", 1039 },
-         { "get_last_irreversible_block", 124 },
-         { "get_next_object", 10431 },
-         { "get_object", 525 },
-         { "get_prev_object", 15275 },
-         { "get_resource_limits", 433 },
-         { "get_transaction", 959 },
-         { "get_transaction_field", 901 },
-         { "hash", 963 },
-         { "log", 122 },
-         { "post_block_callback", 98 },
-         { "post_transaction_callback", 109 },
-         { "pre_block_callback", 114 },
-         { "pre_transaction_callback", 105 },
-         { "process_block_signature", 4078 },
-         { "put_object", 410 },
-         { "recover_public_key", 30300 },
-         { "remove_object", 320 },
-         { "require_authority", 11314 },
-         { "require_system_authority", 10527 },
-         { "set_account_nonce", 170 },
-         { "set_contract_result", 119 },
-         { "verify_account_nonce", 148 },
-         { "verify_merkle_root", 1086 },
-         { "verify_signature", 1 },
+         { "remove_object", 284 },
+         { "require_authority", 12758 },
+         { "require_system_authority", 12879 },
+         { "ripemd_160_base", 675 },
+         { "ripemd_160_per_byte", 1 },
+         { "set_account_nonce", 102 },
+         { "set_contract_result", 100 },
+         { "sha1_base", 527 },
+         { "sha1_per_byte", 1 },
+         { "sha2_256_base", 681 },
+         { "sha2_256_per_byte", 1 },
+         { "sha2_512_base", 750 },
+         { "sha2_512_per_byte", 1 },
+         { "verify_account_nonce", 120 },
+         { "verify_merkle_root", 229 },
+         { "verify_signature", 156 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -182,7 +197,7 @@ struct stack_fixture
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
-      ctx.build_cache();
+      ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "stack_tests"s,
          .call_privilege = chain::privilege::kernel_mode
@@ -352,7 +367,8 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    // We need to rebuild the cache after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
@@ -521,7 +537,8 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 
    // Call user contract
    // We need to update the state node after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
@@ -613,7 +630,8 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
 
    // Call user contract
    // We need to rebuild the cache after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
@@ -700,7 +718,8 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
 
    // Call user contract
    // We need to rebuild the cache after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
