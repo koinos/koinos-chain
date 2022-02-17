@@ -47,6 +47,7 @@
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
+#define JOBS_DEFAULT                        8
 #define STATEDIR_DEFAULT                    "blockchain"
 #define RESET_OPTION                        "reset"
 #define GENESIS_DATA_FILE_OPTION            "genesis-data"
@@ -133,7 +134,7 @@ int main( int argc, char** argv )
       auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
       auto genesis_data_file    = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
       auto reset                = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
-      auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
+      auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, JOBS_DEFAULT, args, chain_config, global_config );
       auto read_compute_limit   = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
@@ -197,11 +198,11 @@ int main( int argc, char** argv )
       } );
 
       std::vector< std::thread > client_threads;
-      for ( std::size_t i = 0; i < 4; i++ )
+      for ( std::size_t i = 0; i < jobs; i++ )
          client_threads.emplace_back( [&]() { client_ioc.run(); } );
 
       std::vector< std::thread > server_threads;
-      for ( std::size_t i = 0; i < jobs + 1; i++ )
+      for ( std::size_t i = 0; i < jobs; i++ )
          server_threads.emplace_back( [&]() { server_ioc.run(); } );
 
       chain::controller controller( read_compute_limit );
