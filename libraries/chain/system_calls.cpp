@@ -14,6 +14,7 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/chain/events.pb.h>
 
 #include <koinos/log.hpp>
 
@@ -534,9 +535,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    set_system_call_event event;
    event.set_call_id( o.call_id() );
    event.mutable_target()->CopyFrom( o.target() );
-   std::string str;
-   event.SerializeToString( &str );
-   system_call::event( context, "set_system_call_event", str, {} );
+   system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
 }
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
@@ -560,9 +559,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    set_system_contract_event event;
    event.set_contract_id( o.contract_id() );
    event.set_system_contract( o.system_contract() );
-   std::string str;
-   event.SerializeToString( &str );
-   system_call::event( context, "set_system_contract_event", str, {} );
+   system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
 }
 
 THUNK_DEFINE_VOID( void, post_block_callback ) { }
