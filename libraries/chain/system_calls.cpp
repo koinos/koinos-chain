@@ -350,7 +350,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
 
-   system_call::require_authority( context, rc_use, payer );
+   system_call::require_authority( context, transaction_application, payer );
 
    const auto& payee = trx.header().payee();
 
@@ -361,7 +361,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
    if ( use_payee_nonce )
    {
-      system_call::require_authority( context, signature_exists, payee );
+      system_call::require_authority( context, transaction_application, payee );
    }
 
    KOINOS_ASSERT(
@@ -480,7 +480,7 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
    contract_metadata_object contract_meta;
    *contract_meta.mutable_hash() = system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), o.bytecode() );
    contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
-   contract_meta.set_authorizes_use_rc( o.authorizes_use_rc() );
+   contract_meta.set_authorizes_transaction_application( o.authorizes_transaction_application() );
    contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
 
    system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
@@ -810,8 +810,8 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
          case contract_call:
             authorize_override = account_contract_meta.authorizes_call_contract();
             break;
-         case rc_use:
-            authorize_override = account_contract_meta.authorizes_use_rc();
+         case transaction_application:
+            authorize_override = account_contract_meta.authorizes_transaction_application();
             break;
          case contract_upload:
             authorize_override = account_contract_meta.authorizes_upload_contract();
@@ -897,7 +897,7 @@ THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::st
    );
 
    verify_account_nonce_result res;
-   res.set_value( nonce_value.uint64_value() > current_nonce_value.uint64_value() );
+   res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
    return res;
 }
 

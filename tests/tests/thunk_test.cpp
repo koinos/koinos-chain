@@ -921,10 +921,11 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   chain::system_call::apply_transaction( ctx, transaction );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
 
+   auto old_nonce = nonce;
    nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
+   BOOST_REQUIRE_EQUAL( nonce, old_nonce );
 
    BOOST_TEST_MESSAGE( "Test old nonce" );
    nonce_value.set_uint64_value( 5 );
@@ -1234,7 +1235,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
 
    upload_op.set_authorizes_upload_contract( false );
-   upload_op.set_authorizes_use_rc( true );
+   upload_op.set_authorizes_transaction_application( true );
 
    try
    {
