@@ -214,103 +214,119 @@ chain::intent execution_context::intent() const
 
 void execution_context::build_compute_registry_cache()
 {
-   auto obj = _current_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
+   auto parent_state_node = get_parent_node();
+   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+
+   auto obj = parent_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
    KOINOS_ASSERT( obj, unexpected_state, "compute bandwidth registry does not exist" );
    auto compute_registry = util::converter::to< compute_bandwidth_registry >( *obj );
 
-   _cache.compute_bandwidth.clear();
+   _cache.compute_bandwidth.emplace();
    for ( const auto& entry : compute_registry.entries() )
-      _cache.compute_bandwidth[ entry.name() ] = entry.compute();
+      ( *_cache.compute_bandwidth )[ entry.name() ] = entry.compute();
 }
 
 void execution_context::build_descriptor_pool()
 {
-   auto pdesc = _current_state_node->get_object( state::space::metadata(), state::key::protocol_descriptor );
+   auto parent_state_node = get_parent_node();
+   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+
+   auto pdesc = parent_state_node->get_object( state::space::metadata(), state::key::protocol_descriptor );
    KOINOS_ASSERT( pdesc, unexpected_state, "file descriptor set does not exist" );
 
    google::protobuf::FileDescriptorSet fdesc;
    KOINOS_ASSERT( fdesc.ParseFromString( *pdesc ), unexpected_state, "file descriptor set is malformed" );
 
-   _cache.descriptor_pool = std::make_unique< google::protobuf::DescriptorPool >();
+   _cache.descriptor_pool.emplace();
    for ( const auto& fd : fdesc.file() )
       _cache.descriptor_pool->BuildFile( fd );
 }
 
-void execution_context::build_system_call_cache()
+void execution_context::cache_system_call( uint32_t id )
 {
-   _cache.system_call.clear();
-   state_db::object_key next = std::string{};
-   for (;;)
+   auto parent_state_node = get_parent_node();
+   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+
+   if ( _cache.system_call_table.find( id ) != _cache.system_call_table.end() )
+      return;
+
+   auto obj = parent_state_node->get_object( state::space::system_call_dispatch(), util::converter::as< std::string >( id ) );
+
+   if ( obj != nullptr )
    {
-      auto obj = _current_state_node->get_next_object( state::space::system_call_dispatch(), next );
-      if ( obj.first == nullptr )
-         break;
+      auto system_call_target = util::converter::to< protocol::system_call_target >( *obj );
 
-      next = obj.second;
-
-      auto system_call_target = util::converter::to< protocol::system_call_target >( *obj.first );
-
-      auto call_id = util::converter::to< uint32_t >( obj.second );
       if ( system_call_target.has_system_call_bundle() )
       {
          auto contract_id       = system_call_target.system_call_bundle().contract_id();
          auto entry_point       = system_call_target.system_call_bundle().entry_point();
-         auto contract_meta     = _current_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
-         auto contract_bytecode = _current_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
+         auto contract_meta     = parent_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
+         auto contract_bytecode = parent_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
 
-         KOINOS_ASSERT( contract_meta, unexpected_state, "contract metadata for call id ${id} not found", ("id", call_id) );
-         KOINOS_ASSERT( contract_bytecode, unexpected_state, "contract bytecode for call id ${id} not found", ("id", call_id) );
+         KOINOS_ASSERT( contract_meta, unexpected_state, "contract metadata for call id ${id} not found", ("id", id) );
+         KOINOS_ASSERT( contract_bytecode, unexpected_state, "contract bytecode for call id ${id} not found", ("id", id) );
 
-         _cache.system_call[ call_id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
+         _cache.system_call_table[ id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
       }
       else
       {
-         KOINOS_ASSERT( system_call_target.has_thunk_id(), unexpected_state, "expected thunk id for call id ${id}", ("id", call_id) );
-         _cache.thunk[ call_id ] = system_call_target.thunk_id();
+         _cache.system_call_table[ id ] = system_call_target.thunk_id();
       }
    }
 }
 
 void execution_context::build_block_hash_code_cache()
 {
-   auto bhash = _current_state_node->get_object( state::space::metadata(), state::key::block_hash_code );
+   auto parent_state_node = get_parent_node();
+   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+
+   auto bhash = parent_state_node->get_object( state::space::metadata(), state::key::block_hash_code );
    KOINOS_ASSERT( bhash, unexpected_state, "block hash code does not exist" );
 
    _cache.block_hash_code.emplace( crypto::multicodec( util::converter::to< unsigned_varint >( *bhash ).value ) );
 }
 
-void execution_context::build_cache()
+void execution_context::reset_cache()
 {
-   KOINOS_ASSERT( _current_state_node, unexpected_state, "cannot rebuild execution context cache without a state node" );
-
-   build_compute_registry_cache();
-   build_descriptor_pool();
-   build_system_call_cache();
-   build_block_hash_code_cache();
+   _cache.compute_bandwidth.reset();
+   _cache.descriptor_pool.reset();
+   _cache.system_call_table.clear();
+   _cache.block_hash_code.reset();
 }
 
-uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name ) const
+uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name )
 {
-   auto iter = _cache.compute_bandwidth.find( thunk_name );
-   KOINOS_ASSERT( iter != _cache.compute_bandwidth.end(), unexpected_state, "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
-   return iter->second;
+   if ( !_cache.compute_bandwidth )
+      build_compute_registry_cache();
+
+   auto itr = _cache.compute_bandwidth->find( thunk_name );
+   KOINOS_ASSERT( itr != _cache.compute_bandwidth->end(), unexpected_state, "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
+   return itr->second;
 }
 
-const google::protobuf::DescriptorPool& execution_context::descriptor_pool() const
+const google::protobuf::DescriptorPool& execution_context::descriptor_pool()
 {
-   KOINOS_ASSERT( _cache.descriptor_pool, unexpected_state, "descriptor pool has not been built" );
+   if ( !_cache.descriptor_pool )
+      build_descriptor_pool();
+
    return *_cache.descriptor_pool;
 }
 
 std::string execution_context::system_call( uint32_t id, const std::string& args )
 {
-   auto iter = _cache.system_call.find( id );
-   KOINOS_ASSERT( iter != _cache.system_call.end(), unexpected_state, "unable to find call id ${id} in system call cache", ("id", id) );
+   cache_system_call( id );
 
-   const auto& cid      = std::get< 0 >( iter->second );
-   const auto& bytecode = std::get< 1 >( iter->second );
-   auto entry_point     = std::get< 2 >( iter->second );
-   const auto& meta     = std::get< 3 >( iter->second );
+   auto itr = _cache.system_call_table.find( id );
+   KOINOS_ASSERT( itr != _cache.system_call_table.end(), unexpected_state, "unable to find call id ${id} in system call cache", ("id", id) );
+
+   const auto* call_bundle = std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second );
+
+   KOINOS_ASSERT( call_bundle, unexpected_state, "system call ${id} is implemented via thunk", ("id", id) );
+
+   const auto& cid      = std::get< 0 >( *call_bundle );
+   const auto& bytecode = std::get< 1 >( *call_bundle );
+   auto entry_point     = std::get< 2 >( *call_bundle );
+   const auto& meta     = std::get< 3 >( *call_bundle );
 
    push_frame( stack_frame{
       .contract_id = cid,
@@ -333,22 +349,37 @@ std::string execution_context::system_call( uint32_t id, const std::string& args
    return pop_frame().call_return;
 }
 
-bool execution_context::system_call_exists( uint32_t id ) const
+bool execution_context::system_call_exists( uint32_t id )
 {
-   return _cache.system_call.find( id ) != _cache.system_call.end();
+   cache_system_call( id );
+
+   auto itr = _cache.system_call_table.find( id );
+   if ( itr == _cache.system_call_table.end() )
+      return false;
+
+   return std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second ) != nullptr;
 }
 
-uint32_t execution_context::thunk_translation( uint32_t id ) const
+uint32_t execution_context::thunk_translation( uint32_t id )
 {
-   auto iter = _cache.thunk.find( id );
-   if ( iter != _cache.thunk.end() )
-      return iter->second;
-   return id;
+   cache_system_call( id );
+
+   auto itr = _cache.system_call_table.find( id );
+   if ( itr == _cache.system_call_table.end() )
+      return id;
+
+   const auto* thunk_id = std::get_if< uint32_t >( &itr->second );
+
+   KOINOS_ASSERT( thunk_id, unexpected_state, "system call ${id} is implemented via contract override", ("id", id) );
+
+   return *thunk_id;
 }
 
-const crypto::multicodec& execution_context::block_hash_code() const
+const crypto::multicodec& execution_context::block_hash_code()
 {
-   KOINOS_ASSERT( _cache.block_hash_code.has_value(), unexpected_state, "unable to find block hash code" );
+   if ( !_cache.block_hash_code )
+      build_block_hash_code_cache();
+
    return *_cache.block_hash_code;
 }
 

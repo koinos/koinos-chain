@@ -197,7 +197,7 @@ struct stack_fixture
       } );
 
       ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
-      ctx.build_cache();
+      ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "stack_tests"s,
          .call_privilege = chain::privilege::kernel_mode
@@ -367,7 +367,8 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    // We need to rebuild the cache after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
@@ -536,7 +537,8 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
 
    // Call user contract
    // We need to update the state node after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
@@ -628,7 +630,8 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
 
    // Call user contract
    // We need to rebuild the cache after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
@@ -715,7 +718,8 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
 
    // Call user contract
    // We need to rebuild the cache after a system call override
-   ctx.build_cache();
+   ctx.reset_cache();
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );

@@ -39,7 +39,7 @@ void pending_state::rebuild( state_db::state_node_ptr head )
       execution_context ctx( _backend, intent::transaction_application );
 
       ctx.set_state_node( _pending_state );
-      ctx.build_cache();
+      ctx.reset_cache();
 
       ctx.push_frame( stack_frame {
          .call_privilege = privilege::kernel_mode

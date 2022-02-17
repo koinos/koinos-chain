@@ -52,10 +52,9 @@ struct execution_context_cache
 {
    using system_call_cache_bundle = std::tuple< std::string, std::string, uint32_t, chain::contract_metadata_object >;
 
-   std::map< std::string, uint64_t > compute_bandwidth;
-   std::unique_ptr< google::protobuf::DescriptorPool > descriptor_pool;
-   std::map< uint32_t, system_call_cache_bundle > system_call;
-   std::map< uint32_t, uint32_t > thunk;
+   std::optional< std::map< std::string, uint64_t > > compute_bandwidth;
+   std::optional< google::protobuf::DescriptorPool > descriptor_pool;
+   std::map< uint32_t, std::variant< system_call_cache_bundle, uint32_t > > system_call_table;
    std::optional< crypto::multicodec > block_hash_code;
 };
 
@@ -90,7 +89,7 @@ class execution_context
       std::string get_contract_return() const;
       void set_contract_return( const std::string& ret );
 
-      uint64_t get_compute_bandwidth( const std::string& thunk_name ) const;
+      uint64_t get_compute_bandwidth( const std::string& thunk_name );
 
       /**
        * For now, authority lives on the context.
@@ -123,21 +122,21 @@ class execution_context
 
       chain::receipt& receipt();
 
-      void build_cache();
+      void reset_cache();
 
-      const google::protobuf::DescriptorPool& descriptor_pool() const;
+      const google::protobuf::DescriptorPool& descriptor_pool();
 
       std::string system_call( uint32_t id, const std::string& args );
-      uint32_t thunk_translation( uint32_t id ) const;
-      bool system_call_exists( uint32_t id ) const;
-      const crypto::multicodec& block_hash_code() const;
+      uint32_t thunk_translation( uint32_t id );
+      bool system_call_exists( uint32_t id );
+      const crypto::multicodec& block_hash_code();
 
    private:
       friend struct frame_restorer;
 
       void build_compute_registry_cache();
       void build_descriptor_pool();
-      void build_system_call_cache();
+      void cache_system_call( uint32_t );
       void build_block_hash_code_cache();
 
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
