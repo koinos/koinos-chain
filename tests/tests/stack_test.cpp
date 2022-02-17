@@ -94,7 +94,7 @@ struct stack_fixture
          { "consume_block_resources", 110 },
          { "deserialize_message_per_byte", 1 },
          { "deserialize_multihash_base", 48 },
-         { "deserialzie_multihash_per_hash", 415 },
+         { "deserialize_multihash_per_byte", 415 },
          { "event", 381 },
          { "event_per_impacted", 113 },
          { "exit_contract", 10254 },

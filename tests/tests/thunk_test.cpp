@@ -106,7 +106,7 @@ struct thunk_fixture
          { "consume_block_resources", 110 },
          { "deserialize_message_per_byte", 1 },
          { "deserialize_multihash_base", 48 },
-         { "deserialzie_multihash_per_hash", 415 },
+         { "deserialize_multihash_per_byte", 415 },
          { "event", 381 },
          { "event_per_impacted", 113 },
          { "exit_contract", 10254 },
@@ -1842,7 +1842,7 @@ int main()
       auto [b_0, b_1] = lin_reg( number_of_hashes, deserialize_times );
       LOG(info) << b_0 << ", " << b_1;
       calls[ "deserialize_multihash_base" ] = std::max( int64_t(1), int64_t( ceil( b_0 ) ) );
-      calls[ "deserialzie_multihash_per_hash" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
+      calls[ "deserialize_multihash_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
    {
@@ -1875,7 +1875,7 @@ int main()
       time += std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count();
 
       time /= runs;
-      time -= ( string_leafs.size() + 1 ) * calls[ "deserialzie_multihash_per_hash" ] + calls[ "deserialize_multihash_base" ];
+      time -= ( string_leafs.size() + 1 ) * calls[ "deserialize_multihash_per_byte" ] + calls[ "deserialize_multihash_base" ];
       time -= 21 * ( calls[ "sha2_256_base" ] + 2 * 32 * calls[ "sha2_256_per_byte" ] );
       calls[ "verify_merkle_root" ] = std::max( int64_t(1), int64_t( ceil( time ) ) );
    }

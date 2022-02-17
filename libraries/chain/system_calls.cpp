@@ -195,23 +195,31 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
 
 uint64_t hashes_per_leaves( uint64_t leaves )
 {
-   if ( leaves <= 2 ) return 1;
+   if ( leaves <= 2 )
+      return 1;
+
    auto even_leaves = ( ( leaves + 1 ) / 2 ) * 2;
-   if ( !( even_leaves & ( even_leaves - 1 ) ) ) return even_leaves - 1; // When we get to a power of 2, we can short-circuit
+   if ( !( even_leaves & ( even_leaves - 1 ) ) ) // When we get to a power of 2, we can short-circuit
+      return even_leaves - 1;
+
    return even_leaves / 2 + hashes_per_leaves( even_leaves / 2 );
 }
 
 THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
 {
    uint64_t deserialize_multihash_base = context.get_compute_bandwidth( "deserialize_multihash_base" );
-   uint64_t deserialize_multihash_per_hash = context.get_compute_bandwidth( "deserialzie_multihash_per_hash" );
+   uint64_t deserialize_multihash_per_byte = context.get_compute_bandwidth( "deserialize_multihash_per_byte" );
+
+   // Charge for all deserialization
+   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * ( deserialize_multihash_base + root_hash.digest().size() * deserialize_multihash_per_byte ) );
 
    auto root_hash = util::converter::to< crypto::multihash >( root );
 
    auto [ hash_base_key, hash_per_byte_key ] = hash_compute_keys( root_hash.code() );
    uint64_t hash_base = context.get_compute_bandwidth( hash_base_key );
    uint64_t hash_per_byte = context.get_compute_bandwidth( hash_per_byte_key );
-   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest().size() * hash_per_byte ) );
+   // Charge for all hashing to compute merkle root
+   context.resource_meter().use_compute_bandwidth( hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest.size() * hash_per_byte ) );
 
    validate_hash_code( root_hash.code() );
 
