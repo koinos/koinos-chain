@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -47,7 +48,7 @@
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
-#define JOBS_DEFAULT                        3
+#define JOBS_DEFAULT                        unsigned(4)
 #define STATEDIR_DEFAULT                    "blockchain"
 #define RESET_OPTION                        "reset"
 #define GENESIS_DATA_FILE_OPTION            "genesis-data"
@@ -134,12 +135,12 @@ int main( int argc, char** argv )
       auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
       auto genesis_data_file    = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
       auto reset                = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
-      auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, JOBS_DEFAULT, args, chain_config, global_config );
+      auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, std::thread::hardware_concurrency() ), args, chain_config, global_config );
       auto read_compute_limit   = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
 
-      KOINOS_ASSERT( jobs > 0, invalid_argument, "jobs must be greater than 0" );
+      KOINOS_ASSERT( jobs < 3, invalid_argument, "jobs must be greater than 2" );
 
       if ( config.IsNull() )
       {
