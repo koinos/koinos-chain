@@ -48,7 +48,7 @@
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
-#define JOBS_DEFAULT                        uint64_t( 8 )
+#define JOBS_DEFAULT                        uint64_t( 4 )
 #define STATEDIR_DEFAULT                    "blockchain"
 #define RESET_OPTION                        "reset"
 #define GENESIS_DATA_FILE_OPTION            "genesis-data"
@@ -200,10 +200,10 @@ int main( int argc, char** argv )
       } );
 
       for ( std::size_t i = 0; i < jobs; i++ )
+      {
          threads.emplace_back( [&]() { client_ioc.run(); } );
-
-      for ( std::size_t i = 0; i < jobs; i++ )
          threads.emplace_back( [&]() { server_ioc.run(); } );
+      }
 
       chain::controller controller( read_compute_limit );
       controller.open( statedir, genesis_data, reset );

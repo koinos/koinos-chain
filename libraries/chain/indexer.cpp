@@ -36,6 +36,20 @@ indexer::indexer( boost::asio::io_context& ioc, controller& c, std::shared_ptr< 
    } );
 }
 
+void indexer::handle_error( const std::string& msg )
+{
+   _stopped = true;
+
+   if ( _complete.has_value() )
+   {
+      _complete->set_exception( std::make_exception_ptr( indexer_failure( msg ) ) );
+      _complete.reset();
+   }
+
+   _request_queue.close();
+   _block_queue.close();
+}
+
 std::future< bool > indexer::index()
 {
    boost::asio::post( std::bind( &indexer::prepare_index, this ) );
@@ -50,31 +64,36 @@ void indexer::prepare_index()
    LOG(info) << "Retrieving highest block from block store";
    rpc::block_store::block_store_request req;
    req.mutable_get_highest_block();
-   auto future = _client->rpc( util::service::block_store, req.SerializeAsString() );
+
+   std::shared_future< std::string > data;
+
+   try
+   {
+      data = _client->rpc( util::service::block_store, req.SerializeAsString() );
+   }
+   catch ( const koinos::exception& e )
+   {
+      return handle_error( e.what() );
+   }
 
    rpc::block_store::block_store_response resp;
 
-   if ( !resp.ParseFromString( future.get() ) )
-      KOINOS_THROW( chain::parse_failure, "could not get highest block from block store" );
+   if ( !resp.ParseFromString( data.get() ) )
+      return handle_error( "could not get highest block from block store" );
 
-   switch( resp.response_case() )
-   {
-      case rpc::block_store::block_store_response::ResponseCase::kGetHighestBlock:
-         _target_head = resp.get_highest_block().topology();
-         break;
-      case rpc::block_store::block_store_response::ResponseCase::kError:
-         KOINOS_THROW( chain::rpc_failure, resp.error().message() );
-         break;
-      default:
-         KOINOS_THROW( chain::rpc_failure, "unexpected block store response" );
-         break;
-   }
+   if ( resp.has_error() )
+      return handle_error( resp.error().message() );
+
+   if ( !resp.has_get_highest_block() )
+      return handle_error( "unexpected block store response" );
+
+   _target_head = resp.get_highest_block().topology();
 
    _start_head_info = _controller.get_head_info();
 
    if ( _start_head_info.head_topology().height() < _target_head.height() )
    {
-      LOG(info) << "Indexing to target block - Height: " << _target_head.height() << ", ID: 0x" << util::to_hex( _target_head.id() );
+      LOG(info) << "Indexing to target block - Height: " << _target_head.height() << ", ID: " << util::to_hex( _target_head.id() );
       boost::asio::post( std::bind( &indexer::send_requests, this, _start_head_info.head_topology().height(), 50 ) );
       boost::asio::post( std::bind( &indexer::process_block, this ) );
    }
@@ -103,7 +122,18 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
          by_height_req->set_return_block( true );
          by_height_req->set_return_receipt( false );
 
-         _request_queue.push( std::move( _client->rpc( util::service::block_store, req.SerializeAsString(), std::chrono::milliseconds( 10000 ) ) ) );
+         std::shared_future< std::string > data;
+
+         try
+         {
+            data = _client->rpc( util::service::block_store, req.SerializeAsString(), std::chrono::milliseconds( 5000 ) );
+         }
+         catch ( const koinos::exception& e )
+         {
+            return handle_error( e.what() );
+         }
+
+         _request_queue.push( std::move( data ) );
       }
       else
       {
@@ -137,19 +167,13 @@ void indexer::process_requests( uint64_t last_height, uint64_t batch_size )
       rpc::block_store::get_blocks_by_height_response by_height_resp;
 
       if ( !resp.ParseFromString( fut.get() ) )
-         KOINOS_THROW( chain::parse_failure, "could not parse block store response" );
+         return handle_error( "could not parse block store response" );
 
-      switch( resp.response_case() )
-      {
-         case rpc::block_store::block_store_response::ResponseCase::kGetBlocksByHeight:
-            break;
-         case rpc::block_store::block_store_response::ResponseCase::kError:
-            KOINOS_THROW( chain::rpc_failure, resp.error().message() );
-            break;
-         default:
-            KOINOS_THROW( chain::rpc_failure, "unexpected block store response" );
-            break;
-      }
+      if ( resp.has_error() )
+         return handle_error( resp.error().message() );
+
+      if ( !resp.has_get_blocks_by_height() )
+         return handle_error( "unexpected block store response" );
 
       for ( auto& block_item : *resp.mutable_get_blocks_by_height()->mutable_block_items() )
          _block_queue.push( std::move( *block_item.mutable_block() ) );
@@ -187,9 +211,7 @@ void indexer::process_block()
    }
    catch ( const koinos::exception& e )
    {
-      LOG(fatal) << "An unexpected error has occurred during index: " << e.what();
-      _complete->set_value( false );
-      _complete.reset();
+      return handle_error( e.what() );
    }
    catch ( boost::sync_queue_is_closed& )
    {
