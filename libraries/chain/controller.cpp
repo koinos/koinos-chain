@@ -9,6 +9,8 @@
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
+#include <koinos/exception.hpp>
+
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>
@@ -88,7 +90,7 @@ controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _rea
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
 
    _vm_backend->initialize();
-   LOG(info) << "Initialized " << _vm_backend->backend_name() << " vm backend";
+   LOG(info) << "Initialized " << _vm_backend->backend_name() << " VM backend";
 
    _pending_state.set_backend( _vm_backend );
 }
@@ -265,7 +267,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       system_call::apply_block( ctx, block );
 
-      if ( _client && _client->is_running() )
+      if ( _client && _client->ready() )
       {
          rpc::block_store::block_store_request req;
          req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
@@ -313,81 +315,47 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
-      if ( _client && _client->is_running() )
+      if ( _client && _client->ready() )
       {
-         try
-         {
-            broadcast::block_irreversible bc;
-            bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
-            _client->broadcast( "koinos.block.irreversible", util::converter::as< std::string >( bc ) );
-         }
-         catch ( const std::exception& e )
-         {
-            LOG(error) << "Failed to publish block irreversible to message broker: " << e.what();
-         }
+         broadcast::block_irreversible bc;
+         bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
-         try
-         {
-            broadcast::block_accepted ba;
-            *ba.mutable_block() = block;
-            *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
+         _client->broadcast( "koinos.block.irreversible", util::converter::as< std::string >( bc ) );
 
-            _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
-         }
-         catch ( const std::exception& e )
+         broadcast::block_accepted ba;
+         *ba.mutable_block() = block;
+         *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
+
+         _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
+
+         broadcast::fork_heads fh;
+         fh.mutable_last_irreversible_block()->CopyFrom( last_irreversible_block );
+
+         for ( const auto& fork_head : fork_heads )
          {
-            LOG(error) << "Failed to publish block application to message broker: " << e.what();
+            auto* head = fh.add_heads();
+            *head = fork_head;
          }
 
-         try
-         {
-            broadcast::fork_heads fh;
-            fh.mutable_last_irreversible_block()->CopyFrom( last_irreversible_block );
+         _client->broadcast( "koinos.block.forks", util::converter::as< std::string >( fh ) );
 
-            for ( const auto& fork_head : fork_heads )
-            {
-               auto* head = fh.add_heads();
-               *head = fork_head;
-            }
-
-            _client->broadcast( "koinos.block.forks", util::converter::as< std::string >( fh ) );
-         }
-         catch ( const std::exception& e )
+         for ( const auto& [ unused, event ] : ctx.chronicler().events() )
          {
-            LOG(error) << "Failed to publish fork data to message broker: " << e.what();
-         }
-
-         try
-         {
-            for ( const auto& [ unused, event ] : ctx.chronicler().events() )
-            {
-               _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
-            }
-         }
-         catch ( const std::exception& e )
-         {
-            LOG(error) << "Failed to publish block and transaction events to message broker: " << e.what();
+            _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
          }
       }
 
-      try
+      if ( block_node == _db.get_head() )
       {
-         if ( block_node == _db.get_head() )
-         {
-            _pending_state.rebuild( block_node );
-         }
-      }
-      catch ( const std::exception& e )
-      {
-         LOG(error) << "Failed to rebuild pending state: " << e.what();
+         _pending_state.rebuild( block_node );
       }
    }
-   catch ( const koinos::exception& e )
+   catch ( koinos::exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
 
-      if ( _client && _client->is_running() )
+      if ( _client && _client->ready() )
       {
          auto exception_data = e.get_json();
 
@@ -398,6 +366,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
             _client->broadcast( "koinos.transaction.fail", util::converter::as< std::string >( ptf ) );
          }
       }
+
+      if ( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
+         e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
 
       if ( block_node )
       {
@@ -466,7 +437,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
-      if ( _client && _client->is_running() )
+      if ( _client && _client->ready() )
       {
          rpc::mempool::mempool_request req;
          auto* check_pending = req.mutable_check_pending_account_resources();
@@ -489,29 +460,26 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt, "expected transaction receipt" );
       *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
 
-      if ( _client && _client->is_running() )
+      if ( _client && _client->ready() )
       {
-         try
-         {
-            broadcast::transaction_accepted ta;
-            *ta.mutable_transaction() = transaction;
-            *ta.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
-            ta.set_height( ctx.get_state_node()->revision() );
+         broadcast::transaction_accepted ta;
+         *ta.mutable_transaction() = transaction;
+         *ta.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
+         ta.set_height( ctx.get_state_node()->revision() );
 
-            _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
-         }
-         catch ( const std::exception& e )
-         {
-            LOG(error) << "Failed to publish block application to message broker: " << e.what();
-         }
+         _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
       }
    }
-   catch( const std::exception& e )
+   catch ( koinos::exception& e )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
+
+      if ( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ) )
+         e.add_json( "logs", std::get< protocol::transaction_receipt >( ctx.receipt() ).logs() );
+
       throw;
    }
-   catch( ... )
+   catch ( ... )
    {
       LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
       throw;

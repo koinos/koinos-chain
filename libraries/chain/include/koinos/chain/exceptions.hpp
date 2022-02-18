@@ -92,4 +92,8 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_receipt, context_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( rpc_exception, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( rpc_failure, rpc_exception );
 
+// Indexer exception
+KOINOS_DECLARE_DERIVED_EXCEPTION( indexer_exception, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( indexer_failure, indexer_exception );
+
 } // koinos::chain
