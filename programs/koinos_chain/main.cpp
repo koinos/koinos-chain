@@ -71,6 +71,10 @@ int main( int argc, char** argv )
    int retcode = EXIT_SUCCESS;
    std::vector< std::thread > threads;
 
+   asio::io_context client_ioc, server_ioc, main_ioc;
+   auto client = std::make_shared< mq::client >( client_ioc );
+   auto request_handler = mq::request_handler( server_ioc );
+
    try
    {
       program_options::options_description options;
@@ -178,10 +182,6 @@ int main( int argc, char** argv )
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Number of jobs: " << jobs;
 
-      asio::io_context client_ioc, server_ioc, main_ioc;
-      auto client = std::make_shared< mq::client >( client_ioc );
-      auto request_handler = mq::request_handler( server_ioc );
-
       asio::signal_set signals( server_ioc );
       signals.add( SIGINT );
       signals.add( SIGTERM );
@@ -194,8 +194,6 @@ int main( int argc, char** argv )
          LOG(info) << "Caught signal, shutting down...";
          stopped = true;
          main_ioc.stop();
-         client_ioc.stop();
-         server_ioc.stop();
       } );
 
       for ( std::size_t i = 0; i < jobs; i++ )
