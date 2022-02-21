@@ -196,11 +196,10 @@ int main( int argc, char** argv )
          main_ioc.stop();
       } );
 
+      threads.emplace_back( [&]() { client_ioc.run(); } );
+      threads.emplace_back( [&]() { client_ioc.run(); } );
       for ( std::size_t i = 0; i < jobs; i++ )
-      {
-         threads.emplace_back( [&]() { client_ioc.run(); } );
          threads.emplace_back( [&]() { server_ioc.run(); } );
-      }
 
       chain::controller controller( read_compute_limit );
       controller.open( statedir, genesis_data, reset );
