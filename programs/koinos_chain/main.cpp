@@ -211,6 +211,7 @@ int main( int argc, char** argv )
       } );
 
       threads.emplace_back( [&]() { client_ioc.run(); } );
+      threads.emplace_back( [&]() { client_ioc.run(); } );
       for ( std::size_t i = 0; i < jobs; i++ )
          threads.emplace_back( [&]() { server_ioc.run(); } );
 

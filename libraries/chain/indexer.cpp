@@ -71,21 +71,28 @@ void indexer::prepare_index()
    {
       data = _client->rpc( util::service::block_store, req.SerializeAsString() );
    }
-   catch ( const koinos::exception& e )
+   catch ( const std::exception& e )
    {
       return handle_error( e.what() );
    }
 
    rpc::block_store::block_store_response resp;
 
-   if ( !resp.ParseFromString( data.get() ) )
-      return handle_error( "could not get highest block from block store" );
+   try
+   {
+      if ( !resp.ParseFromString( data.get() ) )
+         return handle_error( "could not get highest block from block store" );
 
-   if ( resp.has_error() )
-      return handle_error( resp.error().message() );
+      if ( resp.has_error() )
+         return handle_error( resp.error().message() );
 
-   if ( !resp.has_get_highest_block() )
-      return handle_error( "unexpected block store response" );
+      if ( !resp.has_get_highest_block() )
+         return handle_error( "unexpected block store response" );
+   }
+   catch ( const std::exception& e )
+   {
+      return handle_error( e.what() );
+   }
 
    _target_head = resp.get_highest_block().topology();
 
@@ -128,7 +135,7 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
          {
             data = _client->rpc( util::service::block_store, req.SerializeAsString(), std::chrono::milliseconds( 5000 ) );
          }
-         catch ( const koinos::exception& e )
+         catch ( const std::exception& e )
          {
             return handle_error( e.what() );
          }
@@ -179,6 +186,10 @@ void indexer::process_requests( uint64_t last_height, uint64_t batch_size )
          _block_queue.push( std::move( *block_item.mutable_block() ) );
 
    }
+   catch ( const std::exception& e )
+   {
+      return handle_error( e.what() );
+   }
    catch ( boost::sync_queue_is_closed& )
    {
       LOG(info) << "Indexer synchronized queue has been closed";
@@ -209,7 +220,7 @@ void indexer::process_block()
       *submit_block.mutable_block() = _block_queue.pull();
       _controller.submit_block( submit_block, _target_head.height() );
    }
-   catch ( const koinos::exception& e )
+   catch ( const std::exception& e )
    {
       return handle_error( e.what() );
    }
