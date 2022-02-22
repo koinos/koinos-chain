@@ -268,6 +268,8 @@ int main( int argc, char** argv )
       retcode = EXIT_FAILURE;
    }
 
+   controller.close();
+
    for ( auto& t : threads )
       t.join();
 

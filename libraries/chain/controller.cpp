@@ -52,6 +52,7 @@ class controller_impl final
       ~controller_impl();
 
       void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
+      void close();
       void set_client( std::shared_ptr< mq::client > c );
 
       rpc::chain::submit_block_response submit_block(
@@ -97,8 +98,7 @@ controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _rea
 
 controller_impl::~controller_impl()
 {
-   std::lock_guard< std::shared_mutex > lock( _db_mutex );
-   _db.close();
+   close();
 }
 
 void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
@@ -146,6 +146,12 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
    auto head = _db.get_head();
    _pending_state.rebuild( head );
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
+}
+
+void controller_impl::close()
+{
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
+   _db.close();
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
@@ -700,6 +706,11 @@ controller::~controller() = default;
 void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
 {
    _my->open( p, data, reset );
+}
+
+void controller::close()
+{
+   _my->close();
 }
 
 void controller::set_client( std::shared_ptr< mq::client > c )
