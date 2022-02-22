@@ -151,6 +151,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 void controller_impl::close()
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
+   _pending_state.close();
    _db.close();
 }
 

@@ -14,6 +14,11 @@ state_db::anonymous_state_node_ptr pending_state::get_state_node()
    return _pending_state;
 }
 
+void pending_state::close()
+{
+   _pending_state.reset();
+}
+
 void pending_state::set_backend( std::shared_ptr< vm_manager::vm_backend > backend )
 {
    _backend = backend;
