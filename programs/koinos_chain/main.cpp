@@ -67,13 +67,11 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
 int main( int argc, char** argv )
 {
-   std::atomic< bool > stopped = false;
-   int retcode = EXIT_SUCCESS;
-   std::vector< std::thread > threads;
-
-   asio::io_context client_ioc, server_ioc, main_ioc;
-   auto client = std::make_shared< mq::client >( client_ioc );
-   auto request_handler = mq::request_handler( server_ioc );
+   std::string amqp_url, log_level, instance_id;
+   std::filesystem::path statedir, genesis_data_file;
+   uint64_t jobs, read_compute_limit;
+   chain::genesis_data genesis_data;
+   bool reset;
 
    try
    {
@@ -133,14 +131,14 @@ int main( int argc, char** argv )
          chain_config = config[ util::service::chain ];
       }
 
-      std::string amqp_url      = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
-      std::string log_level     = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-      std::string instance_id   = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
-      auto statedir             = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
-      auto genesis_data_file    = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
-      auto reset                = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
-      auto jobs                 = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
-      auto read_compute_limit   = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
+      amqp_url           = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      log_level          = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      instance_id        = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
+      statedir           = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
+      genesis_data_file  = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
+      reset              = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
+      jobs               = util::get_option< uint64_t >( JOBS_OPTION, std::thread::hardware_concurrency(), args, chain_config, global_config );
+      read_compute_limit = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
 
@@ -173,7 +171,6 @@ int main( int argc, char** argv )
       std::string genesis_json = genesis_data_stream.str();
       gifs.close();
 
-      chain::genesis_data genesis_data;
       google::protobuf::util::JsonParseOptions jpo;
       google::protobuf::util::JsonStringToMessage( genesis_json, &genesis_data, jpo );
 
@@ -181,7 +178,24 @@ int main( int argc, char** argv )
 
       LOG(info) << "Chain ID: " << chain_id;
       LOG(info) << "Number of jobs: " << jobs;
+   }
+   catch ( const invalid_argument& e )
+   {
+      LOG(error) << "Invalid argument: " << e.what();
+      return EXIT_FAILURE;
+   }
 
+   std::atomic< bool > stopped = false;
+   int retcode = EXIT_SUCCESS;
+   std::vector< std::thread > threads;
+
+   asio::io_context client_ioc, server_ioc, main_ioc;
+   auto client = std::make_shared< mq::client >( client_ioc );
+   auto request_handler = mq::request_handler( server_ioc );
+   chain::controller controller( read_compute_limit );
+
+   try
+   {
       asio::signal_set signals( server_ioc );
       signals.add( SIGINT );
       signals.add( SIGTERM );
@@ -200,7 +214,6 @@ int main( int argc, char** argv )
       for ( std::size_t i = 0; i < jobs; i++ )
          threads.emplace_back( [&]() { server_ioc.run(); } );
 
-      chain::controller controller( read_compute_limit );
       controller.open( statedir, genesis_data, reset );
 
       LOG(info) << "Connecting AMQP client...";
@@ -235,12 +248,7 @@ int main( int argc, char** argv )
          main_ioc.run();
       }
    }
-   catch ( const invalid_argument& e )
-   {
-      LOG(error) << "Invalid argument: " << e.what();
-      retcode = EXIT_FAILURE;
-   }
-   catch ( const koinos::exception& e )
+   catch ( const std::exception& e )
    {
       if ( !stopped )
       {
@@ -251,11 +259,6 @@ int main( int argc, char** argv )
    catch ( const boost::exception& e )
    {
       LOG(fatal) << "An unexpected error has occurred: " << boost::diagnostic_information( e );
-      retcode = EXIT_FAILURE;
-   }
-   catch ( const std::exception& e )
-   {
-      LOG(fatal) << "An unexpected error has occurred: " << e.what();
       retcode = EXIT_FAILURE;
    }
    catch ( ... )
