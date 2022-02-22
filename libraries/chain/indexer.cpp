@@ -58,19 +58,19 @@ std::future< bool > indexer::index()
 
 void indexer::prepare_index()
 {
-   if ( _stopped )
-      return;
-
-   LOG(info) << "Retrieving highest block from block store";
-   rpc::block_store::block_store_request req;
-   req.mutable_get_highest_block();
-
-   std::shared_future< std::string > data;
-
-   rpc::block_store::block_store_response resp;
-
    try
    {
+      if ( _stopped )
+         return;
+
+      LOG(info) << "Retrieving highest block from block store";
+      rpc::block_store::block_store_request req;
+      req.mutable_get_highest_block();
+
+      std::shared_future< std::string > data;
+
+      rpc::block_store::block_store_response resp;
+
       data = _client->rpc( util::service::block_store, req.SerializeAsString() );
 
       if ( !resp.ParseFromString( data.get() ) )
@@ -81,37 +81,41 @@ void indexer::prepare_index()
 
       if ( !resp.has_get_highest_block() )
          return handle_error( "unexpected block store response" );
+
+      _target_head = resp.get_highest_block().topology();
+
+      _start_head_info = _controller.get_head_info();
+
+      if ( _start_head_info.head_topology().height() < _target_head.height() )
+      {
+         LOG(info) << "Indexing to target block - Height: " << _target_head.height() << ", ID: " << util::to_hex( _target_head.id() );
+         boost::asio::post( std::bind( &indexer::send_requests, this, _start_head_info.head_topology().height(), 50 ) );
+         boost::asio::post( std::bind( &indexer::process_block, this ) );
+      }
+      else
+      {
+         LOG(info) << "Chain state is synchronized with block store";
+         _complete->set_value( true );
+         _complete.reset();
+      }
    }
    catch ( const std::exception& e )
    {
       return handle_error( e.what() );
    }
-
-   _target_head = resp.get_highest_block().topology();
-
-   _start_head_info = _controller.get_head_info();
-
-   if ( _start_head_info.head_topology().height() < _target_head.height() )
+   catch ( const boost::exception& e )
    {
-      LOG(info) << "Indexing to target block - Height: " << _target_head.height() << ", ID: " << util::to_hex( _target_head.id() );
-      boost::asio::post( std::bind( &indexer::send_requests, this, _start_head_info.head_topology().height(), 50 ) );
-      boost::asio::post( std::bind( &indexer::process_block, this ) );
-   }
-   else
-   {
-      LOG(info) << "Chain state is synchronized with block store";
-      _complete->set_value( true );
-      _complete.reset();
+      return handle_error( boost::diagnostic_information( e ) );
    }
 }
 
 void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
 {
-   if ( _stopped )
-      return;
-
    try
    {
+      if ( _stopped )
+         return;
+
       if ( last_height <= _target_head.height() )
       {
          rpc::block_store::block_store_request req;
@@ -132,32 +136,36 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
       {
          _requests_complete = true;
       }
+
+      boost::asio::dispatch( std::bind( &indexer::process_requests, this, last_height, batch_size ) );
    }
    catch ( boost::sync_queue_is_closed& )
    {
-      LOG(info) << "Indexer synchronized queue has been closed";
+      LOG(warning) << "Indexer synchronized queue has been closed";
    }
    catch ( const std::exception& e )
    {
       return handle_error( e.what() );
    }
-
-   boost::asio::dispatch( std::bind( &indexer::process_requests, this, last_height, batch_size ) );
+   catch ( const boost::exception& e )
+   {
+      return handle_error( boost::diagnostic_information( e ) );
+   }
 }
 
 void indexer::process_requests( uint64_t last_height, uint64_t batch_size )
 {
-   if ( _stopped )
-      return;
-
-   if ( _requests_complete && _request_queue.empty() )
-   {
-      _request_processing_complete = true;
-      return;
-   }
-
    try
    {
+      if ( _stopped )
+         return;
+
+      if ( _requests_complete && _request_queue.empty() )
+      {
+         _request_processing_complete = true;
+         return;
+      }
+
       auto fut = _request_queue.pull();
 
       rpc::block_store::block_store_response resp;
@@ -175,51 +183,59 @@ void indexer::process_requests( uint64_t last_height, uint64_t batch_size )
       for ( auto& block_item : *resp.mutable_get_blocks_by_height()->mutable_block_items() )
          _block_queue.push( std::move( *block_item.mutable_block() ) );
 
+      boost::asio::post( std::bind( &indexer::send_requests, this, last_height + batch_size, std::min( batch_size * 2, uint64_t( 1000 ) ) ) );
    }
    catch ( boost::sync_queue_is_closed& )
    {
-      LOG(info) << "Indexer synchronized queue has been closed";
+      LOG(warning) << "Indexer synchronized queue has been closed";
    }
    catch ( const std::exception& e )
    {
       return handle_error( e.what() );
    }
-
-   boost::asio::post( std::bind( &indexer::send_requests, this, last_height + batch_size, std::min( batch_size * 2, uint64_t( 1000 ) ) ) );
+   catch ( const boost::exception& e )
+   {
+      return handle_error( boost::diagnostic_information( e ) );
+   }
 }
 
 void indexer::process_block()
 {
-   if ( _stopped )
-      return;
-
-   if ( _request_processing_complete && _block_queue.empty() )
-   {
-      const auto new_head_info = _controller.get_head_info();
-      const std::chrono::duration< double > duration = std::chrono::system_clock::now() - _start_time;
-      LOG(info) << "Finished indexing " << new_head_info.head_topology().height() - _start_head_info.head_topology().height() << " blocks, took " << duration.count() << " seconds";
-      _complete->set_value( true );
-      _complete.reset();
-      return;
-   }
-
    try
    {
+      if ( _stopped )
+         return;
+
+      if ( _request_processing_complete && _block_queue.empty() )
+      {
+         const auto new_head_info = _controller.get_head_info();
+         const std::chrono::duration< double > duration = std::chrono::system_clock::now() - _start_time;
+         LOG(info) << "Finished indexing " << new_head_info.head_topology().height() - _start_head_info.head_topology().height() << " blocks, took " << duration.count() << " seconds";
+         _complete->set_value( true );
+         _complete.reset();
+         return;
+      }
+
       rpc::chain::submit_block_request submit_block;
 
       *submit_block.mutable_block() = _block_queue.pull();
       _controller.submit_block( submit_block, _target_head.height() );
+
+
+      boost::asio::post( std::bind( &indexer::process_block, this ) );
    }
    catch ( boost::sync_queue_is_closed& )
    {
-      LOG(info) << "Indexer synchronized queue has been closed";
+      LOG(warning) << "Indexer synchronized queue has been closed";
    }
    catch ( const std::exception& e )
    {
       return handle_error( e.what() );
    }
-
-   boost::asio::post( std::bind( &indexer::process_block, this ) );
+   catch ( const boost::exception& e )
+   {
+      return handle_error( boost::diagnostic_information( e ) );
+   }
 }
 
 } // koinos::chain
