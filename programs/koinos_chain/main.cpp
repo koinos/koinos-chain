@@ -142,7 +142,7 @@ int main( int argc, char** argv )
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
 
-      KOINOS_ASSERT( jobs > 0, invalid_argument, "jobs must be greater than 0" );
+      KOINOS_ASSERT( jobs > 1, invalid_argument, "jobs must be greater than 1" );
 
       if ( config.IsNull() )
       {

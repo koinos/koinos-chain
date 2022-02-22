@@ -67,19 +67,12 @@ void indexer::prepare_index()
 
    std::shared_future< std::string > data;
 
-   try
-   {
-      data = _client->rpc( util::service::block_store, req.SerializeAsString() );
-   }
-   catch ( const std::exception& e )
-   {
-      return handle_error( e.what() );
-   }
-
    rpc::block_store::block_store_response resp;
 
    try
    {
+      data = _client->rpc( util::service::block_store, req.SerializeAsString() );
+
       if ( !resp.ParseFromString( data.get() ) )
          return handle_error( "could not get highest block from block store" );
 
@@ -131,14 +124,7 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
 
          std::shared_future< std::string > data;
 
-         try
-         {
-            data = _client->rpc( util::service::block_store, req.SerializeAsString(), std::chrono::milliseconds( 5000 ) );
-         }
-         catch ( const std::exception& e )
-         {
-            return handle_error( e.what() );
-         }
+         data = _client->rpc( util::service::block_store, req.SerializeAsString(), std::chrono::milliseconds( 5000 ) );
 
          _request_queue.push( std::move( data ) );
       }
@@ -150,6 +136,10 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
    catch ( boost::sync_queue_is_closed& )
    {
       LOG(info) << "Indexer synchronized queue has been closed";
+   }
+   catch ( const std::exception& e )
+   {
+      return handle_error( e.what() );
    }
 
    boost::asio::dispatch( std::bind( &indexer::process_requests, this, last_height, batch_size ) );
@@ -186,13 +176,13 @@ void indexer::process_requests( uint64_t last_height, uint64_t batch_size )
          _block_queue.push( std::move( *block_item.mutable_block() ) );
 
    }
-   catch ( const std::exception& e )
-   {
-      return handle_error( e.what() );
-   }
    catch ( boost::sync_queue_is_closed& )
    {
       LOG(info) << "Indexer synchronized queue has been closed";
+   }
+   catch ( const std::exception& e )
+   {
+      return handle_error( e.what() );
    }
 
    boost::asio::post( std::bind( &indexer::send_requests, this, last_height + batch_size, std::min( batch_size * 2, uint64_t( 1000 ) ) ) );
@@ -220,13 +210,13 @@ void indexer::process_block()
       *submit_block.mutable_block() = _block_queue.pull();
       _controller.submit_block( submit_block, _target_head.height() );
    }
-   catch ( const std::exception& e )
-   {
-      return handle_error( e.what() );
-   }
    catch ( boost::sync_queue_is_closed& )
    {
       LOG(info) << "Indexer synchronized queue has been closed";
+   }
+   catch ( const std::exception& e )
+   {
+      return handle_error( e.what() );
    }
 
    boost::asio::post( std::bind( &indexer::process_block, this ) );
