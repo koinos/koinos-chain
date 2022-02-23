@@ -274,7 +274,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       system_call::apply_block( ctx, block );
 
-      if ( _client && _client->ready() )
+      if ( _client )
       {
          rpc::block_store::block_store_request req;
          req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
@@ -322,7 +322,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
-      if ( _client && _client->ready() )
+      if ( _client )
       {
 
          broadcast::block_irreversible bc;
@@ -362,7 +362,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
 
-      if ( _client && _client->ready() )
+      if ( _client )
       {
          auto exception_data = e.get_json();
 
@@ -444,7 +444,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
-      if ( _client && _client->ready() )
+      if ( _client )
       {
          rpc::mempool::mempool_request req;
          auto* check_pending = req.mutable_check_pending_account_resources();
@@ -467,7 +467,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt, "expected transaction receipt" );
       *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
 
-      if ( _client && _client->ready() )
+      if ( _client )
       {
          broadcast::transaction_accepted ta;
          *ta.mutable_transaction() = transaction;

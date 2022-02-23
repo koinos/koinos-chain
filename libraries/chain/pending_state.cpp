@@ -33,7 +33,7 @@ void pending_state::rebuild( state_db::state_node_ptr head )
 {
    _pending_state = head->create_anonymous_node();
 
-   if ( _client && _client->ready() )
+   if ( _client )
    {
       LOG(debug) << "Rebuilding pending state";
 
