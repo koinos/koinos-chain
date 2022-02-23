@@ -1700,20 +1700,21 @@ int main()
       ctx.resource_meter().set_resource_limit_data( rld );
       auto session = ctx.make_session( 1'000'000'000 );
 
+      uint64_t runs = std::max( uint64_t( 1 ), global_run / 1000 );
 
       for ( int i = 0; i < 1024; i += 4 )
       {
          auto payload = create_random_payload( i );
 
          auto start = std::chrono::steady_clock::now();
-         for ( int i = 0; i < 1000; i++ )
+         for ( int i = 0; i < runs; i++ )
          {
             koinos::chain::system_call::hash( ctx, std::underlying_type_t< koinos::crypto::multicodec >( code ), payload );
          }
          auto stop = std::chrono::steady_clock::now();
 
          payload_sizes.push_back( payload.size() );
-         hash_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / 1000 );
+         hash_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / runs );
       }
 
       return { payload_sizes, hash_times };
@@ -1769,7 +1770,9 @@ int main()
 
       std::vector< std::string > impacted;
 
-      for ( int i = 0; i <= 50; i++ )
+      uint64_t runs =  std::max( uint64_t( 1 ), global_run / 50 );
+
+      for ( int i = 0; i < 50; i++ )
       {
          chain::resource_limit_data rld;
          rld.set_compute_bandwidth_limit( 100'000'000 );
@@ -1779,7 +1782,7 @@ int main()
 
          auto start = std::chrono::steady_clock::now();
 
-         for ( int j = 0; j < global_run / 50; j++ )
+         for ( int j = 0; j < runs; j++ )
          {
             koinos::chain::system_call::event( ctx, address, address, impacted );
          }
@@ -1787,7 +1790,7 @@ int main()
          auto stop = std::chrono::steady_clock::now();
 
          payload_sizes.push_back( i );
-         event_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / ( global_run / 50 ) );
+         event_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / runs );
 
          impacted.push_back( address );
       }
@@ -1807,7 +1810,9 @@ int main()
 
       std::vector< std::string > hashes;
 
-      for ( int i = 0; i <= 20; i++ )
+      uint64_t runs = std::max( uint64_t( 1 ), global_run / 20 );
+
+      for ( int i = 0; i < 20; i++ )
       {
          chain::resource_limit_data rld;
          rld.set_compute_bandwidth_limit( 100'000'000 );
@@ -1816,7 +1821,7 @@ int main()
          auto session = ctx.make_session( 100'000'000 );
 
          auto start = std::chrono::steady_clock::now();
-         for ( int j = 0; j < global_run; j++ )
+         for ( int j = 0; j < runs; j++ )
          {
             std::vector< crypto::multihash > leaves;
             leaves.resize( hashes.size() );
@@ -1825,7 +1830,7 @@ int main()
          auto stop = std::chrono::steady_clock::now();
 
          number_of_hashes.push_back( i );
-         deserialize_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / global_run );
+         deserialize_times.push_back( std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start ).count() / runs );
 
          hashes.push_back( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, create_random_payload( 32 ) ) ) );
       }
@@ -1849,7 +1854,7 @@ int main()
 
       auto merkle_root = util::converter::as< std::string >( crypto::merkle_tree( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash() );
       int64_t time = 0;
-      int64_t runs = global_run / 10;
+      uint64_t runs = std::max( uint64_t( 1 ), global_run / 20 );
 
       chain::resource_limit_data rld;
       rld.set_compute_bandwidth_limit( 10'000'000'000 );
