@@ -16,6 +16,7 @@ public:
    void set_backend( std::shared_ptr< vm_manager::vm_backend > backend );
    state_db::anonymous_state_node_ptr get_state_node();
    void rebuild( state_db::state_node_ptr head );
+   void close();
 
 private:
    std::shared_ptr< vm_manager::vm_backend > _backend;

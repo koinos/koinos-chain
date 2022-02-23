@@ -14,6 +14,11 @@ state_db::anonymous_state_node_ptr pending_state::get_state_node()
    return _pending_state;
 }
 
+void pending_state::close()
+{
+   _pending_state.reset();
+}
+
 void pending_state::set_backend( std::shared_ptr< vm_manager::vm_backend > backend )
 {
    _backend = backend;
@@ -28,7 +33,7 @@ void pending_state::rebuild( state_db::state_node_ptr head )
 {
    _pending_state = head->create_anonymous_node();
 
-   if ( _client && _client->ready() )
+   if ( _client )
    {
       LOG(debug) << "Rebuilding pending state";
 
