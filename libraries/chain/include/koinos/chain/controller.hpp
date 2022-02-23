@@ -3,6 +3,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/pending_state.hpp>
 #include <koinos/mq/client.hpp>
+#include <koinos/protocol/protocol.pb.h>
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/state_db/state_db_types.hpp>
 
