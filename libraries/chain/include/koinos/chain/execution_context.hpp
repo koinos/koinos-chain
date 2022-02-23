@@ -78,7 +78,7 @@ class execution_context
       void clear_block();
 
       void set_transaction( const protocol::transaction& );
-      const protocol::transaction& get_transaction() const;
+      const protocol::transaction* get_transaction() const;
       void clear_transaction();
 
       void set_contract_call_args( const std::string& args );

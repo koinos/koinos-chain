@@ -343,8 +343,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
    receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
 
-   for ( const auto& [ within_session, event ] : context.chronicler().events() )
-      if ( !within_session )
+   for ( const auto& [ transaction_id, event ] : context.chronicler().events() )
+      if ( !transaction_id )
          *receipt.add_events() = event;
 
    for ( const auto& message : context.chronicler().logs() )
@@ -908,11 +908,12 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
    }
    else
    {
-      const auto& trx = context.get_transaction();
+      const auto* trx = context.get_transaction();
+      KOINOS_ASSERT( trx != nullptr, unexpected_access, "transaction does not exist" );
 
-      for ( const auto& sig : trx.signatures() )
+      for ( const auto& sig : trx->signatures() )
       {
-         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
+         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id() ) ).to_address_bytes();
          authorized = ( signer_address == account );
          if ( authorized )
             break;
@@ -1035,14 +1036,20 @@ THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data
    for ( auto& imp : impacted )
       *ev.add_impacted() = imp;
 
-   context.chronicler().push_event( std::move( ev ) );
+   std::optional< std::string > transaction_id;
+   if ( const auto* transaction = context.get_transaction(); transaction != nullptr )
+      transaction_id = transaction->id();
+
+   context.chronicler().push_event( transaction_id, std::move( ev ) );
 }
 
 THUNK_DEFINE_VOID( get_transaction_result, get_transaction )
 {
    get_transaction_result ret;
 
-   *ret.mutable_value() = context.get_transaction();
+   const auto* transaction = context.get_transaction();
+   KOINOS_ASSERT( transaction != nullptr, unexpected_access, "transaction does not exist" );
+   *ret.mutable_value() = *transaction;
 
    return ret;
 }
@@ -1051,7 +1058,10 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
 {
    get_transaction_field_result ret;
 
-   *ret.mutable_value() = get_nested_field_value( context, context.get_transaction(), field );
+   const auto* transaction = context.get_transaction();
+   KOINOS_ASSERT( transaction != nullptr, unexpected_access, "transaction does not exist" );
+
+   *ret.mutable_value() = get_nested_field_value( context, *transaction, field );
 
    return ret;
 }
@@ -1084,13 +1094,14 @@ THUNK_DEFINE( void, require_system_authority, ((system_authorization_type) type)
 {
    auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
-   const auto& trx = context.get_transaction();
+   const auto* trx = context.get_transaction();
+   KOINOS_ASSERT( trx != nullptr, unexpected_access, "transaction does not exist" );
 
    bool authorized = false;
 
-   for ( const auto& sig : trx.signatures() )
+   for ( const auto& sig : trx->signatures() )
    {
-      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx.id() ) ).to_address_bytes();
+      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id() ) ).to_address_bytes();
       authorized = ( addr == genesis_addr );
       if ( authorized )
          break;
