@@ -45,7 +45,7 @@ struct controller_fixture
       koinos::chain::resource_limit_data rd;
 
       rd.set_disk_storage_cost( 10 );
-      rd.set_disk_storage_limit( 204'800 );
+      rd.set_disk_storage_limit( 409'600 );
 
       rd.set_network_bandwidth_cost( 5 );
       rd.set_network_bandwidth_limit( 1'048'576 );

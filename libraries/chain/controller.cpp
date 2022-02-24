@@ -11,6 +11,8 @@
 
 #include <koinos/exception.hpp>
 
+#include <koinos/protocol/protocol.pb.h>
+
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/rpc/chain/chain_rpc.pb.h>
 #include <koinos/rpc/mempool/mempool_rpc.pb.h>
@@ -77,6 +79,7 @@ class controller_impl final
       std::shared_ptr< mq::client >             _client;
       pending_state                             _pending_state;
       uint64_t                                  _read_compute_bandwidth_limit;
+      protocol::block                           _cached_head_block;
 
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
@@ -144,7 +147,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
    }
 
    auto head = _db.get_head();
-   _pending_state.rebuild( head );
+   _pending_state.rebuild( head, _cached_head_block );
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
@@ -363,7 +366,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node == _db.get_head() )
       {
-         _pending_state.rebuild( block_node );
+         _cached_head_block = block;
+         _pending_state.rebuild( block_node, _cached_head_block );
       }
    }
    catch ( koinos::exception& e )
@@ -428,6 +432,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
 
    execution_context ctx( _vm_backend, intent::transaction_application );
+   ctx.set_block( _cached_head_block );
 
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::kernel_mode
@@ -513,6 +518,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    } );
 
    ctx.set_state_node( _db.get_head() );
+   ctx.set_block( _cached_head_block );
    ctx.reset_cache();
 
    auto head_info = system_call::get_head_info( ctx );

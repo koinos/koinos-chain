@@ -15,7 +15,7 @@ public:
    void set_client( std::shared_ptr< mq::client > client );
    void set_backend( std::shared_ptr< vm_manager::vm_backend > backend );
    state_db::anonymous_state_node_ptr get_state_node();
-   void rebuild( state_db::state_node_ptr head );
+   void rebuild( state_db::state_node_ptr head, const protocol::block& cached_head_block );
    void close();
 
 private:

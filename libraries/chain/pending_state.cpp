@@ -29,7 +29,7 @@ void pending_state::set_client( std::shared_ptr< mq::client > client )
    _client = client;
 }
 
-void pending_state::rebuild( state_db::state_node_ptr head )
+void pending_state::rebuild( state_db::state_node_ptr head, const protocol::block& cached_head_block )
 {
    _pending_state = head->create_anonymous_node();
 
@@ -43,6 +43,7 @@ void pending_state::rebuild( state_db::state_node_ptr head )
       auto future = _client->rpc( util::service::mempool, util::converter::as< std::string >( req ) );
 
       execution_context ctx( _backend, intent::transaction_application );
+      ctx.set_block( cached_head_block );
 
       ctx.set_state_node( _pending_state );
       ctx.reset_cache();
