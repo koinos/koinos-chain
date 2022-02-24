@@ -311,6 +311,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
    system_call::pre_block_callback( context );
 
+   system_call::put_object( context, state::space::metadata(), state::key::head_block, util::converter::as< std::string >( block ) );
+
    for ( const auto& tx : block.transactions() )
    {
       try
@@ -771,18 +773,25 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 {
    auto head = context.get_state_node();
 
-   const auto* block = context.get_block();
-   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
-
-   chain::head_info hi;
-   hi.mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
-   hi.mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
-   hi.mutable_head_topology()->set_height( head->revision() );
-   hi.set_last_irreversible_block( system_call::get_last_irreversible_block( context ) );
-   hi.set_head_block_time( block->header().timestamp() );
-
    get_head_info_result ret;
-   *ret.mutable_value() = hi;
+   auto* hi = ret.mutable_value();
+
+   hi->mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
+   hi->mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
+   hi->mutable_head_topology()->set_height( head->revision() );
+   hi->set_last_irreversible_block( system_call::get_last_irreversible_block( context ) );
+
+   if ( const auto* block = context.get_block(); block != nullptr )
+   {
+      hi->set_head_block_time( block->header().timestamp() );
+   }
+   else
+   {
+      auto head_block_object = system_call::get_object( context, state::space::metadata(), state::key::head_block );
+      uint64_t time = head_block_object.exists() ? util::converter::to< protocol::block >( head_block_object.value() ).header().timestamp() : 0;
+      hi->set_head_block_time( time );
+   }
+
    return ret;
 }
 

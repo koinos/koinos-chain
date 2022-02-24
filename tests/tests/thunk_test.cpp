@@ -749,7 +749,7 @@ BOOST_AUTO_TEST_CASE( get_head_info_thunk_test )
 
    ctx.clear_block();
 
-   chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::head_block_time, util::converter::as< std::string >( block.header().timestamp() ) );
+   chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::head_block, util::converter::as< std::string >( block ) );
 
    BOOST_REQUIRE( chain::system_call::get_head_info( ctx ).head_block_time() == block.header().timestamp() );
 

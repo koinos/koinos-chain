@@ -242,7 +242,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    }
 
    execution_context ctx( _vm_backend, intent::block_application );
-   ctx.set_block( _cached_head_block );
 
    try
    {
