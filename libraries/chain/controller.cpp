@@ -348,9 +348,17 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          _client->broadcast( "koinos.block.forks", util::converter::as< std::string >( fh ) );
 
-         for ( const auto& [ unused, event ] : ctx.chronicler().events() )
+         for ( const auto& [ transaction_id, event ] : ctx.chronicler().events() )
          {
-            _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), event.data() );
+            broadcast::event_parcel ep;
+            ep.set_block_id( block.id() );
+            ep.set_height( block.header().height() );
+            *ep.mutable_event() = event;
+
+            if ( transaction_id )
+               ep.set_transaction_id( *transaction_id );
+
+            _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), ep.SerializeAsString() );
          }
       }
 
