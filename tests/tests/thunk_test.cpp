@@ -260,6 +260,17 @@ struct thunk_fixture
    chain::genesis_data _genesis_data;
 };
 
+enum token_entry : uint32_t
+{
+   name         = 0x82a3537f,
+   symbol       = 0xb76a7ca1,
+   decimals     = 0xee80fd2f,
+   total_supply = 0xb0da3934,
+   balance_of   = 0x5c721497,
+   transfer     = 0x27f576ca,
+   mint         = 0xdc6f17bb
+};
+
 namespace koinos::chain::thunk {
 
 void test_thunk( execution_context& ctx, const std::string& s )
@@ -282,7 +293,7 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
 
    auto op = trx.add_operations()->mutable_call_contract();
    op->set_contract_id( util::from_hex< std::string >( "0xDEADBEEF" ) );
-   op->set_entry_point( 0x62efa292 );
+   op->set_entry_point( token_entry::transfer );
    op->set_args( xfer_arg.SerializeAsString() );
    trx.mutable_header()->set_rc_limit( 10'000'000 );
    trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 12 ) ) );
@@ -377,7 +388,7 @@ BOOST_AUTO_TEST_CASE( get_block_field )
 
    auto op3 = trx.add_operations()->mutable_call_contract();
    op3->set_contract_id( op3->contract_id() );
-   op3->set_entry_point( 0x62efa292 );
+   op3->set_entry_point( token_entry::transfer );
    op3->set_args( xfer_arg.SerializeAsString() );
    trx.mutable_header()->set_rc_limit( 10'000'000 );
    trx.mutable_header()->set_nonce( util::converter::as< std::string>( uint64_t( 12 ) ) );
@@ -982,19 +993,19 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .call_privilege = chain::user_mode } );
 
-   auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x76ea4297, "" );
+   auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::name, "" );
    auto name = util::converter::to< koinos::contracts::token::name_result >( response );
    LOG(info) << name.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x7e794b24, "" );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::symbol, "" );
    auto symbol = util::converter::to< koinos::contracts::token::symbol_result >( response );
    LOG(info) << symbol.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x59dc15ce, "" );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::decimals, "" );
    auto decimals = util::converter::to< koinos::contracts::token::decimals_result >( response );
    LOG(info) << decimals.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::total_supply, "" );
    auto supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
 
@@ -1006,12 +1017,12 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    koinos::contracts::token::balance_of_arguments balance_of_args;
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    auto balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
    LOG(info) << "'bob' balance: " << balance.value();
 
@@ -1022,7 +1033,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    mint_args.set_to( util::converter::as< std::string >( alice_address ) );
    mint_args.set_value( 100 );
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
    auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( !success.value() );
    BOOST_CHECK_EQUAL( session->events().size(), 0 );
@@ -1030,7 +1041,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    session = ctx.make_session( 1'000'000 );
 
    ctx.set_privilege( chain::privilege::kernel_mode );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
    success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( success.value() );
 
@@ -1049,18 +1060,18 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::total_supply, "" );
    supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
 
@@ -1074,7 +1085,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    try
    {
       session = ctx.make_session( 1'000'000 );
-      koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+      koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
    catch ( const koinos::chain::authorization_failed& ) {}
@@ -1085,7 +1096,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    try
    {
       session = ctx.make_session( 1'000'000 );
-      koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+      koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
    catch ( const koinos::chain::authorization_failed& ) {}
@@ -1094,26 +1105,26 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_transaction( trx );
 
    session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
    auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response );
    BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0x15619248, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
    session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), 0xcf2e8212, "" );
+   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::total_supply, "" );
    supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
 }
@@ -1205,7 +1216,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    auto session = ctx.make_session( 100'000'000 );
 
-   auto response = koinos::chain::system_call::call_contract( ctx, upload_op.contract_id(), 0xc2f82bdc, util::converter::as< std::string >( mint_args ) );
+   auto response = koinos::chain::system_call::call_contract( ctx, upload_op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
    auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( success.value() );
 
@@ -1229,13 +1240,13 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    try
    {
-      koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+      koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature" );
    }
    catch ( const koinos::chain::authorization_failed& ) {}
 
    sign_transaction( trx, key_b );
-   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
    BOOST_TEST_PASSPOINT();
 
    BOOST_TEST_MESSAGE( "Override authorize upload contract" );
@@ -1247,7 +1258,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
-   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), 0x62efa292, util::converter::as< std::string >( transfer_args ) );
+   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
 
    upload_op.set_authorizes_upload_contract( false );
    upload_op.set_authorizes_transaction_application( true );
@@ -1268,7 +1279,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    ctx.set_intent( koinos::chain::intent::transaction_application );
    auto op = trx.add_operations()->mutable_call_contract();
    op->set_contract_id( util::converter::as< std::string >( contract_address ) );
-   op->set_entry_point( 0x62efa292 );
+   op->set_entry_point( token_entry::transfer );
    op->set_args( util::converter::as< std::string >( transfer_args ) );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
    trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );

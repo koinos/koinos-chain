@@ -215,6 +215,17 @@ struct controller_fixture
    chain::genesis_data    _genesis_data;
 };
 
+enum token_entry : uint32_t
+{
+   name         = 0x82a3537f,
+   symbol       = 0xb76a7ca1,
+   decimals     = 0xee80fd2f,
+   total_supply = 0xb0da3934,
+   balance_of   = 0x5c721497,
+   transfer     = 0x27f576ca,
+   mint         = 0xdc6f17bb
+};
+
 BOOST_FIXTURE_TEST_SUITE( controller_tests, controller_fixture )
 
 BOOST_AUTO_TEST_CASE( submission_tests )
@@ -612,7 +623,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 
    auto op2 = trx2.add_operations()->mutable_call_contract();
    op2->set_contract_id( op1->contract_id() );
-   op2->set_entry_point( 0xc2f82bdc );
+   op2->set_entry_point( token_entry::mint );
    op2->set_args( mint_arg.SerializeAsString() );
    trx2.mutable_header()->set_rc_limit( 10'000'000 );
    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
@@ -643,7 +654,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 
    koinos::rpc::chain::read_contract_request request;
    request.set_contract_id( op1->contract_id() );
-   request.set_entry_point( 0x15619248 );
+   request.set_entry_point( token_entry::balance_of );
    request.set_args( bal_args.SerializeAsString() );
 
    auto response = _controller.read_contract( request );
@@ -686,7 +697,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 
    auto op2 = trx2.add_operations()->mutable_call_contract();
    op2->set_contract_id( op1->contract_id() );
-   op2->set_entry_point( 0xc2f82bdc );
+   op2->set_entry_point( token_entry::mint );
    op2->set_args( mint_arg.SerializeAsString() );
    trx2.mutable_header()->set_rc_limit( rc_limit2 );
    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
@@ -782,7 +793,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 
    auto op3 = trx3.add_operations()->mutable_call_contract();
    op3->set_contract_id( op1->contract_id() );
-   op3->set_entry_point( 0x62efa292 );
+   op3->set_entry_point( token_entry::transfer );
    op3->set_args( xfer_arg.SerializeAsString() );
    trx3.mutable_header()->set_rc_limit( rc_limit3 );
    trx3.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
