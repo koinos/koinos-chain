@@ -274,10 +274,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       system_call::apply_block( ctx, block );
 
+      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ), unexpected_receipt, "expected block receipt" );
+      *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
+
       if ( _client )
       {
          rpc::block_store::block_store_request req;
          req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
+         req.mutable_add_block()->mutable_receipt_to_add()->CopyFrom( std::get< protocol::block_receipt >( ctx.receipt() ) );
 
          auto future = _client->rpc( util::service::block_store, util::converter::as< std::string >( req ), 750ms, mq::retry_policy::none );
 
@@ -291,9 +295,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
-
-      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ), unexpected_receipt, "expected block receipt" );
-      *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
 
       if ( !index_to )
       {
