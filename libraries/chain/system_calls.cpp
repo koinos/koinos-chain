@@ -1031,9 +1031,9 @@ bool validate_utf( const std::basic_string< T >& p_str )
    while ( it != p_str.end() )
    {
       const boost::locale::utf::code_point cp = boost::locale::utf::utf_traits< T >::decode( it, p_str.end() );
-      if (cp == boost::locale::utf::illegal)
+      if ( cp == boost::locale::utf::illegal )
          return false;
-      else if (cp == boost::locale::utf::incomplete)
+      else if ( cp == boost::locale::utf::incomplete )
          return false;
    }
    return true;
