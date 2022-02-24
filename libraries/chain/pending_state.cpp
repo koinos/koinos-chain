@@ -7,9 +7,6 @@
 #include <koinos/broadcast/broadcast.pb.h>
 #include <koinos/util/services.hpp>
 
-#include <koinos/chain/controller.hpp>
-
-
 namespace koinos::chain {
 
 state_db::anonymous_state_node_ptr pending_state::get_state_node()

@@ -9,8 +9,6 @@
 
 namespace koinos::chain {
 
-class controller;
-
 class pending_state final
 {
 public:
