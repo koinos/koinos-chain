@@ -1781,7 +1781,7 @@ int main()
 
          for ( int j = 0; j < global_run / 50; j++ )
          {
-            koinos::chain::system_call::event( ctx, address, address, impacted );
+            koinos::chain::system_call::event( ctx, "event", address, impacted );
          }
 
          auto stop = std::chrono::steady_clock::now();
