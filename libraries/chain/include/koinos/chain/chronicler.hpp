@@ -6,7 +6,7 @@
 
 namespace koinos::chain {
 
-using event_bundle = std::pair< bool, protocol::event_data >;
+using event_bundle = std::pair< std::optional< std::string >, protocol::event_data >;
 
 struct abstract_chronicler_session
 {
@@ -20,7 +20,7 @@ struct abstract_chronicler_session
 class chronicler final {
 public:
    void set_session( std::shared_ptr< abstract_chronicler_session > s );
-   void push_event( protocol::event_data&& ev );
+   void push_event( std::optional< std::string > transaction_id, protocol::event_data&& ev );
    void push_log( const std::string& message );
    const std::vector< event_bundle >& events();
    const std::vector< std::string >& logs();

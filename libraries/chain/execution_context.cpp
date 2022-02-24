@@ -68,10 +68,9 @@ void execution_context::set_transaction( const protocol::transaction& trx )
    _trx = &trx;
 }
 
-const protocol::transaction& execution_context::get_transaction() const
+const protocol::transaction* execution_context::get_transaction() const
 {
-   KOINOS_ASSERT( _trx != nullptr, unexpected_access, "transaction does not exist" );
-   return *_trx;
+   return _trx;
 }
 
 void execution_context::clear_transaction()
