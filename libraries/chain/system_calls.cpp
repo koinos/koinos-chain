@@ -2,6 +2,8 @@
 #include <string>
 #include <stdexcept>
 
+#include <boost/locale/utf.hpp>
+
 #include <google/protobuf/util/message_differencer.h>
 
 #include <koinos/bigint.hpp>
@@ -1022,10 +1024,27 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
    return ret;
 }
 
+template< typename T >
+bool validate_utf( const std::basic_string< T >& p_str )
+{
+   typename std::basic_string< T >::const_iterator it = p_str.begin();
+   while ( it != p_str.end() )
+   {
+      const boost::locale::utf::code_point cp = boost::locale::utf::utf_traits< T >::decode( it, p_str.end() );
+      if (cp == boost::locale::utf::illegal)
+         return false;
+      else if (cp == boost::locale::utf::incomplete)
+         return false;
+   }
+   return true;
+}
+
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
    KOINOS_ASSERT( name.size(), invalid_argument, "event name cannot be empty" );
    KOINOS_ASSERT( name.size() <= 128, invalid_argument, "event name cannot be larger than 128 bytes" );
+   KOINOS_ASSERT( validate_utf( name ), invalid_argument, "event name contains invalid utf-8" );
+
    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "event_per_impacted" ) * impacted.size() );
 
    const auto& caller = context.get_caller();
