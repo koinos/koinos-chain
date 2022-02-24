@@ -357,7 +357,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
             if ( transaction_id )
                ep.set_transaction_id( *transaction_id );
 
-            _client->broadcast( "koinos.event", ep.SerializeAsString() );
+            _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), ep.SerializeAsString() );
          }
       }
 

@@ -47,6 +47,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_id_mismatch, system_call_exception
 KOINOS_DECLARE_DERIVED_EXCEPTION( chain_id_mismatch, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( hash_code_mismatch, system_call_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( merkle_hash_mismatch, system_call_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_argument, system_call_exception );
 
 // Controller exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
