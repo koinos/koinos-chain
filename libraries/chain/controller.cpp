@@ -377,7 +377,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( _client )
       {
-         auto exception_data = e.get_json();
+         const auto& exception_data = e.get_json();
 
          if ( exception_data.count( "transaction_id" ) )
          {

@@ -251,6 +251,21 @@ struct thunk_fixture
       transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
    }
 
+   void set_block_merkle_roots( protocol::block& block, crypto::multicodec code, crypto::digest_size size = crypto::digest_size( 0 ) )
+   {
+      std::vector< crypto::multihash > hashes;
+      hashes.reserve( block.transactions().size() * 2 );
+
+      for ( const auto& trx : block.transactions() )
+      {
+         hashes.emplace_back( crypto::hash( code, trx.header(), size ) );
+         hashes.emplace_back( crypto::hash( code, trx.signatures(), size ) );
+      }
+
+      auto transaction_merkle_tree = crypto::merkle_tree( code, hashes );
+      block.mutable_header()->set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
+   }
+
    std::filesystem::path temp;
    koinos::state_db::database db;
    std::shared_ptr< koinos::vm_manager::vm_backend > vm_backend;
@@ -1183,6 +1198,127 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::compute_bandwidth_limit_exceeded );
 
    BOOST_REQUIRE_EQUAL( ctx.resource_meter().compute_bandwidth_remaining(), 0 );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( transaction_reversion )
+{ try {
+   using namespace koinos;
+
+   BOOST_TEST_MESSAGE( "Upload KOIN contract for testing and set balance for 'alice'" );
+
+   auto alice_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
+   auto alice_address = alice_private_key.get_public_key().to_address_bytes();
+
+   auto bob_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "bob"s ) );
+   auto bob_address = bob_private_key.get_public_key().to_address_bytes();
+
+   auto contract_private_key = crypto::private_key::regenerate( crypto::hash( koinos::crypto::multicodec::sha2_256, "token_contract"s ) );
+   auto contract_address = contract_private_key.get_public_key().to_address_bytes();
+
+   BOOST_TEST_MESSAGE( "Test a reverted transaction" );
+
+   // This is purposefully calling on a non-existent contract, which will result in a reversion
+   protocol::call_contract_operation call_op;
+   call_op.set_contract_id( contract_address );
+
+   protocol::transaction transaction;
+   chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
+   transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   transaction.mutable_header()->set_chain_id( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id ).value() );
+   *transaction.add_operations()->mutable_call_contract() = call_op;
+   set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
+   sign_transaction( transaction, alice_private_key );
+
+   const auto head_state_node = db.get_head();
+   auto control_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "control"s ) );
+   auto trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "transaction"s ) );
+
+   auto session = ctx.make_session( 1'000'000 );
+
+   ctx.set_intent( chain::intent::transaction_application );
+
+   ctx.set_state_node( trx_state_node );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::transaction_reverted );
+   db.finalize_node( trx_state_node->id() );
+
+   ctx.set_state_node( control_state_node );
+   chain::system_call::set_account_nonce( ctx, transaction.header().payer(), transaction.header().nonce() );
+   db.finalize_node( control_state_node->id() );
+
+   BOOST_REQUIRE( trx_state_node->get_merkle_root() == control_state_node->get_merkle_root() );
+
+   BOOST_TEST_MESSAGE( "Test proper throwing when transaction is not reverted" );
+
+   transaction.mutable_header()->set_rc_limit( 10'000'001 );
+   sign_transaction( transaction, alice_private_key );
+
+   auto failed_trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "failed_trx"s ) );
+   ctx.set_state_node( failed_trx_state_node );
+
+   try
+   {
+      chain::system_call::apply_transaction( ctx, transaction );
+      BOOST_FAIL( "expected exception not thrown" );
+   }
+   catch ( chain::transaction_reverted& )
+   {
+      BOOST_FAIL( "transaction_reverted exception erroneously thrown" );
+   }
+   catch ( koinos::exception& e ) { /* pass */ }
+
+   BOOST_TEST_MESSAGE( "Submitting failing transaction within a block" );
+
+   auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
+   protocol::block block;
+   block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+   block.mutable_header()->set_height( 1 );
+   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_previous_state_merkle_root( util::converter::as< std::string >( parent_node->get_merkle_root() ) );
+   *block.add_transactions() = transaction;
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.mutable_header()->set_signer( _signing_private_key.get_public_key().to_address_bytes() );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
+
+   auto block_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "block"s ) );
+   ctx.set_state_node( block_state_node );
+   ctx.set_intent( chain::intent::block_application );
+
+   try
+   {
+      chain::system_call::apply_block( ctx, block );
+      BOOST_FAIL( "expected exception not thrown" );
+   }
+   catch ( chain::transaction_reverted& )
+   {
+      BOOST_FAIL( "transaction_reverted exception erroneously thrown" );
+   }
+   catch ( koinos::exception& e )
+   {
+      const auto& data = e.get_json();
+
+      BOOST_REQUIRE( data.count( "transaction_id" ) );
+      BOOST_REQUIRE_EQUAL( data[ "transaction_id" ], util::to_hex( transaction.id() ) );
+   }
+
+   BOOST_TEST_MESSAGE( "Submitting reverted transactioon within a block" );
+
+   transaction.mutable_header()->set_rc_limit( 1'000'000 );
+   sign_transaction( transaction, alice_private_key );
+   block.clear_transactions();
+   *block.add_transactions() = transaction;
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
+
+   db.discard_node( block_state_node->id() );
+   block_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "block"s ) );
+   ctx.set_state_node( block_state_node );
+
+   chain::system_call::apply_block( ctx, block );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
