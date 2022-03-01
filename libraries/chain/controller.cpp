@@ -320,7 +320,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          req.mutable_add_block()->mutable_block_to_add()->CopyFrom( block );
          req.mutable_add_block()->mutable_receipt_to_add()->CopyFrom( std::get< protocol::block_receipt >( ctx.receipt() ) );
 
-         auto future = _client->rpc( util::service::block_store, util::converter::as< std::string >( req ), 750ms, mq::retry_policy::none );
+         auto future = _client->rpc( util::service::block_store, util::converter::as< std::string >( req ), 1500ms, mq::retry_policy::none );
 
          rpc::block_store::block_store_response resp;
          resp.ParseFromString( future.get() );
@@ -368,7 +368,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
-      if ( _client && !index_to )
+      if ( _client )
       {
          broadcast::block_irreversible bc;
          bc.mutable_topology()->CopyFrom( last_irreversible_block );
