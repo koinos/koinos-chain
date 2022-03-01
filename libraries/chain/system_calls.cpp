@@ -251,95 +251,8 @@ THUNK_DEFINE_VOID( void, pre_block_callback ) { }
 
 THUNK_DEFINE_VOID( void, pre_transaction_callback ) { }
 
-THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
+void generate_receipt( execution_context& context, protocol::block_receipt& receipt, const protocol::block& block )
 {
-   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
-
-   block_guard guard( context, block );
-
-   context.receipt() = protocol::block_receipt();
-
-   context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
-
-   KOINOS_ASSERT(
-      system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
-      block_id_mismatch,
-      "block contains an invalid block id"
-   );
-
-   const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
-   KOINOS_ASSERT(
-      tx_root.code() == context.block_hash_code(),
-      hash_code_mismatch,
-      "unexpected transaction merkle root hash code - was: ${t}, expected: ${e}",
-      ("t", std::underlying_type_t< crypto::multicodec >( tx_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
-   );
-
-   // Check transaction Merkle root
-   std::vector< std::string > hashes;
-   hashes.reserve( block.transactions_size() * 2 );
-
-   std::size_t transactions_bytes_size = 0;
-   for ( const auto& trx : block.transactions() )
-   {
-      transactions_bytes_size += trx.ByteSizeLong();
-      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) );
-      std::stringstream ss;
-
-      for ( const auto& sig : trx.signatures() )
-      {
-         ss << sig;
-      }
-
-      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), ss.str() ) );
-   }
-
-   context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
-
-   KOINOS_ASSERT( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
-
-   auto block_hash = util::converter::to< crypto::multihash >( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) );
-   KOINOS_ASSERT(
-      system_call::process_block_signature(
-         context,
-         util::converter::as< std::string >( block_hash ),
-         block.header(),
-         block.signature()
-      ),
-      invalid_block_signature,
-      "failed to process block signature"
-   );
-
-   system_call::pre_block_callback( context );
-
-   system_call::put_object( context, state::space::metadata(), state::key::head_block, util::converter::as< std::string >( block ) );
-
-   for ( const auto& tx : block.transactions() )
-   {
-      try
-      {
-         system_call::apply_transaction( context, tx );
-      }
-      catch( const transaction_reverted& ) {} /* do nothing */
-      KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
-   }
-
-   system_call::post_block_callback( context );
-
-   KOINOS_ASSERT(
-      system_call::consume_block_resources(
-         context,
-         context.resource_meter().disk_storage_used(),
-         context.resource_meter().network_bandwidth_used(),
-         context.resource_meter().compute_bandwidth_used()
-      ),
-      unable_to_consume_resources,
-      "unable to consume block resources"
-   );
-
-   auto& receipt = std::get< protocol::block_receipt >( context.receipt() );
-
    receipt.set_id( block.id() );
    receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() );
    receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
@@ -353,175 +266,317 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       *receipt.add_logs() = message;
 }
 
-THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
+THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
-   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   transaction_guard guard( context, trx );
-
-   protocol::transaction_receipt receipt;
-
-   const auto& payer = trx.header().payer();
-
-   auto payer_rc = system_call::get_account_rc( context, payer );
-   KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
-
-   auto start_disk_used    = context.resource_meter().disk_storage_used();
-   auto start_network_used = context.resource_meter().network_bandwidth_used();
-   auto start_compute_used = context.resource_meter().compute_bandwidth_used();
-
-   /**
-    * While a reference to the payer_session remains alive, resource usage will be tallied
-    * and charged to the current payer.
-    */
-   auto payer_session = context.make_session( trx.header().rc_limit() );
-
-   auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-   KOINOS_ASSERT( chain_id.exists(), unexpected_state, "chain id does not exist" );
-   KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), chain_id_mismatch, "chain id mismatch" );
-
-   KOINOS_ASSERT(
-      system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
-      transaction_id_mismatch,
-      "transaction contains an invalid transaction id"
-   );
-
-   const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
-   KOINOS_ASSERT(
-      op_root.code() == context.block_hash_code(),
-      hash_code_mismatch,
-      "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
-      ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
-   );
-
-   // Check operation merkle root
-   std::vector< std::string > hashes;
-   hashes.reserve( trx.operations_size() );
-
-   for ( const auto& op : trx.operations() )
-      hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
-
-   KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
-
-   system_call::require_authority( context, transaction_application, payer );
-
-   const auto& payee = trx.header().payee();
-
-   // If the payee is set and not the payer, then the payee account's nonce is used.
-   bool use_payee_nonce = payee.size() && payee != payer;
-   const auto& nonce_account = use_payee_nonce ? payee : payer;
-
-   // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
-   if ( use_payee_nonce )
-   {
-      system_call::require_authority( context, transaction_application, payee );
-   }
-
-   KOINOS_ASSERT(
-      system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
-      invalid_nonce,
-      "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
-      ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
-   );
-
-   system_call::pre_transaction_callback( context );
-
-   // The anonymous node must be created after requiring authority and the pre transaction callback
-   // because those calls might write to database and those writes must persist regardless of whether
-   // the rest of the transaction is reverted or not.
-   auto block_node = context.get_state_node();
-   auto trx_node = block_node->create_anonymous_node();
-   context.set_state_node( trx_node, block_node->get_parent() );
-
-   std::exception_ptr reverted_exception_ptr;
-
-   receipt.set_id( trx.id() );
-   receipt.set_payer( payer );
-   receipt.set_max_payer_rc( payer_rc );
-   receipt.set_rc_limit( trx.header().rc_limit() );
-   receipt.set_reverted( false );
+   context.receipt() = protocol::block_receipt();
 
    try
    {
-      context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
+      KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT( context.intent() == intent::block_application, unexpected_intent, "expected block application intent while applying block" );
 
-      for ( const auto& o : trx.operations() )
+      block_guard guard( context, block );
+
+      context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
+
+      KOINOS_ASSERT(
+         system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
+         block_id_mismatch,
+         "block contains an invalid block id"
+      );
+
+      const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
+      KOINOS_ASSERT(
+         tx_root.code() == context.block_hash_code(),
+         hash_code_mismatch,
+         "unexpected transaction merkle root hash code - was: ${t}, expected: ${e}",
+         ("t", std::underlying_type_t< crypto::multicodec >( tx_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
+      );
+
+      // Check transaction Merkle root
+      std::vector< std::string > hashes;
+      hashes.reserve( block.transactions_size() * 2 );
+
+      std::size_t transactions_bytes_size = 0;
+      for ( const auto& trx : block.transactions() )
       {
-         if ( o.has_upload_contract() )
-            system_call::apply_upload_contract_operation( context, o.upload_contract() );
-         else if ( o.has_call_contract() )
-            system_call::apply_call_contract_operation( context, o.call_contract() );
-         else if ( o.has_set_system_call() )
-            system_call::apply_set_system_call_operation( context, o.set_system_call() );
-         else if ( o.has_set_system_contract() )
-            system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
-         else
-            KOINOS_THROW( unknown_operation, "unknown operation" );
+         transactions_bytes_size += trx.ByteSizeLong();
+         hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) );
+         std::stringstream ss;
+
+         for ( const auto& sig : trx.signatures() )
+         {
+            ss << sig;
+         }
+
+         hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), ss.str() ) );
       }
 
-      trx_node->commit();
+      context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
+
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), transaction_root_mismatch, "transaction merkle root does not match" );
+
+      auto block_hash = util::converter::to< crypto::multihash >( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) );
+      KOINOS_ASSERT(
+         system_call::process_block_signature(
+            context,
+            util::converter::as< std::string >( block_hash ),
+            block.header(),
+            block.signature()
+         ),
+         invalid_block_signature,
+         "failed to process block signature"
+      );
+
+      system_call::pre_block_callback( context );
+
+      system_call::put_object( context, state::space::metadata(), state::key::head_block, util::converter::as< std::string >( block ) );
+
+      for ( const auto& tx : block.transactions() )
+      {
+         try
+         {
+            system_call::apply_transaction( context, tx );
+         }
+         catch( const transaction_reverted& ) {} /* do nothing */
+         KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
+      }
+
+      system_call::post_block_callback( context );
+
+      KOINOS_ASSERT(
+         system_call::consume_block_resources(
+            context,
+            context.resource_meter().disk_storage_used(),
+            context.resource_meter().network_bandwidth_used(),
+            context.resource_meter().compute_bandwidth_used()
+         ),
+         unable_to_consume_resources,
+         "unable to consume block resources"
+      );
+
+      generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
    }
-   catch ( const block_resource_limit_exception& e )
+   catch ( ... )
    {
-      // If the block resources are exceeded, the exception propagates, failing the block
-      throw e;
+      generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
+      throw;
    }
-   catch ( const std::exception& e )
-   {
-      // If the transaction fails for any other reason within the operations, it is reverted.
-      // Mana is still charged, but the block does not fail
-      LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << e.what();
-      transaction_reverted tr( e.what() );
-      reverted_exception_ptr = std::make_exception_ptr( tr );
-      receipt.set_reverted( true );
-   }
+}
 
-   context.set_state_node( block_node );
-
-   system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
-
-   system_call::post_transaction_callback( context );
-
-   auto used_rc = payer_session->used_rc();
-
+void generate_receipt(
+   execution_context& context,
+   protocol::transaction_receipt& receipt,
+   const protocol::transaction& transaction,
+   uint64_t payer_rc,
+   uint64_t used_rc,
+   uint64_t disk_storage_used,
+   uint64_t network_bandwidth_used,
+   uint64_t compute_bandwidth_used,
+   const std::vector< protocol::event_data >& events,
+   const std::vector< std::string >& logs )
+{
+   receipt.set_id( transaction.id() );
+   receipt.set_payer( transaction.header().payer() );
+   receipt.set_max_payer_rc( payer_rc );
+   receipt.set_rc_limit( transaction.header().rc_limit() );
    receipt.set_rc_used( used_rc );
-   receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() - start_disk_used );
-   receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() - start_network_used );
-   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() - start_compute_used );
+   receipt.set_disk_storage_used( disk_storage_used );
+   receipt.set_network_bandwidth_used( network_bandwidth_used );
+   receipt.set_compute_bandwidth_used( compute_bandwidth_used );
 
-   for ( const auto& e : payer_session->events() )
+   for ( const auto& e : events )
       *receipt.add_events() = e;
 
-   for ( const auto& message : payer_session->logs() )
+   for ( const auto& message : logs )
       *receipt.add_logs() = message;
+}
 
-   payer_session.reset();
+THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
+{
+   protocol::transaction_receipt receipt;
+   std::unique_ptr< transaction_reverted > reverted_exception_ptr;
+   uint64_t used_rc = 0;
+   uint64_t disk_storage_used = 0;
+   uint64_t compute_bandwidth_used = 0;
+   uint64_t network_bandwidth_used = 0;
+   uint64_t payer_rc = 0;
+   std::vector< protocol::event_data > events;
+   std::vector< std::string > logs;
 
-   KOINOS_ASSERT(
-      system_call::consume_account_rc( context, payer, used_rc ),
-      unable_to_consume_resources,
-      "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
-   );
-
-   switch ( context.intent() )
+   try
    {
-   case intent::block_application:
-      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ), unexpected_receipt, "expected block receipt with block application intent" );
-      *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
-      break;
-   case intent::transaction_application:
-      context.receipt() = receipt;
-      break;
-   default:
-      KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
-      break;
+      KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
+
+      transaction_guard guard( context, trx );
+
+      const auto& payer = trx.header().payer();
+
+      payer_rc = system_call::get_account_rc( context, payer );
+      KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), insufficient_rc, "payer does not have the rc to cover transaction rc limit" );
+
+      auto start_disk_used    = context.resource_meter().disk_storage_used();
+      auto start_network_used = context.resource_meter().network_bandwidth_used();
+      auto start_compute_used = context.resource_meter().compute_bandwidth_used();
+
+      /**
+       * While a reference to the payer_session remains alive, resource usage will be tallied
+       * and charged to the current payer.
+       */
+      auto payer_session = context.make_session( trx.header().rc_limit() );
+
+      auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
+      KOINOS_ASSERT( chain_id.exists(), unexpected_state, "chain id does not exist" );
+      KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), chain_id_mismatch, "chain id mismatch" );
+
+      KOINOS_ASSERT(
+         system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
+         transaction_id_mismatch,
+         "transaction contains an invalid transaction id"
+      );
+
+      const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
+      KOINOS_ASSERT(
+         op_root.code() == context.block_hash_code(),
+         hash_code_mismatch,
+         "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
+         ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
+      );
+
+      // Check operation merkle root
+      std::vector< std::string > hashes;
+      hashes.reserve( trx.operations_size() );
+
+      for ( const auto& op : trx.operations() )
+         hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
+
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
+
+      system_call::require_authority( context, transaction_application, payer );
+
+      const auto& payee = trx.header().payee();
+
+      // If the payee is set and not the payer, then the payee account's nonce is used.
+      bool use_payee_nonce = payee.size() && payee != payer;
+      const auto& nonce_account = use_payee_nonce ? payee : payer;
+
+      // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
+      if ( use_payee_nonce )
+      {
+         system_call::require_authority( context, transaction_application, payee );
+      }
+
+      KOINOS_ASSERT(
+         system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
+         invalid_nonce,
+         "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
+         ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
+      );
+
+      system_call::pre_transaction_callback( context );
+
+      // The anonymous node must be created after requiring authority and the pre transaction callback
+      // because those calls might write to database and those writes must persist regardless of whether
+      // the rest of the transaction is reverted or not.
+      auto block_node = context.get_state_node();
+      auto trx_node = block_node->create_anonymous_node();
+      context.set_state_node( trx_node, block_node->get_parent() );
+
+      try
+      {
+         context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
+
+         for ( const auto& o : trx.operations() )
+         {
+            if ( o.has_upload_contract() )
+               system_call::apply_upload_contract_operation( context, o.upload_contract() );
+            else if ( o.has_call_contract() )
+               system_call::apply_call_contract_operation( context, o.call_contract() );
+            else if ( o.has_set_system_call() )
+               system_call::apply_set_system_call_operation( context, o.set_system_call() );
+            else if ( o.has_set_system_contract() )
+               system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
+            else
+               KOINOS_THROW( unknown_operation, "unknown operation" );
+         }
+
+         trx_node->commit();
+      }
+      catch ( const block_resource_limit_exception& e )
+      {
+         // If the block resources are exceeded, the exception propagates, failing the block
+         throw e;
+      }
+      catch ( const std::exception& e )
+      {
+         // If the transaction fails for any other reason within the operations, it is reverted.
+         // Mana is still charged, but the block does not fail
+         LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << e.what();
+         reverted_exception_ptr = std::make_unique< transaction_reverted >( e.what() );
+         receipt.set_reverted( true );
+      }
+
+      context.set_state_node( block_node );
+
+      system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
+
+      system_call::post_transaction_callback( context );
+
+      used_rc = payer_session->used_rc();
+      events = payer_session->events();
+      logs = payer_session->logs();
+      disk_storage_used = context.resource_meter().disk_storage_used() - start_disk_used;
+      network_bandwidth_used = context.resource_meter().network_bandwidth_used() - start_network_used;
+      compute_bandwidth_used = context.resource_meter().compute_bandwidth_used() - start_compute_used;
+
+      payer_session.reset();
+
+      KOINOS_ASSERT(
+         system_call::consume_account_rc( context, payer, used_rc ),
+         unable_to_consume_resources,
+         "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
+      );
+
+      generate_receipt( context, receipt, trx, payer_rc, used_rc, disk_storage_used, network_bandwidth_used, compute_bandwidth_used, events, logs );
+
+      switch ( context.intent() )
+      {
+      case intent::block_application:
+         KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ), unexpected_receipt, "expected block receipt with block application intent" );
+         *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
+         break;
+      case intent::transaction_application:
+         context.receipt() = receipt;
+         break;
+      default:
+         KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
+         break;
+      }
+   }
+   catch ( ... )
+   {
+      generate_receipt( context, receipt, trx, payer_rc, used_rc, disk_storage_used, network_bandwidth_used, compute_bandwidth_used, events, logs );
+
+      switch ( context.intent() )
+      {
+      case intent::block_application:
+         KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ), unexpected_receipt, "expected block receipt with block application intent" );
+         *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
+         break;
+      case intent::transaction_application:
+         context.receipt() = receipt;
+         break;
+      default:
+         KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
+         break;
+      }
+
+      throw;
    }
 
    if ( reverted_exception_ptr )
-   {
-      std::rethrow_exception( reverted_exception_ptr );
-   }
+      throw *reverted_exception_ptr;
 }
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
