@@ -47,6 +47,37 @@ using fork_data    = std::pair< std::vector< block_topology >, block_topology >;
 
 namespace detail {
 
+std::string format_time( int64_t time )
+{
+   std::stringstream ss;
+
+   auto seconds = time % 60;
+   time /= 60;
+   auto minutes = time % 60;
+   time /= 60;
+   auto hours = time % 24;
+   time /= 24;
+   auto days = time % 365;
+   auto years = time / 365;
+
+   if ( years )
+   {
+      ss << years << "y, " << days << "d, ";
+   }
+   else if ( days )
+   {
+      ss << days << "d, ";
+   }
+
+   ss << std::setw(2) << std::setfill('0') << hours;
+   ss << std::setw(1) << "h, ";
+   ss << std::setw(2) << std::setfill('0') << minutes;
+   ss << std::setw(1) << "m, ";
+   ss << std::setw(2) << std::setfill('0') << seconds;
+   ss << std::setw(1) << "s";
+   return ss.str();
+}
+
 class controller_impl final
 {
    public:
@@ -201,6 +232,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    static constexpr uint64_t index_message_interval = 1000;
    static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
+   static constexpr std::chrono::seconds live_delta = std::chrono::seconds( 60 );
 
    auto time_lower_bound  = uint64_t( 0 );
    auto time_upper_bound  = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
@@ -208,7 +240,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    state_db::state_node_ptr block_node;
 
-   auto block        = request.block();
+   const auto& block = request.block();
    auto block_id     = util::converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
    auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
@@ -217,7 +249,9 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    if ( block_node ) return {}; // Block has been applied
 
-   if ( !index_to )
+   bool live = block.header().timestamp() > std::chrono::duration_cast< std::chrono::milliseconds >( ( now - live_delta ).time_since_epoch() ).count();
+
+   if ( !index_to && live )
    {
       LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
@@ -299,7 +333,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
       uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
-      if ( !index_to )
+      if ( !index_to && live )
       {
          auto num_transactions = block.transactions_size();
 
@@ -308,8 +342,16 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       }
       else if ( block_height % index_message_interval == 0 )
       {
-         auto progress = block_height / static_cast< double >( index_to ) * 100;
-         LOG(info) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
+         if ( index_to )
+         {
+            auto progress = block_height / static_cast< double >( index_to ) * 100;
+            LOG(info) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
+         }
+         else
+         {
+            auto to_go = std::chrono::duration_cast< std::chrono::seconds >( now.time_since_epoch() - std::chrono::milliseconds( block.header().timestamp() ) ).count();
+            LOG(info) << "Sync progress - Height: " << block_height << ", ID: " << block_id << " (" << format_time( to_go ) << " block time remaining)";
+         }
       }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
@@ -326,9 +368,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
 
-      if ( _client )
+      if ( _client && !index_to )
       {
-
          broadcast::block_irreversible bc;
          bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
@@ -337,11 +378,12 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          broadcast::block_accepted ba;
          *ba.mutable_block() = block;
          *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
+         ba.set_live( live );
 
          _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
 
          broadcast::fork_heads fh;
-         fh.mutable_last_irreversible_block()->CopyFrom( last_irreversible_block );
+         fh.set_allocated_last_irreversible_block( bc.release_topology() );
 
          for ( const auto& fork_head : fork_heads )
          {
