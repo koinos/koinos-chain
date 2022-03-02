@@ -2,6 +2,7 @@
 
 #include <list>
 #include <map>
+#include <mutex>
 #include <string>
 
 namespace koinos::vm_manager::fizzy {
@@ -22,6 +23,7 @@ class module_cache
 
       lru_list_type     _lru_list;
       module_map_type   _module_map;
+      std::mutex        _mutex;
       const std::size_t _cache_size;
 
    public:

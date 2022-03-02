@@ -7,6 +7,8 @@ module_cache::module_cache( std::size_t size ) : _cache_size( size ) {}
 
 module_cache::~module_cache()
 {
+   std::lock_guard< std::mutex > lock( _mutex );
+
    for ( const auto& [hash, module_entry] : _module_map )
    {
       fizzy_free_module( module_entry.first );
@@ -15,6 +17,8 @@ module_cache::~module_cache()
 
 const FizzyModule* module_cache::get_module( const std::string& id )
 {
+   std::lock_guard< std::mutex > lock( _mutex );
+
    auto itr = _module_map.find( id );
    if ( itr == _module_map.end() )
       return nullptr;
@@ -33,6 +37,8 @@ const FizzyModule* module_cache::get_module( const std::string& id )
 
 void module_cache::put_module( const std::string& id, const FizzyModule* module )
 {
+   std::lock_guard< std::mutex > lock( _mutex );
+
    // If the cache is full, remove the last entry from the map and pop back
    if ( _lru_list.size() >= _cache_size )
    {
