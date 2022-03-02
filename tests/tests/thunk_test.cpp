@@ -1536,8 +1536,15 @@ int main()
          uint64_t network_bandwidth_start = ctx.resource_meter().network_bandwidth_used();
          uint64_t disk_storage_start      = ctx.resource_meter().disk_storage_used();
 
+         chain::host_api hapi( ctx );
+         auto hash = util::converter::as< std::string >( crypto::multihash::empty( crypto::multicodec::sha2_256 ) );
+
          auto start = std::chrono::high_resolution_clock::now();
-         chain::system_call::call_contract( ctx, op.contract_id(), 0x00, std::string() );
+         try
+         {
+            ctx.get_backend()->run( hapi, contract_bytecode, hash );
+         }
+         catch ( chain::exit_success& ) {}
          auto stop = std::chrono::high_resolution_clock::now();
 
          uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
