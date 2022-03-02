@@ -456,7 +456,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
+   std::lock_guard< std::shared_mutex > lock( _db_mutex );
 
    validate_transaction( request.transaction() );
 
