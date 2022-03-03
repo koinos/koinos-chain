@@ -5,7 +5,6 @@ add_library(koinos_chain_lib
             execution_context.cpp
             host_api.cpp
             indexer.cpp
-            pending_state.cpp
             proto_utils.cpp
             session.cpp
             system_calls.cpp
