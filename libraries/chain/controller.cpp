@@ -5,7 +5,6 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
-#include <koinos/chain/pending_state.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -108,7 +107,6 @@ class controller_impl final
       std::shared_mutex                         _db_mutex;
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
-      pending_state                             _pending_state;
       uint64_t                                  _read_compute_bandwidth_limit;
       protocol::block                           _cached_head_block;
 
@@ -126,8 +124,6 @@ controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _rea
 
    _vm_backend->initialize();
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " VM backend";
-
-   _pending_state.set_backend( _vm_backend );
 }
 
 controller_impl::~controller_impl()
@@ -178,21 +174,18 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
    }
 
    auto head = _db.get_head();
-   _pending_state.rebuild( head, _cached_head_block );
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
 void controller_impl::close()
 {
    std::lock_guard< std::shared_mutex > lock( _db_mutex );
-   _pending_state.close();
    _db.close();
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
 {
    _client = c;
-   _pending_state.set_client( c );
 }
 
 void controller_impl::validate_block( const protocol::block& b )
@@ -410,7 +403,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       if ( block_node == _db.get_head() )
       {
          _cached_head_block = block;
-         _pending_state.rebuild( block_node, _cached_head_block );
       }
    }
    catch ( koinos::exception& e )
@@ -456,7 +448,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   std::lock_guard< std::shared_mutex > lock( _db_mutex );
+   std::shared_lock< std::shared_mutex > lock( _db_mutex );
 
    validate_transaction( request.transaction() );
 
@@ -471,7 +463,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
-   auto pending_trx_node = _pending_state.get_state_node();
+   auto pending_trx_node = _db.get_head()->create_anonymous_node();
    KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
 
    execution_context ctx( _vm_backend, intent::transaction_application );

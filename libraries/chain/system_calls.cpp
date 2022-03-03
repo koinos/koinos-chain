@@ -330,7 +330,9 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
       system_call::pre_block_callback( context );
 
-      system_call::put_object( context, state::space::metadata(), state::key::head_block, util::converter::as< std::string >( block ) );
+      // We directly call put_object on the state node so that we do not charge disk_storage for the storage of the new head block
+      const auto serialized_block = util::converter::as< std::string >( block );
+      context.get_state_node()->put_object( state::space::metadata(), state::key::head_block, &serialized_block );
 
       for ( const auto& tx : block.transactions() )
       {
@@ -1030,7 +1032,7 @@ THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::st
    );
 
    verify_account_nonce_result res;
-   res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
+   res.set_value( nonce_value.uint64_value() > current_nonce_value.uint64_value() );
    return res;
 }
 

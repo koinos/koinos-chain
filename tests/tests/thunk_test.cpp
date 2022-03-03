@@ -956,11 +956,11 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   chain::system_call::apply_transaction( ctx, transaction );
 
-   auto old_nonce = nonce;
    nonce = chain::system_call::get_account_nonce( ctx, payer );
-   BOOST_REQUIRE_EQUAL( nonce, old_nonce );
+   BOOST_REQUIRE( nonce_value.ParseFromString( nonce ) );
+   BOOST_REQUIRE_EQUAL( nonce_value.uint64_value(), uint64_t( 10 ) );
 
    BOOST_TEST_MESSAGE( "Test old nonce" );
    nonce_value.set_uint64_value( 5 );
