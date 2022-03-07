@@ -1038,6 +1038,8 @@ THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::st
 
 THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
 {
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+
    auto nonce_value = util::converter::to< value_type >( nonce );
    KOINOS_ASSERT(
       nonce_value.has_uint64_value(),
