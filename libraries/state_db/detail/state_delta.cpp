@@ -161,6 +161,16 @@ void state_delta::set_revision( uint64_t revision )
    }
 }
 
+bool state_delta::is_writable() const
+{
+   return _writable;
+}
+
+void state_delta::set_writable( bool writable )
+{
+   _writable = writable;
+}
+
 crypto::multihash state_delta::get_merkle_root() const
 {
    if ( !_merkle_root )

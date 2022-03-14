@@ -6,6 +6,8 @@
 #include <koinos/state_db/detail/state_delta.hpp>
 #include <koinos/util/conversion.hpp>
 
+#include <koinos/log.hpp>
+
 #include <cstring>
 #include <deque>
 #include <optional>
@@ -42,25 +44,25 @@ struct by_id;
 struct by_revision;
 struct by_parent;
 
+using state_delta_ptr = std::shared_ptr< state_delta >;
+
 using state_multi_index_type = boost::multi_index_container<
-   state_node_ptr,
+   state_delta_ptr,
    boost::multi_index::indexed_by<
       boost::multi_index::ordered_unique<
          boost::multi_index::tag< by_id >,
-            boost::multi_index::const_mem_fun< state_node, const state_node_id&, &state_node::id >
+            boost::multi_index::const_mem_fun< state_delta, const state_node_id&, &state_delta::id >
       >,
       boost::multi_index::ordered_non_unique<
          boost::multi_index::tag< by_parent >,
-            boost::multi_index::const_mem_fun< state_node, const state_node_id&, &state_node::parent_id >
+            boost::multi_index::const_mem_fun< state_delta, const state_node_id&, &state_delta::parent_id >
       >,
       boost::multi_index::ordered_non_unique<
          boost::multi_index::tag< by_revision >,
-            boost::multi_index::const_mem_fun< state_node, uint64_t, &state_node::revision >
+            boost::multi_index::const_mem_fun< state_delta, uint64_t, &state_delta::revision >
       >
    >
 >;
-
-using state_delta_ptr = std::shared_ptr< state_delta >;
 
 const object_key null_key = object_key();
 
@@ -118,13 +120,13 @@ class database_impl final
 
       bool is_open() const;
 
-      std::filesystem::path                     _path;
-      std::function< void( state_node_ptr ) >   _init_func = nullptr;
+      std::filesystem::path                      _path;
+      std::function< void( state_node_ptr ) >    _init_func = nullptr;
 
-      state_multi_index_type                    _index;
-      state_node_ptr                            _head;
-      std::map< state_node_id, state_node_ptr > _fork_heads;
-      state_node_ptr                            _root;
+      state_multi_index_type                     _index;
+      state_delta_ptr                            _head;
+      std::map< state_node_id, state_delta_ptr > _fork_heads;
+      state_delta_ptr                            _root;
 };
 
 void database_impl::reset()
@@ -137,7 +139,7 @@ void database_impl::reset()
 
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    // Wipe and start over from empty database!
-   _root->impl->_state->clear();
+   _root->clear();
    close();
    open( _path, _init_func );
 }
@@ -153,12 +155,16 @@ void database_impl::open( const std::filesystem::path& p, std::function< void( s
       init( root );
    }
    root->impl->_is_writable = false;
-   _index.insert( root );
-   _root = root;
-   _head = root;
+   auto [itr, success] = _index.insert( root->impl->_state );
+   LOG(info) << success;
+
+   _root = root->impl->_state;
+   _head = root->impl->_state;
    _fork_heads.insert_or_assign( _head->id(), _head );
 
    _path = p;
+
+   LOG(info) << (_index.find( root->id() ) != _index.end());
 }
 
 void database_impl::close()
@@ -176,10 +182,12 @@ state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const sta
       "cannot ask for node with revision less than root. root rev: ${root}, requested: ${req}",
       ("root", _root->revision())("req", revision) );
 
-   if( revision == _root->revision() ) return _root;
+   if( revision == _root->revision() )
+      return get_root();
 
    auto child = get_node( child_id );
-   if( !child ) child = _head;
+   if( !child )
+      child = get_head();
 
    state_delta_ptr delta = child->impl->_state;
 
@@ -193,7 +201,9 @@ state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const sta
    KOINOS_ASSERT( node_itr != _index.end(), internal_error,
       "could not find state node associated with linked state_delta ${id}", ("id", delta->id() ) );
 
-   return *node_itr;
+   auto node = std::make_shared< state_node >();
+   node->impl->_state = *node_itr;
+   return node;
 }
 
 state_node_ptr database_impl::get_node( const state_node_id& node_id ) const
@@ -201,7 +211,14 @@ state_node_ptr database_impl::get_node( const state_node_id& node_id ) const
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
 
    auto node_itr = _index.find( node_id );
-   return node_itr != _index.end() ? *node_itr : state_node_ptr();
+
+   if ( node_itr != _index.end() )
+   {
+      auto node = std::make_shared< state_node >();
+      node->impl->_state = *node_itr;
+   }
+
+   return state_node_ptr();
 }
 
 state_node_ptr database_impl::create_writable_node( const state_node_id& parent_id, const state_node_id& new_id )
@@ -212,9 +229,8 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
    if( parent_state != _index.end() && !(*parent_state)->is_writable() )
    {
       auto node = std::make_shared< state_node >();
-      node->impl->_state = std::make_shared< state_delta >( (*parent_state)->impl->_state, new_id );
-      node->impl->_is_writable = true;
-      if( _index.insert( node ).second )
+      node->impl->_state = std::make_shared< state_delta >( *parent_state, new_id );
+      if( _index.insert( node->impl->_state ).second )
          return node;
    }
 
@@ -227,11 +243,11 @@ void database_impl::finalize_node( const state_node_id& node_id )
    auto node = get_node( node_id );
    KOINOS_ASSERT( node, illegal_argument, "node ${n} not found.", ("n", node_id) );
 
-   node->impl->_is_writable = false;
+   node->impl->_state->set_writable( false );
 
    if( node->revision() > _head->revision() )
    {
-      _head = node;
+      _head = node->impl->_state;
    }
 
    // When node is finalized, parent node needs to be removed from heads, if it exists.
@@ -240,7 +256,7 @@ void database_impl::finalize_node( const state_node_id& node_id )
    {
       _fork_heads.erase( parent_itr );
    }
-   _fork_heads.insert_or_assign( node->id(), node );
+   _fork_heads.insert_or_assign( node->id(), node->impl->_state );
 }
 
 void database_impl::discard_node( const state_node_id& node_id, const std::unordered_set< state_node_id >& whitelist )
@@ -308,15 +324,17 @@ void database_impl::commit_node( const state_node_id& node_id )
    std::unordered_set< state_node_id > whitelist{ node->id() };
 
    auto old_root = _root;
-   _root = node;
-   _index.modify( _index.find( node->id() ), []( state_node_ptr& n ){ n->impl->_state->commit(); } );
+   _root = node->impl->_state;
+   _index.modify( _index.find( node->id() ), []( state_delta_ptr& n ){ n->commit(); } );
    discard_node( old_root->id(), whitelist );
 }
 
 state_node_ptr database_impl::get_head() const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
-   return _head;
+   auto head = std::make_shared< state_node >();
+   head->impl->_state = _head;
+   return head;
 }
 
 std::vector< state_node_ptr > database_impl::get_fork_heads() const
@@ -325,9 +343,11 @@ std::vector< state_node_ptr > database_impl::get_fork_heads() const
    std::vector< state_node_ptr > fork_heads;
    fork_heads.reserve( _fork_heads.size() );
 
-   for( auto& heads : _fork_heads )
+   for( auto& head : _fork_heads )
    {
-      fork_heads.push_back( heads.second );
+      auto fork_head = std::make_shared< state_node >();
+      fork_head->impl->_state = head.second;
+      fork_heads.push_back( fork_head );
    }
 
    return fork_heads;
@@ -336,7 +356,9 @@ std::vector< state_node_ptr > database_impl::get_fork_heads() const
 state_node_ptr database_impl::get_root() const
 {
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
-   return _root;
+   auto root = std::make_shared< state_node >();
+   root->impl->_state = _root;
+   return root;
 }
 
 bool database_impl::is_open() const

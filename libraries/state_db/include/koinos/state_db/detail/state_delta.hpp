@@ -30,6 +30,8 @@ namespace koinos::state_db::detail {
          uint64_t                                   _revision = 0;
          mutable std::optional< crypto::multihash > _merkle_root;
 
+         bool                                       _writable = true;
+
       public:
          state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id = state_node_id() );
          state_delta( const std::filesystem::path& p );
@@ -51,6 +53,9 @@ namespace koinos::state_db::detail {
 
          uint64_t revision() const;
          void set_revision( uint64_t revision );
+
+         bool is_writable() const;
+         void set_writable( bool );
 
          crypto::multihash get_merkle_root() const;
 

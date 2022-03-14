@@ -72,6 +72,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+   BOOST_REQUIRE( state_1 );
    BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
 
    // Object should not exist on older state node
