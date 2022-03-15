@@ -86,7 +86,6 @@ class state_node_impl final
       crypto::multihash get_merkle_root() const;
 
       state_delta_ptr   _state;
-      bool              _is_writable = true;
 };
 
 /**
@@ -154,17 +153,14 @@ void database_impl::open( const std::filesystem::path& p, std::function< void( s
    {
       init( root );
    }
-   root->impl->_is_writable = false;
-   auto [itr, success] = _index.insert( root->impl->_state );
-   LOG(info) << success;
+   root->impl->_state->set_writable( false );
+   _index.insert( root->impl->_state );
 
    _root = root->impl->_state;
    _head = root->impl->_state;
    _fork_heads.insert_or_assign( _head->id(), _head );
 
    _path = p;
-
-   LOG(info) << (_index.find( root->id() ) != _index.end());
 }
 
 void database_impl::close()
@@ -216,6 +212,7 @@ state_node_ptr database_impl::get_node( const state_node_id& node_id ) const
    {
       auto node = std::make_shared< state_node >();
       node->impl->_state = *node_itr;
+      return node;
    }
 
    return state_node_ptr();
@@ -229,7 +226,7 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
    if( parent_state != _index.end() && !(*parent_state)->is_writable() )
    {
       auto node = std::make_shared< state_node >();
-      node->impl->_state = std::make_shared< state_delta >( *parent_state, new_id );
+      node->impl->_state = (*parent_state)->make_child( new_id );
       if( _index.insert( node->impl->_state ).second )
          return node;
    }
@@ -437,7 +434,7 @@ std::pair< const object_value*, const object_key > state_node_impl::get_prev_obj
 
 int32_t state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
-   KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
+   KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
 
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -461,7 +458,7 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
 
 void state_node_impl::remove_object( const object_space& space, const object_key& key )
 {
-   KOINOS_ASSERT( _is_writable, node_finalized, "cannot write to a finalized node" );
+   KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
 
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -507,7 +504,7 @@ void abstract_state_node::remove_object( const object_space& space, const object
 
 bool abstract_state_node::is_writable() const
 {
-   return impl->_is_writable;
+   return impl->_state->is_writable();
 }
 
 crypto::multihash abstract_state_node::get_merkle_root() const
@@ -520,7 +517,7 @@ anonymous_state_node_ptr abstract_state_node::create_anonymous_node()
 {
    auto anonymous_node = std::make_shared< anonymous_state_node >();
    anonymous_node->parent = shared_from_derived();
-   anonymous_node->impl->_state = std::make_shared< detail::state_delta >( impl->_state );
+   anonymous_node->impl->_state = impl->_state->make_child();
    return anonymous_node;
 }
 
@@ -548,7 +545,6 @@ abstract_state_node_ptr state_node::get_parent() const
    if ( parent_delta )
    {
       auto parent_node = std::make_shared< state_node >();
-      parent_node->impl->_is_writable = false;
       parent_node->impl->_state = parent_delta;
       return parent_node;
    }
@@ -593,7 +589,7 @@ void anonymous_state_node::commit()
 
 void anonymous_state_node::reset()
 {
-   impl->_state = std::make_shared< detail::state_delta >( impl->_state );
+   impl->_state = impl->_state->make_child();
 }
 
 abstract_state_node_ptr anonymous_state_node::shared_from_derived()
