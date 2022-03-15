@@ -719,7 +719,7 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 {
    state::assert_permissions( context, space );
 
-   abstract_state_node_ptr state = context.get_state_node();
+   state_node_ptr state = context.get_state_node();
 
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
@@ -741,7 +741,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
 {
    state::assert_permissions( context, space );
 
-   abstract_state_node_ptr state = context.get_state_node();
+   state_node_ptr state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    const auto [result, next_key] = state->get_next_object( space, key );
@@ -763,7 +763,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 {
    state::assert_permissions( context, space );
 
-   abstract_state_node_ptr state = context.get_state_node();
+   state_node_ptr state = context.get_state_node();
    KOINOS_ASSERT( state, state_node_not_found, "current state node does not exist" );
 
    const auto [result, next_key] = state->get_prev_object( space, key );

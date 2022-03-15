@@ -112,10 +112,15 @@ void state_delta::commit()
    _parent.reset();
 }
 
-void state_delta::clear()
+void state_delta::reset()
 {
    _backend->clear();
    _removed_objects.clear();
+}
+
+void state_delta::clear()
+{
+   reset();
 
    _revision = 0;
    _id = crypto::multihash::zero( crypto::multicodec::sha2_256 );
@@ -197,6 +202,17 @@ crypto::multihash state_delta::get_merkle_root() const
    return *_merkle_root;
 }
 
+std::shared_ptr< state_delta > state_delta::make_anonymous_child()
+{
+   auto child = std::make_shared< state_delta >();
+   child->_parent = shared_from_this();
+   child->_id = _id;
+   child->_revision = _revision;
+   child->_backend = std::make_shared< backends::map::map_backend >();
+
+   return child;
+}
+
 std::shared_ptr< state_delta > state_delta::make_child( const state_node_id& id )
 {
    auto child = std::make_shared< state_delta >();
@@ -221,7 +237,12 @@ const state_node_id& state_delta::id() const
 const state_node_id& state_delta::parent_id() const
 {
    static const state_node_id null_id;
-   return _parent ? _parent->_id : null_id;
+   if ( !_parent )
+      return null_id;
+   else if ( _parent->_id == _id )
+      return _parent->parent_id();
+
+   return _parent->id();
 }
 
 std::shared_ptr< state_delta > state_delta::parent() const

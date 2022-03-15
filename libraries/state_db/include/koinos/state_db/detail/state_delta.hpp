@@ -13,6 +13,10 @@
 
 namespace koinos::state_db::detail {
 
+   class state_delta;
+
+   using state_delta_ptr = std::shared_ptr< state_delta >;
+
    class state_delta : public std::enable_shared_from_this< state_delta >
    {
       public:
@@ -21,7 +25,7 @@ namespace koinos::state_db::detail {
          using value_type    = backend_type::value_type;
 
       private:
-         std::shared_ptr< state_delta >             _parent;
+         state_delta_ptr                            _parent;
 
          std::shared_ptr< backend_type >            _backend;
          std::unordered_set< key_type >             _removed_objects;
@@ -43,6 +47,7 @@ namespace koinos::state_db::detail {
 
          void squash();
          void commit();
+         void reset();
 
          void clear();
 
@@ -61,16 +66,17 @@ namespace koinos::state_db::detail {
 
          const state_node_id& id() const;
          const state_node_id& parent_id() const;
-         std::shared_ptr< state_delta > parent() const;
+         state_delta_ptr parent() const;
 
-         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id() );
+         state_delta_ptr make_anonymous_child();
+         state_delta_ptr make_child( const state_node_id& id );
 
          const std::shared_ptr< backend_type > backend() const;
 
       private:
          void commit_helper();
 
-         std::shared_ptr< state_delta > get_root();
+         state_delta_ptr get_root();
    };
 
 } // koinos::state_db::detail
