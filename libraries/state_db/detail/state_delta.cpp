@@ -7,19 +7,6 @@ namespace koinos::state_db::detail {
 using backend_type = state_delta::backend_type;
 using value_type   = state_delta::value_type;
 
-/*
-state_delta::state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id ) :
-   _parent( parent ), _id( id )
-{
-   if ( _parent != nullptr )
-   {
-      _revision = _parent->_revision + 1;
-   }
-
-   _backend = std::make_shared< backends::map::map_backend >();
-}
-*/
-
 state_delta::state_delta( const std::filesystem::path& p )
 {
    auto backend = std::make_shared< backends::rocksdb::rocksdb_backend >();

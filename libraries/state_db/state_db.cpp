@@ -6,8 +6,6 @@
 #include <koinos/state_db/detail/state_delta.hpp>
 #include <koinos/util/conversion.hpp>
 
-#include <koinos/log.hpp>
-
 #include <cstring>
 #include <deque>
 #include <optional>
@@ -155,7 +153,6 @@ void database_impl::open( const std::filesystem::path& p, std::function< void( s
    }
    root->impl->_state->set_writable( false );
    _index.insert( root->impl->_state );
-
    _root = root->impl->_state;
    _head = root->impl->_state;
    _fork_heads.insert_or_assign( _head->id(), _head );

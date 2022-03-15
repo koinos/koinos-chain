@@ -33,7 +33,6 @@ namespace koinos::state_db::detail {
          bool                                       _writable = true;
 
       public:
-         //state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id = state_node_id() );
          state_delta() = default;
          state_delta( const std::filesystem::path& p );
          ~state_delta() = default;
