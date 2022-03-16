@@ -72,6 +72,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
 
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+   BOOST_REQUIRE( state_1 );
    BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
 
    // Object should not exist on older state node
@@ -99,6 +100,7 @@ BOOST_AUTO_TEST_CASE( basic_test )
    BOOST_REQUIRE_THROW( state_1->put_object( space, a_key, &a_val ), node_finalized );
 
    state_2 = db.create_writable_node( state_1->id(), state_id );
+   BOOST_REQUIRE( state_2 );
    a_val = "alex";
    BOOST_CHECK_EQUAL( state_2->put_object( space, a_key, &a_val ), -2 );
 
@@ -324,7 +326,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // alice: 4
    // bob: 5
    // charlie: 3 (not changed)
-   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.emplace_back( delta_queue.back()->make_child( delta_queue.back()->id() ) );
    delta_queue.back()->put( "alice", "4" );
    delta_queue.back()->put( "bob", "5" );
 
@@ -360,7 +362,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // alice: 4 (not changed)
    // bob: 6
    // charlie: 3 (not changed)
-   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.emplace_back( delta_queue.back()->make_child( delta_queue.back()->id() ) );
    delta_queue.back()->put( "bob", "6" );
 
    {
@@ -395,7 +397,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // alice: (removed)
    // bob: 6 (not changed)
    // charlie: 3 (not changed)
-   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.emplace_back( delta_queue.back()->make_child( delta_queue.back()->id() ) );
    delta_queue.back()->erase( "alice" );
 
    {
@@ -424,7 +426,7 @@ BOOST_AUTO_TEST_CASE( merge_iterator )
    // alice: 4 (restored)
    // bob: 6 (not changed)
    // charlie: 3 (not changed)
-   delta_queue.emplace_back( std::make_shared< state_delta >( delta_queue.back(), delta_queue.back()->id() ) );
+   delta_queue.emplace_back( delta_queue.back()->make_child( delta_queue.back()->id() ) );
    delta_queue.back()->put( "alice", "4" );
 
    {

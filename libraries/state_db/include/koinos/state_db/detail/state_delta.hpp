@@ -13,7 +13,7 @@
 
 namespace koinos::state_db::detail {
 
-   class state_delta
+   class state_delta : public std::enable_shared_from_this< state_delta >
    {
       public:
          using backend_type  = backends::abstract_backend;
@@ -30,10 +30,12 @@ namespace koinos::state_db::detail {
          uint64_t                                   _revision = 0;
          mutable std::optional< crypto::multihash > _merkle_root;
 
+         bool                                       _writable = true;
+
       public:
-         state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id = state_node_id() );
+         state_delta() = default;
          state_delta( const std::filesystem::path& p );
-         ~state_delta() {};
+         ~state_delta() = default;
 
          void put( const key_type& k, const value_type& v );
          void erase( const key_type& k );
@@ -52,11 +54,16 @@ namespace koinos::state_db::detail {
          uint64_t revision() const;
          void set_revision( uint64_t revision );
 
+         bool is_writable() const;
+         void set_writable( bool );
+
          crypto::multihash get_merkle_root() const;
 
          const state_node_id& id() const;
          const state_node_id& parent_id() const;
          std::shared_ptr< state_delta > parent() const;
+
+         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id() );
 
          const std::shared_ptr< backend_type > backend() const;
 

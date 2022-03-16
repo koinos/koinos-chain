@@ -7,17 +7,6 @@ namespace koinos::state_db::detail {
 using backend_type = state_delta::backend_type;
 using value_type   = state_delta::value_type;
 
-state_delta::state_delta( std::shared_ptr< state_delta > parent, const state_node_id& id ) :
-   _parent( parent ), _id( id )
-{
-   if ( _parent != nullptr )
-   {
-      _revision = _parent->_revision + 1;
-   }
-
-   _backend = std::make_shared< backends::map::map_backend >();
-}
-
 state_delta::state_delta( const std::filesystem::path& p )
 {
    auto backend = std::make_shared< backends::rocksdb::rocksdb_backend >();
@@ -161,6 +150,16 @@ void state_delta::set_revision( uint64_t revision )
    }
 }
 
+bool state_delta::is_writable() const
+{
+   return _writable;
+}
+
+void state_delta::set_writable( bool writable )
+{
+   _writable = writable;
+}
+
 crypto::multihash state_delta::get_merkle_root() const
 {
    if ( !_merkle_root )
@@ -196,6 +195,17 @@ crypto::multihash state_delta::get_merkle_root() const
    }
 
    return *_merkle_root;
+}
+
+std::shared_ptr< state_delta > state_delta::make_child( const state_node_id& id )
+{
+   auto child = std::make_shared< state_delta >();
+   child->_parent = shared_from_this();
+   child->_id = id;
+   child->_revision = _revision + 1;
+   child->_backend = std::make_shared< backends::map::map_backend >();
+
+   return child;
 }
 
 const std::shared_ptr< backend_type > state_delta::backend() const
