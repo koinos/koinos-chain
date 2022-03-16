@@ -65,28 +65,6 @@ using state_multi_index_type = boost::multi_index_container<
 const object_key null_key = object_key();
 
 /**
- * Private implementation of state_node interface.
- *
- * Maintains a pointer to database_impl,
- * only allows reads / writes if the node corresponds to the DB's current state.
- */
-class state_node_impl final
-{
-   public:
-      state_node_impl() {}
-      ~state_node_impl() {}
-
-      const object_value* get_object( const object_space& space, const object_key& key ) const;
-      std::pair< const object_value*, const object_key > get_next_object( const object_space& space, const object_key& key ) const;
-      std::pair< const object_value*, const object_key > get_prev_object( const object_space& space, const object_key& key ) const;
-      int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
-      void remove_object( const object_space& space, const object_key& key );
-      crypto::multihash get_merkle_root() const;
-
-      state_delta_ptr   _state;
-};
-
-/**
  * Private implementation of database interface.
  *
  * This class relies heavily on using chainbase as a backing store.
@@ -358,11 +336,6 @@ state_node_ptr database_impl::get_root() const
 bool database_impl::is_open() const
 {
    return (bool)_root && (bool)_head;
-}
-
-crypto::multihash state_node_impl::get_merkle_root() const
-{
-   return _state->get_merkle_root();
 }
 
 } // detail
