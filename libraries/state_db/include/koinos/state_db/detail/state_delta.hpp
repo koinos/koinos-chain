@@ -63,7 +63,7 @@ namespace koinos::state_db::detail {
          const state_node_id& parent_id() const;
          std::shared_ptr< state_delta > parent() const;
 
-         std::shared_ptr< state_delta > make_child( const state_node_id id = state_node_id() );
+         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id() );
 
          const std::shared_ptr< backend_type > backend() const;
 

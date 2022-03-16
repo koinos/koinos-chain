@@ -197,7 +197,7 @@ crypto::multihash state_delta::get_merkle_root() const
    return *_merkle_root;
 }
 
-std::shared_ptr< state_delta > state_delta::make_child( const state_node_id id )
+std::shared_ptr< state_delta > state_delta::make_child( const state_node_id& id )
 {
    auto child = std::make_shared< state_delta >();
    child->_parent = shared_from_this();
