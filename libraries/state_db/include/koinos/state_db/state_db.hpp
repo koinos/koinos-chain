@@ -1,7 +1,8 @@
 
 #pragma once
 #include <koinos/state_db/state_db_types.hpp>
-#include <koinos/state_db/detail/state_delta.hpp>
+
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include <any>
 #include <cstddef>
@@ -15,22 +16,24 @@ namespace detail {
 
 class database_impl;
 class state_node_impl;
+class anonymous_state_node_impl;
 
 } // detail
 
-class state_node;
+class abstract_state_node;
+class anonymous_state_node;
 
-using state_node_ptr = std::shared_ptr< state_node >;
+using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
+using anonymous_state_node_ptr = std::shared_ptr< anonymous_state_node >;
 
 /**
  * Allows querying the database at a particular checkpoint.
  */
-class state_node
+class abstract_state_node
 {
    public:
-      state_node() = default;
-      state_node( detail::state_delta_ptr );
-      ~state_node() = default;
+      abstract_state_node();
+      virtual ~abstract_state_node();
 
       /**
        * Fetch an object if one exists.
@@ -88,21 +91,63 @@ class state_node
       /**
        * Returns an anonymous state node with this node as its parent.
        */
-      state_node_ptr create_anonymous_node();
+      anonymous_state_node_ptr create_anonymous_node();
 
-      const state_node_id& id() const;
-      const state_node_id& parent_id() const;
-      uint64_t             revision() const;
-      state_node_ptr       get_parent() const;
-
-      void commit();
-      //void reset();
+      virtual const state_node_id&    id() const = 0;
+      virtual const state_node_id&    parent_id() const = 0;
+      virtual uint64_t                revision() const = 0;
+      virtual abstract_state_node_ptr get_parent() const = 0;
 
       friend class detail::database_impl;
 
-   private:
-      detail::state_delta_ptr _state;
+   protected:
+      virtual std::shared_ptr< abstract_state_node > shared_from_derived() = 0;
+
+      std::unique_ptr< detail::state_node_impl > impl;
 };
+
+class anonymous_state_node final : public abstract_state_node, public std::enable_shared_from_this< anonymous_state_node >
+{
+   public:
+      anonymous_state_node();
+      ~anonymous_state_node();
+
+      const state_node_id&    id() const override;
+      const state_node_id&    parent_id() const override;
+      uint64_t                revision() const override;
+      abstract_state_node_ptr get_parent() const override;
+
+      void commit();
+      void reset();
+
+      friend class abstract_state_node;
+
+   protected:
+      std::shared_ptr< abstract_state_node > shared_from_derived()override;
+
+   private:
+      abstract_state_node_ptr parent;
+};
+
+/**
+ * Allows querying the database at a particular checkpoint.
+ */
+class state_node final : public abstract_state_node, public std::enable_shared_from_this< state_node >
+{
+   public:
+      state_node();
+      ~state_node();
+
+      const state_node_id&    id() const override;
+      const state_node_id&    parent_id() const override;
+      uint64_t                revision() const override;
+      abstract_state_node_ptr get_parent() const override;
+
+   protected:
+      std::shared_ptr< abstract_state_node > shared_from_derived()override;
+};
+
+using state_node_ptr = std::shared_ptr< state_node >;
 
 /**
  * database is designed to provide parallel access to the database across
