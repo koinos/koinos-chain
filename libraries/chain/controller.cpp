@@ -103,7 +103,6 @@ class controller_impl final
 
    private:
       state_db::database                        _db;
-      std::shared_mutex                         _db_mutex;
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
       uint64_t                                  _read_compute_bandwidth_limit;
