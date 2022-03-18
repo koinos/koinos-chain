@@ -41,8 +41,7 @@ namespace koinos::chain {
 using namespace std::string_literals;
 using namespace std::chrono_literals;
 
-using vectorstream = boost::interprocess::basic_vectorstream< std::vector< char > >;
-using fork_data    = std::pair< std::vector< block_topology >, block_topology >;
+using fork_data = std::pair< std::vector< block_topology >, block_topology >;
 
 namespace detail {
 
@@ -108,7 +107,8 @@ class controller_impl final
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
       uint64_t                                  _read_compute_bandwidth_limit;
-      protocol::block                           _cached_head_block;
+      std::shared_mutex                         _cached_head_block_mutex;
+      std::shared_ptr< const protocol::block >  _cached_head_block;
 
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
@@ -122,6 +122,8 @@ controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _rea
    _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
 
+   _cached_head_block = std::make_shared< const protocol::block >( protocol::block() );
+
    _vm_backend->initialize();
    LOG(info) << "Initialized " << _vm_backend->backend_name() << " VM backend";
 }
@@ -133,8 +135,6 @@ controller_impl::~controller_impl()
 
 void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
 {
-   std::lock_guard< std::shared_mutex > lock( _db_mutex );
-
    _db.open( p, [&]( state_db::state_node_ptr root )
    {
       // Write genesis objects into the database
@@ -179,7 +179,6 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
 void controller_impl::close()
 {
-   std::lock_guard< std::shared_mutex > lock( _db_mutex );
    _db.close();
 }
 
@@ -217,8 +216,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    uint64_t index_to,
    std::chrono::system_clock::time_point now )
 {
-   std::lock_guard< std::shared_mutex > lock( _db_mutex );
-
    validate_block( request.block() );
 
    rpc::chain::submit_block_response resp;
@@ -349,20 +346,23 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto lib = system_call::get_last_irreversible_block( ctx );
 
-      _db.finalize_node( block_node->id() );
-
-      if ( std::optional< state_node_ptr > node; lib > _db.get_root()->revision() )
       {
-         node = _db.get_node_at_revision( lib, block_node->id() );
-         _db.commit_node( node.value()->id() );
+         std::unique_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+
+         _db.finalize_node( block_node->id() );
+
+         if ( block_node == _db.get_head() )
+         {
+            _cached_head_block = std::make_shared< protocol::block >( block );
+         }
       }
 
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
 
-      const auto [ fork_heads, last_irreversible_block ] = get_fork_data_lockless();
-
       if ( _client )
       {
+         const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+
          broadcast::block_irreversible bc;
          bc.mutable_topology()->CopyFrom( last_irreversible_block );
 
@@ -400,9 +400,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      if ( block_node == _db.get_head() )
+      if ( std::optional< state_node_ptr > node; lib > _db.get_root()->revision() )
       {
-         _cached_head_block = block;
+         auto lib_id = _db.get_node_at_revision( lib, block_node->id() )->id();
+         block_node.reset();
+         parent_node.reset();
+         ctx.set_state_node( state_node_ptr() );
+
+         _db.commit_node( lib_id );
       }
    }
    catch ( koinos::exception& e )
@@ -448,8 +453,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
 rpc::chain::submit_transaction_response controller_impl::submit_transaction( const rpc::chain::submit_transaction_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    validate_transaction( request.transaction() );
 
    rpc::chain::submit_transaction_response resp;
@@ -463,11 +466,22 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
-   auto pending_trx_node = _db.get_head()->create_anonymous_node();
-   KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
-
    execution_context ctx( _vm_backend, intent::transaction_application );
-   ctx.set_block( _cached_head_block );
+   std::shared_ptr< const protocol::block > head_block_ptr;
+   std::shared_ptr< abstract_state_node > pending_trx_node;
+
+   {
+      std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+
+      head_block_ptr = _cached_head_block;
+      pending_trx_node = _db.get_head()->create_anonymous_node();
+   }
+
+   KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
+   KOINOS_ASSERT( head_block_ptr, koinos::exception, "error retrieving head block" );
+
+   ctx.set_block( *head_block_ptr );
+   ctx.set_state_node( pending_trx_node );
 
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::kernel_mode
@@ -475,7 +489,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    try
    {
-      ctx.set_state_node( pending_trx_node );
       ctx.reset_cache();
 
       payer = transaction.header().payer();
@@ -545,15 +558,23 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
 rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::chain::get_head_info_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
-   ctx.set_block( _cached_head_block );
+   std::shared_ptr< const protocol::block > head_block_ptr;
+
+   {
+      std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+
+      ctx.set_state_node( _db.get_head() );
+      head_block_ptr = _cached_head_block;
+   }
+
+   KOINOS_ASSERT( head_block_ptr, koinos::exception, "error retrieving pending state node" );
+
+   ctx.set_block( *head_block_ptr );
    ctx.reset_cache();
 
    auto head_info = system_call::get_head_info( ctx );
@@ -569,8 +590,6 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
 rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chain::get_chain_id_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    auto result = _db.get_head()->get_object( state::space::metadata(), state::key::chain_id );
 
    KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
@@ -584,12 +603,6 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
 }
 
 fork_data controller_impl::get_fork_data()
-{
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-   return get_fork_data_lockless();
-}
-
-fork_data controller_impl::get_fork_data_lockless()
 {
    fork_data fdata;
    execution_context ctx( _vm_backend );
@@ -638,8 +651,6 @@ fork_data controller_impl::get_fork_data_lockless()
 
 rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( const rpc::chain::get_resource_limits_request& )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::kernel_mode
@@ -658,8 +669,6 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 
 rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::chain::get_account_rc_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "payer") );
 
    execution_context ctx( _vm_backend );
@@ -697,8 +706,6 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "contract_id") );
 
    execution_context ctx( _vm_backend, intent::read_only );
@@ -726,8 +733,6 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
-   std::shared_lock< std::shared_mutex > lock( _db_mutex );
-
    KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "account") );
 
    execution_context ctx( _vm_backend );
