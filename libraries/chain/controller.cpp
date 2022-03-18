@@ -238,6 +238,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    if ( block_node ) return {}; // Block has been applied
 
+   // This prevents returning "unknown previous block" when the pushed block is the LIB
+   if ( !parent_node )
+   {
+      auto root = _db.get_root();
+      KOINOS_ASSERT( block_id == root->id(), unknown_previous_block, "unknown previous block" );
+      return {}; // Block is current LIB
+   }
+
    bool live = block.header().timestamp() > std::chrono::duration_cast< std::chrono::milliseconds >( ( now - live_delta ).time_since_epoch() ).count();
 
    if ( !index_to && live )
@@ -274,7 +282,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          KOINOS_ASSERT( block_height == 1, unexpected_height, "first block must have height of 1" );
       }
 
-      KOINOS_ASSERT( block_node, unknown_previous_block, "unknown previous block" );
+      KOINOS_ASSERT( block_node, block_state_error, "could not create new block state node" );
 
       KOINOS_ASSERT(
          block_height == parent_height + 1,
