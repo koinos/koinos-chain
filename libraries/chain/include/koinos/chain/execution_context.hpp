@@ -25,8 +25,10 @@ namespace koinos::chain {
 
 using boost::container::flat_set;
 using koinos::state_db::state_node_ptr;
-using koinos::state_db::state_node;
+using koinos::state_db::anonymous_state_node_ptr;
+using koinos::state_db::abstract_state_node;
 
+using abstract_state_node_ptr = std::shared_ptr< abstract_state_node >;
 using receipt                 = std::variant< std::monostate, protocol::block_receipt, protocol::transaction_receipt >;
 
 struct stack_frame
@@ -66,9 +68,9 @@ class execution_context
 
       std::shared_ptr< vm_manager::vm_backend > get_backend() const;
 
-      void set_state_node( state_node_ptr, state_node_ptr = state_node_ptr() );
-      state_node_ptr get_state_node() const;
-      state_node_ptr get_parent_node() const;
+      void set_state_node( abstract_state_node_ptr, abstract_state_node_ptr = abstract_state_node_ptr() );
+      abstract_state_node_ptr get_state_node() const;
+      abstract_state_node_ptr get_parent_node() const;
       void clear_state_node();
 
       void set_block( const protocol::block& );
@@ -140,8 +142,8 @@ class execution_context
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::vector< stack_frame >                _stack;
 
-      state_node_ptr                            _current_state_node;
-      state_node_ptr                            _parent_state_node;
+      abstract_state_node_ptr                   _current_state_node;
+      abstract_state_node_ptr                   _parent_state_node;
       std::optional< crypto::public_key >       _key_auth;
 
       const protocol::block*                    _block = nullptr;

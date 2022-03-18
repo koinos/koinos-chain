@@ -20,7 +20,7 @@ std::shared_ptr< vm_manager::vm_backend > execution_context::get_backend() const
    return _vm_backend;
 }
 
-void execution_context::set_state_node( state_node_ptr node, state_node_ptr parent )
+void execution_context::set_state_node( abstract_state_node_ptr node, abstract_state_node_ptr parent )
 {
    _current_state_node = node;
    if ( parent )
@@ -31,12 +31,12 @@ void execution_context::set_state_node( state_node_ptr node, state_node_ptr pare
       _parent_state_node.reset();
 }
 
-state_node_ptr execution_context::get_state_node() const
+abstract_state_node_ptr execution_context::get_state_node() const
 {
    return _current_state_node;
 }
 
-state_node_ptr execution_context::get_parent_node() const
+abstract_state_node_ptr execution_context::get_parent_node() const
 {
    // This handles the genesis case
    return _parent_state_node ? _parent_state_node : _current_state_node;
