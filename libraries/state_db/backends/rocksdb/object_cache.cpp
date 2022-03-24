@@ -1,5 +1,7 @@
 #include <koinos/state_db/backends/rocksdb/object_cache.hpp>
 
+#include <cassert>
+
 namespace koinos::state_db::backends::rocksdb {
 
 object_cache::object_cache( std::size_t size ) : _cache_max_size( size ) {}
@@ -19,6 +21,8 @@ std::shared_ptr< const object_cache::value_type > object_cache::get( const key_t
 
    _object_map[ k ] = std::make_pair( val, _lru_list.begin() );
 
+   assert( _object_map.size() == _lru_list.size() );
+
    return val;
 }
 
@@ -27,22 +31,19 @@ std::shared_ptr< const object_cache::value_type > object_cache::put( const key_t
    if ( auto itr = _object_map.find( k ); itr != _object_map.end() )
    {
       _cache_size -= itr->second.first->size();
+      _lru_list.erase( itr->second.second );
    }
 
    // If the cache is full, remove the last entry from the map and pop back
    while ( _cache_size + v.size() > _cache_max_size )
-   {
-      auto back = _lru_list.back();
-      auto mapping = _object_map[ back ];
-      _cache_size -= mapping.first->size();
-      _object_map.erase( back );
-      _lru_list.pop_back();
-   }
+      remove( _lru_list.back() );
 
    auto val_ptr = std::make_shared< const value_type >( v );
    _lru_list.push_front( k );
    _object_map[ k ] = std::make_pair( val_ptr, _lru_list.begin() );
    _cache_size += v.size();
+
+   assert( _object_map.size() == _lru_list.size() );
 
    return val_ptr;
 }
@@ -53,9 +54,11 @@ void object_cache::remove( const key_type& k )
    if ( itr != _object_map.end() )
    {
       _cache_size -= itr->second.first->size();
-      _object_map.erase( itr );
       _lru_list.erase( itr->second.second );
+      _object_map.erase( itr );
    }
+
+   assert( _object_map.size() == _lru_list.size() );
 }
 
 void object_cache::remove( const ::rocksdb::Slice& k )
