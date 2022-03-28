@@ -162,6 +162,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
    auto fork_heads = db.get_fork_heads();
    BOOST_REQUIRE_EQUAL( fork_heads.size(), 1 );
    BOOST_REQUIRE( fork_heads[0]->id() == db.get_head()->id() );
+   fork_heads.clear();
 
    BOOST_TEST_MESSAGE( "Test commit" );
    db.commit_node( block_1000_id );
@@ -570,7 +571,9 @@ BOOST_AUTO_TEST_CASE( reset_test )
    state_1 = db.create_writable_node( db.get_head()->id(), state_id );
    BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
    db.finalize_node( state_1->id() );
-   db.commit_node( state_1->id() );
+   auto state_1_id = state_1->id();
+   state_1.reset();
+   db.commit_node( state_1_id );
 
    val_ptr = db.get_head()->get_object( space, a_key );
    BOOST_REQUIRE( val_ptr );
@@ -739,7 +742,9 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
    BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
 
    state_1.reset();
+   state_2.reset();
    db.commit_node( state_2_id );
+   state_2 = db.get_node( state_2_id );
    BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

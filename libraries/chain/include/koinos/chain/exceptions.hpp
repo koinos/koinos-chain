@@ -58,6 +58,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( pending_state_error, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( timestamp_out_of_bounds, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( missing_required_arguments, controller_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( state_merkle_mismatch, controller_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( block_state_error, controller_exception );
 
 // Stack exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( stack_exception, chain_exception );
