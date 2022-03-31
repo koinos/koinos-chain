@@ -21,6 +21,12 @@
 #define _THUNK_ARGS_SUFFIX _arguments
 #define _THUNK_RET_SUFFIX  _result
 
+#define _THUNK_REGISTRATION_GENESIS( r, data, i, elem ) \
+data.register_genesis_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( chain::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
+
+#define THUNK_REGISTER_GENESIS( dispatcher, args ) \
+   BOOST_PP_SEQ_FOR_EACH_I( _THUNK_REGISTRATION_GENESIS, dispatcher, args )
+
 #define _THUNK_REGISTRATION( r, data, i, elem ) \
 data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THUNK_RET_SUFFIX)>( chain::system_call_id::elem, thunk::BOOST_PP_CAT(_, elem) );
 
