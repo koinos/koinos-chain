@@ -104,6 +104,7 @@ struct thunk_fixture
          { "call_contract", 4810 },
          { "consume_account_rc", 734 },
          { "consume_block_resources", 729 },
+         { "deserialize_message_per_byte", 1 },
          { "deserialize_multihash_base", 1 },
          { "deserialize_multihash_per_byte", 478 },
          { "event", 1361 },
@@ -695,17 +696,48 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "test: Hello World", host._ctx.chronicler().logs()[2] );
 
-   BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
+   BOOST_TEST_MESSAGE( "Test adding a new thunk" );
 
    const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 0, chain::thunk::test_thunk );
+   chain::log_arguments log_args;
+   log_args.set_message( "Hello World" );
+   auto args = util::converter::as< std::string >( log_args );
+   char ret_buf[100];
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+
+   BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
+
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
+   BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::unexpected_state );
+
+   auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
+   auto centry = cbr.add_entries();
+   centry->set_name( "reserved_id" );
+   centry->set_compute( 0 );
+
+   chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry, util::converter::as< std::string >( cbr ) );
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
+
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
+
+   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size() );
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+
+   BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
+
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::reserved_id ) );
+   koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
+
+   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -1519,7 +1551,7 @@ int main()
    LOG(info) << "benchmark contract key: " << util::to_base58( contract_pk.get_public_key().to_address_bytes() );
    LOG(info) << "empty contract key: " << util::to_base58( empty_contract_pk.get_public_key().to_address_bytes() );
 
-   const uint64_t global_run = 10000;
+   const uint64_t global_run = 100;
    std::vector< double > benchmarks;
 
    LOG(info) << "Calibrating compute from smart contract benchmark...";
@@ -1920,8 +1952,6 @@ int main()
       calls[ "ripemd_160_per_byte" ] = std::max( int64_t(1), int64_t( ceil( b_1 ) ) );
    }
 
-   calls["object_serialization_per_byte"] = 1;
-
    {
       LOG(info) << "Testing event...";
 
@@ -2037,6 +2067,9 @@ int main()
       time -= 21 * ( calls[ "sha2_256_base" ] + 2 * 32 * calls[ "sha2_256_per_byte" ] );
       calls[ "verify_merkle_root" ] = std::max( int64_t(1), int64_t( ceil( time ) ) );
    }
+
+   calls["deserialize_message_per_byte"] = 1;
+   calls["object_serialization_per_byte"] = 1;
 
    std::map< std::string, std::vector< std::string > > subcalls;
    subcalls[ "process_block_signature" ] = { "get_object", "recover_public_key" };

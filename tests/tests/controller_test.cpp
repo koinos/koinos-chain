@@ -85,6 +85,7 @@ struct controller_fixture
          { "call_contract", 4810 },
          { "consume_account_rc", 734 },
          { "consume_block_resources", 729 },
+         { "deserialize_message_per_byte", 1 },
          { "deserialize_multihash_base", 1 },
          { "deserialize_multihash_per_byte", 478 },
          { "event", 1361 },
@@ -134,7 +135,7 @@ struct controller_fixture
          { "verify_account_nonce", 879 },
          { "verify_merkle_root", 1 },
          { "verify_signature", 794 },
-         { "verify_vrf_proof", 143804 },
+         //{ "verify_vrf_proof", 143804 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;

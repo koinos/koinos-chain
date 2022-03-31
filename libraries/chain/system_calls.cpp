@@ -32,7 +32,16 @@ namespace koinos::chain {
 
 void register_thunks( thunk_dispatcher& td )
 {
-   THUNK_REGISTER( td,
+   THUNK_REGISTER_GENESIS( td,
+      ////////////////////////////////////////////////////////////////////////////////
+      //
+      // WARNING!
+      //
+      // Do not add any thunks here after genesis
+      // Any new thunks MUST be added to THUNK_REGISTER
+      //
+      ////////////////////////////////////////////////////////////////////////////////
+
       // General Blockchain Management
       (get_head_info)
       (apply_block)
@@ -91,6 +100,10 @@ void register_thunks( thunk_dispatcher& td )
       (get_contract_id)
       (get_caller)
       (require_authority)
+   )
+
+   THUNK_REGISTER( td,
+      // Non genesis thunks go here
    )
 }
 
