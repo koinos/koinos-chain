@@ -1787,7 +1787,6 @@ int main()
       { "post_block_callback", [&]() { chain::system_call::post_block_callback( ctx ); } },
       { "verify_account_nonce", [&]() { chain::system_call::verify_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
       { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
-      { "verify_vrf_proof", [&]() { chain::system_call::verify_vrf_proof( ctx, chain::dsa::ecdsa_secp256k1, serialized_public_key, proof, proof_hash, message ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )

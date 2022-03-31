@@ -89,7 +89,6 @@ void register_thunks( thunk_dispatcher& td )
       (recover_public_key)
       (verify_merkle_root)
       (verify_signature)
-      (verify_vrf_proof)
 
       // Contract Management
       (call_contract)
@@ -104,6 +103,7 @@ void register_thunks( thunk_dispatcher& td )
 
    THUNK_REGISTER( td,
       // Non genesis thunks go here
+      (verify_vrf_proof)
    )
 }
 
