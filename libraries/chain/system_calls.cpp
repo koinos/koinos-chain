@@ -80,6 +80,7 @@ void register_thunks( thunk_dispatcher& td )
       (recover_public_key)
       (verify_merkle_root)
       (verify_signature)
+      (verify_vrf_proof)
 
       // Contract Management
       (call_contract)
@@ -1067,6 +1068,26 @@ THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std
 
    verify_signature_result ret;
    ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == public_key );
+   return ret;
+}
+
+THUNK_DEFINE( verify_vrf_proof_result, verify_vrf_proof, ((dsa) type, (const std::string&) public_key, (const std::string&) proof, (const std::string&) hash, (const std::string&) message) )
+{
+   KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
+
+   verify_vrf_proof_result ret;
+   ret.set_value( false );
+
+   auto pub_key = util::converter::to< crypto::public_key >( public_key );
+   auto expected_hash = util::converter::to< crypto::multihash >( hash );
+
+   try
+   {
+      auto proof_hash = pub_key.verify_random_proof( message, proof );
+      ret.set_value( proof_hash == expected_hash );
+   }
+   catch ( const crypto::vrf_validation_error& ) { /* do nothing */ }
+
    return ret;
 }
 

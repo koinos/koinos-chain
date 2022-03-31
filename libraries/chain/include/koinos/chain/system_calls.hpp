@@ -109,6 +109,7 @@ THUNK_DECLARE( hash_result, hash, uint64_t code, const std::string& obj, uint64_
 THUNK_DECLARE( recover_public_key_result, recover_public_key, dsa type, const std::string& signature_data, const std::string& digest );
 THUNK_DECLARE( verify_merkle_root_result, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
 THUNK_DECLARE( verify_signature_result, verify_signature, dsa type, const std::string& public_key, const std::string& signature, const std::string& digest );
+THUNK_DECLARE( verify_vrf_proof_result, verify_vrf_proof, dsa type, const std::string& public_key, const std::string& proof, const std::string& hash, const std::string& message );
 
 // Contract Management
 
