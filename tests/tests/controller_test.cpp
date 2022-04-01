@@ -135,7 +135,7 @@ struct controller_fixture
          { "verify_account_nonce", 879 },
          { "verify_merkle_root", 1 },
          { "verify_signature", 794 },
-         //{ "verify_vrf_proof", 143804 },
+         { "verify_vrf_proof", 143804 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
