@@ -516,12 +516,17 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          // Mana is still charged, but the block does not fail
          std::string err = e.what();
 
-         if ( err.size() )
+         if ( !err.empty() )
+         {
             LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << err;
+         }
          else
+         {
             LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted";
+            err = "transaction reverted";
+         }
 
-         reverted_exception_ptr = std::make_unique< transaction_reverted >( err.size() ? err : "transaction reverted" );
+         reverted_exception_ptr = std::make_unique< transaction_reverted >( err );
          receipt.set_reverted( true );
       }
 
