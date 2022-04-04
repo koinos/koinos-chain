@@ -32,7 +32,16 @@ namespace koinos::chain {
 
 void register_thunks( thunk_dispatcher& td )
 {
-   THUNK_REGISTER( td,
+   THUNK_REGISTER_GENESIS( td,
+      ////////////////////////////////////////////////////////////////////////////////
+      //
+      // WARNING!
+      //
+      // Do not add any thunks here after genesis
+      // Any new thunks MUST be added to THUNK_REGISTER
+      //
+      ////////////////////////////////////////////////////////////////////////////////
+
       // General Blockchain Management
       (get_head_info)
       (apply_block)
@@ -90,6 +99,11 @@ void register_thunks( thunk_dispatcher& td )
       (get_contract_id)
       (get_caller)
       (require_authority)
+   )
+
+   THUNK_REGISTER( td,
+      // Non genesis thunks go here
+      (verify_vrf_proof)
    )
 }
 
@@ -167,33 +181,47 @@ std::pair< std::string, std::string > hash_compute_keys( crypto::multicodec id )
    }
 }
 
-THUNK_DEFINE_BEGIN();
-
-THUNK_DEFINE( void, log, ((const std::string&) msg) )
+void generate_receipt( execution_context& context, protocol::block_receipt& receipt, const protocol::block& block )
 {
-   context.chronicler().push_log( msg );
+   receipt.set_id( block.id() );
+   receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() );
+   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
+   receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
+
+   for ( const auto& [ transaction_id, event ] : context.chronicler().events() )
+      if ( !transaction_id )
+         *receipt.add_events() = event;
+
+   for ( const auto& message : context.chronicler().logs() )
+      *receipt.add_logs() = message;
 }
 
-THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
+void generate_receipt(
+   execution_context& context,
+   protocol::transaction_receipt& receipt,
+   const protocol::transaction& transaction,
+   uint64_t payer_rc,
+   uint64_t used_rc,
+   uint64_t disk_storage_used,
+   uint64_t network_bandwidth_used,
+   uint64_t compute_bandwidth_used,
+   const std::vector< protocol::event_data >& events,
+   const std::vector< std::string >& logs )
 {
-   switch( exit_code )
-   {
-      case exit_code::success:
-          KOINOS_THROW( exit_success, "" );
-      case exit_code::failure:
-          KOINOS_THROW( exit_failure, "" );
-      default:
-          KOINOS_THROW( unknown_exit_code, "contract specified unknown exit code" );
-   }
-}
+   receipt.set_id( transaction.id() );
+   receipt.set_payer( transaction.header().payer() );
+   receipt.set_max_payer_rc( payer_rc );
+   receipt.set_rc_limit( transaction.header().rc_limit() );
+   receipt.set_rc_used( used_rc );
+   receipt.set_disk_storage_used( disk_storage_used );
+   receipt.set_network_bandwidth_used( network_bandwidth_used );
+   receipt.set_compute_bandwidth_used( compute_bandwidth_used );
 
-THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const std::string&) id, (const protocol::block_header&) header, (const std::string&) signature_data) )
-{
-   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
+   for ( const auto& e : events )
+      *receipt.add_events() = e;
 
-   process_block_signature_result ret;
-   ret.set_value( genesis_addr == util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, signature_data, id ) ).to_address_bytes() );
-   return ret;
+   for ( const auto& message : logs )
+      *receipt.add_logs() = message;
 }
 
 uint64_t hashes_per_leaves( uint64_t leaves )
@@ -208,62 +236,51 @@ uint64_t hashes_per_leaves( uint64_t leaves )
    return even_leaves / 2 + hashes_per_leaves( even_leaves / 2 );
 }
 
-THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
+template< typename T >
+bool validate_utf( const std::basic_string< T >& p_str )
 {
-   uint64_t deserialize_multihash_base = context.get_compute_bandwidth( "deserialize_multihash_base" );
-   uint64_t deserialize_multihash_per_byte = context.get_compute_bandwidth( "deserialize_multihash_per_byte" );
-
-   // Charge for all deserialization
-   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * ( deserialize_multihash_base + root.size() * deserialize_multihash_per_byte ) );
-
-   auto root_hash = util::converter::to< crypto::multihash >( root );
-
-   auto [ hash_base_key, hash_per_byte_key ] = hash_compute_keys( root_hash.code() );
-   uint64_t hash_base = context.get_compute_bandwidth( hash_base_key );
-   uint64_t hash_per_byte = context.get_compute_bandwidth( hash_per_byte_key );
-   // Charge for all hashing to compute merkle root
-   context.resource_meter().use_compute_bandwidth( hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest().size() * hash_per_byte ) );
-
-   validate_hash_code( root_hash.code() );
-
-   std::vector< crypto::multihash > leaves;
-
-   leaves.resize( hashes.size() );
-   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), [&]( const std::string& s )
-      {
-         auto mh = util::converter::to< crypto::multihash >( s );
-         KOINOS_ASSERT( mh.code() == root_hash.code(), merkle_hash_mismatch, "leaf and merkle root hash codes do not match" );
-         KOINOS_ASSERT( mh.digest().size() == root_hash.digest().size(), merkle_hash_mismatch, "leaf and merkle root hash sizes do not match" );
-         return mh;
-      }
-   );
-
-   auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
-
-   auto merkle_root = mtree.root()->hash();
-
-   verify_merkle_root_result ret;
-   ret.set_value( merkle_root == root_hash );
-   return ret;
+   typename std::basic_string< T >::const_iterator it = p_str.begin();
+   while ( it != p_str.end() )
+   {
+      const boost::locale::utf::code_point cp = boost::locale::utf::utf_traits< T >::decode( it, p_str.end() );
+      if ( cp == boost::locale::utf::illegal )
+         return false;
+      else if ( cp == boost::locale::utf::incomplete )
+         return false;
+   }
+   return true;
 }
 
-THUNK_DEFINE_VOID( void, pre_block_callback ) { }
+THUNK_DEFINE_BEGIN();
 
-THUNK_DEFINE_VOID( void, pre_transaction_callback ) { }
+///////////////////////////////////////////////////////////////////////////////
+// General Blockchain Management                                             //
+///////////////////////////////////////////////////////////////////////////////
 
-void generate_receipt( execution_context& context, protocol::block_receipt& receipt, const protocol::block& block )
+THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 {
-   receipt.set_id( block.id() );
-   receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() );
-   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
-   receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
+   auto head = context.get_state_node();
 
-   for ( const auto& [ transaction_id, event ] : context.chronicler().events() )
-      if ( !transaction_id )
-         *receipt.add_events() = event;
+   get_head_info_result ret;
+   auto* hi = ret.mutable_value();
 
-   for ( const auto& message : context.chronicler().logs() )
-      *receipt.add_logs() = message;
+   hi->mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
+   hi->mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
+   hi->mutable_head_topology()->set_height( head->revision() );
+   hi->set_last_irreversible_block( system_call::get_last_irreversible_block( context ) );
+
+   if ( const auto* block = context.get_block(); block != nullptr )
+   {
+      hi->set_head_block_time( block->header().timestamp() );
+   }
+   else
+   {
+      auto head_block_object = system_call::get_object( context, state::space::metadata(), state::key::head_block );
+      uint64_t time = head_block_object.exists() ? util::converter::to< protocol::block >( head_block_object.value() ).header().timestamp() : 0;
+      hi->set_head_block_time( time );
+   }
+
+   return ret;
 }
 
 THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
@@ -364,34 +381,6 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
       generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
       throw;
    }
-}
-
-void generate_receipt(
-   execution_context& context,
-   protocol::transaction_receipt& receipt,
-   const protocol::transaction& transaction,
-   uint64_t payer_rc,
-   uint64_t used_rc,
-   uint64_t disk_storage_used,
-   uint64_t network_bandwidth_used,
-   uint64_t compute_bandwidth_used,
-   const std::vector< protocol::event_data >& events,
-   const std::vector< std::string >& logs )
-{
-   receipt.set_id( transaction.id() );
-   receipt.set_payer( transaction.header().payer() );
-   receipt.set_max_payer_rc( payer_rc );
-   receipt.set_rc_limit( transaction.header().rc_limit() );
-   receipt.set_rc_used( used_rc );
-   receipt.set_disk_storage_used( disk_storage_used );
-   receipt.set_network_bandwidth_used( network_bandwidth_used );
-   receipt.set_compute_bandwidth_used( compute_bandwidth_used );
-
-   for ( const auto& e : events )
-      *receipt.add_events() = e;
-
-   for ( const auto& message : logs )
-      *receipt.add_logs() = message;
 }
 
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
@@ -688,9 +677,205 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
 }
 
-THUNK_DEFINE_VOID( void, post_block_callback ) { }
+THUNK_DEFINE_VOID( void, pre_block_callback ) {}
 
-THUNK_DEFINE_VOID( void, post_transaction_callback ) { }
+THUNK_DEFINE_VOID( void, post_block_callback ) {}
+
+THUNK_DEFINE_VOID( void, pre_transaction_callback ) {}
+
+THUNK_DEFINE_VOID( void, post_transaction_callback ) {}
+
+///////////////////////////////////////////////////////////////////////////////
+// System Helpers                                                            //
+///////////////////////////////////////////////////////////////////////////////
+
+THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const std::string&) id, (const protocol::block_header&) header, (const std::string&) signature_data) )
+{
+   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
+
+   process_block_signature_result ret;
+   ret.set_value( genesis_addr == util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, signature_data, id ) ).to_address_bytes() );
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_transaction_result, get_transaction )
+{
+   get_transaction_result ret;
+
+   const auto* transaction = context.get_transaction();
+   KOINOS_ASSERT( transaction != nullptr, unexpected_access, "transaction does not exist" );
+   *ret.mutable_value() = *transaction;
+
+   return ret;
+}
+
+THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::string&) field) )
+{
+   get_transaction_field_result ret;
+
+   const auto* transaction = context.get_transaction();
+   KOINOS_ASSERT( transaction != nullptr, unexpected_access, "transaction does not exist" );
+
+   *ret.mutable_value() = get_nested_field_value( context, *transaction, field );
+
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_block_result, get_block )
+{
+   get_block_result ret;
+
+   const auto* block = context.get_block();
+   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
+
+   *ret.mutable_value() = *block;
+
+   return ret;
+}
+
+THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) field) )
+{
+   get_block_field_result ret;
+
+   const auto* block = context.get_block();
+   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
+
+   *ret.mutable_value() = get_nested_field_value( context, *block, field );
+
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_block )
+{
+   auto head = context.get_state_node();
+
+   get_last_irreversible_block_result ret;
+   ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
+
+   return ret;
+}
+
+THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&) account ) )
+{
+   auto obj = system_call::get_object( context, state::space::transaction_nonce(), account );
+
+   get_account_nonce_result ret;
+
+   if ( obj.exists() )
+   {
+      ret.set_value( obj.value() );
+   }
+   else
+   {
+      value_type nonce_value;
+      nonce_value.set_uint64_value( 0 );
+      ret.set_value( util::converter::as< std::string >( nonce_value ) );
+   }
+
+   return ret;
+}
+
+THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
+{
+   auto nonce_value = util::converter::to< value_type >( nonce );
+   KOINOS_ASSERT(
+      nonce_value.has_uint64_value(),
+      invalid_nonce,
+      "nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
+      ("n", util::to_hex( nonce ))("a", util::to_base58( account ))
+   );
+
+   auto current_nonce_value = util::converter::to< value_type >( system_call::get_account_nonce( context, account ) );
+   KOINOS_ASSERT(
+      current_nonce_value.has_uint64_value(),
+      unexpected_state,
+      "current nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
+      ("n", util::to_hex( current_nonce_value ))("a", util::to_base58( account ))
+   );
+
+   verify_account_nonce_result res;
+   res.set_value( nonce_value.uint64_value() > current_nonce_value.uint64_value() );
+   return res;
+}
+
+THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
+{
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+
+   auto nonce_value = util::converter::to< value_type >( nonce );
+   KOINOS_ASSERT(
+      nonce_value.has_uint64_value(),
+      invalid_nonce,
+      "set nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
+      ("n", util::to_hex( nonce ))("a", util::to_base58( account )) );
+
+   system_call::put_object( context, state::space::transaction_nonce(), account, nonce );
+}
+
+THUNK_DEFINE( void, require_system_authority, ((system_authorization_type) type) )
+{
+   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
+
+   const auto* trx = context.get_transaction();
+   KOINOS_ASSERT( trx != nullptr, unexpected_access, "transaction does not exist" );
+
+   bool authorized = false;
+
+   for ( const auto& sig : trx->signatures() )
+   {
+      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id() ) ).to_address_bytes();
+      authorized = ( addr == genesis_addr );
+      if ( authorized )
+         break;
+   }
+
+   KOINOS_ASSERT( authorized, authorization_failed, "system authority required" );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Resource Subsystem                                                        //
+///////////////////////////////////////////////////////////////////////////////
+
+THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )
+{
+   auto obj = system_call::get_object( context, state::space::metadata(), state::key::max_account_resources );
+   KOINOS_ASSERT( obj.exists(), unexpected_state, "max_account_resources does not exist" );
+
+   get_account_rc_result ret;
+   ret.set_value( util::converter::to< chain::max_account_resources >( obj.value() ).value() );
+
+   return ret;
+}
+
+THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
+{
+   consume_account_rc_result ret;
+   ret.set_value( true );
+   return ret;
+}
+
+THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
+{
+   resource_limit_data rd;
+
+   auto obj = system_call::get_object( context, state::space::metadata(), state::key::resource_limit_data );
+   KOINOS_ASSERT( obj.exists(), unexpected_state, "resource_limit_data does not exist" );
+
+   get_resource_limits_result ret;
+   *ret.mutable_value() = util::converter::to< resource_limit_data >( obj.value() );
+   return ret;
+}
+
+THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
+{
+   consume_block_resources_result ret;
+   ret.set_value( true );
+   return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Database                                                                  //
+///////////////////////////////////////////////////////////////////////////////
 
 THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
@@ -792,6 +977,148 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
    return ret;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Logging                                                                   //
+///////////////////////////////////////////////////////////////////////////////
+
+THUNK_DEFINE( void, log, ((const std::string&) msg) )
+{
+   context.chronicler().push_log( msg );
+}
+
+THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
+{
+   KOINOS_ASSERT( name.size(), invalid_argument, "event name cannot be empty" );
+   KOINOS_ASSERT( name.size() <= 128, invalid_argument, "event name cannot be larger than 128 bytes" );
+   KOINOS_ASSERT( validate_utf( name ), invalid_argument, "event name contains invalid utf-8" );
+
+   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "event_per_impacted" ) * impacted.size() );
+
+   const auto& caller = context.get_caller();
+
+   protocol::event_data ev;
+   ev.set_source( caller );
+   ev.set_name( name );
+   ev.set_data( data );
+
+   for ( auto& imp : impacted )
+      *ev.add_impacted() = imp;
+
+   std::optional< std::string > transaction_id;
+   if ( const auto* transaction = context.get_transaction(); transaction != nullptr )
+      transaction_id = transaction->id();
+
+   context.chronicler().push_event( transaction_id, std::move( ev ) );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Cryptography                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
+{
+   auto multicodec = static_cast< crypto::multicodec >( id );
+   validate_hash_code( multicodec );
+
+   auto [ hash_base, hash_per_byte ] = hash_compute_keys( multicodec );
+   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( hash_base ) + context.get_compute_bandwidth( hash_per_byte ) * obj.size() );
+
+   auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
+
+   hash_result ret;
+   ret.set_value( util::converter::as< std::string >( hash ) );
+   return ret;
+}
+
+THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const std::string&) signature_data, (const std::string&) digest) )
+{
+   KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
+
+   KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
+   crypto::recoverable_signature signature = util::converter::as< crypto::recoverable_signature >( signature_data );
+
+   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "signature must be canonical" );
+
+   auto pub_key = crypto::public_key::recover( signature, util::converter::to< crypto::multihash >( digest ) );
+   KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
+
+   recover_public_key_result ret;
+   ret.set_value( util::converter::as< std::string >( pub_key ) );
+   return ret;
+}
+
+THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string&) root, (const std::vector< std::string >&) hashes) )
+{
+   uint64_t deserialize_multihash_base = context.get_compute_bandwidth( "deserialize_multihash_base" );
+   uint64_t deserialize_multihash_per_byte = context.get_compute_bandwidth( "deserialize_multihash_per_byte" );
+
+   // Charge for all deserialization
+   context.resource_meter().use_compute_bandwidth( ( hashes.size() + 1 ) * ( deserialize_multihash_base + root.size() * deserialize_multihash_per_byte ) );
+
+   auto root_hash = util::converter::to< crypto::multihash >( root );
+
+   auto [ hash_base_key, hash_per_byte_key ] = hash_compute_keys( root_hash.code() );
+   uint64_t hash_base = context.get_compute_bandwidth( hash_base_key );
+   uint64_t hash_per_byte = context.get_compute_bandwidth( hash_per_byte_key );
+   // Charge for all hashing to compute merkle root
+   context.resource_meter().use_compute_bandwidth( hashes_per_leaves( hashes.size() ) * ( hash_base + 2 * root_hash.digest().size() * hash_per_byte ) );
+
+   validate_hash_code( root_hash.code() );
+
+   std::vector< crypto::multihash > leaves;
+
+   leaves.resize( hashes.size() );
+   std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), [&]( const std::string& s )
+      {
+         auto mh = util::converter::to< crypto::multihash >( s );
+         KOINOS_ASSERT( mh.code() == root_hash.code(), merkle_hash_mismatch, "leaf and merkle root hash codes do not match" );
+         KOINOS_ASSERT( mh.digest().size() == root_hash.digest().size(), merkle_hash_mismatch, "leaf and merkle root hash sizes do not match" );
+         return mh;
+      }
+   );
+
+   auto mtree = crypto::merkle_tree( root_hash.code(), leaves );
+
+   auto merkle_root = mtree.root()->hash();
+
+   verify_merkle_root_result ret;
+   ret.set_value( merkle_root == root_hash );
+   return ret;
+}
+
+THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
+{
+   KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
+
+   verify_signature_result ret;
+   ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == public_key );
+   return ret;
+}
+
+THUNK_DEFINE( verify_vrf_proof_result, verify_vrf_proof, ((dsa) type, (const std::string&) public_key, (const std::string&) proof, (const std::string&) hash, (const std::string&) message) )
+{
+   KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
+
+   verify_vrf_proof_result ret;
+   ret.set_value( false );
+
+   auto pub_key = util::converter::to< crypto::public_key >( public_key );
+   auto expected_hash = util::converter::to< crypto::multihash >( hash );
+
+   try
+   {
+      auto proof_hash = pub_key.verify_random_proof( message, proof );
+      ret.set_value( proof_hash == expected_hash );
+   }
+   catch ( const crypto::vrf_validation_error& ) { /* do nothing */ }
+
+   return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Contract Management                                                       //
+///////////////////////////////////////////////////////////////////////////////
+
 THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
    // We need to be in kernel mode to read the contract data
@@ -844,71 +1171,23 @@ THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
    context.set_contract_return( ret );
 }
 
-THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
+THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
 {
-   auto head = context.get_state_node();
-
-   get_head_info_result ret;
-   auto* hi = ret.mutable_value();
-
-   hi->mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
-   hi->mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
-   hi->mutable_head_topology()->set_height( head->revision() );
-   hi->set_last_irreversible_block( system_call::get_last_irreversible_block( context ) );
-
-   if ( const auto* block = context.get_block(); block != nullptr )
+   switch( exit_code )
    {
-      hi->set_head_block_time( block->header().timestamp() );
+      case exit_code::success:
+          KOINOS_THROW( exit_success, "" );
+      case exit_code::failure:
+          KOINOS_THROW( exit_failure, "" );
+      default:
+          KOINOS_THROW( unknown_exit_code, "contract specified unknown exit code" );
    }
-   else
-   {
-      auto head_block_object = system_call::get_object( context, state::space::metadata(), state::key::head_block );
-      uint64_t time = head_block_object.exists() ? util::converter::to< protocol::block >( head_block_object.value() ).header().timestamp() : 0;
-      hi->set_head_block_time( time );
-   }
-
-   return ret;
 }
 
-THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint64_t) size) )
+THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
 {
-   auto multicodec = static_cast< crypto::multicodec >( id );
-   validate_hash_code( multicodec );
-
-   auto [ hash_base, hash_per_byte ] = hash_compute_keys( multicodec );
-   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( hash_base ) + context.get_compute_bandwidth( hash_per_byte ) * obj.size() );
-
-   auto hash = crypto::hash( multicodec, obj, crypto::digest_size( size ) );
-
-   hash_result ret;
-   ret.set_value( util::converter::as< std::string >( hash ) );
-   return ret;
-}
-
-THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const std::string&) signature_data, (const std::string&) digest) )
-{
-   KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
-
-   KOINOS_ASSERT( signature_data.size() == 65, invalid_signature, "unexpected signature length" );
-   crypto::recoverable_signature signature = util::converter::as< crypto::recoverable_signature >( signature_data );
-
-   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature, "signature must be canonical" );
-
-   auto pub_key = crypto::public_key::recover( signature, util::converter::to< crypto::multihash >( digest ) );
-   KOINOS_ASSERT( pub_key.valid(), invalid_signature, "public key is invalid" );
-
-   recover_public_key_result ret;
-   ret.set_value( util::converter::as< std::string >( pub_key ) );
-   return ret;
-}
-
-THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_block )
-{
-   auto head = context.get_state_node();
-
-   get_last_irreversible_block_result ret;
-   ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold : 0 );
-
+   get_contract_id_result ret;
+   ret.set_value( context.get_contract_id() );
    return ret;
 }
 
@@ -995,223 +1274,6 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
    }
 
    KOINOS_ASSERT( authorized, authorization_failed, "account ${account} has not authorized action", ("account", util::to_base58( account )) );
-}
-
-THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )
-{
-   get_contract_id_result ret;
-   ret.set_value( context.get_contract_id() );
-   return ret;
-}
-
-THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&) account ) )
-{
-   auto obj = system_call::get_object( context, state::space::transaction_nonce(), account );
-
-   get_account_nonce_result ret;
-
-   if ( obj.exists() )
-   {
-      ret.set_value( obj.value() );
-   }
-   else
-   {
-      value_type nonce_value;
-      nonce_value.set_uint64_value( 0 );
-      ret.set_value( util::converter::as< std::string >( nonce_value ) );
-   }
-
-   return ret;
-}
-
-THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
-{
-   auto nonce_value = util::converter::to< value_type >( nonce );
-   KOINOS_ASSERT(
-      nonce_value.has_uint64_value(),
-      invalid_nonce,
-      "nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
-      ("n", util::to_hex( nonce ))("a", util::to_base58( account ))
-   );
-
-   auto current_nonce_value = util::converter::to< value_type >( system_call::get_account_nonce( context, account ) );
-   KOINOS_ASSERT(
-      current_nonce_value.has_uint64_value(),
-      unexpected_state,
-      "current nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
-      ("n", util::to_hex( current_nonce_value ))("a", util::to_base58( account ))
-   );
-
-   verify_account_nonce_result res;
-   res.set_value( nonce_value.uint64_value() > current_nonce_value.uint64_value() );
-   return res;
-}
-
-THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
-{
-   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
-
-   auto nonce_value = util::converter::to< value_type >( nonce );
-   KOINOS_ASSERT(
-      nonce_value.has_uint64_value(),
-      invalid_nonce,
-      "set nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
-      ("n", util::to_hex( nonce ))("a", util::to_base58( account )) );
-
-   system_call::put_object( context, state::space::transaction_nonce(), account, nonce );
-}
-
-THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )
-{
-   auto obj = system_call::get_object( context, state::space::metadata(), state::key::max_account_resources );
-   KOINOS_ASSERT( obj.exists(), unexpected_state, "max_account_resources does not exist" );
-
-   get_account_rc_result ret;
-   ret.set_value( util::converter::to< chain::max_account_resources >( obj.value() ).value() );
-
-   return ret;
-}
-
-THUNK_DEFINE( consume_account_rc_result, consume_account_rc, ((const std::string&) account, (uint64_t) rc) )
-{
-   consume_account_rc_result ret;
-   ret.set_value( true );
-   return ret;
-}
-
-THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
-{
-   resource_limit_data rd;
-
-   auto obj = system_call::get_object( context, state::space::metadata(), state::key::resource_limit_data );
-   KOINOS_ASSERT( obj.exists(), unexpected_state, "resource_limit_data does not exist" );
-
-   get_resource_limits_result ret;
-   *ret.mutable_value() = util::converter::to< resource_limit_data >( obj.value() );
-   return ret;
-}
-
-THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_t) disk, (uint64_t) network, (uint64_t) compute) )
-{
-   consume_block_resources_result ret;
-   ret.set_value( true );
-   return ret;
-}
-
-template< typename T >
-bool validate_utf( const std::basic_string< T >& p_str )
-{
-   typename std::basic_string< T >::const_iterator it = p_str.begin();
-   while ( it != p_str.end() )
-   {
-      const boost::locale::utf::code_point cp = boost::locale::utf::utf_traits< T >::decode( it, p_str.end() );
-      if ( cp == boost::locale::utf::illegal )
-         return false;
-      else if ( cp == boost::locale::utf::incomplete )
-         return false;
-   }
-   return true;
-}
-
-THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
-{
-   KOINOS_ASSERT( name.size(), invalid_argument, "event name cannot be empty" );
-   KOINOS_ASSERT( name.size() <= 128, invalid_argument, "event name cannot be larger than 128 bytes" );
-   KOINOS_ASSERT( validate_utf( name ), invalid_argument, "event name contains invalid utf-8" );
-
-   context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "event_per_impacted" ) * impacted.size() );
-
-   const auto& caller = context.get_caller();
-
-   protocol::event_data ev;
-   ev.set_source( caller );
-   ev.set_name( name );
-   ev.set_data( data );
-
-   for ( auto& imp : impacted )
-      *ev.add_impacted() = imp;
-
-   std::optional< std::string > transaction_id;
-   if ( const auto* transaction = context.get_transaction(); transaction != nullptr )
-      transaction_id = transaction->id();
-
-   context.chronicler().push_event( transaction_id, std::move( ev ) );
-}
-
-THUNK_DEFINE_VOID( get_transaction_result, get_transaction )
-{
-   get_transaction_result ret;
-
-   const auto* transaction = context.get_transaction();
-   KOINOS_ASSERT( transaction != nullptr, unexpected_access, "transaction does not exist" );
-   *ret.mutable_value() = *transaction;
-
-   return ret;
-}
-
-THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::string&) field) )
-{
-   get_transaction_field_result ret;
-
-   const auto* transaction = context.get_transaction();
-   KOINOS_ASSERT( transaction != nullptr, unexpected_access, "transaction does not exist" );
-
-   *ret.mutable_value() = get_nested_field_value( context, *transaction, field );
-
-   return ret;
-}
-
-THUNK_DEFINE_VOID( get_block_result, get_block )
-{
-   get_block_result ret;
-
-   const auto* block = context.get_block();
-   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
-
-   *ret.mutable_value() = *block;
-
-   return ret;
-}
-
-THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) field) )
-{
-   get_block_field_result ret;
-
-   const auto* block = context.get_block();
-   KOINOS_ASSERT( block != nullptr, unexpected_access, "block does not exist" );
-
-   *ret.mutable_value() = get_nested_field_value( context, *block, field );
-
-   return ret;
-}
-
-THUNK_DEFINE( void, require_system_authority, ((system_authorization_type) type) )
-{
-   auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
-
-   const auto* trx = context.get_transaction();
-   KOINOS_ASSERT( trx != nullptr, unexpected_access, "transaction does not exist" );
-
-   bool authorized = false;
-
-   for ( const auto& sig : trx->signatures() )
-   {
-      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id() ) ).to_address_bytes();
-      authorized = ( addr == genesis_addr );
-      if ( authorized )
-         break;
-   }
-
-   KOINOS_ASSERT( authorized, authorization_failed, "system authority required" );
-}
-
-THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
-{
-   KOINOS_ASSERT( type == ecdsa_secp256k1, invalid_dsa, "unexpected dsa" );
-
-   verify_signature_result ret;
-   ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == public_key );
-   return ret;
 }
 
 THUNK_DEFINE_END();

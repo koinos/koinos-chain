@@ -22,8 +22,12 @@ uint32_t thunk_dispatcher::call_thunk( uint32_t id, execution_context& ctx, char
 
 bool thunk_dispatcher::thunk_exists( uint32_t id ) const
 {
-   auto it = _dispatch_map.find( id );
-   return it != _dispatch_map.end();
+   return _dispatch_map.count( id );
+}
+
+bool thunk_dispatcher::thunk_is_genesis( uint32_t id ) const
+{
+   return _genesis_thunks.count( id );
 }
 
 } // koinos::chain

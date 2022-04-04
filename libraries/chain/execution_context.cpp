@@ -1,5 +1,6 @@
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
+#include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/execution_context.hpp>
 
@@ -365,7 +366,11 @@ uint32_t execution_context::thunk_translation( uint32_t id )
 
    auto itr = _cache.system_call_table.find( id );
    if ( itr == _cache.system_call_table.end() )
+   {
+      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_is_genesis( id ), thunk_not_enabled, "thunk ${id} is not enabled", ("id", id) );
       return id;
+   }
+
 
    const auto* thunk_id = std::get_if< uint32_t >( &itr->second );
 
