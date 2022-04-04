@@ -95,66 +95,66 @@ struct thunk_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
-         { "apply_block", 4702 },
-         { "apply_call_contract_operation", 1 },
-         { "apply_set_system_call_operation", 1420 },
-         { "apply_set_system_contract_operation", 1446 },
-         { "apply_transaction", 11075 },
-         { "apply_upload_contract_operation", 3496 },
-         { "call_contract", 4848 },
-         { "consume_account_rc", 110 },
-         { "consume_block_resources", 110 },
+         { "apply_block", 16659 },
+         { "apply_call_contract_operation", 487 },
+         { "apply_set_system_call_operation", 5986 },
+         { "apply_set_system_contract_operation", 4746 },
+         { "apply_transaction", 13208 },
+         { "apply_upload_contract_operation", 3722 },
+         { "call_contract", 4810 },
+         { "consume_account_rc", 734 },
+         { "consume_block_resources", 729 },
          { "deserialize_message_per_byte", 1 },
-         { "deserialize_multihash_base", 48 },
-         { "deserialize_multihash_per_byte", 415 },
-         { "event", 381 },
-         { "event_per_impacted", 113 },
-         { "exit_contract", 10254 },
-         { "get_account_nonce", 232 },
-         { "get_account_rc", 355 },
-         { "get_block", 487 },
-         { "get_block_field", 778 },
-         { "get_caller", 204 },
-         { "get_contract_arguments", 166 },
-         { "get_contract_id", 152 },
-         { "get_entry_point", 115 },
-         { "get_head_info", 1063 },
-         { "get_last_irreversible_block", 141 },
-         { "get_next_object", 10932 },
-         { "get_object", 478 },
-         { "get_prev_object", 15759 },
-         { "get_resource_limits", 660 },
-         { "get_transaction", 941 },
-         { "get_transaction_field", 862 },
-         { "hash", 922 },
-         { "keccak_256_base", 779 },
-         { "keccak_256_per_byte", 2 },
-         { "log", 113 },
+         { "deserialize_multihash_base", 1 },
+         { "deserialize_multihash_per_byte", 478 },
+         { "event", 1361 },
+         { "event_per_impacted", 98 },
+         { "exit_contract", 10246 },
+         { "get_account_nonce", 768 },
+         { "get_account_rc", 1046 },
+         { "get_block", 1131 },
+         { "get_block_field", 1420 },
+         { "get_caller", 818 },
+         { "get_contract_arguments", 770 },
+         { "get_contract_id", 774 },
+         { "get_entry_point", 756 },
+         { "get_head_info", 2160 },
+         { "get_last_irreversible_block", 759 },
+         { "get_next_object", 11071 },
+         { "get_object", 1067 },
+         { "get_prev_object", 15633 },
+         { "get_resource_limits", 1153 },
+         { "get_transaction", 1619 },
+         { "get_transaction_field", 1518 },
+         { "hash", 1573 },
+         { "keccak_256_base", 1945 },
+         { "keccak_256_per_byte", 1 },
+         { "log", 746 },
          { "object_serialization_per_byte", 1 },
-         { "post_block_callback", 120 },
-         { "post_transaction_callback", 104 },
-         { "pre_block_callback", 100 },
-         { "pre_transaction_callback", 116 },
-         { "process_block_signature", 4350 },
-         { "put_object", 396 },
-         { "recover_public_key", 30096 },
-         { "reserved_id", 1 },
-         { "remove_object", 284 },
-         { "require_authority", 12758 },
-         { "require_system_authority", 12879 },
-         { "ripemd_160_base", 675 },
+         { "post_block_callback", 724 },
+         { "post_transaction_callback", 741 },
+         { "pre_block_callback", 722 },
+         { "pre_transaction_callback", 718 },
+         { "process_block_signature", 5085 },
+         { "put_object", 1053 },
+         { "recover_public_key", 29531 },
+         { "remove_object", 908 },
+         { "require_authority", 13295 },
+         { "require_system_authority", 13357 },
+         { "ripemd_160_base", 1596 },
          { "ripemd_160_per_byte", 1 },
-         { "set_account_nonce", 102 },
-         { "set_contract_result", 100 },
-         { "sha1_base", 527 },
+         { "set_account_nonce", 753 },
+         { "set_contract_result", 753 },
+         { "sha1_base", 1137 },
          { "sha1_per_byte", 1 },
-         { "sha2_256_base", 681 },
+         { "sha2_256_base", 1542 },
          { "sha2_256_per_byte", 1 },
-         { "sha2_512_base", 750 },
+         { "sha2_512_base", 1612 },
          { "sha2_512_per_byte", 1 },
-         { "verify_account_nonce", 120 },
-         { "verify_merkle_root", 229 },
-         { "verify_signature", 156 },
+         { "verify_account_nonce", 879 },
+         { "verify_merkle_root", 1 },
+         { "verify_signature", 794 },
+         { "verify_vrf_proof", 143804 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -696,17 +696,48 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "test: Hello World", host._ctx.chronicler().logs()[2] );
 
-   BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
+   BOOST_TEST_MESSAGE( "Test adding a new thunk" );
 
    const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 0, chain::thunk::test_thunk );
+   chain::log_arguments log_args;
+   log_args.set_message( "Hello World" );
+   auto args = util::converter::as< std::string >( log_args );
+   char ret_buf[100];
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+
+   BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
+
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
+   BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::unexpected_state );
+
+   auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
+   auto centry = cbr.add_entries();
+   centry->set_name( "reserved_id" );
+   centry->set_compute( 0 );
+
+   chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry, util::converter::as< std::string >( cbr ) );
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
+
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
+
+   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size() );
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+
+   BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
+
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::reserved_id ) );
+   koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
+
+   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -1710,6 +1741,12 @@ int main()
    auto header_str = util::converter::as< std::string >( block.header() );
    auto nonce_str = util::converter::as< std::string >( nonce_value );
 
+   std::string message = "test";
+   const auto res = _signing_private_key.generate_random_proof( message );
+   const auto& proof = res.first;
+   const auto& proof_hash = util::converter::as< std::string >( res.second );
+   auto serialized_public_key = util::converter::as< std::string >( _signing_private_key.get_public_key() );
+
    std::map< std::string, std::function< void( void ) > > system_call_map {
       { "require_system_authority", [&]() { chain::system_call::require_system_authority( ctx, chain::set_system_call ); } },
       { "recover_public_key", [&]() { chain::system_call::recover_public_key( ctx, chain::dsa::ecdsa_secp256k1, transaction.signatures( 0 ), transaction.id() ); } },
@@ -1749,7 +1786,8 @@ int main()
       { "pre_block_callback", [&]() { chain::system_call::pre_block_callback( ctx ); } },
       { "post_block_callback", [&]() { chain::system_call::post_block_callback( ctx ); } },
       { "verify_account_nonce", [&]() { chain::system_call::verify_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
-      { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } }
+      { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
+      { "verify_vrf_proof", [&]() { chain::system_call::verify_vrf_proof( ctx, chain::dsa::ecdsa_secp256k1, serialized_public_key, proof, proof_hash, message ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )
@@ -2029,6 +2067,9 @@ int main()
       time -= 21 * ( calls[ "sha2_256_base" ] + 2 * 32 * calls[ "sha2_256_per_byte" ] );
       calls[ "verify_merkle_root" ] = std::max( int64_t(1), int64_t( ceil( time ) ) );
    }
+
+   calls["deserialize_message_per_byte"] = 1;
+   calls["object_serialization_per_byte"] = 1;
 
    std::map< std::string, std::vector< std::string > > subcalls;
    subcalls[ "process_block_signature" ] = { "get_object", "recover_public_key" };

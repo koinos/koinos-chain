@@ -328,7 +328,15 @@ class thunk_dispatcher
          _pass_through_map.insert_or_assign( id, thunk );
       }
 
+      template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
+      void register_genesis_thunk( uint32_t id, ThunkReturn (*thunk_ptr)(execution_context&, ThunkArgs...) )
+      {
+         register_thunk< ArgStruct, RetStruct, ThunkReturn, ThunkArgs... >( id, thunk_ptr );
+         _genesis_thunks.insert( id );
+      }
+
       bool thunk_exists( uint32_t id ) const;
+      bool thunk_is_genesis( uint32_t ) const;
       static const thunk_dispatcher& instance();
 
    private:
@@ -338,6 +346,7 @@ class thunk_dispatcher
 
       std::map< uint32_t, generic_thunk_handler > _dispatch_map;
       std::map< uint32_t, std::any >              _pass_through_map;
+      std::set< uint32_t >                        _genesis_thunks;
 };
 
 } // koinos::chain
