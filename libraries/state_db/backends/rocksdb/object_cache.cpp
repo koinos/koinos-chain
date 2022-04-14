@@ -28,11 +28,7 @@ std::shared_ptr< const object_cache::value_type > object_cache::get( const key_t
 
 std::shared_ptr< const object_cache::value_type > object_cache::put( const key_type& k, const value_type& v )
 {
-   if ( auto itr = _object_map.find( k ); itr != _object_map.end() )
-   {
-      _cache_size -= itr->second.first->size();
-      _lru_list.erase( itr->second.second );
-   }
+   remove( k );
 
    // If the cache is full, remove the last entry from the map and pop back
    while ( _cache_size + v.size() > _cache_max_size )
