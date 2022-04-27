@@ -11,8 +11,8 @@ if [[ -z $BUILD_DOCKER ]]; then
 fi
 
 if ! [[ -z $BUILD_DOCKER ]]; then
-   eval "$(gimme 1.15.4)"
-   source ~/.gimme/envs/go1.15.4.env
+   eval "$(gimme 1.18.1)"
+   source ~/.gimme/envs/go1.18.1.env
 
    TAG="$TRAVIS_BRANCH"
    if [ "$TAG" = "master" ]; then
@@ -25,6 +25,5 @@ if ! [[ -z $BUILD_DOCKER ]]; then
 
    cd koinos-integration-tests
    go get ./...
-   cd tests
    ./run.sh
 fi

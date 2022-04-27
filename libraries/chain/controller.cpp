@@ -597,14 +597,16 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
 rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chain::get_chain_id_request& )
 {
-   auto result = _db.get_head()->get_object( state::space::metadata(), state::key::chain_id );
+   execution_context ctx( _vm_backend );
+   ctx.push_frame( stack_frame {
+      .call_privilege = privilege::kernel_mode
+   } );
 
-   KOINOS_ASSERT( result, retrieval_failure, "unable to retrieve chain id" );
-
-   LOG(debug) << "get_chain_id: " << util::converter::to< crypto::multihash >( *result );
+   ctx.set_state_node( _db.get_head() );
+   ctx.reset_cache();
 
    rpc::chain::get_chain_id_response resp;
-   resp.set_chain_id( result->data(), result->size() );
+   resp.set_chain_id( system_call::get_chain_id( ctx ) );
 
    return resp;
 }

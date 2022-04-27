@@ -54,6 +54,7 @@ void register_thunks( thunk_dispatcher& td )
       (post_block_callback)
       (pre_transaction_callback)
       (post_transaction_callback)
+      (get_chain_id)
 
       // System Helpers
       (process_block_signature)
@@ -684,6 +685,13 @@ THUNK_DEFINE_VOID( void, post_block_callback ) {}
 THUNK_DEFINE_VOID( void, pre_transaction_callback ) {}
 
 THUNK_DEFINE_VOID( void, post_transaction_callback ) {}
+
+THUNK_DEFINE_VOID( get_chain_id_result, get_chain_id )
+{
+   get_chain_id_result ret;
+   ret.set_value( system_call::get_object( context, state::space::metadata(), state::key::chain_id ).value() );
+   return ret;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // System Helpers                                                            //
