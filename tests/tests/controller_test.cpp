@@ -96,6 +96,7 @@ struct controller_fixture
          { "get_block", 1131 },
          { "get_block_field", 1420 },
          { "get_caller", 818 },
+         { "get_chain_id", 1116 },
          { "get_contract_arguments", 770 },
          { "get_contract_id", 774 },
          { "get_entry_point", 756 },

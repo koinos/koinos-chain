@@ -115,6 +115,7 @@ struct thunk_fixture
          { "get_block", 1131 },
          { "get_block_field", 1420 },
          { "get_caller", 818 },
+         { "get_chain_id", 1116 },
          { "get_contract_arguments", 770 },
          { "get_contract_id", 774 },
          { "get_entry_point", 756 },
@@ -1469,6 +1470,13 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    koinos::chain::system_call::apply_transaction( ctx, trx );
 }
 
+BOOST_AUTO_TEST_CASE( get_chain_id )
+{
+   auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data );
+   auto chain_id_str = util::converter::as< std::string >( chain_id );
+   BOOST_REQUIRE_EQUAL( chain_id_str, chain::system_call::get_chain_id( ctx ) );
+}
+
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {
    crypto::multihash contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "contract" } );
@@ -1787,7 +1795,8 @@ int main()
       { "post_block_callback", [&]() { chain::system_call::post_block_callback( ctx ); } },
       { "verify_account_nonce", [&]() { chain::system_call::verify_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
       { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
-      { "verify_vrf_proof", [&]() { chain::system_call::verify_vrf_proof( ctx, chain::dsa::ecdsa_secp256k1, serialized_public_key, proof, proof_hash, message ); } }
+      { "verify_vrf_proof", [&]() { chain::system_call::verify_vrf_proof( ctx, chain::dsa::ecdsa_secp256k1, serialized_public_key, proof, proof_hash, message ); } },
+      { "get_chain_id", [&]() { chain::system_call::get_chain_id( ctx ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )
@@ -2088,6 +2097,7 @@ int main()
    subcalls[ "get_resource_limits" ] = { "get_object" };
    subcalls[ "require_system_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
    subcalls[ "verify_signature" ] = { "recover_public_key" };
+   subcalls[ "get_chain_id" ] = { "get_object" };
 
    std::cout << "std::map< std::string, uint64_t > thunk_compute {" << std::endl;
    for ( const auto& [ key, value ] : calls )

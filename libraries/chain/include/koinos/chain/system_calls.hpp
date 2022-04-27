@@ -69,6 +69,7 @@ THUNK_DECLARE_VOID( void, pre_block_callback );
 THUNK_DECLARE_VOID( void, pre_transaction_callback );
 THUNK_DECLARE_VOID( void, post_block_callback );
 THUNK_DECLARE_VOID( void, post_transaction_callback );
+THUNK_DECLARE_VOID( get_chain_id_result, get_chain_id );
 
 // System Helpers
 
