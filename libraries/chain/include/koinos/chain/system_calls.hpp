@@ -59,16 +59,16 @@ void register_thunks( thunk_dispatcher& td );
 // General Blockchain Management
 
 THUNK_DECLARE_VOID( get_head_info_result, get_head_info );
-THUNK_DECLARE( void, apply_block, const protocol::block& block );
-THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
-THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
-THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
-THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
-THUNK_DECLARE( void, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
-THUNK_DECLARE_VOID( void, pre_block_callback );
-THUNK_DECLARE_VOID( void, pre_transaction_callback );
-THUNK_DECLARE_VOID( void, post_block_callback );
-THUNK_DECLARE_VOID( void, post_transaction_callback );
+THUNK_DECLARE( apply_block_result, apply_block, const protocol::block& block );
+THUNK_DECLARE( apply_transaction_result, apply_transaction, const protocol::transaction& trx );
+THUNK_DECLARE( apply_upload_contract_operation_result, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
+THUNK_DECLARE( apply_call_contract_operation_result, apply_call_contract_operation, const protocol::call_contract_operation& op );
+THUNK_DECLARE( apply_set_system_call_operation_result, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
+THUNK_DECLARE( apply_set_system_contract_operation_result, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
+THUNK_DECLARE_VOID( pre_block_callback_result, pre_block_callback );
+THUNK_DECLARE_VOID( pre_transaction_callback_result, pre_transaction_callback );
+THUNK_DECLARE_VOID( post_block_callback_result, post_block_callback );
+THUNK_DECLARE_VOID( post_transaction_callback_result, post_transaction_callback );
 THUNK_DECLARE_VOID( get_chain_id_result, get_chain_id );
 
 // System Helpers
@@ -82,7 +82,7 @@ THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_bl
 THUNK_DECLARE( get_account_nonce_result, get_account_nonce, const std::string& account );
 THUNK_DECLARE( verify_account_nonce_result, verify_account_nonce, const std::string& account, const std::string& nonce );
 THUNK_DECLARE( void, set_account_nonce, const std::string& account, const std::string& nonce );
-THUNK_DECLARE( void, require_system_authority, system_authorization_type type );
+THUNK_DECLARE( check_system_authority_result, check_system_authority, system_authorization_type type );
 
 // Resource Subsystem
 
@@ -93,7 +93,7 @@ THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t
 
 // Database
 
-THUNK_DECLARE( put_object_result, put_object, const object_space& space, const std::string& key, const std::string& obj );
+THUNK_DECLARE( void, put_object, const object_space& space, const std::string& key, const std::string& obj );
 THUNK_DECLARE( void, remove_object, const object_space& space, const std::string& key );
 THUNK_DECLARE( get_object_result, get_object, const object_space& space, const std::string& key );
 THUNK_DECLARE( get_next_object_result, get_next_object, const object_space& space, const std::string& key );
@@ -114,13 +114,12 @@ THUNK_DECLARE( verify_vrf_proof_result, verify_vrf_proof, dsa type, const std::s
 
 // Contract Management
 
-THUNK_DECLARE( call_contract_result, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
+THUNK_DECLARE( call_result, call, const std::string& contract_id, uint32_t entry_point, const std::string& args );
 THUNK_DECLARE_VOID( get_entry_point_result, get_entry_point );
-THUNK_DECLARE_VOID( get_contract_arguments_result, get_contract_arguments );
-THUNK_DECLARE( void, set_contract_result, const std::string& ret );
-THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
+THUNK_DECLARE_VOID( get_arguments_result, get_arguments );
+THUNK_DECLARE( void, exit, result res );
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE( void, require_authority, authorization_type type, const std::string& account );
+THUNK_DECLARE( check_authority_result, check_authority, authorization_type type, const std::string& account );
 
 } // koinos::chain

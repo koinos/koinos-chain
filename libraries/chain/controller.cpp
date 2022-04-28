@@ -730,10 +730,12 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.resource_meter().set_resource_limit_data( rl );
 
-   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() );
+   auto result = system_call::call( ctx, request.contract_id(), request.entry_point(), request.args() );
+
+   KOINOS_ASSERT( result.code() == 0, koinos::exception, result.value() );
 
    rpc::chain::read_contract_response resp;
-   resp.set_result( result );
+   resp.set_result( result.value() );
    for ( const auto& message : ctx.chronicler().logs() )
       *resp.add_logs() = message;
 

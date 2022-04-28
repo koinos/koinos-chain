@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <string>
 #include <stdexcept>
 
@@ -29,6 +30,11 @@
 using namespace std::string_literals;
 
 namespace koinos::chain {
+
+namespace constants {
+   constexpr int32_t transaction_reversion = 1;
+   constexpr int32_t application_failure = -1;
+}
 
 void register_thunks( thunk_dispatcher& td )
 {
@@ -66,7 +72,7 @@ void register_thunks( thunk_dispatcher& td )
       (get_account_nonce)
       (verify_account_nonce)
       (set_account_nonce)
-      (require_system_authority)
+      (check_system_authority)
 
       // Resource Subsystem
       (get_account_rc)
@@ -93,14 +99,13 @@ void register_thunks( thunk_dispatcher& td )
       (verify_vrf_proof)
 
       // Contract Management
-      (call_contract)
+      (call)
       (get_entry_point)
-      (get_contract_arguments)
-      (set_contract_result)
-      (exit_contract)
+      (get_arguments)
+      (exit)
       (get_contract_id)
       (get_caller)
-      (require_authority)
+      (check_authority)
    )
 
    THUNK_REGISTER( td,
@@ -284,9 +289,10 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    return ret;
 }
 
-THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
+THUNK_DEFINE( apply_block_result, apply_block, ((const protocol::block&) block) )
 {
    context.receipt() = protocol::block_receipt();
+   apply_block_result res;
 
    try
    {
@@ -377,17 +383,20 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
       generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
    }
-   catch ( ... )
+   catch ( const std::exception& e )
    {
       generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
-      throw;
+      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_value( e.what() );
    }
+
+   return res;
 }
 
-THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
+THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::transaction&) trx) )
 {
+   apply_transaction_result res;
    protocol::transaction_receipt receipt;
-   std::unique_ptr< transaction_reverted > reverted_exception_ptr;
    uint64_t used_rc = 0;
    uint64_t disk_storage_used = 0;
    uint64_t compute_bandwidth_used = 0;
@@ -445,7 +454,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), operation_root_mismatch, "operation merkle root does not match" );
 
-      system_call::require_authority( context, transaction_application, payer );
+      system_call::check_authority( context, transaction_application, payer );
 
       const auto& payee = trx.header().payee();
 
@@ -456,7 +465,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
       if ( use_payee_nonce )
       {
-         system_call::require_authority( context, transaction_application, payee );
+         system_call::check_authority( context, transaction_application, payee );
       }
 
       KOINOS_ASSERT(
@@ -482,15 +491,29 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          for ( const auto& o : trx.operations() )
          {
             if ( o.has_upload_contract() )
-               system_call::apply_upload_contract_operation( context, o.upload_contract() );
+               *res.mutable_value() = system_call::apply_upload_contract_operation( context, o.upload_contract() );
             else if ( o.has_call_contract() )
-               system_call::apply_call_contract_operation( context, o.call_contract() );
+               *res.mutable_value() = system_call::apply_call_contract_operation( context, o.call_contract() );
             else if ( o.has_set_system_call() )
-               system_call::apply_set_system_call_operation( context, o.set_system_call() );
+               *res.mutable_value() = system_call::apply_set_system_call_operation( context, o.set_system_call() );
             else if ( o.has_set_system_contract() )
-               system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
+               *res.mutable_value() = system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
             else
-               KOINOS_THROW( unknown_operation, "unknown operation" );
+            {
+               res.mutable_value()->set_code( constants::transaction_reversion );
+               res.mutable_value()->set_value( "unknown operation" );
+            }
+
+            if ( res.value().code() >= constants::transaction_reversion )
+            {
+               receipt.set_reverted( true );
+               break;
+            }
+
+            if ( res.value().code() <= constants::application_failure )
+            {
+               return res;
+            }
          }
 
          trx_node->commit();
@@ -498,7 +521,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       catch ( const block_resource_limit_exception& e )
       {
          // If the block resources are exceeded, the exception propagates, failing the block
-         throw e;
+         res.mutable_value()->set_code( constants::application_failure );
+         res.mutable_value()->set_value( e.what() );
+         return res;
       }
       catch ( const std::exception& e )
       {
@@ -516,8 +541,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
             err = "transaction reverted";
          }
 
-         reverted_exception_ptr = std::make_unique< transaction_reverted >( err );
          receipt.set_reverted( true );
+
+         res.mutable_value()->set_value( err );
+         res.mutable_value()->set_code( constants::transaction_reversion );
       }
 
       context.set_state_node( block_node );
@@ -553,11 +580,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          context.receipt() = receipt;
          break;
       default:
-         KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
+         assert( false );
          break;
       }
    }
-   catch ( ... )
+   catch ( const std::exception& e )
    {
       generate_receipt( context, receipt, trx, payer_rc, used_rc, disk_storage_used, network_bandwidth_used, compute_bandwidth_used, events, logs );
 
@@ -571,60 +598,85 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          context.receipt() = receipt;
          break;
       default:
-         KOINOS_THROW( unexpected_intent, "transactions cannot be applied outside of the block application or transaction application intent" );
+         assert( false );
          break;
       }
 
-      throw;
+      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_value( e.what() );
    }
 
-   if ( reverted_exception_ptr )
-      throw *reverted_exception_ptr;
+   return res;
 }
 
-THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
+THUNK_DEFINE( apply_upload_contract_operation_result, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
+{
+   apply_upload_contract_operation_result res;
+
+   try
+   {
+      KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
+
+      auto authorized = system_call::check_authority( context, contract_upload, o.contract_id() );
+      KOINOS_ASSERT( authorized, authorization_failed, "account ${account} has not authorized action", ("account", util::to_base58( o.contract_id() )) );
+
+      auto contract_meta_db_object =  system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
+      contract_metadata_object contract_meta;
+
+      if ( contract_meta_db_object.exists() )
+         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_db_object.value() );
+
+      contract_meta.set_hash( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), o.bytecode() ) );
+      contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
+      contract_meta.set_authorizes_transaction_application( o.authorizes_transaction_application() );
+      contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
+
+      system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
+      system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
+   }
+   catch ( const std::exception& e )
+   {
+      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_value( e.what() );
+   }
+
+   return res;
+}
+
+THUNK_DEFINE( apply_call_contract_operation_result, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
+{
+   apply_call_contract_operation_result res;
+
+   try
+   {
+      KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
+
+      // Drop to user mode
+      with_privilege(
+         context,
+         privilege::user_mode,
+         [&]() {
+            *res.mutable_value() = system_call::call( context, o.contract_id(), o.entry_point(), o.args() );
+         }
+      );
+   }
+   catch ( const std::exception& e )
+   {
+      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_value( e.what() );
+   }
+
+   return res;
+}
+
+THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   system_call::require_authority( context, contract_upload, o.contract_id() );
-
-   auto contract_meta_db_object =  system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
-   contract_metadata_object contract_meta;
-
-   if ( contract_meta_db_object.exists() )
-      contract_meta = util::converter::to< contract_metadata_object >( contract_meta_db_object.value() );
-
-   contract_meta.set_hash( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), o.bytecode() ) );
-   contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
-   contract_meta.set_authorizes_transaction_application( o.authorizes_transaction_application() );
-   contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
-
-   system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
-   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
-}
-
-THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
-{
-   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   // Drop to user mode
-   with_privilege(
-      context,
-      privilege::user_mode,
-      [&]() {
-         system_call::call_contract( context, o.contract_id(), o.entry_point(), o.args() );
-      }
-   );
-}
-
-THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
-{
-   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
-
-   system_call::require_system_authority( context, set_system_call );
+   system_call::check_system_authority( context, set_system_call );
 
    if ( o.target().has_system_call_bundle() )
    {
@@ -634,7 +686,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract, "contract metadata does not exist" );
       auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
       KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
-      KOINOS_ASSERT( ( o.call_id() != chain::system_call_id::call_contract ), forbidden_override, "cannot override call_contract" );
+      KOINOS_ASSERT( ( o.call_id() != chain::system_call_id::call ), forbidden_override, "cannot override call_contract" );
 
       //LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
@@ -652,14 +704,16 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    event.set_call_id( o.call_id() );
    event.mutable_target()->CopyFrom( o.target() );
    system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
+
+   return apply_set_system_call_operation_result();
 }
 
-THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
+THUNK_DEFINE( apply_set_system_contract_operation_result, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
-   system_call::require_system_authority( context, set_system_contract );
+   system_call::check_system_authority( context, set_system_contract );
 
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
    KOINOS_ASSERT( contract_object.exists(), invalid_contract, "contract does not exist" );
@@ -676,15 +730,29 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    event.set_contract_id( o.contract_id() );
    event.set_system_contract( o.system_contract() );
    system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
+
+   return apply_set_system_contract_operation_result();
 }
 
-THUNK_DEFINE_VOID( void, pre_block_callback ) {}
+THUNK_DEFINE_VOID( pre_block_callback_result, pre_block_callback )
+{
+   return pre_block_callback_result();
+}
 
-THUNK_DEFINE_VOID( void, post_block_callback ) {}
+THUNK_DEFINE_VOID( post_block_callback_result, post_block_callback )
+{
+   return post_block_callback_result();
+}
 
-THUNK_DEFINE_VOID( void, pre_transaction_callback ) {}
+THUNK_DEFINE_VOID( pre_transaction_callback_result, pre_transaction_callback )
+{
+   return pre_transaction_callback_result();
+}
 
-THUNK_DEFINE_VOID( void, post_transaction_callback ) {}
+THUNK_DEFINE_VOID( post_transaction_callback_result, post_transaction_callback )
+{
+   return post_transaction_callback_result();
+}
 
 THUNK_DEFINE_VOID( get_chain_id_result, get_chain_id )
 {
@@ -820,7 +888,7 @@ THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std
    system_call::put_object( context, state::space::transaction_nonce(), account, nonce );
 }
 
-THUNK_DEFINE( void, require_system_authority, ((system_authorization_type) type) )
+THUNK_DEFINE( check_system_authority_result, check_system_authority, ((system_authorization_type) type) )
 {
    auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
@@ -838,6 +906,8 @@ THUNK_DEFINE( void, require_system_authority, ((system_authorization_type) type)
    }
 
    KOINOS_ASSERT( authorized, authorization_failed, "system authority required" );
+
+   return check_system_authority_result();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -885,7 +955,7 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 // Database                                                                  //
 ///////////////////////////////////////////////////////////////////////////////
 
-THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
+THUNK_DEFINE( void, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "cannot put object during read only call" );
    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" ) * obj.size() );
@@ -900,11 +970,6 @@ THUNK_DEFINE( put_object_result, put_object, ((const object_space&) space, (cons
 
    if ( bytes_used > 0 )
       context.resource_meter().use_disk_storage( bytes_used );
-
-   put_object_result ret;
-   ret.set_value( bytes_used );
-
-   return ret;
 }
 
 THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::string&) key) )
@@ -1127,7 +1192,7 @@ THUNK_DEFINE( verify_vrf_proof_result, verify_vrf_proof, ((dsa) type, (const std
 // Contract Management                                                       //
 ///////////////////////////////////////////////////////////////////////////////
 
-THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
+THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) entry_point, (const std::string&) args) )
 {
    // We need to be in kernel mode to read the contract data
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
@@ -1155,8 +1220,8 @@ THUNK_DEFINE( call_contract_result, call_contract, ((const std::string&) contrac
       throw;
    }
 
-   call_contract_result ret;
-   ret.set_value( context.pop_frame().call_return );
+   call_result ret;
+   ret.mutable_value()->set_value( context.pop_frame().call_return );
    return ret;
 }
 
@@ -1167,28 +1232,21 @@ THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_contract_arguments_result, get_contract_arguments )
+THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
 {
-   get_contract_arguments_result ret;
+   get_arguments_result ret;
    ret.set_value( context.get_contract_call_args() );
    return ret;
 }
 
-THUNK_DEFINE( void, set_contract_result, ((const std::string&) ret) )
+THUNK_DEFINE( void, exit, ((result) res) )
 {
-   context.set_contract_return( ret );
-}
-
-THUNK_DEFINE( void, exit_contract, ((uint32_t) exit_code) )
-{
-   switch( exit_code )
+   switch( res.code() )
    {
       case exit_code::success:
           KOINOS_THROW( exit_success, "" );
-      case exit_code::failure:
-          KOINOS_THROW( exit_failure, "" );
       default:
-          KOINOS_THROW( unknown_exit_code, "contract specified unknown exit code" );
+          KOINOS_THROW( exit_failure, "" );
    }
 }
 
@@ -1226,7 +1284,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    return ret;
 }
 
-THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::string&) account) )
+THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) type, (const std::string&) account) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context, "unable to perform action while context is read only" );
 
@@ -1265,7 +1323,7 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
          args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
       }
 
-      authorized = util::converter::to< authorize_result >( system_call::call_contract( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
+      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ).value() ).value();
    }
    else
    {
@@ -1282,6 +1340,8 @@ THUNK_DEFINE( void, require_authority, ((authorization_type) type, (const std::s
    }
 
    KOINOS_ASSERT( authorized, authorization_failed, "account ${account} has not authorized action", ("account", util::to_base58( account )) );
+
+   return check_authority_result();
 }
 
 THUNK_DEFINE_END();
