@@ -323,8 +323,8 @@ std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, c
          }
       );
    }
-   catch ( const exit_success& ) {}
-   catch ( const exit_failure& ) {}
+   catch ( const chain_success& ) {}
+   catch ( const chain_failure& ) {}
 
    auto result = get_result();
 
