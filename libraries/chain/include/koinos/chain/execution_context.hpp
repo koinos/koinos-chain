@@ -87,13 +87,6 @@ class execution_context
 
       uint64_t get_compute_bandwidth( const std::string& thunk_name );
 
-      /**
-       * For now, authority lives on the context.
-       * This should be moved, made generic, or otherwise re-architected.
-       */
-      void set_key_authority( const crypto::public_key& key );
-      void clear_authority();
-
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
 
@@ -130,7 +123,7 @@ class execution_context
       void set_result( const result& r );
       void set_result( result&& r );
 
-      result get_result();
+      const result& get_result();
 
    private:
       void build_compute_registry_cache();
@@ -143,7 +136,6 @@ class execution_context
 
       abstract_state_node_ptr                   _current_state_node;
       abstract_state_node_ptr                   _parent_state_node;
-      std::optional< crypto::public_key >       _key_auth;
 
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;

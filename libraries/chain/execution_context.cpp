@@ -91,16 +91,6 @@ uint32_t execution_context::get_contract_entry_point() const
    return _stack[ _stack.size() - 2 ].entry_point;
 }
 
-void execution_context::set_key_authority( const crypto::public_key& key )
-{
-   _key_auth = key;
-}
-
-void execution_context::clear_authority()
-{
-   _key_auth.reset();
-}
-
 void execution_context::push_frame( stack_frame&& frame )
 {
    KOINOS_ASSERT( _stack.size() < execution_context::stack_limit, stack_overflow, "apply context stack overflow" );
@@ -333,7 +323,8 @@ std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, c
          }
       );
    }
-   catch( const exit_success& ) {}
+   catch ( const exit_success& ) {}
+   catch ( const exit_failure& ) {}
 
    auto result = get_result();
 
@@ -388,7 +379,7 @@ void execution_context::set_result( result&& r )
    _result = std::move( r );
 }
 
-result execution_context::get_result()
+const result& execution_context::get_result()
 {
    return _result;
 }

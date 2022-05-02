@@ -28,19 +28,14 @@
 #include <koinos/chain/authority.pb.h>
 
 #define KOINOS_ASSERT_REVERSION( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::transaction_reversion, msg, __VA_ARGS__ )
+   KOINOS_ASSERT( cond, koinos::chain::chain_reversion, msg, __VA_ARGS__ )
 
 #define KOINOS_ASSERT_FAILURE( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::application_failure, msg, __VA_ARGS__ )
+   KOINOS_ASSERT( cond, koinos::chain::chain_failure, msg, __VA_ARGS__ )
 
 using namespace std::string_literals;
 
 namespace koinos::chain {
-
-namespace constants {
-   constexpr int32_t transaction_reversion = 1;
-   constexpr int32_t application_failure = -1;
-}
 
 void register_thunks( thunk_dispatcher& td )
 {
@@ -388,7 +383,7 @@ THUNK_DEFINE( apply_block_result, apply_block, ((const protocol::block&) block) 
    catch ( const koinos::exception& e )
    {
       generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
    catch ( ... )
@@ -518,7 +513,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
                *res.mutable_value() = system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
             else
             {
-               res.mutable_value()->set_code( constants::transaction_reversion );
+               res.mutable_value()->set_code( constants::chain_reversion );
                res.mutable_value()->set_value( "unknown operation" );
             }
 
@@ -548,13 +543,13 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          else
             trx_node.reset();
       }
-      catch ( const application_failure& e )
+      catch ( const chain_failure& e )
       {
-         res.mutable_value()->set_code( constants::application_failure );
+         res.mutable_value()->set_code( constants::chain_failure );
          res.mutable_value()->set_value( e.get_message() );
          return res;
       }
-      catch ( const transaction_reversion& e )
+      catch ( const chain_reversion& e )
       {
          // If the transaction fails for any other reason within the operations, it is reverted.
          // Mana is still charged, but the block does not fail
@@ -562,7 +557,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          receipt.set_reverted( true );
 
          res.mutable_value()->set_value( e.get_message() );
-         res.mutable_value()->set_code( constants::transaction_reversion );
+         res.mutable_value()->set_code( constants::chain_reversion );
       }
       catch ( ... )
       {
@@ -626,7 +621,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          break;
       }
 
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -659,14 +654,14 @@ THUNK_DEFINE( apply_upload_contract_operation_result, apply_upload_contract_oper
       system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
       system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -691,14 +686,14 @@ THUNK_DEFINE( apply_call_contract_operation_result, apply_call_contract_operatio
          }
       );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -742,14 +737,14 @@ THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_oper
       event.mutable_target()->CopyFrom( o.target() );
       system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -782,14 +777,14 @@ THUNK_DEFINE( apply_set_system_contract_operation_result, apply_set_system_contr
       event.set_system_contract( o.system_contract() );
       system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -1280,8 +1275,8 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
          }
       );
    }
-   catch( const application_success& ) {}
-   catch( const application_failure& ) {}
+   catch( const chain_success& ) {}
+   catch( const chain_failure& ) {}
 
    call_result ret;
    *ret.mutable_value() = context.get_result();
@@ -1310,15 +1305,15 @@ THUNK_DEFINE( void, exit, ((result) res) )
 
    if ( !code )
    {
-      KOINOS_THROW( application_success, "" );
+      KOINOS_THROW( chain_success, "" );
    }
    else if ( code > 0 )
    {
-      KOINOS_THROW( transaction_reversion, res.value() );
+      KOINOS_THROW( chain_reversion, res.value() );
    }
    else // code < 0
    {
-      KOINOS_THROW( application_failure, res.value() );
+      KOINOS_THROW( chain_failure, res.value() );
    }
 }
 
