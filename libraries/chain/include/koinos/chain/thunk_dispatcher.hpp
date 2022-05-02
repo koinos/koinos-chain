@@ -269,11 +269,11 @@ namespace detail
       {
          std::apply( thunk, thunk_args );
       }
-      catch( chain_reversion& )
+      catch ( const chain_reversion& )
       {
          code = constants::chain_reversion;
       }
-      catch( chain_failure& )
+      catch ( const chain_failure& )
       {
          code = constants::chain_failure;
       }
@@ -294,11 +294,11 @@ namespace detail
       {
          ret = std::apply( thunk, thunk_args );
       }
-      catch( const chain_reversion& )
+      catch ( const chain_reversion& )
       {
          code = constants::chain_reversion;
       }
-      catch( const chain_failure& )
+      catch ( const chain_failure& )
       {
          code = constants::chain_failure;
       }
