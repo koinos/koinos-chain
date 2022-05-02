@@ -303,7 +303,7 @@ namespace detail
 class thunk_dispatcher
 {
    public:
-      uint32_t call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
+      int32_t call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
 
       template< typename ThunkReturn, typename... ThunkArgs >
       auto call_thunk( uint32_t id, execution_context& ctx, ThunkArgs&... args ) const
@@ -342,10 +342,10 @@ class thunk_dispatcher
    private:
       thunk_dispatcher();
 
-      typedef std::function< uint32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
+      typedef std::function< int32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
 
-      std::map< uint32_t, generic_thunk_handler > _dispatch_map;
-      std::map< uint32_t, std::any >              _pass_through_map;
+      std::map< int32_t, generic_thunk_handler > _dispatch_map;
+      std::map< int32_t, std::any >              _pass_through_map;
       std::set< uint32_t >                        _genesis_thunks;
 };
 

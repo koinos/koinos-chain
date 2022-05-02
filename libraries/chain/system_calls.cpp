@@ -688,7 +688,7 @@ THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_oper
       KOINOS_ASSERT( contract_meta.system(), invalid_contract, "contract is not a system contract" );
       KOINOS_ASSERT( ( o.call_id() != chain::system_call_id::call ), forbidden_override, "cannot override call_contract" );
 
-      //LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else
    {
@@ -1202,26 +1202,28 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
    auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
    KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract, "contract hash does not exist" );
 
-   context.push_frame( stack_frame{
-      .contract_id = contract_id,
-      .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
-      .call_args = args,
-      .entry_point = entry_point
-   } );
-
    try
    {
-      chain::host_api hapi( context );
-      context.get_backend()->run( hapi, contract_object.value(), contract_meta.hash() );
+      with_stack_frame(
+         context,
+         stack_frame {
+            .contract_id = contract_id,
+            .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
+            .call_args = args,
+            .entry_point = entry_point
+         },
+         [&]
+         {
+            chain::host_api hapi( context );
+            context.get_backend()->run( hapi, contract_object.value(), contract_meta.hash() );
+         }
+      );
    }
-   catch( const exit_success& ) {}
-   catch( ... ) {
-      context.pop_frame();
-      throw;
-   }
+   catch( const application_success& ) {}
+   catch( const application_failure& ) {}
 
    call_result ret;
-   ret.mutable_value()->set_value( context.pop_frame().call_return );
+   *ret.mutable_value() = context.get_result();
    return ret;
 }
 
@@ -1241,12 +1243,21 @@ THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
 
 THUNK_DEFINE( void, exit, ((result) res) )
 {
-   switch( res.code() )
+   auto code = res.code();
+
+   context.set_result( std::move( res ) );
+
+   if ( !code )
    {
-      case exit_code::success:
-          KOINOS_THROW( exit_success, "" );
-      default:
-          KOINOS_THROW( exit_failure, "" );
+      KOINOS_THROW( application_success, "" );
+   }
+   else if ( code > 0 )
+   {
+      KOINOS_THROW( transaction_reversion, res.value() );
+   }
+   else // code < 0
+   {
+      KOINOS_THROW( application_failure, res.value() );
    }
 }
 

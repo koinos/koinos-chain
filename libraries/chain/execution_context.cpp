@@ -85,22 +85,10 @@ const std::string& execution_context::get_contract_call_args() const
    return _stack[ _stack.size() - 2 ].call_args;
 }
 
-std::string execution_context::get_contract_return() const
-{
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
-   return _stack[ _stack.size() - 2 ].call_return;
-}
-
 uint32_t execution_context::get_contract_entry_point() const
 {
    KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].entry_point;
-}
-
-void execution_context::set_contract_return( const std::string& ret )
-{
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
-   _stack[ _stack.size() - 2 ].call_return = ret;
 }
 
 void execution_context::set_key_authority( const crypto::public_key& key )
@@ -312,7 +300,7 @@ const google::protobuf::DescriptorPool& execution_context::descriptor_pool()
    return *_cache.descriptor_pool;
 }
 
-std::string execution_context::system_call( uint32_t id, const std::string& args )
+std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, const std::string& args )
 {
    cache_system_call( id );
 
@@ -328,25 +316,28 @@ std::string execution_context::system_call( uint32_t id, const std::string& args
    auto entry_point     = std::get< 2 >( *call_bundle );
    const auto& meta     = std::get< 3 >( *call_bundle );
 
-   push_frame( stack_frame{
-      .contract_id = cid,
-      .call_privilege = meta.system() ? privilege::kernel_mode : privilege::user_mode,
-      .call_args = args,
-      .entry_point = entry_point
-   } );
-
    try
    {
-      chain::host_api hapi( *this );
-      get_backend()->run( hapi, bytecode, meta.hash() );
+      with_stack_frame(
+         *this,
+         stack_frame {
+            .contract_id = cid,
+            .call_privilege = meta.system() ? privilege::kernel_mode : privilege::user_mode,
+            .call_args = args,
+            .entry_point = entry_point
+         },
+         [&]
+         {
+            chain::host_api hapi( *this );
+            get_backend()->run( hapi, bytecode, meta.hash() );
+         }
+      );
    }
    catch( const exit_success& ) {}
-   catch( ... ) {
-      pop_frame();
-      throw;
-   }
 
-   return pop_frame().call_return;
+   auto result = get_result();
+
+   return std::make_pair( result.value(), result.code() );
 }
 
 bool execution_context::system_call_exists( uint32_t id )
@@ -385,6 +376,21 @@ const crypto::multicodec& execution_context::block_hash_code()
       build_block_hash_code_cache();
 
    return *_cache.block_hash_code;
+}
+
+void execution_context::set_result( const result& r )
+{
+   _result = r;
+}
+
+void execution_context::set_result( result&& r )
+{
+   _result = std::move( r );
+}
+
+result execution_context::get_result()
+{
+   return _result;
 }
 
 } // koinos::chain

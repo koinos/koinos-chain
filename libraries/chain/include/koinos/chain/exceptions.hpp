@@ -7,6 +7,7 @@ KOINOS_DECLARE_EXCEPTION( chain_exception );
 
 KOINOS_DECLARE_DERIVED_EXCEPTION( transaction_reversion, chain_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( application_failure, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( application_success, chain_exception );
 
 // Database exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( database_exception, chain_exception );
