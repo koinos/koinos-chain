@@ -81,25 +81,25 @@ void execution_context::clear_transaction()
 
 const std::string& execution_context::get_contract_call_args() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
+   KOINOS_ASSERT_REVERSION( _stack.size() > 1, "stack is empty" );
    return _stack[ _stack.size() - 2 ].call_args;
 }
 
 uint32_t execution_context::get_contract_entry_point() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, stack_exception, "stack is empty" );
+   KOINOS_ASSERT_REVERSION( _stack.size() > 1, "stack is empty" );
    return _stack[ _stack.size() - 2 ].entry_point;
 }
 
 void execution_context::push_frame( stack_frame&& frame )
 {
-   KOINOS_ASSERT( _stack.size() < execution_context::stack_limit, stack_overflow, "apply context stack overflow" );
+   KOINOS_ASSERT_REVERSION( _stack.size() < execution_context::stack_limit, "apply context stack overflow" );
    _stack.emplace_back( std::move(frame) );
 }
 
 stack_frame execution_context::pop_frame()
 {
-   KOINOS_ASSERT( _stack.size(), stack_exception, "stack is empty" );
+   KOINOS_ASSERT_REVERSION( _stack.size(), "stack is empty" );
    auto frame = _stack[ _stack.size() - 1 ];
    _stack.pop_back();
    return frame;
@@ -131,13 +131,13 @@ uint32_t execution_context::get_caller_entry_point() const
 
 void execution_context::set_privilege( privilege p )
 {
-   KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
+   KOINOS_ASSERT_FAILURE( _stack.size(), "stack empty" );
    _stack[ _stack.size() - 1 ].call_privilege = p;
 }
 
 privilege execution_context::get_privilege() const
 {
-   KOINOS_ASSERT( _stack.size() , stack_exception, "stack empty" );
+   KOINOS_ASSERT_FAILURE( _stack.size(), "stack empty" );
    return _stack[ _stack.size() - 1 ].call_privilege;
 }
 
@@ -193,10 +193,10 @@ chain::intent execution_context::intent() const
 void execution_context::build_compute_registry_cache()
 {
    auto parent_state_node = get_parent_node();
-   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+   KOINOS_ASSERT_REVERSION( parent_state_node, "cannot build execution context cache without a state node" );
 
    auto obj = parent_state_node->get_object( state::space::metadata(), state::key::compute_bandwidth_registry );
-   KOINOS_ASSERT( obj, unexpected_state, "compute bandwidth registry does not exist" );
+   KOINOS_ASSERT_REVERSION( obj, "compute bandwidth registry does not exist" );
    auto compute_registry = util::converter::to< compute_bandwidth_registry >( *obj );
 
    _cache.compute_bandwidth.emplace();
@@ -207,13 +207,13 @@ void execution_context::build_compute_registry_cache()
 void execution_context::build_descriptor_pool()
 {
    auto parent_state_node = get_parent_node();
-   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+   KOINOS_ASSERT_REVERSION( parent_state_node, "cannot build execution context cache without a state node" );
 
    auto pdesc = parent_state_node->get_object( state::space::metadata(), state::key::protocol_descriptor );
-   KOINOS_ASSERT( pdesc, unexpected_state, "file descriptor set does not exist" );
+   KOINOS_ASSERT_REVERSION( pdesc, "file descriptor set does not exist" );
 
    google::protobuf::FileDescriptorSet fdesc;
-   KOINOS_ASSERT( fdesc.ParseFromString( *pdesc ), unexpected_state, "file descriptor set is malformed" );
+   KOINOS_ASSERT_REVERSION( fdesc.ParseFromString( *pdesc ), "file descriptor set is malformed" );
 
    _cache.descriptor_pool.emplace();
    for ( const auto& fd : fdesc.file() )
@@ -223,7 +223,7 @@ void execution_context::build_descriptor_pool()
 void execution_context::cache_system_call( uint32_t id )
 {
    auto parent_state_node = get_parent_node();
-   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+   KOINOS_ASSERT_REVERSION( parent_state_node, "cannot build execution context cache without a state node" );
 
    if ( _cache.system_call_table.find( id ) != _cache.system_call_table.end() )
       return;
@@ -241,8 +241,8 @@ void execution_context::cache_system_call( uint32_t id )
          auto contract_meta     = parent_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
          auto contract_bytecode = parent_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
 
-         KOINOS_ASSERT( contract_meta, unexpected_state, "contract metadata for call id ${id} not found", ("id", id) );
-         KOINOS_ASSERT( contract_bytecode, unexpected_state, "contract bytecode for call id ${id} not found", ("id", id) );
+         KOINOS_ASSERT_REVERSION( contract_meta, "contract metadata for call id ${id} not found", ("id", id) );
+         KOINOS_ASSERT_REVERSION( contract_bytecode, "contract bytecode for call id ${id} not found", ("id", id) );
 
          _cache.system_call_table[ id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
       }
@@ -256,10 +256,10 @@ void execution_context::cache_system_call( uint32_t id )
 void execution_context::build_block_hash_code_cache()
 {
    auto parent_state_node = get_parent_node();
-   KOINOS_ASSERT( parent_state_node, unexpected_state, "cannot build execution context cache without a state node" );
+   KOINOS_ASSERT_REVERSION( parent_state_node, "cannot build execution context cache without a state node" );
 
    auto bhash = parent_state_node->get_object( state::space::metadata(), state::key::block_hash_code );
-   KOINOS_ASSERT( bhash, unexpected_state, "block hash code does not exist" );
+   KOINOS_ASSERT_REVERSION( bhash, "block hash code does not exist" );
 
    _cache.block_hash_code.emplace( crypto::multicodec( util::converter::to< unsigned_varint >( *bhash ).value ) );
 }
@@ -278,7 +278,7 @@ uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name
       build_compute_registry_cache();
 
    auto itr = _cache.compute_bandwidth->find( thunk_name );
-   KOINOS_ASSERT( itr != _cache.compute_bandwidth->end(), unexpected_state, "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
+   KOINOS_ASSERT_REVERSION( itr != _cache.compute_bandwidth->end(), "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
    return itr->second;
 }
 
@@ -295,11 +295,11 @@ std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, c
    cache_system_call( id );
 
    auto itr = _cache.system_call_table.find( id );
-   KOINOS_ASSERT( itr != _cache.system_call_table.end(), unexpected_state, "unable to find call id ${id} in system call cache", ("id", id) );
+   KOINOS_ASSERT_REVERSION( itr != _cache.system_call_table.end(), "unable to find call id ${id} in system call cache", ("id", id) );
 
    const auto* call_bundle = std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second );
 
-   KOINOS_ASSERT( call_bundle, unexpected_state, "system call ${id} is implemented via thunk", ("id", id) );
+   KOINOS_ASSERT_REVERSION( call_bundle, "system call ${id} is implemented via thunk", ("id", id) );
 
    const auto& cid      = std::get< 0 >( *call_bundle );
    const auto& bytecode = std::get< 1 >( *call_bundle );
@@ -349,14 +349,14 @@ uint32_t execution_context::thunk_translation( uint32_t id )
    auto itr = _cache.system_call_table.find( id );
    if ( itr == _cache.system_call_table.end() )
    {
-      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_is_genesis( id ), thunk_not_enabled, "thunk ${id} is not enabled", ("id", id) );
+      KOINOS_ASSERT_REVERSION( thunk_dispatcher::instance().thunk_is_genesis( id ), "thunk ${id} is not enabled", ("id", id) );
       return id;
    }
 
 
    const auto* thunk_id = std::get_if< uint32_t >( &itr->second );
 
-   KOINOS_ASSERT( thunk_id, unexpected_state, "system call ${id} is implemented via contract override", ("id", id) );
+   KOINOS_ASSERT_REVERSION( thunk_id, "system call ${id} is implemented via contract override", ("id", id) );
 
    return *thunk_id;
 }

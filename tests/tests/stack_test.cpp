@@ -89,7 +89,7 @@ struct stack_fixture
          { "apply_set_system_contract_operation", 4746 },
          { "apply_transaction", 13208 },
          { "apply_upload_contract_operation", 3722 },
-         { "call_contract", 4810 },
+         { "call", 4810 },
          { "consume_account_rc", 734 },
          { "consume_block_resources", 729 },
          { "deserialize_message_per_byte", 1 },

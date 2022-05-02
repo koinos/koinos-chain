@@ -8,7 +8,7 @@ session::~session() = default;
 
 void session::use_rc( uint64_t rc )
 {
-   KOINOS_ASSERT( rc <= _end_rc, insufficient_rc, "insufficent rc" );
+   KOINOS_ASSERT_REVERSION( rc <= _end_rc, "insufficent rc" );
    _end_rc -= rc;
 }
 

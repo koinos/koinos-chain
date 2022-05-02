@@ -27,12 +27,6 @@
 
 #include <koinos/chain/authority.pb.h>
 
-#define KOINOS_ASSERT_REVERSION( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::chain_reversion, msg, __VA_ARGS__ )
-
-#define KOINOS_ASSERT_FAILURE( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::chain_failure, msg, __VA_ARGS__ )
-
 using namespace std::string_literals;
 
 namespace koinos::chain {
@@ -165,7 +159,7 @@ void validate_hash_code( crypto::multicodec id )
       case crypto::multicodec::ripemd_160:
          break;
       default:
-         KOINOS_THROW( unknown_hash_code, "unknown hash code" );
+         KOINOS_THROW( chain_reversion, "unknown hash code" );
    }
 }
 
@@ -296,8 +290,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
    try
    {
-      KOINOS_ASSERT_FAILURE( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_FAILURE( context.intent() == intent::block_application, "expected block application intent while applying block" );
+      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT_REVERSION( context.intent() == intent::block_application, "expected block application intent while applying block" );
 
       block_guard guard( context, block );
 
@@ -410,11 +404,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
    std::vector< protocol::event_data > events;
    std::vector< std::string > logs;
 
-   KOINOS_ASSERT_FAILURE( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT_FAILURE( !context.read_only(), "unable to perform action while context is read only" );
-
    try
    {
+      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+
       transaction_guard guard( context, trx );
 
       const auto& payer = trx.header().payer();
@@ -583,6 +577,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          assert( false );
          break;
       }
+
+      throw;
    }
 
    if ( reverted_exception_ptr )
@@ -1279,7 +1275,7 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
    else
    {
       const auto* trx = context.get_transaction();
-      KOINOS_ASSERT( trx != nullptr, unexpected_access, "transaction does not exist" );
+      KOINOS_ASSERT_REVERSION( trx != nullptr, "transaction does not exist" );
 
       for ( const auto& sig : trx->signatures() )
       {

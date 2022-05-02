@@ -82,7 +82,7 @@ struct controller_fixture
          { "apply_set_system_contract_operation", 4746 },
          { "apply_transaction", 13208 },
          { "apply_upload_contract_operation", 3722 },
-         { "call_contract", 4810 },
+         { "call", 4810 },
          { "consume_account_rc", 734 },
          { "consume_block_resources", 729 },
          { "deserialize_message_per_byte", 1 },
@@ -268,7 +268,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    sign_block( *block_req.mutable_block(), foo_key );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::invalid_block_signature );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::chain_failure );
 
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
@@ -592,7 +592,8 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    BOOST_TEST_MESSAGE( "Test read contract db write" );
 
    request.set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
-   BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context );
+   //BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context );
+   BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::chain_reversion );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
