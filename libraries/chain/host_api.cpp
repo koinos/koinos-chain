@@ -58,6 +58,9 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
       }
    );
 
+   if ( _ctx.get_privilege() == privilege::user_mode && retcode > 0 )
+      KOINOS_THROW( chain_reversion, "" );
+
    return retcode;
 }
 
