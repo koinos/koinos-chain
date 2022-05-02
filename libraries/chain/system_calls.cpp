@@ -290,10 +290,9 @@ THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
    return ret;
 }
 
-THUNK_DEFINE( apply_block_result, apply_block, ((const protocol::block&) block) )
+THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 {
    context.receipt() = protocol::block_receipt();
-   apply_block_result res;
 
    try
    {
@@ -380,19 +379,11 @@ THUNK_DEFINE( apply_block_result, apply_block, ((const protocol::block&) block) 
 
       generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
    }
-   catch ( const koinos::exception& e )
-   {
-      generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
-      res.mutable_value()->set_code( constants::chain_failure );
-      res.mutable_value()->set_value( e.get_message() );
-   }
    catch ( ... )
    {
-      assert( false );
+      generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
       throw;
    }
-
-   return res;
 }
 
 inline void log_reversion( const std::string& msg, const protocol::transaction& trx )
@@ -407,10 +398,10 @@ inline void log_reversion( const std::string& msg, const protocol::transaction& 
    }
 }
 
-THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::transaction&) trx) )
+THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
-   apply_transaction_result res;
    protocol::transaction_receipt receipt;
+   std::exception_ptr reverted_exception_ptr;
    uint64_t used_rc = 0;
    uint64_t disk_storage_used = 0;
    uint64_t compute_bandwidth_used = 0;
@@ -486,9 +477,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
       );
 
-      *res.mutable_value() = system_call::pre_transaction_callback( context );
-      if ( res.value().code() != 0 )
-         return res;
+      system_call::pre_transaction_callback( context );
 
       // The anonymous node must be created after requiring authority and the pre transaction callback
       // because those calls might write to database and those writes must persist regardless of whether
@@ -504,50 +493,25 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          for ( const auto& o : trx.operations() )
          {
             if ( o.has_upload_contract() )
-               *res.mutable_value() = system_call::apply_upload_contract_operation( context, o.upload_contract() );
+               system_call::apply_upload_contract_operation( context, o.upload_contract() );
             else if ( o.has_call_contract() )
-               *res.mutable_value() = system_call::apply_call_contract_operation( context, o.call_contract() );
+               system_call::apply_call_contract_operation( context, o.call_contract() );
             else if ( o.has_set_system_call() )
-               *res.mutable_value() = system_call::apply_set_system_call_operation( context, o.set_system_call() );
+               system_call::apply_set_system_call_operation( context, o.set_system_call() );
             else if ( o.has_set_system_contract() )
-               *res.mutable_value() = system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
+               system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
             else
-            {
-               res.mutable_value()->set_code( constants::chain_reversion );
-               res.mutable_value()->set_value( "unknown operation" );
-            }
-
-            if ( res.value().code() > 0 )
-            {
-               log_reversion( res.value().value(), trx );
-               receipt.set_reverted( true );
-               break;
-            }
-
-            if ( res.value().code() < 0 )
-            {
-               return res;
-            }
+               KOINOS_ASSERT_REVERSION( false, "unknown operation" );
          }
 
          system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
+         system_call::post_transaction_callback( context );
 
-         *res.mutable_value() = system_call::post_transaction_callback( context );
-         if ( res.value().code() < 0 )
-         {
-            return res;
-         }
-
-         if ( res.value().code() == 0 )
-            trx_node->commit();
-         else
-            trx_node.reset();
+         trx_node->commit();
       }
-      catch ( const chain_failure& e )
+      catch ( const chain_failure& )
       {
-         res.mutable_value()->set_code( constants::chain_failure );
-         res.mutable_value()->set_value( e.get_message() );
-         return res;
+         throw;
       }
       catch ( const chain_reversion& e )
       {
@@ -556,8 +520,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          log_reversion( e.get_message(), trx );
          receipt.set_reverted( true );
 
-         res.mutable_value()->set_value( e.get_message() );
-         res.mutable_value()->set_code( constants::chain_reversion );
+         reverted_exception_ptr = std::current_exception();
       }
       catch ( ... )
       {
@@ -620,196 +583,115 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          assert( false );
          break;
       }
-
-      res.mutable_value()->set_code( constants::chain_failure );
-      res.mutable_value()->set_value( e.get_message() );
    }
 
-   return res;
+   if ( reverted_exception_ptr )
+      std::rethrow_exception( reverted_exception_ptr );
 }
 
-THUNK_DEFINE( apply_upload_contract_operation_result, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
+THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   apply_upload_contract_operation_result res;
+   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
 
-   try
-   {
-      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+   auto authorized = system_call::check_authority( context, contract_upload, o.contract_id() );
+   KOINOS_ASSERT_REVERSION( authorized, "account ${account} has not authorized action", ("account", util::to_base58( o.contract_id() )) );
 
-      auto authorized = system_call::check_authority( context, contract_upload, o.contract_id() );
-      KOINOS_ASSERT_REVERSION( authorized, "account ${account} has not authorized action", ("account", util::to_base58( o.contract_id() )) );
+   auto contract_meta_db_object =  system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
+   contract_metadata_object contract_meta;
 
-      auto contract_meta_db_object =  system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
-      contract_metadata_object contract_meta;
+   if ( contract_meta_db_object.exists() )
+      contract_meta = util::converter::to< contract_metadata_object >( contract_meta_db_object.value() );
 
-      if ( contract_meta_db_object.exists() )
-         contract_meta = util::converter::to< contract_metadata_object >( contract_meta_db_object.value() );
+   contract_meta.set_hash( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), o.bytecode() ) );
+   contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
+   contract_meta.set_authorizes_transaction_application( o.authorizes_transaction_application() );
+   contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
 
-      contract_meta.set_hash( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), o.bytecode() ) );
-      contract_meta.set_authorizes_call_contract( o.authorizes_call_contract() );
-      contract_meta.set_authorizes_transaction_application( o.authorizes_transaction_application() );
-      contract_meta.set_authorizes_upload_contract( o.authorizes_upload_contract() );
-
-      system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
-      system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
-   }
-   catch ( const chain_failure& e )
-   {
-      res.mutable_value()->set_code( constants::chain_failure );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-   catch ( const chain_reversion& e )
-   {
-      res.mutable_value()->set_code( constants::chain_reversion );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-
-   return res;
+   system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
+   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
 }
 
-THUNK_DEFINE( apply_call_contract_operation_result, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
+THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   apply_call_contract_operation_result res;
+   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
 
-   try
-   {
-      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-
-      // Drop to user mode
-      with_privilege(
-         context,
-         privilege::user_mode,
-         [&]() {
-            *res.mutable_value() = system_call::call( context, o.contract_id(), o.entry_point(), o.args() );
-         }
-      );
-   }
-   catch ( const chain_failure& e )
-   {
-      res.mutable_value()->set_code( constants::chain_failure );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-   catch ( const chain_reversion& e )
-   {
-      res.mutable_value()->set_code( constants::chain_reversion );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-
-   return res;
-}
-
-THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
-{
-   apply_set_system_call_operation_result res;
-
-   try
-   {
-      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() != privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-      KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_call ), "system authority required" );
-
-      if ( o.target().has_system_call_bundle() )
-      {
-         auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
-         KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
-         auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() );
-         KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract metadata does not exist" );
-         auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-         KOINOS_ASSERT_REVERSION( contract_meta.system(), "contract is not a system contract" );
-         KOINOS_ASSERT_REVERSION( o.call_id() != chain::system_call_id::call, "cannot override call_contract" );
-
-         LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
+   // Drop to user mode
+   with_privilege(
+      context,
+      privilege::user_mode,
+      [&]() {
+         system_call::call( context, o.contract_id(), o.entry_point(), o.args() );
       }
-      else
-      {
-         KOINOS_ASSERT_REVERSION( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
-         LOG(info) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
-      }
-
-      // Place the override in the database
-      system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::chain::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
-
-      // Emit an event
-      set_system_call_event event;
-      event.set_call_id( o.call_id() );
-      event.mutable_target()->CopyFrom( o.target() );
-      system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
-   }
-   catch ( const chain_failure& e )
-   {
-      res.mutable_value()->set_code( constants::chain_failure );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-   catch ( const chain_reversion& e )
-   {
-      res.mutable_value()->set_code( constants::chain_reversion );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-
-   return res;
+   );
 }
 
-THUNK_DEFINE( apply_set_system_contract_operation_result, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
+THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   apply_set_system_contract_operation_result res;
+   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() != privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+   KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_call ), "system authority required" );
 
-   try {
-      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-
-      system_call::check_system_authority( context, set_system_contract );
-
-      auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
+   if ( o.target().has_system_call_bundle() )
+   {
+      auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
       KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
-      auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
-      KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract does not exist" );
+      auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() );
+      KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract metadata does not exist" );
       auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-      KOINOS_ASSERT_REVERSION( contract_meta.hash().size(), "contract hash does not exist" );
+      KOINOS_ASSERT_REVERSION( contract_meta.system(), "contract is not a system contract" );
+      KOINOS_ASSERT_REVERSION( o.call_id() != chain::system_call_id::call, "cannot override call_contract" );
 
-      contract_meta.set_system( o.system_contract() );
-      system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
-
-      // Emit an event
-      set_system_contract_event event;
-      event.set_contract_id( o.contract_id() );
-      event.set_system_contract( o.system_contract() );
-      system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
-   catch ( const chain_failure& e )
+   else
    {
-      res.mutable_value()->set_code( constants::chain_failure );
-      res.mutable_value()->set_value( e.get_message() );
-   }
-   catch ( const chain_reversion& e )
-   {
-      res.mutable_value()->set_code( constants::chain_reversion );
-      res.mutable_value()->set_value( e.get_message() );
+      KOINOS_ASSERT_REVERSION( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
+      LOG(info) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
    }
 
-   return res;
+   // Place the override in the database
+   system_call::put_object( context, state::space::system_call_dispatch(), util::converter::as< std::string >( std::underlying_type_t< koinos::chain::system_call_id >( o.call_id() ) ), util::converter::as< std::string >( o.target() ) );
+
+   // Emit an event
+   set_system_call_event event;
+   event.set_call_id( o.call_id() );
+   event.mutable_target()->CopyFrom( o.target() );
+   system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
 }
 
-THUNK_DEFINE_VOID( pre_block_callback_result, pre_block_callback )
+THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
 {
-   return pre_block_callback_result();
+   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+
+   system_call::check_system_authority( context, set_system_contract );
+
+   auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
+   KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
+   auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
+   KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract does not exist" );
+   auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
+   KOINOS_ASSERT_REVERSION( contract_meta.hash().size(), "contract hash does not exist" );
+
+   contract_meta.set_system( o.system_contract() );
+   system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
+
+   // Emit an event
+   set_system_contract_event event;
+   event.set_contract_id( o.contract_id() );
+   event.set_system_contract( o.system_contract() );
+   system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
 }
 
-THUNK_DEFINE_VOID( post_block_callback_result, post_block_callback )
-{
-   return post_block_callback_result();
-}
+THUNK_DEFINE_VOID( void, pre_block_callback ) {}
 
-THUNK_DEFINE_VOID( pre_transaction_callback_result, pre_transaction_callback )
-{
-   return pre_transaction_callback_result();
-}
+THUNK_DEFINE_VOID( void, post_block_callback ) {}
 
-THUNK_DEFINE_VOID( post_transaction_callback_result, post_transaction_callback )
-{
-   return post_transaction_callback_result();
-}
+THUNK_DEFINE_VOID( void, pre_transaction_callback ) {}
+
+THUNK_DEFINE_VOID( void, post_transaction_callback ) {}
 
 THUNK_DEFINE_VOID( get_chain_id_result, get_chain_id )
 {

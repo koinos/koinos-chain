@@ -57,16 +57,16 @@ void register_thunks( thunk_dispatcher& td );
 // General Blockchain Management
 
 THUNK_DECLARE_VOID( get_head_info_result, get_head_info );
-THUNK_DECLARE( apply_block_result, apply_block, const protocol::block& block );
-THUNK_DECLARE( apply_transaction_result, apply_transaction, const protocol::transaction& trx );
-THUNK_DECLARE( apply_upload_contract_operation_result, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
-THUNK_DECLARE( apply_call_contract_operation_result, apply_call_contract_operation, const protocol::call_contract_operation& op );
-THUNK_DECLARE( apply_set_system_call_operation_result, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
-THUNK_DECLARE( apply_set_system_contract_operation_result, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
-THUNK_DECLARE_VOID( pre_block_callback_result, pre_block_callback );
-THUNK_DECLARE_VOID( pre_transaction_callback_result, pre_transaction_callback );
-THUNK_DECLARE_VOID( post_block_callback_result, post_block_callback );
-THUNK_DECLARE_VOID( post_transaction_callback_result, post_transaction_callback );
+THUNK_DECLARE( void, apply_block, const protocol::block& block );
+THUNK_DECLARE( void, apply_transaction, const protocol::transaction& trx );
+THUNK_DECLARE( void, apply_upload_contract_operation, const protocol::upload_contract_operation& op );
+THUNK_DECLARE( void, apply_call_contract_operation, const protocol::call_contract_operation& op );
+THUNK_DECLARE( void, apply_set_system_call_operation, const protocol::set_system_call_operation& op );
+THUNK_DECLARE( void, apply_set_system_contract_operation, const protocol::set_system_contract_operation& op );
+THUNK_DECLARE_VOID( void, pre_block_callback );
+THUNK_DECLARE_VOID( void, pre_transaction_callback );
+THUNK_DECLARE_VOID( void, post_block_callback );
+THUNK_DECLARE_VOID( void, post_transaction_callback );
 THUNK_DECLARE_VOID( get_chain_id_result, get_chain_id );
 
 // System Helpers
