@@ -264,7 +264,7 @@ namespace koinos::chain::detail {
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
                std::string _arg_str;                                                                                       \
                _args.SerializeToString( &_arg_str );                                                                       \
-               auto _ret_str = context.system_call( _sid, _arg_str );                                                      \
+               auto [ _ret_str, code ] = context.system_call( _sid, _arg_str );                                            \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
             }                                                                                                              \
             else                                                                                                           \

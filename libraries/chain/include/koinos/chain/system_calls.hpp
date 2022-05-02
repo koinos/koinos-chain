@@ -17,12 +17,10 @@
 
 namespace koinos::chain {
 
-namespace exit_code {
-
-constexpr uint32_t success = 0;
-constexpr uint32_t failure = 1;
-
-} // exit_code
+namespace constants {
+   constexpr int32_t chain_reversion = 1;
+   constexpr int32_t chain_failure = -1;
+}
 
 class execution_context;
 class thunk_dispatcher;

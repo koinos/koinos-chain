@@ -263,8 +263,22 @@ namespace detail
    call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
-      std::apply( thunk, thunk_args );
-      return 0;
+      int32_t code = 0;
+
+      try
+      {
+         std::apply( thunk, thunk_args );
+      }
+      catch ( const chain_reversion& )
+      {
+         code = constants::chain_reversion;
+      }
+      catch ( const chain_failure& )
+      {
+         code = constants::chain_failure;
+      }
+
+      return code;
    }
 
    template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
@@ -272,14 +286,30 @@ namespace detail
    call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
    {
       static_assert( std::is_same< RetStruct, ThunkReturn >::value, "thunk return does not match defined return in koinos-proto" );
+      int32_t code = 0;
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
-      auto ret = std::apply( thunk, thunk_args );
+      ThunkReturn ret;
+
+      try
+      {
+         ret = std::apply( thunk, thunk_args );
+      }
+      catch ( const chain_reversion& )
+      {
+         code = constants::chain_reversion;
+      }
+      catch ( const chain_failure& )
+      {
+         code = constants::chain_failure;
+      }
+
       std::string s;
       ret.SerializeToString( &s );
       KOINOS_ASSERT( s.size() <= ret_len, koinos::exception, "return buffer is not large enough for the return value" );
       #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
       std::memcpy( ret_ptr, s.c_str(), s.size() );
-      return s.size();
+
+      return code;
    }
 
 } // detail
@@ -303,7 +333,7 @@ namespace detail
 class thunk_dispatcher
 {
    public:
-      uint32_t call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
+      int32_t call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
 
       template< typename ThunkReturn, typename... ThunkArgs >
       auto call_thunk( uint32_t id, execution_context& ctx, ThunkArgs&... args ) const
@@ -342,10 +372,10 @@ class thunk_dispatcher
    private:
       thunk_dispatcher();
 
-      typedef std::function< uint32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
+      typedef std::function< int32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
 
-      std::map< uint32_t, generic_thunk_handler > _dispatch_map;
-      std::map< uint32_t, std::any >              _pass_through_map;
+      std::map< int32_t, generic_thunk_handler > _dispatch_map;
+      std::map< int32_t, std::any >              _pass_through_map;
       std::set< uint32_t >                        _genesis_thunks;
 };
 

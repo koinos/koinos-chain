@@ -19,11 +19,11 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <variant>
 
 namespace koinos::chain {
 
-using boost::container::flat_set;
 using koinos::state_db::state_node_ptr;
 using koinos::state_db::anonymous_state_node_ptr;
 using koinos::state_db::abstract_state_node;
@@ -38,7 +38,6 @@ struct stack_frame
    privilege   call_privilege;
    std::string call_args;
    uint32_t    entry_point = 0;
-   std::string call_return;
 };
 
 enum class intent : uint64_t
@@ -86,17 +85,7 @@ class execution_context
 
       uint32_t get_contract_entry_point() const;
 
-      std::string get_contract_return() const;
-      void set_contract_return( const std::string& ret );
-
       uint64_t get_compute_bandwidth( const std::string& thunk_name );
-
-      /**
-       * For now, authority lives on the context.
-       * This should be moved, made generic, or otherwise re-architected.
-       */
-      void set_key_authority( const crypto::public_key& key );
-      void clear_authority();
 
       void push_frame( stack_frame&& frame );
       stack_frame pop_frame();
@@ -126,14 +115,17 @@ class execution_context
 
       const google::protobuf::DescriptorPool& descriptor_pool();
 
-      std::string system_call( uint32_t id, const std::string& args );
+      std::pair< std::string, int32_t > system_call( uint32_t id, const std::string& args );
       uint32_t thunk_translation( uint32_t id );
       bool system_call_exists( uint32_t id );
       const crypto::multicodec& block_hash_code();
 
-   private:
-      friend struct frame_restorer;
+      void set_result( const result& r );
+      void set_result( result&& r );
 
+      const result& get_result();
+
+   private:
       void build_compute_registry_cache();
       void build_descriptor_pool();
       void cache_system_call( uint32_t );
@@ -144,7 +136,6 @@ class execution_context
 
       abstract_state_node_ptr                   _current_state_node;
       abstract_state_node_ptr                   _parent_state_node;
-      std::optional< crypto::public_key >       _key_auth;
 
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
@@ -156,19 +147,20 @@ class execution_context
       chain::receipt                            _receipt;
 
       execution_context_cache                   _cache;
+      result                                    _result;
 };
 
 namespace detail {
 
-struct frame_restorer
+struct frame_guard
 {
-   frame_restorer( execution_context& ctx, stack_frame&& f ) :
+   frame_guard( execution_context& ctx, stack_frame&& f ) :
       _ctx( ctx )
    {
       _ctx.push_frame( std::move( f ) );
    }
 
-   ~frame_restorer()
+   ~frame_guard()
    {
       _ctx.pop_frame();
    }
@@ -177,16 +169,16 @@ struct frame_restorer
       execution_context& _ctx;
 };
 
-struct privilege_restorer
+struct privilege_guard
 {
-   privilege_restorer( execution_context& ctx, privilege p ) :
+   privilege_guard( execution_context& ctx, privilege p ) :
       _ctx( ctx )
    {
       _privilege = ctx.get_privilege();
       _ctx.set_privilege( p );
    }
 
-   ~privilege_restorer()
+   ~privilege_guard()
    {
       _ctx.set_privilege( _privilege );
    }
@@ -201,14 +193,14 @@ struct privilege_restorer
 template< typename Lambda >
 void with_stack_frame( execution_context& ctx, stack_frame&& f, Lambda&& l )
 {
-   detail::frame_restorer r( ctx, std::move( f ) );
+   detail::frame_guard r( ctx, std::move( f ) );
    l();
 }
 
 template< typename Lambda >
 void with_privilege( execution_context& ctx, privilege p, Lambda&& l )
 {
-   detail::privilege_restorer r( ctx, p );
+   detail::privilege_guard r( ctx, p );
    l();
 }
 

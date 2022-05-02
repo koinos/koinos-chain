@@ -28,19 +28,14 @@
 #include <koinos/chain/authority.pb.h>
 
 #define KOINOS_ASSERT_REVERSION( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::transaction_reversion, msg, __VA_ARGS__ )
+   KOINOS_ASSERT( cond, koinos::chain::chain_reversion, msg, __VA_ARGS__ )
 
 #define KOINOS_ASSERT_FAILURE( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::application_failure, msg, __VA_ARGS__ )
+   KOINOS_ASSERT( cond, koinos::chain::chain_failure, msg, __VA_ARGS__ )
 
 using namespace std::string_literals;
 
 namespace koinos::chain {
-
-namespace constants {
-   constexpr int32_t transaction_reversion = 1;
-   constexpr int32_t application_failure = -1;
-}
 
 void register_thunks( thunk_dispatcher& td )
 {
@@ -388,7 +383,7 @@ THUNK_DEFINE( apply_block_result, apply_block, ((const protocol::block&) block) 
    catch ( const koinos::exception& e )
    {
       generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
    catch ( ... )
@@ -518,7 +513,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
                *res.mutable_value() = system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
             else
             {
-               res.mutable_value()->set_code( constants::transaction_reversion );
+               res.mutable_value()->set_code( constants::chain_reversion );
                res.mutable_value()->set_value( "unknown operation" );
             }
 
@@ -548,13 +543,13 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          else
             trx_node.reset();
       }
-      catch ( const application_failure& e )
+      catch ( const chain_failure& e )
       {
-         res.mutable_value()->set_code( constants::application_failure );
+         res.mutable_value()->set_code( constants::chain_failure );
          res.mutable_value()->set_value( e.get_message() );
          return res;
       }
-      catch ( const transaction_reversion& e )
+      catch ( const chain_reversion& e )
       {
          // If the transaction fails for any other reason within the operations, it is reverted.
          // Mana is still charged, but the block does not fail
@@ -562,7 +557,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          receipt.set_reverted( true );
 
          res.mutable_value()->set_value( e.get_message() );
-         res.mutable_value()->set_code( constants::transaction_reversion );
+         res.mutable_value()->set_code( constants::chain_reversion );
       }
       catch ( ... )
       {
@@ -626,7 +621,7 @@ THUNK_DEFINE( apply_transaction_result, apply_transaction, ((const protocol::tra
          break;
       }
 
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -659,14 +654,14 @@ THUNK_DEFINE( apply_upload_contract_operation_result, apply_upload_contract_oper
       system_call::put_object( context, state::space::contract_bytecode(), o.contract_id(), o.bytecode() );
       system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -691,14 +686,14 @@ THUNK_DEFINE( apply_call_contract_operation_result, apply_call_contract_operatio
          }
       );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -713,7 +708,6 @@ THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_oper
    {
       KOINOS_ASSERT_REVERSION( context.get_caller_privilege() != privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
       KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-
       KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_call ), "system authority required" );
 
       if ( o.target().has_system_call_bundle() )
@@ -726,7 +720,7 @@ THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_oper
          KOINOS_ASSERT_REVERSION( contract_meta.system(), "contract is not a system contract" );
          KOINOS_ASSERT_REVERSION( o.call_id() != chain::system_call_id::call, "cannot override call_contract" );
 
-         //LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
+         LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
       }
       else
       {
@@ -743,14 +737,14 @@ THUNK_DEFINE( apply_set_system_call_operation_result, apply_set_system_call_oper
       event.mutable_target()->CopyFrom( o.target() );
       system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -783,14 +777,14 @@ THUNK_DEFINE( apply_set_system_contract_operation_result, apply_set_system_contr
       event.set_system_contract( o.system_contract() );
       system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
    }
-   catch ( const application_failure& e )
+   catch ( const chain_failure& e )
    {
-      res.mutable_value()->set_code( constants::application_failure );
+      res.mutable_value()->set_code( constants::chain_failure );
       res.mutable_value()->set_value( e.get_message() );
    }
-   catch ( const transaction_reversion& e )
+   catch ( const chain_reversion& e )
    {
-      res.mutable_value()->set_code( constants::transaction_reversion );
+      res.mutable_value()->set_code( constants::chain_reversion );
       res.mutable_value()->set_value( e.get_message() );
    }
 
@@ -1264,26 +1258,28 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
    auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
    KOINOS_ASSERT_REVERSION( contract_meta.hash().size(), "contract hash does not exist" );
 
-   context.push_frame( stack_frame{
-      .contract_id = contract_id,
-      .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
-      .call_args = args,
-      .entry_point = entry_point
-   } );
-
    try
    {
-      chain::host_api hapi( context );
-      context.get_backend()->run( hapi, contract_object.value(), contract_meta.hash() );
+      with_stack_frame(
+         context,
+         stack_frame {
+            .contract_id = contract_id,
+            .call_privilege = contract_meta.system() ? privilege::kernel_mode : privilege::user_mode,
+            .call_args = args,
+            .entry_point = entry_point
+         },
+         [&]
+         {
+            chain::host_api hapi( context );
+            context.get_backend()->run( hapi, contract_object.value(), contract_meta.hash() );
+         }
+      );
    }
-   catch( const exit_success& ) {}
-   catch( ... ) {
-      context.pop_frame();
-      throw;
-   }
+   catch( const chain_success& ) {}
+   catch( const chain_failure& ) {}
 
    call_result ret;
-   ret.mutable_value()->set_value( context.pop_frame().call_return );
+   *ret.mutable_value() = context.get_result();
    return ret;
 }
 
@@ -1303,12 +1299,21 @@ THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
 
 THUNK_DEFINE( void, exit, ((result) res) )
 {
-   switch( res.code() )
+   auto code = res.code();
+
+   context.set_result( std::move( res ) );
+
+   if ( !code )
    {
-      case exit_code::success:
-          KOINOS_THROW( exit_success, "" );
-      default:
-          KOINOS_THROW( exit_failure, "" );
+      KOINOS_THROW( chain_success, "" );
+   }
+   else if ( code > 0 )
+   {
+      KOINOS_THROW( chain_reversion, res.value() );
+   }
+   else // code < 0
+   {
+      KOINOS_THROW( chain_failure, res.value() );
    }
 }
 
