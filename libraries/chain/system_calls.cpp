@@ -355,7 +355,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          {
             system_call::apply_transaction( context, tx );
          }
-         catch( const transaction_reverted& ) {} /* do nothing */
+         catch( const chain_reversion& ) {} /* do nothing */
          KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
       }
 
@@ -451,7 +451,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       KOINOS_ASSERT_FAILURE( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), "operation merkle root does not match" );
 
-      system_call::check_authority( context, transaction_application, payer );
+      auto authorized = system_call::check_authority( context, transaction_application, payer );
+      KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payer )) );
 
       const auto& payee = trx.header().payee();
 
@@ -462,8 +463,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
       if ( use_payee_nonce )
       {
-         system_call::check_authority( context, transaction_application, payee );
+         authorized = system_call::check_authority( context, transaction_application, payee );
+         KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payee )) );
       }
+
 
       KOINOS_ASSERT_FAILURE(
          system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
@@ -498,7 +501,6 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
                KOINOS_ASSERT_REVERSION( false, "unknown operation" );
          }
 
-         system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
          system_call::post_transaction_callback( context );
 
          trx_node->commit();
@@ -524,6 +526,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       context.set_state_node( block_node );
 
+      system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
+
       used_rc = payer_session->used_rc();
       events = payer_session->events();
       logs = payer_session->logs();
@@ -533,7 +537,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       payer_session.reset();
 
-      KOINOS_ASSERT_REVERSION(
+      KOINOS_ASSERT_FAILURE(
          system_call::consume_account_rc( context, payer, used_rc ),
          "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
       );

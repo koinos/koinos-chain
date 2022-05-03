@@ -305,7 +305,7 @@ namespace detail
 
       std::string s;
       ret.SerializeToString( &s );
-      KOINOS_ASSERT( s.size() <= ret_len, koinos::exception, "return buffer is not large enough for the return value" );
+      KOINOS_ASSERT_REVERSION( s.size() <= ret_len, "return buffer is not large enough for the return value" );
       #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
       std::memcpy( ret_ptr, s.c_str(), s.size() );
 
