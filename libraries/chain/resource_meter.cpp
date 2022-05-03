@@ -35,7 +35,7 @@ void resource_meter::set_resource_limit_data( const resource_limit_data& rld )
 
 void resource_meter::use_disk_storage( uint64_t bytes )
 {
-   KOINOS_ASSERT_FAILURE( bytes <= _disk_storage_remaining, "disk storage limit exceeded" );
+   KOINOS_ASSERT( bytes <= _disk_storage_remaining, disk_storage_limit_exceeded, "disk storage limit exceeded" );
 
    if ( auto session = _session.lock() )
    {
@@ -69,7 +69,7 @@ uint64_t resource_meter::disk_storage_remaining()
 
 void resource_meter::use_network_bandwidth( uint64_t bytes )
 {
-   KOINOS_ASSERT_FAILURE( bytes <= _network_bandwidth_remaining, "network bandwidth limit exceeded" );
+   KOINOS_ASSERT( bytes <= _network_bandwidth_remaining, network_bandwidth_limit_exceeded, "network bandwidth limit exceeded" );
 
    if ( auto session = _session.lock() )
    {
@@ -103,7 +103,7 @@ uint64_t resource_meter::network_bandwidth_remaining()
 
 void resource_meter::use_compute_bandwidth( uint64_t ticks )
 {
-   KOINOS_ASSERT_FAILURE( ticks <= _compute_bandwidth_remaining, "compute bandwidth limit exceeded" );
+   KOINOS_ASSERT( ticks <= _compute_bandwidth_remaining, compute_bandwidth_limit_exceeded, "compute bandwidth limit exceeded" );
 
    if ( auto session = _session.lock() )
    {

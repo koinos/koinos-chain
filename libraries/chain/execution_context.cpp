@@ -278,7 +278,9 @@ uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name
       build_compute_registry_cache();
 
    auto itr = _cache.compute_bandwidth->find( thunk_name );
+
    KOINOS_ASSERT_REVERSION( itr != _cache.compute_bandwidth->end(), "unable to find compute bandwidth for ${t}", ("t", thunk_name) );
+
    return itr->second;
 }
 

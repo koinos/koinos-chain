@@ -7,7 +7,7 @@ const std::string stack_assertion_id = "\x00\xd5\x54\xbc\x09\x8a\xb2\xb0\x36\x6b
 
 int main()
 {
-   auto args = koinos::system::get_contract_arguments();
+   auto args = koinos::system::get_arguments();
    const auto [ caller, privilege ] = koinos::system::get_caller();
 
    if ( privilege != koinos::chain::privilege::user_mode )
@@ -16,7 +16,7 @@ int main()
       return 1;
    }
 
-   koinos::system::call_contract( stack_assertion_id, 0, "\x01"s );
+   koinos::system::call( stack_assertion_id, 0, "\x01"s );
 
    return 0;
 }

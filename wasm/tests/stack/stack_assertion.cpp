@@ -3,7 +3,7 @@
 
 int main()
 {
-   auto args = koinos::system::get_contract_arguments();
+   auto args = koinos::system::get_arguments();
    const auto [ caller, privilege ] = koinos::system::get_caller();
 
    // zero is user mode, non-zero is kernel mode

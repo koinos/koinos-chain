@@ -83,6 +83,8 @@ struct controller_fixture
          { "apply_transaction", 13208 },
          { "apply_upload_contract_operation", 3722 },
          { "call", 4810 },
+         { "check_authority", 13295 },
+         { "check_system_authority", 13357 },
          { "consume_account_rc", 734 },
          { "consume_block_resources", 729 },
          { "deserialize_message_per_byte", 1 },
@@ -90,14 +92,14 @@ struct controller_fixture
          { "deserialize_multihash_per_byte", 478 },
          { "event", 1361 },
          { "event_per_impacted", 98 },
-         { "exit_contract", 10246 },
+         { "exit", 10246 },
          { "get_account_nonce", 768 },
          { "get_account_rc", 1046 },
+         { "get_arguments", 770 },
          { "get_block", 1131 },
          { "get_block_field", 1420 },
          { "get_caller", 818 },
          { "get_chain_id", 1116 },
-         { "get_contract_arguments", 770 },
          { "get_contract_id", 774 },
          { "get_entry_point", 756 },
          { "get_head_info", 2160 },
@@ -121,8 +123,6 @@ struct controller_fixture
          { "put_object", 1053 },
          { "recover_public_key", 29531 },
          { "remove_object", 908 },
-         { "require_authority", 13295 },
-         { "require_system_authority", 13357 },
          { "ripemd_160_base", 1596 },
          { "ripemd_160_per_byte", 1 },
          { "set_account_nonce", 753 },
@@ -583,11 +583,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    request.set_args( "echo" );
 
    response = _controller.read_contract( request );
-
-   auto return_str = response.result();
-   BOOST_REQUIRE( std::string( "echo" ).size() == response.result().size() );
-   BOOST_REQUIRE( std::string( "echo" ) == response.result() );
-
+   BOOST_REQUIRE_EQUAL( response.result(), "echo" );
 
    BOOST_TEST_MESSAGE( "Test read contract db write" );
 
@@ -967,6 +963,8 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
 
    BOOST_TEST_MESSAGE( "Ensure log behavior did not change during block application" );
 
+   BOOST_REQUIRE( block_response.receipt().transaction_receipts_size() >= 1 );
+   BOOST_REQUIRE( block_response.receipt().transaction_receipts( 0 ).logs_size() >= 1 );
    BOOST_REQUIRE_EQUAL( block_response.receipt().transaction_receipts( 0 ).logs( 0 ), "Greetings from koinos vm" );
 
    transaction.Clear();

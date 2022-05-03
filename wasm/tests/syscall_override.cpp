@@ -45,6 +45,6 @@ int main()
 {
    char message[65];
    memset( message, 0, 65 );
-   invoke_system_call( std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::get_contract_arguments ), message, 63, 0, 0 );
+   invoke_system_call( std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::get_arguments ), message, 63, 0, 0 );
    log( message + 4 );
 }

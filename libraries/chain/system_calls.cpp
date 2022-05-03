@@ -412,9 +412,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       transaction_guard guard( context, trx );
 
       const auto& payer = trx.header().payer();
+      const auto& payee = trx.header().payee();
 
-      payer_rc = system_call::get_account_rc( context, payer );
-      KOINOS_ASSERT_FAILURE( payer_rc >= trx.header().rc_limit(), "payer does not have the rc to cover transaction rc limit" );
+      // If the payee is set and not the payer, then the payee account's nonce is used.
+      bool use_payee_nonce = payee.size() && payee != payer;
+      const auto& nonce_account = use_payee_nonce ? payee : payer;
 
       auto start_disk_used    = context.resource_meter().disk_storage_used();
       auto start_network_used = context.resource_meter().network_bandwidth_used();
@@ -426,55 +428,67 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
        */
       auto payer_session = context.make_session( trx.header().rc_limit() );
 
-      auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-      KOINOS_ASSERT_FAILURE( chain_id.exists(), "chain id does not exist" );
-      KOINOS_ASSERT_FAILURE( trx.header().chain_id() == chain_id.value(), "chain id mismatch" );
-
-      KOINOS_ASSERT_FAILURE(
-         system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
-         "transaction contains an invalid transaction id"
-      );
-
-      const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
-      KOINOS_ASSERT_FAILURE(
-         op_root.code() == context.block_hash_code(),
-         "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
-         ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
-      );
-
-      // Check operation merkle root
-      std::vector< std::string > hashes;
-      hashes.reserve( trx.operations_size() );
-
-      for ( const auto& op : trx.operations() )
-         hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
-
-      KOINOS_ASSERT_FAILURE( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), "operation merkle root does not match" );
-
-      auto authorized = system_call::check_authority( context, transaction_application, payer );
-      KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payer )) );
-
-      const auto& payee = trx.header().payee();
-
-      // If the payee is set and not the payer, then the payee account's nonce is used.
-      bool use_payee_nonce = payee.size() && payee != payer;
-      const auto& nonce_account = use_payee_nonce ? payee : payer;
-
-      // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
-      if ( use_payee_nonce )
+      try
       {
-         authorized = system_call::check_authority( context, transaction_application, payee );
-         KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payee )) );
+         payer_rc = system_call::get_account_rc( context, payer );
+         KOINOS_ASSERT_FAILURE( payer_rc >= trx.header().rc_limit(), "payer does not have the rc to cover transaction rc limit" );
+
+         auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
+         KOINOS_ASSERT_FAILURE( chain_id.exists(), "chain id does not exist" );
+         KOINOS_ASSERT_FAILURE( trx.header().chain_id() == chain_id.value(), "chain id mismatch" );
+
+         KOINOS_ASSERT_FAILURE(
+            system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
+            "transaction contains an invalid transaction id"
+         );
+
+         const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
+         KOINOS_ASSERT_FAILURE(
+            op_root.code() == context.block_hash_code(),
+            "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
+            ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
+         );
+
+         // Check operation merkle root
+         std::vector< std::string > hashes;
+         hashes.reserve( trx.operations_size() );
+
+         for ( const auto& op : trx.operations() )
+            hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
+
+         KOINOS_ASSERT_FAILURE( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), "operation merkle root does not match" );
+
+         auto authorized = system_call::check_authority( context, transaction_application, payer );
+         KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payer )) );
+
+         // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
+         if ( use_payee_nonce )
+         {
+            authorized = system_call::check_authority( context, transaction_application, payee );
+            KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payee )) );
+         }
+
+         KOINOS_ASSERT_FAILURE(
+            system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
+            "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
+            ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
+         );
       }
-
-
-      KOINOS_ASSERT_FAILURE(
-         system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
-         "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
-         ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
-      );
-
-      system_call::pre_transaction_callback( context );
+      catch ( const chain_reversion& e )
+      {
+         // All reversions here must become failures.
+         KOINOS_THROW( chain_failure, e.get_message() );
+      }
+      catch ( const chain_failure& e )
+      {
+         throw;
+      }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << e.what();
+         assert( false );
+         throw;
+      }
 
       // The anonymous node must be created after requiring authority and the pre transaction callback
       // because those calls might write to database and those writes must persist regardless of whether
@@ -485,6 +499,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       try
       {
+         system_call::pre_transaction_callback( context );
+
          context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
 
          for ( const auto& o : trx.operations() )
@@ -629,7 +645,7 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() != privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
    KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_call ), "system authority required" );
 
@@ -665,8 +681,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 {
    KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-
-   system_call::check_system_authority( context, set_system_contract );
+   KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_contract ), "system authority required" );
 
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
    KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
