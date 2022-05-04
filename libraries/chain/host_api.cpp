@@ -24,6 +24,8 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
+   LOG(info) << sid;
+
    int32_t retcode = 0;
    auto key = util::converter::as< std::string >( sid );
    database_object object;
@@ -58,8 +60,19 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
       }
    );
 
-   if ( _ctx.get_privilege() == privilege::user_mode && retcode > 0 )
+   if ( _ctx.get_privilege() == privilege::user_mode && retcode >= constants::chain_reversion )
       KOINOS_THROW( chain_reversion, "" );
+
+   if ( sid == system_call_id::exit )
+   {
+      if ( retcode >= constants::chain_reversion )
+         KOINOS_THROW( chain_reversion, "" );
+      if ( retcode <= constants::chain_failure )
+         KOINOS_THROW( chain_failure, "" );
+
+      KOINOS_THROW( chain_success, "" );
+   }
+
 
    return retcode;
 }

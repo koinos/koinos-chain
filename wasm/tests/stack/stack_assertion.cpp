@@ -10,15 +10,9 @@ int main()
    if ( ( args.c_str()[0] == 0 ) != ( privilege == koinos::chain::privilege::user_mode ) )
    {
       if ( args.c_str()[0] == 0 )
-      {
-         koinos::system::log( "expected user mode, was kernel mode" );
-      }
+         koinos::system::revert( "expected user mode, was kernel mode" );
       else
-      {
-         koinos::system::log( "expected kernel mode, was user mode" );
-      }
-
-      return 1;
+         koinos::system::revert( "expected kernel mode, was user mode" );
    }
 
    return 0;

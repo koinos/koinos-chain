@@ -67,7 +67,7 @@ struct stack_fixture
 
       koinos::chain::max_account_resources mar;
 
-      mar.set_value( 10'000'000 );
+      mar.set_value( 100'000'000 );
 
       entry = _genesis_data.add_entries();
       entry->set_key( chain::state::key::max_account_resources );
@@ -99,14 +99,14 @@ struct stack_fixture
          { "deserialize_multihash_per_byte", 478 },
          { "event", 1361 },
          { "event_per_impacted", 98 },
-         { "exit_contract", 10246 },
+         { "exit", 10246 },
          { "get_account_nonce", 768 },
          { "get_account_rc", 1046 },
+         { "get_arguments", 770 },
          { "get_block", 1131 },
          { "get_block_field", 1420 },
          { "get_caller", 818 },
          { "get_chain_id", 1116 },
-         { "get_contract_arguments", 770 },
          { "get_contract_id", 774 },
          { "get_entry_point", 756 },
          { "get_head_info", 2160 },
@@ -300,7 +300,7 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -356,7 +356,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::exit ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
@@ -371,8 +371,8 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    ctx.reset_cache();
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
-   trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_rc_limit( 100'000'000 );
+   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -443,7 +443,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -476,12 +476,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    sign_transaction( trx, user_key );
 
    ctx.set_transaction( trx );
-   try
-   {
-      chain::system_call::apply_transaction( ctx, trx );
-      BOOST_FAIL( "no reversion when called from system context" );
-   }
-   catch ( ... ) { /* do nothing, success */ }
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::chain_reversion );
 }
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
@@ -533,7 +528,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
    // Override set_contract_result with dummy_thunk
-   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::exit ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_syscall_op.mutable_target()->set_thunk_id( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
@@ -550,7 +545,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -625,7 +620,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    ctx.set_transaction( trx );
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::exit ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
@@ -643,7 +638,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
@@ -698,7 +693,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    protocol::set_system_call_operation set_syscall_op;
-   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::exit ) );
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
    set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0 );
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
@@ -731,7 +726,7 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
 
    trx.mutable_header()->set_rc_limit( 1'000'000 );
-   trx.mutable_header()->set_chain_id( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::metadata(), koinos::chain::state::key::chain_id ).value() );
+   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
    auto call_op = trx.add_operations()->mutable_call_contract();
    call_op->set_contract_id( upload_op.contract_id() );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );

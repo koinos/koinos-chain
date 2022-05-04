@@ -11,12 +11,9 @@ int main()
    const auto [ caller, privilege ] = koinos::system::get_caller();
 
    if ( privilege != koinos::chain::privilege::user_mode )
-   {
-      koinos::system::log( "expected user mode, was kernel" );
-      return 1;
-   }
+      koinos::system::revert( "expected user mode, was kernel" );
 
-   koinos::system::call( stack_assertion_id, 0, "\x01"s );
+   koinos::system::exit( koinos::system::call( stack_assertion_id, 0, "\x01"s ).first );
 
    return 0;
 }

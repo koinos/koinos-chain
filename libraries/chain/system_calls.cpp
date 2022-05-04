@@ -355,7 +355,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          {
             system_call::apply_transaction( context, tx );
          }
-         catch( const chain_reversion& ) {} /* do nothing */
+         catch ( const chain_reversion& ) {} /* do nothing */
          KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
       }
 
@@ -1172,11 +1172,17 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
          }
       );
    }
-   catch( const chain_success& ) {}
-   catch( const chain_failure& ) {}
+   catch ( const chain_success& ) {}
+
+   const auto& res = context.get_result();
+
+   if ( res.code() >= constants::chain_reversion )
+      KOINOS_THROW( chain_reversion, res.value() );
+   if ( res.code() <= constants::chain_failure )
+      KOINOS_THROW( chain_failure, res.value() );
 
    call_result ret;
-   *ret.mutable_value() = context.get_result();
+   *ret.mutable_value() = res.value();
    return ret;
 }
 
@@ -1233,7 +1239,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
       ret.mutable_value()->set_caller( context.get_caller() );
       ret.mutable_value()->set_caller_privilege( context.get_caller_privilege() );
    }
-   catch( ... )
+   catch ( ... )
    {
       e = std::current_exception();
    }
@@ -1289,7 +1295,7 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
          args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
       }
 
-      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ).value() ).value();
+      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
    }
    else
    {

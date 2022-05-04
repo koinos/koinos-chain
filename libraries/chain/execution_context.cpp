@@ -326,9 +326,13 @@ std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, c
       );
    }
    catch ( const chain_success& ) {}
-   catch ( const chain_failure& ) {}
 
-   auto result = get_result();
+   const auto& result = get_result();
+
+   if ( result.code() >= constants::chain_reversion )
+      KOINOS_THROW( chain_reversion, result.value() );
+   if ( result.code() <= constants::chain_failure )
+      KOINOS_THROW( chain_failure, result.value() );
 
    return std::make_pair( result.value(), result.code() );
 }

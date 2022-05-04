@@ -3,6 +3,7 @@
 
 int main()
 {
+   koinos::system::log( "foobar" );
    koinos::system::exit( 0 );
 
    return 0;
