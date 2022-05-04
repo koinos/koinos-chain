@@ -1203,19 +1203,18 @@ THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
 THUNK_DEFINE( void, exit, ((result) res) )
 {
    auto code = res.code();
-   LOG(info) << res;
 
    context.set_result( std::move( res ) );
 
-   if ( !code )
+   if ( !code ) // code == constants::chain_success
    {
       KOINOS_THROW( chain_success, "" );
    }
-   else if ( code > 0 )
+   else if ( code >= constants::chain_reversion )
    {
       KOINOS_THROW( chain_reversion, res.value() );
    }
-   else // code < 0
+   else // code <= constants::chain_failure
    {
       KOINOS_THROW( chain_failure, res.value() );
    }

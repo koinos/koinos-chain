@@ -18,6 +18,7 @@
 namespace koinos::chain {
 
 namespace constants {
+   constexpr int32_t chain_success = 0;
    constexpr int32_t chain_reversion = 1;
    constexpr int32_t chain_failure = -1;
 }
