@@ -24,8 +24,6 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
 {
-   LOG(info) << sid;
-
    int32_t retcode = 0;
    auto key = util::converter::as< std::string >( sid );
    database_object object;

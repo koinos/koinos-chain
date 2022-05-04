@@ -1203,6 +1203,7 @@ THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
 THUNK_DEFINE( void, exit, ((result) res) )
 {
    auto code = res.code();
+   LOG(info) << res;
 
    context.set_result( std::move( res ) );
 

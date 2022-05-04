@@ -14,6 +14,4 @@ int main()
       koinos::system::revert( "expected user mode, was kernel mode" );
 
    koinos::system::exit( koinos::system::call( stack_assertion_id, 0, "\x00"s ).first );
-
-   return 0;
 }

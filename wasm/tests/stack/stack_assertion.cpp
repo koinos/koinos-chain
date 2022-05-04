@@ -14,6 +14,4 @@ int main()
       else
          koinos::system::revert( "expected kernel mode, was user mode" );
    }
-
-   return 0;
 }
