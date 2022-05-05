@@ -1,7 +1,7 @@
 
 #include <koinos/system/system_calls.hpp>
 
-extern "C" int32_t invoke_thunk( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
+extern "C" int32_t invoke_thunk( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written );
 
 int main()
 {
@@ -17,11 +17,14 @@ int main()
    koinos::write_buffer buffer( koinos::system::detail::syscall_buffer.data(), koinos::system::detail::syscall_buffer.size() );
    log_args.serialize( buffer );
 
+   uint32_t bytes_written;
+
    return invoke_thunk(
       std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::log ),
       reinterpret_cast< char* >( koinos::system::detail::syscall_buffer.data() ),
       std::size( koinos::system::detail::syscall_buffer ),
       reinterpret_cast< char* >( buffer.data() ),
-      buffer.get_size()
+      buffer.get_size(),
+      &bytes_written
    );
 }
