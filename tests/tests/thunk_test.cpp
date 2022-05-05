@@ -711,7 +711,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto args = util::converter::as< std::string >( log_args );
    char ret_buf[100];
    //BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
-   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::chain_reversion );
+   uint32_t bytes_written = 0;
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
@@ -736,9 +737,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
-   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size() );
+   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
    //BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
-   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::chain_reversion );
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 
@@ -747,7 +748,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
-   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() );
+   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -759,6 +760,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    std::string arg;
    std::string ret;
+   uint32_t bytes_written = 0;
 
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
@@ -768,7 +770,8 @@ BOOST_AUTO_TEST_CASE( thunk_test )
       ret.data(),
       ret.size(),
       arg.data(),
-      arg.size()
+      arg.size(),
+      &bytes_written
    );
 
    BOOST_CHECK_EQUAL( ret.size(), 0 );
@@ -776,7 +779,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .call_privilege = chain::user_mode } );
    //BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::chain_reversion );
+   BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size(), &bytes_written ), chain::chain_reversion );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
@@ -787,6 +790,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 
    std::string arg;
    std::string ret;
+   uint32_t bytes_written = 0;
 
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
@@ -796,7 +800,8 @@ BOOST_AUTO_TEST_CASE( system_call_test )
       ret.data(),
       ret.size(),
       arg.data(),
-      arg.size()
+      arg.size(),
+      &bytes_written
    );
 
    BOOST_CHECK_EQUAL( ret.size(), 0 );
