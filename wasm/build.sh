@@ -34,7 +34,7 @@ for file in tests/*.cpp; do
       $file
 
    xxd -i $target_name.wasm > $koinos_wasm_test_dir/$target_name.hpp
-   rm $target_name.wasm
+   #rm $target_name.wasm
 done
 
 for file in tests/stack/*.cpp; do
