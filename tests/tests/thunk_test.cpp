@@ -1755,7 +1755,6 @@ BOOST_AUTO_TEST_CASE( thunk_time )
       { "log", [&]() { chain::system_call::log( ctx, "message" ); } },
       { "exit", [&]() { try { chain::system_call::exit( ctx, chain::result() ); } catch ( ... ) {} } },
       { "process_block_signature", [&]() { chain::system_call::process_block_signature( ctx, block.id(), block.header(), block.signature() ); } },
-      { "get_entry_point", [&]() { chain::system_call::get_entry_point( ctx ); } },
       { "get_arguments", [&] { chain::system_call::get_arguments( ctx ); } },
       { "put_object", [&]() { chain::system_call::put_object( ctx, objs, std::string{ "key" }, header_str ); } },
       { "get_object", [&]() { chain::system_call::get_object( ctx, objs, std::string{ "key" } ); } },

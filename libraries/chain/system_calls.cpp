@@ -95,9 +95,8 @@ void register_thunks( thunk_dispatcher& td )
 
       // Contract Management
       (call)
-      (get_entry_point)
-      (get_arguments)
       (exit)
+      (get_arguments)
       (get_contract_id)
       (get_caller)
       (check_authority)
@@ -1186,20 +1185,6 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
    return ret;
 }
 
-THUNK_DEFINE_VOID( get_entry_point_result, get_entry_point )
-{
-   get_entry_point_result ret;
-   ret.set_value( context.get_contract_entry_point() );
-   return ret;
-}
-
-THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
-{
-   get_arguments_result ret;
-   ret.set_value( context.get_contract_call_args() );
-   return ret;
-}
-
 THUNK_DEFINE( void, exit, ((result) res) )
 {
    auto code = res.code();
@@ -1218,6 +1203,14 @@ THUNK_DEFINE( void, exit, ((result) res) )
    {
       KOINOS_THROW( chain_failure, res.value() );
    }
+}
+
+THUNK_DEFINE_VOID( get_arguments_result, get_arguments )
+{
+   get_arguments_result ret;
+   ret.mutable_value()->set_entry_point( context.get_contract_entry_point() );
+   ret.mutable_value()->set_arguments( context.get_contract_call_args() );
+   return ret;
 }
 
 THUNK_DEFINE_VOID( get_contract_id_result, get_contract_id )

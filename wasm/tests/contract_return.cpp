@@ -2,7 +2,7 @@
 
 int main()
 {
-   auto args = koinos::system::get_arguments();
+   auto [ entry, args ] = koinos::system::get_arguments();
 
    koinos::system::result r;
    r.set_code( 0 );
