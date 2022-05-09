@@ -16,13 +16,13 @@ namespace koinos::chain {
 host_api::host_api( execution_context& ctx ) : _ctx( ctx ) {}
 host_api::~host_api() {}
 
-int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
    KOINOS_ASSERT_REVERSION( _ctx.get_privilege() == privilege::kernel_mode, "'invoke_thunk' must be called from a system context" );
-   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
 }
 
-int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
    int32_t retcode = 0;
    auto key = util::converter::as< std::string >( sid );
@@ -43,6 +43,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
             KOINOS_ASSERT_REVERSION( ret.size() <= ret_len, "return buffer too small" );
             std::memcpy( ret.data(), ret_ptr, ret.size() );
             retcode = code;
+            *bytes_written = ret.size();
          }
          else
          {
@@ -53,7 +54,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
             KOINOS_ASSERT_REVERSION( enum_value, "unrecognized thunk id ${id}", ("id", thunk_id) );
             auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
             _ctx.resource_meter().use_compute_bandwidth( compute );
-            retcode = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+            retcode = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
          }
       }
    );
@@ -70,7 +71,6 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
 
       KOINOS_THROW( chain_success, "" );
    }
-
 
    return retcode;
 }
