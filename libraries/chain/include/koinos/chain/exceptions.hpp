@@ -3,7 +3,17 @@
 
 namespace koinos::chain {
 
+#define KOINOS_ASSERT_REVERSION( cond, msg, ... ) \
+   KOINOS_ASSERT( cond, koinos::chain::chain_reversion, msg, __VA_ARGS__ )
+
+#define KOINOS_ASSERT_FAILURE( cond, msg, ... ) \
+   KOINOS_ASSERT( cond, koinos::chain::chain_failure, msg, __VA_ARGS__ )
+
 KOINOS_DECLARE_EXCEPTION( chain_exception );
+
+KOINOS_DECLARE_DERIVED_EXCEPTION( chain_reversion, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( chain_failure, chain_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( chain_success, chain_exception );
 
 // Database exceptions
 KOINOS_DECLARE_DERIVED_EXCEPTION( database_exception, chain_exception );

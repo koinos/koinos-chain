@@ -95,67 +95,65 @@ struct thunk_fixture
       *entry->mutable_space() = chain::state::space::metadata();
 
       std::map< std::string, uint64_t > thunk_compute {
-         { "apply_block", 16659 },
-         { "apply_call_contract_operation", 487 },
-         { "apply_set_system_call_operation", 5986 },
-         { "apply_set_system_contract_operation", 4746 },
-         { "apply_transaction", 13208 },
-         { "apply_upload_contract_operation", 3722 },
-         { "call_contract", 4810 },
-         { "consume_account_rc", 734 },
-         { "consume_block_resources", 729 },
+         { "apply_block", 16465 },
+         { "apply_call_contract_operation", 685 },
+         { "apply_set_system_call_operation", 136081 },
+         { "apply_set_system_contract_operation", 8692 },
+         { "apply_transaction", 12542 },
+         { "apply_upload_contract_operation", 3130 },
+         { "call", 3573 },
+         { "check_authority", 12653 },
+         { "check_system_authority", 12750 },
+         { "consume_account_rc", 735 },
+         { "consume_block_resources", 753 },
          { "deserialize_message_per_byte", 1 },
-         { "deserialize_multihash_base", 1 },
-         { "deserialize_multihash_per_byte", 478 },
-         { "event", 1361 },
-         { "event_per_impacted", 98 },
-         { "exit_contract", 10246 },
-         { "get_account_nonce", 768 },
-         { "get_account_rc", 1046 },
-         { "get_block", 1131 },
-         { "get_block_field", 1420 },
-         { "get_caller", 818 },
-         { "get_chain_id", 1116 },
-         { "get_contract_arguments", 770 },
-         { "get_contract_id", 774 },
-         { "get_entry_point", 756 },
-         { "get_head_info", 2160 },
-         { "get_last_irreversible_block", 759 },
-         { "get_next_object", 11071 },
-         { "get_object", 1067 },
-         { "get_prev_object", 15633 },
-         { "get_resource_limits", 1153 },
-         { "get_transaction", 1619 },
-         { "get_transaction_field", 1518 },
-         { "hash", 1573 },
-         { "keccak_256_base", 1945 },
+         { "deserialize_multihash_base", 102 },
+         { "deserialize_multihash_per_byte", 404 },
+         { "event", 1222 },
+         { "event_per_impacted", 101 },
+         { "exit", 11636 },
+         { "get_account_nonce", 821 },
+         { "get_account_rc", 1072 },
+         { "get_arguments", 809 },
+         { "get_block", 1134 },
+         { "get_block_field", 1417 },
+         { "get_caller", 825 },
+         { "get_chain_id", 1046 },
+         { "get_contract_id", 778 },
+         { "get_head_info", 2099 },
+         { "get_last_irreversible_block", 772 },
+         { "get_next_object", 11181 },
+         { "get_object", 1054 },
+         { "get_prev_object", 15445 },
+         { "get_resource_limits", 1227 },
+         { "get_transaction", 1584 },
+         { "get_transaction_field", 1530 },
+         { "hash", 1570 },
+         { "keccak_256_base", 1406 },
          { "keccak_256_per_byte", 1 },
-         { "log", 746 },
+         { "log", 738 },
          { "object_serialization_per_byte", 1 },
-         { "post_block_callback", 724 },
-         { "post_transaction_callback", 741 },
-         { "pre_block_callback", 722 },
-         { "pre_transaction_callback", 718 },
-         { "process_block_signature", 5085 },
-         { "put_object", 1053 },
-         { "recover_public_key", 29531 },
-         { "remove_object", 908 },
-         { "require_authority", 13295 },
-         { "require_system_authority", 13357 },
-         { "ripemd_160_base", 1596 },
+         { "post_block_callback", 741 },
+         { "post_transaction_callback", 721 },
+         { "pre_block_callback", 730 },
+         { "pre_transaction_callback", 729 },
+         { "process_block_signature", 4499 },
+         { "put_object", 1057 },
+         { "recover_public_key", 29630 },
+         { "remove_object", 893 },
+         { "ripemd_160_base", 1343 },
          { "ripemd_160_per_byte", 1 },
-         { "set_account_nonce", 753 },
-         { "set_contract_result", 753 },
-         { "sha1_base", 1137 },
+         { "set_account_nonce", 749 },
+         { "sha1_base", 1151 },
          { "sha1_per_byte", 1 },
-         { "sha2_256_base", 1542 },
+         { "sha2_256_base", 1385 },
          { "sha2_256_per_byte", 1 },
-         { "sha2_512_base", 1612 },
+         { "sha2_512_base", 1445 },
          { "sha2_512_per_byte", 1 },
-         { "verify_account_nonce", 879 },
+         { "verify_account_nonce", 822 },
          { "verify_merkle_root", 1 },
-         { "verify_signature", 794 },
-         { "verify_vrf_proof", 143804 },
+         { "verify_signature", 762 },
+         { "verify_vrf_proof", 144067 },
       };
 
       koinos::chain::compute_bandwidth_registry cbr;
@@ -375,13 +373,15 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
 
    BOOST_TEST_MESSAGE( "Testing dynamic transaction field not found" );
 
-   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::field_not_found );
+   //BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::field_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::chain_reversion );
 
    ctx.clear_transaction();
 
    BOOST_TEST_MESSAGE( "Testing dynamic transaction field unexpected access" );
 
-   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::unexpected_access );
+   //BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::unexpected_access );
+   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::chain_reversion );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -476,13 +476,15 @@ BOOST_AUTO_TEST_CASE( get_block_field )
 
    BOOST_TEST_MESSAGE( "Testing dynamic block field not found" );
 
-   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::field_not_found );
+   //BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::field_not_found );
+   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::chain_reversion );
 
    ctx.clear_block();
 
    BOOST_TEST_MESSAGE( "Testing dynamic block field unexpected access" );
 
-   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::unexpected_access );
+   //BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::unexpected_access );
+   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::chain_reversion );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -499,7 +501,7 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test putting an object" );
 
-   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data ), object_data.size() );
+   chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data );
    auto db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( object_data == "object1" );
 
@@ -543,13 +545,13 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
    BOOST_TEST_MESSAGE( "Test object modification" );
    object_data = "object1.1"s;
-   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data ), object_data.size() - "object1"s.size() );
+   chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data );
    db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.value() == "object1.1" );
 
    BOOST_TEST_MESSAGE( "Test object deletion" );
    object_data.clear();
-   BOOST_REQUIRE_EQUAL( chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data ), int64_t( "object1.1"s.size() ) * -1 );
+   chain::system_call::put_object( ctx, test_space, util::converter::as< std::string >( 1 ), object_data );
    db_obj = chain::system_call::get_object( ctx, test_space, util::converter::as< std::string >( 1 ) );
    BOOST_REQUIRE( db_obj.exists() );
    BOOST_REQUIRE( db_obj.value().size() == 0 );
@@ -597,7 +599,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
    op.set_bytecode( get_contract_return_wasm() );
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
-   auto contract_ret = koinos::chain::system_call::call_contract(ctx, op.contract_id(), 0, "echo");
+   auto contract_ret = koinos::chain::system_call::call(ctx, op.contract_id(), 0, "echo");
 
    BOOST_REQUIRE_EQUAL( contract_ret, "echo" );
 
@@ -652,7 +654,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    BOOST_TEST_MESSAGE( "Test failure to override system call without genesis key" );
 
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::authorization_failed );
+   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::authorization_failed );
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test failure to set system contract without genesis key" );
 
@@ -660,7 +663,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    system_contract_op.set_contract_id( contract_op2.contract_id() );
    system_contract_op.set_system_contract( true );
 
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::authorization_failed );
+   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::authorization_failed );
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test failure to override system call without system contract" );
 
@@ -668,7 +672,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    sign_transaction( tx, _signing_private_key );
    ctx.set_transaction( tx );
 
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
+   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test success overriding a system call with the genesis key" );
 
@@ -688,7 +693,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    // Ensure exception thrown on invalid contract
    auto false_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, 1234 );
    set_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( util::converter::as< std::string >( false_id ) );
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
+   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
+   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::chain_reversion );
 
    // Test invoking the overridden system call
    koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
@@ -704,7 +710,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    log_args.set_message( "Hello World" );
    auto args = util::converter::as< std::string >( log_args );
    char ret_buf[100];
-   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+   //BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+   uint32_t bytes_written = 0;
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
@@ -714,7 +722,8 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
-   BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::unexpected_state );
+   //BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::unexpected_state );
+   BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::chain_reversion );
 
    auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
    auto centry = cbr.add_entries();
@@ -728,8 +737,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
-   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size() );
-   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
+   //BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
+   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::chain_reversion );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 
@@ -738,7 +748,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
-   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() );
+   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -750,6 +760,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
 
    std::string arg;
    std::string ret;
+   uint32_t bytes_written = 0;
 
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
@@ -759,14 +770,16 @@ BOOST_AUTO_TEST_CASE( thunk_test )
       ret.data(),
       ret.size(),
       arg.data(),
-      arg.size()
+      arg.size(),
+      &bytes_written
    );
 
    BOOST_CHECK_EQUAL( ret.size(), 0 );
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.chronicler().logs()[0] );
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .call_privilege = chain::user_mode } );
-   BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
+   BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size(), &bytes_written ), chain::chain_reversion );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
@@ -777,6 +790,7 @@ BOOST_AUTO_TEST_CASE( system_call_test )
 
    std::string arg;
    std::string ret;
+   uint32_t bytes_written = 0;
 
    args.set_message( "Hello World" );
    args.SerializeToString( &arg );
@@ -786,7 +800,8 @@ BOOST_AUTO_TEST_CASE( system_call_test )
       ret.data(),
       ret.size(),
       arg.data(),
-      arg.size()
+      arg.size(),
+      &bytes_written
    );
 
    BOOST_CHECK_EQUAL( ret.size(), 0 );
@@ -836,19 +851,27 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
-   BOOST_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
+   //BOOST_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
+   BOOST_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::chain_reversion );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
    ctx.set_privilege( chain::privilege::user_mode );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::insufficient_privileges );
+
+   BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::chain_reversion );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::chain_reversion );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::chain_reversion );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::chain_reversion );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::chain_reversion );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::chain_reversion );
 }
 
 BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
@@ -875,7 +898,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    BOOST_TEST_MESSAGE( "apply context stack tests" );
    ctx.pop_frame();
 
-   BOOST_REQUIRE_THROW( ctx.pop_frame(), chain::stack_exception );
+   BOOST_REQUIRE_THROW( ctx.pop_frame(), chain::chain_reversion );
 
    auto call1 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call1"s ) );
    ctx.push_frame( chain::stack_frame{ .contract_id = call1 } );
@@ -897,11 +920,11 @@ BOOST_AUTO_TEST_CASE( stack_tests )
       ctx.push_frame( chain::stack_frame{} );
    }
 
-   BOOST_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::stack_overflow );
+   BOOST_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::chain_reversion );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-BOOST_AUTO_TEST_CASE( require_authority )
+BOOST_AUTO_TEST_CASE( check_authority )
 { try {
    auto foo_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "foo"s ) );
    auto foo_account_string = foo_key.get_public_key().to_address_bytes();
@@ -913,12 +936,12 @@ BOOST_AUTO_TEST_CASE( require_authority )
    sign_transaction( trx, foo_key );
    ctx.set_transaction( trx );
 
-   chain::system_call::require_authority( ctx, koinos::chain::contract_call, foo_account_string );
+   BOOST_CHECK( chain::system_call::check_authority( ctx, koinos::chain::contract_call, foo_account_string ) );
 
-   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, koinos::chain::contract_call, bar_account_string ), chain::authorization_failed );
+   BOOST_CHECK( !chain::system_call::check_authority( ctx, koinos::chain::contract_call, bar_account_string ) );
 
    trx.clear_signatures();
-   BOOST_REQUIRE_THROW( chain::system_call::require_authority( ctx, koinos::chain::contract_call, foo_account_string ), chain::authorization_failed );
+   BOOST_CHECK( !chain::system_call::check_authority( ctx, koinos::chain::contract_call, foo_account_string ) );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -956,7 +979,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_failure );
 
    nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
@@ -977,7 +1001,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_failure );
 
    nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
@@ -1000,7 +1025,8 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_failure );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( get_contract_id_test )
@@ -1040,19 +1066,19 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .call_privilege = chain::user_mode } );
 
-   auto response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::name, "" );
+   auto response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::name, "" );
    auto name = util::converter::to< koinos::contracts::token::name_result >( response );
    LOG(info) << name.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::symbol, "" );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::symbol, "" );
    auto symbol = util::converter::to< koinos::contracts::token::symbol_result >( response );
    LOG(info) << symbol.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::decimals, "" );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::decimals, "" );
    auto decimals = util::converter::to< koinos::contracts::token::decimals_result >( response );
    LOG(info) << decimals.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::total_supply, "" );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::total_supply, "" );
    auto supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
 
@@ -1064,31 +1090,31 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    koinos::contracts::token::balance_of_arguments balance_of_args;
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    auto balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
    LOG(info) << "'bob' balance: " << balance.value();
 
-   auto session = ctx.make_session( 1'000'000 );
+   auto session = ctx.make_session( 10'000'000 );
 
    LOG(info) << "Mint to 'alice'";
    koinos::contracts::token::mint_arguments mint_args;
    mint_args.set_to( util::converter::as< std::string >( alice_address ) );
    mint_args.set_value( 100 );
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
    auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( !success.value() );
    BOOST_CHECK_EQUAL( session->events().size(), 0 );
 
-   session = ctx.make_session( 1'000'000 );
+   session = ctx.make_session( 10'000'000 );
 
    ctx.set_privilege( chain::privilege::kernel_mode );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
    success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( success.value() );
 
@@ -1107,18 +1133,18 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::total_supply, "" );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::total_supply, "" );
    supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
 
@@ -1131,47 +1157,47 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_transaction( trx );
    try
    {
-      session = ctx.make_session( 1'000'000 );
-      koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
+      session = ctx.make_session( 10'000'000 );
+      koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
-   catch ( const koinos::chain::authorization_failed& ) {}
+   catch ( const koinos::chain::chain_reversion& ) {}
 
    sign_transaction( trx, bob_private_key );
    ctx.set_transaction( trx );
 
    try
    {
-      session = ctx.make_session( 1'000'000 );
-      koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
+      session = ctx.make_session( 10'000'000 );
+      koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature exception" );
    }
-   catch ( const koinos::chain::authorization_failed& ) {}
+   catch ( const koinos::chain::chain_reversion& ) {}
 
    sign_transaction( trx, alice_private_key );
    ctx.set_transaction( trx );
 
-   session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
+   session = ctx.make_session( 10'000'000 );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
    auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response );
    BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
-   session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
+   session = ctx.make_session( 10'000'000 );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
-   session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
+   session = ctx.make_session( 10'000'000 );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
    balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
-   session = ctx.make_session( 1'000'000 );
-   response = koinos::chain::system_call::call_contract( ctx, op.contract_id(), token_entry::total_supply, "" );
+   session = ctx.make_session( 10'000'000 );
+   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::total_supply, "" );
    supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
    LOG(info) << "KOIN supply: " << supply.value();
 }
@@ -1214,7 +1240,8 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    auto compute_bandwidth_remaining = ctx.resource_meter().compute_bandwidth_remaining();
 
    auto session = ctx.make_session( 1'000'000 );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficient_rc );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficient_rc );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::chain_reversion );
    BOOST_REQUIRE_EQUAL( session->used_rc(), 1'000'000 );
    BOOST_REQUIRE_EQUAL( session->remaining_rc(), 0 );
    session.reset();
@@ -1273,7 +1300,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    ctx.set_intent( chain::intent::transaction_application );
 
    ctx.set_state_node( trx_state_node );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::transaction_reverted );
+   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::transaction_reverted );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_reversion );
    db.finalize_node( trx_state_node->id() );
 
    ctx.set_state_node( control_state_node );
@@ -1324,11 +1352,11 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
       chain::system_call::apply_block( ctx, block );
       BOOST_FAIL( "expected exception not thrown" );
    }
-   catch ( chain::transaction_reverted& )
+   catch ( const chain::chain_reversion& )
    {
-      BOOST_FAIL( "transaction_reverted exception erroneously thrown" );
+      BOOST_FAIL( "chain_reversion exception erroneously thrown" );
    }
-   catch ( koinos::exception& e )
+   catch ( const chain::chain_failure& e )
    {
       const auto& data = e.get_json();
 
@@ -1384,7 +1412,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    auto session = ctx.make_session( 100'000'000 );
 
-   auto response = koinos::chain::system_call::call_contract( ctx, upload_op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
+   auto response = koinos::chain::system_call::call( ctx, upload_op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
    auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
    BOOST_REQUIRE( success.value() );
 
@@ -1408,13 +1436,13 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    try
    {
-      koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
+      koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
       BOOST_FAIL( "Expected invalid signature" );
    }
-   catch ( const koinos::chain::authorization_failed& ) {}
+   catch ( const koinos::chain::chain_reversion& ) {}
 
    sign_transaction( trx, key_b );
-   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
+   koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
    BOOST_TEST_PASSPOINT();
 
    BOOST_TEST_MESSAGE( "Override authorize upload contract" );
@@ -1426,7 +1454,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
-   koinos::chain::system_call::call_contract( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
+   koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
 
    upload_op.set_authorizes_upload_contract( false );
    upload_op.set_authorizes_transaction_application( true );
@@ -1436,7 +1464,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
       koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
       BOOST_FAIL( "Expected invalid signature" );
    }
-   catch ( const koinos::chain::authorization_failed& ) {}
+   catch ( const koinos::chain::chain_reversion& ) {}
 
    sign_transaction( trx, key_b );
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -1458,12 +1486,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    trx.clear_signatures();
    trx.add_signatures( util::converter::as< std::string >( key_a.sign_compact( id_mh ) ) );
 
-   try
-   {
-      koinos::chain::system_call::apply_transaction( ctx, trx );
-      BOOST_FAIL( "Expected invalid signature" );
-   }
-   catch( const koinos::chain::authorization_failed& ) {}
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::chain_failure );
 
    trx.add_signatures( util::converter::as< std::string >( key_b.sign_compact( id_mh ) ) );
 
@@ -1482,53 +1505,15 @@ BOOST_AUTO_TEST_CASE( thunk_time )
    crypto::multihash contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "contract" } );
    crypto::private_key contract_pk = crypto::private_key::regenerate( contract_seed );
 
-/*
-   #include <cstdint>
-   #include <string>
-   #include <koinos/system/system_calls.hpp>
-
-   int main()
-   {
-      uint64_t accumulator = 0;
-      for ( uint64_t i = 0; i < 10'000; i++ )
-      {
-          if ( i % 3 )
-             accumulator += 3;
-          else if ( i % 2 )
-             accumulator += 2;
-          else
-              accumulator += 1;
-      }
-
-      std::string s = std::to_string( accumulator );
-      invoke_system_call( 605, nullptr, 0, s.data(), s.size() );
-
-      return 0;
-   }
-*/
-   std::string contract_bytecode = util::from_hex< std::string >( "0x0061736d0100000001601060000060037f7f7f017f60037f7e7f017e60057f7f7f7f7f017f6000017f60017f017f60017f0060027f7f017f60027e7f017f60027f7f0060027f7e0060047f7f7f7e0060037f7f7f0060017e017f60047f7e7f7f017f60047f7f7f7f017f021a0103656e7612696e766f6b655f73797374656d5f63616c6c000303504f000004000000050505060605060400050501010202070707070707080706060905090905050507090905050505050705050501010a0a0b050505050505050505070c07070b0d0807040406050e0f060405017001040405030100020608017f0141c090040b071302066d656d6f72790200065f737461727400020909010041010b031113150abe86014f02000b2901017f108180808000108380808000210010858080800002402000450d00200010cf80808000000b0b080010ca808080000b02000b0e00108480808000108f808080000b040000000b4e00024020000d003f004110740f0b0240200041ffff03710d002000417f4c0d000240200041107640002200417f470d00410041303602b48c808000417f0f0b20004110740f0b108680808000000b0a0020001089808080000bc836010b7f23808080800041106b2201248080808000024041002802d08c8080000d00410010878080800041c0908480006b220241d900490d0041002103024041002802909080800022040d004100427f37029c90808000410042808084808080c000370294908080004100200141086a41707141d8aad5aa0573220436029090808000410041003602a490808000410041003602f48f8080000b410020023602fc8f808000410041c0908480003602f88f808000410041c0908480003602c88c808000410020043602dc8c8080004100417f3602d88c8080000340200341e88c8080006a200341e08c8080006a2204360200200341ec8c8080006a2004360200200341086a2203418002470d000b410041c8908480006b410f71410041c890848000410f711b220341c4908480006a200220036b41486a2204410172360200410041002802a0908080003602d48c8080004100200341c0908480006a3602d08c808000410020043602c48c8080002002418c908480006a41383602000b024002400240024002400240024002400240024002400240200041ec014b0d00024041002802b88c80800022054110200041136a4170712000410b491b22024103762204762203410371450d0020034101712004724101732202410374220641e88c8080006a280200220441086a21030240024020042802082200200641e08c8080006a2206470d0041002005417e200277713602b88c8080000c010b41002802c88c80800020004b1a200620003602082000200636020c0b200420024103742200410372360204200420006a220420042802044101723602040c0c0b200241002802c08c80800022074d0d0102402003450d0002400240200320047441022004742203410020036b72712203410020036b71417f6a22032003410c764110712203762204410576410871220020037220042000762203410276410471220472200320047622034101764102712204722003200476220341017641017122047220032004766a2200410374220641e88c8080006a28020022042802082203200641e08c8080006a2206470d0041002005417e2000777122053602b88c8080000c010b41002802c88c80800020034b1a200620033602082003200636020c0b200441086a2103200420024103723602042004200041037422006a200020026b2200360200200420026a2206200041017236020402402007450d002007410376220841037441e08c8080006a210241002802cc8c808000210402400240200541012008742208710d00410020052008723602b88c808000200221080c010b200228020821080b2008200436020c200220043602082004200236020c200420083602080b410020063602cc8c808000410020003602c08c8080000c0c0b41002802bc8c8080002209450d012009410020096b71417f6a22032003410c764110712203762204410576410871220020037220042000762203410276410471220472200320047622034101764102712204722003200476220341017641017122047220032004766a41027441e88e8080006a280200220628020441787120026b210420062100024003400240200028021022030d00200041146a2802002203450d020b200328020441787120026b22002004200020044922001b21042003200620001b2106200321000c000b0b2006280218210a0240200628020c22082006460d00024041002802c88c808000200628020822034b0d00200328020c2006471a0b200820033602082003200836020c0c0b0b0240200641146a220028020022030d0020062802102203450d03200641106a21000b03402000210b2003220841146a220028020022030d00200841106a2100200828021022030d000b200b41003602000c0a0b417f2102200041bf7f4b0d00200041136a2203417071210241002802bc8c8080002207450d004100210b024020034108762203450d00411f210b200241ffffff074b0d00200320034180fe3f6a411076410871220474220320034180e01f6a411076410471220374220020004180800f6a411076410271220074410f7620032004722000726b22034101742002200341156a7641017172411c6a210b0b410020026b21000240024002400240200b41027441e88e8080006a28020022040d0041002103410021080c010b200241004119200b4101766b200b411f461b742106410021034100210803400240200428020441787120026b220520004f0d00200521002004210820050d004100210020042108200421030c030b2003200441146a2802002205200520042006411d764104716a41106a2802002204461b200320051b21032006200441004774210620040d000b0b024020032008720d004102200b742203410020036b722007712203450d032003410020036b71417f6a22032003410c764110712203762204410576410871220620037220042006762203410276410471220472200320047622034101764102712204722003200476220341017641017122047220032004766a41027441e88e8080006a28020021030b2003450d010b0340200328020441787120026b220520004921060240200328021022040d00200341146a28020021040b2005200020061b21002003200820061b21082004210320040d000b0b2008450d00200041002802c08c80800020026b4f0d002008280218210b0240200828020c22062008460d00024041002802c88c808000200828020822034b0d00200328020c2008471a0b200620033602082003200636020c0c090b0240200841146a220428020022030d0020082802102203450d03200841106a21040b0340200421052003220641146a220428020022030d00200641106a2104200628021022030d000b200541003602000c080b024041002802c08c80800022032002490d0041002802cc8c808000210402400240200320026b22004110490d00200420026a22062000410172360204410020003602c08c808000410020063602cc8c808000200420036a2000360200200420024103723602040c010b20042003410372360204200420036a22032003280204410172360204410041003602cc8c808000410041003602c08c8080000b200441086a21030c0a0b024041002802c48c808000220620024d0d0041002802d08c808000220320026a2204200620026b2200410172360204410020003602c48c808000410020043602d08c80800020032002410372360204200341086a21030c0a0b02400240410028029090808000450d0041002802989080800021040c010b4100427f37029c90808000410042808084808080c0003702949080800041002001410c6a41707141d8aad5aa057336029090808000410041003602a490808000410041003602f48f8080004180800421040b4100210302402004200241c7006a22076a2205410020046b220b71220820024b0d00410041303602b48c8080000c0a0b024041002802f08f8080002203450d00024041002802e88f808000220420086a220020044d0d00200020034d0d010b41002103410041303602b48c8080000c0a0b41002d00f48f8080004104710d0402400240024041002802d08c8080002204450d0041f88f8080002103034002402003280200220020044b0d00200020032802046a20044b0d030b200328020822030d000b0b41001087808080002206417f460d052008210502404100280294908080002203417f6a2204200671450d00200820066b200420066a410020036b716a21050b200520024d0d05200541feffffff074b0d05024041002802f08f8080002203450d0041002802e88f808000220420056a220020044d0d06200020034b0d060b200510878080800022032006470d010c070b200520066b200b71220541feffffff074b0d0420051087808080002206200328020020032802046a460d03200621030b0240200241c8006a20054d0d002003417f460d000240200720056b41002802989080800022046a410020046b71220441feffffff074d0d00200321060c070b02402004108780808000417f460d00200420056a2105200321060c070b410020056b1087808080001a0c040b200321062003417f470d050c030b410021080c070b410021060c050b2006417f470d020b410041002802f48f8080004104723602f48f8080000b200841feffffff074b0d0120081087808080002206410010878080800022034f0d012006417f460d012003417f460d01200320066b2205200241386a4d0d010b410041002802e88f80800020056a22033602e88f8080000240200341002802ec8f8080004d0d00410020033602ec8f8080000b024002400240024041002802d08c8080002204450d0041f88f80800021030340200620032802002200200328020422086a460d02200328020822030d000c030b0b0240024041002802c88c8080002203450d00200620034f0d010b410020063602c88c8080000b41002103410020053602fc8f808000410020063602f88f8080004100417f3602d88c80800041004100280290908080003602dc8c80800041004100360284908080000340200341e88c8080006a200341e08c8080006a2204360200200341ec8c8080006a2004360200200341086a2203418002470d000b2006417820066b410f714100200641086a410f711b22036a2204200541486a220020036b2203410172360204410041002802a0908080003602d48c808000410020033602c48c808000410020043602d08c808000200620006a41383602040c020b20032d000c4108710d00200620044d0d00200020044b0d002004417820046b410f714100200441086a410f711b22006a220641002802c48c80800020056a220b20006b22004101723602042003200820056a360204410041002802a0908080003602d48c808000410020003602c48c808000410020063602d08c8080002004200b6a41383602040c010b0240200641002802c88c80800022084f0d00410020063602c88c808000200621080b200620056a210041f88f80800021030240024002400240024002400240034020032802002000460d01200328020822030d000c020b0b20032d000c410871450d010b41f88f8080002103034002402003280200220020044b0d00200020032802046a220020044b0d030b200328020821030c000b0b200320063602002003200328020420056a3602042006417820066b410f714100200641086a410f711b6a220b20024103723602042000417820006b410f714100200041086a410f711b6a2206200b6b20026b2103200b20026a2100024020042006470d00410020003602d08c808000410041002802c48c80800020036a22033602c48c808000200020034101723602040c030b024041002802cc8c8080002006470d00410020003602cc8c808000410041002802c08c80800020036a22033602c08c80800020002003410172360204200020036a20033602000c030b0240200628020422044103714101470d002004417871210702400240200441ff014b0d00200628020c21020240200628020822052004410376220941037441e08c8080006a2204460d00200820054b1a0b024020022005470d00410041002802b88c808000417e200977713602b88c8080000c020b024020022004460d00200820024b1a0b200220053602082005200236020c0c010b2006280218210902400240200628020c22052006460d0002402008200628020822044b0d00200428020c2006471a0b200520043602082004200536020c0c010b0240200641146a220428020022020d00200641106a220428020022020d00410021050c010b0340200421082002220541146a220428020022020d00200541106a2104200528021022020d000b200841003602000b2009450d0002400240200628021c220241027441e88e8080006a22042802002006470d002004200536020020050d01410041002802bc8c808000417e200277713602bc8c8080000c020b20094110411420092802102006461b6a20053602002005450d010b20052009360218024020062802102204450d0020052004360210200420053602180b20062802142204450d00200541146a2004360200200420053602180b200720036a2103200620076a21060b20062006280204417e71360204200020036a2003360200200020034101723602040240200341ff014b0d002003410376220441037441e08c8080006a21030240024041002802b88c808000220241012004742204710d00410020022004723602b88c808000200321040c010b200328020821040b2004200036020c200320003602082000200336020c200020043602080c030b41002104024020034108762202450d00411f2104200341ffffff074b0d00200220024180fe3f6a411076410871220474220220024180e01f6a411076410471220274220620064180800f6a411076410271220674410f7620022004722006726b22044101742003200441156a7641017172411c6a21040b2000200436021c20004200370210200441027441e88e8080006a2102024041002802bc8c808000220641012004742208710d0020022000360200410020062008723602bc8c80800020002002360218200020003602082000200036020c0c030b20034100411920044101766b2004411f461b742104200228020021060340200622022802044178712003460d022004411d76210620044101742104200220064104716a41106a220828020022060d000b20082000360200200020023602182000200036020c200020003602080c020b2006417820066b410f714100200641086a410f711b22036a220b200541486a220820036b2203410172360204200620086a413836020420042000413720006b410f714100200041496a410f711b6a41416a22082008200441106a491b22084123360204410041002802a0908080003602d48c808000410020033602c48c8080004100200b3602d08c808000200841106a410029028090808000370200200841002902f88f8080003702084100200841086a36028090808000410020053602fc8f808000410020063602f88f8080004100410036028490808000200841246a21030340200341073602002000200341046a22034b0d000b20082004460d0320082008280204417e713602042008200820046b2205360200200420054101723602040240200541ff014b0d002005410376220041037441e08c8080006a21030240024041002802b88c808000220641012000742200710d00410020062000723602b88c808000200321000c010b200328020821000b2000200436020c200320043602082004200336020c200420003602080c040b41002103024020054108762200450d00411f2103200541ffffff074b0d00200020004180fe3f6a411076410871220374220020004180e01f6a411076410471220074220620064180800f6a411076410271220674410f7620002003722006726b22034101742005200341156a7641017172411c6a21030b200442003702102004411c6a2003360200200341027441e88e8080006a2100024041002802bc8c808000220641012003742208710d0020002004360200410020062008723602bc8c808000200441186a2000360200200420043602082004200436020c0c040b20054100411920034101766b2003411f461b742103200028020021060340200622002802044178712005460d032003411d76210620034101742103200020064104716a41106a220828020022060d000b20082004360200200441186a20003602002004200436020c200420043602080c030b20022802082103200220003602082003200036020c20004100360218200020033602082000200236020c0b200b41086a21030c050b20002802082103200020043602082003200436020c200441186a4100360200200420033602082004200036020c0b41002802c48c808000220320024d0d0041002802d08c808000220420026a2200200320026b2203410172360204410020033602c48c808000410020003602d08c80800020042002410372360204200441086a21030c030b41002103410041303602b48c8080000c020b0240200b450d00024002402008200828021c220441027441e88e8080006a2203280200470d002003200636020020060d0141002007417e2004777122073602bc8c8080000c020b200b41104114200b2802102008461b6a20063602002006450d010b2006200b360218024020082802102203450d0020062003360210200320063602180b200841146a2802002203450d00200641146a2003360200200320063602180b024002402000410f4b0d002008200020026a2203410372360204200820036a220320032802044101723602040c010b200820026a2206200041017236020420082002410372360204200620006a20003602000240200041ff014b0d002000410376220441037441e08c8080006a21030240024041002802b88c808000220041012004742204710d00410020002004723602b88c808000200321040c010b200328020821040b2004200636020c200320063602082006200336020c200620043602080c010b02400240200041087622040d00410021030c010b411f2103200041ffffff074b0d00200420044180fe3f6a411076410871220374220420044180e01f6a411076410471220474220220024180800f6a411076410271220274410f7620042003722002726b22034101742000200341156a7641017172411c6a21030b2006200336021c20064200370210200341027441e88e8080006a21040240200741012003742202710d0020042006360200410020072002723602bc8c80800020062004360218200620063602082006200636020c0c010b20004100411920034101766b2003411f461b7421032004280200210202400340200222042802044178712000460d012003411d76210220034101742103200420024104716a41106a220528020022020d000b20052006360200200620043602182006200636020c200620063602080c010b20042802082103200420063602082003200636020c20064100360218200620033602082006200436020c0b200841086a21030c010b0240200a450d00024002402006200628021c220041027441e88e8080006a2203280200470d002003200836020020080d0141002009417e200077713602bc8c8080000c020b200a41104114200a2802102006461b6a20083602002008450d010b2008200a360218024020062802102203450d0020082003360210200320083602180b200641146a2802002203450d00200841146a2003360200200320083602180b024002402004410f4b0d002006200420026a2203410372360204200620036a220320032802044101723602040c010b200620026a2200200441017236020420062002410372360204200020046a200436020002402007450d002007410376220841037441e08c8080006a210241002802cc8c808000210302400240410120087422082005710d00410020082005723602b88c808000200221080c010b200228020821080b2008200336020c200220033602082003200236020c200320083602080b410020003602cc8c808000410020043602c08c8080000b200641086a21030b200141106a24808080800020030b0a002000108b808080000bf40e01077f02402000450d00200041786a22012000417c6a280200220241787122006a2103024020024101710d002002410371450d012001200128020022026b220141002802c88c8080002204490d01200220006a2100024041002802cc8c8080002001460d000240200241ff014b0d00200128020c21050240200128020822062002410376220741037441e08c8080006a2202460d00200420064b1a0b024020052006470d00410041002802b88c808000417e200777713602b88c8080000c030b024020052002460d00200420054b1a0b200520063602082006200536020c0c020b2001280218210702400240200128020c22052001460d0002402004200128020822024b0d00200228020c2001471a0b200520023602082002200536020c0c010b0240200141146a220228020022040d00200141106a220228020022040d00410021050c010b0340200221062004220541146a220228020022040d00200541106a2102200528021022040d000b200641003602000b2007450d0102400240200128021c220441027441e88e8080006a22022802002001470d002002200536020020050d01410041002802bc8c808000417e200477713602bc8c8080000c030b20074110411420072802102001461b6a20053602002005450d020b20052007360218024020012802102202450d0020052002360210200220053602180b20012802142202450d01200541146a2002360200200220053602180c010b200328020422024103714103470d0020032002417e71360204410020003602c08c808000200120006a2000360200200120004101723602040f0b200320014d0d0020032802042202410171450d000240024020024102710d00024041002802d08c8080002003470d00410020013602d08c808000410041002802c48c80800020006a22003602c48c80800020012000410172360204200141002802cc8c808000470d03410041003602c08c808000410041003602cc8c8080000f0b024041002802cc8c8080002003470d00410020013602cc8c808000410041002802c08c80800020006a22003602c08c80800020012000410172360204200120006a20003602000f0b200241787120006a210002400240200241ff014b0d00200328020c21040240200328020822052002410376220341037441e08c8080006a2202460d0041002802c88c80800020054b1a0b024020042005470d00410041002802b88c808000417e200377713602b88c8080000c020b024020042002460d0041002802c88c80800020044b1a0b200420053602082005200436020c0c010b2003280218210702400240200328020c22052003460d00024041002802c88c808000200328020822024b0d00200228020c2003471a0b200520023602082002200536020c0c010b0240200341146a220228020022040d00200341106a220228020022040d00410021050c010b0340200221062004220541146a220228020022040d00200541106a2102200528021022040d000b200641003602000b2007450d0002400240200328021c220441027441e88e8080006a22022802002003470d002002200536020020050d01410041002802bc8c808000417e200477713602bc8c8080000c020b20074110411420072802102003461b6a20053602002005450d010b20052007360218024020032802102202450d0020052002360210200220053602180b20032802142202450d00200541146a2002360200200220053602180b200120006a200036020020012000410172360204200141002802cc8c808000470d01410020003602c08c8080000f0b20032002417e71360204200120006a2000360200200120004101723602040b0240200041ff014b0d002000410376220241037441e08c8080006a21000240024041002802b88c808000220441012002742202710d00410020042002723602b88c808000200021020c010b200028020821020b2002200136020c200020013602082001200036020c200120023602080f0b41002102024020004108762204450d00411f2102200041ffffff074b0d00200420044180fe3f6a411076410871220274220420044180e01f6a411076410471220474220520054180800f6a411076410271220574410f7620042002722005726b22024101742000200241156a7641017172411c6a21020b200142003702102001411c6a2002360200200241027441e88e8080006a21040240024041002802bc8c808000220541012002742203710d0020042001360200410020052003723602bc8c808000200141186a2004360200200120013602082001200136020c0c010b20004100411920024101766b2002411f461b7421022004280200210502400340200522042802044178712000460d012002411d76210520024101742102200420054104716a41106a220328020022050d000b20032001360200200141186a20043602002001200136020c200120013602080c010b20042802082100200420013602082000200136020c200141186a4100360200200120003602082001200436020c0b410041002802d88c808000417f6a22013602d88c80800020010d00418090808000210103402001280200220041086a210120000d000b4100417f3602d88c8080000b0bf20101197f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104024020040d00410121052003200536020c0b0240034041002106200328020c21072007108880808000210820032008360208200821092006210a2009200a46210b4101210c200b200c71210d200d450d014100210e10c980808000210f2003200f3602042003280204211020102111200e2112201120124721134101211420132014712115024002402015450d00200328020421162016118080808000000c010b0c020b0c000b0b2003280208211741102118200320186a2119201924808080800020170f0b4901067f238080808000210141102102200120026b210320032480808080002003200036020c200328020c21042004108a8080800041102105200320056a210620062480808080000f0b080041a8908080000b830301037f0240108e808080002802002200450d000340024020002802142000280218460d002000410041002000280220118180808000001a0b02402000280204220120002802082202460d002000200120026bac41012000280224118280808000001a0b200028023422000d000b0b024041002802ac908080002200450d00024020002802142000280218460d002000410041002000280220118180808000001a0b2000280204220120002802082202460d002000200120026bac41012000280224118280808000001a0b024041002802ac908080002200450d00024020002802142000280218460d002000410041002000280220118180808000001a0b2000280204220120002802082202460d002000200120026bac41012000280224118280808000001a0b024041002802b08c8080002200450d00024020002802142000280218460d002000410041002000280220118180808000001a0b2000280204220120002802082202460d002000200120026bac41012000280224118280808000001a0b0b21000240200010cc8080800022000d0041000f0b410020003602b48c808000417f0b0d0020002802381090808080000b7101027f23808080800041106b2203248080808000417f2104024002402002417f4a0d004100411c3602b48c8080000c010b02402000200120022003410c6a10ce808080002202450d00410020023602b48c808000417f21040c010b200328020c21040b200341106a24808080800020040bc10201077f23808080800041106b22032480808080002003200236020c200320013602082003200028021822013602002003200028021420016b22013602044102210402400240200120026a22052000280238200341021092808080002206460d0020032101034002402006417f4a0d004100210620004100360218200042003703102000200028020041207236020020044102460d03200220012802046b21060c030b20012006200128020422074b22084103746a2209200928020020062007410020081b6b22076a3602002001410c410420081b6a2209200928020020076b360200200520066b22052000280238200141086a200120081b2201200420086b22041092808080002206470d000b0b2000200028022822013602182000200136021420002001200028022c6a360210200221060b200341106a24808080800020060b6401017f23808080800041106b22032480808080000240024020002001200241ff0171200341086a10cd808080002200450d00410041c6002000200041cc00461b3602b48c808000427f21010c010b200329030821010b200341106a24808080800020010b11002000280238200120021094808080000bfb01011a7f238080808000210241102103200220036b210420042480808080004190ce0021052004200036020c20042001360208200428020821062006210720052108200720084921094101210a2009200a71210b02400240200b450d00200428020c210c2004280208210d200c200d109980808000210e2004200e36020c0c010b200428020c210f200428020821104190ce002111201020116e2112200f201210998080800021132004201336020c200428020c2114200428020821154190ce002116201520167021172014201710988080800021182004201836020c0b200428020c21194110211a2004201a6a211b201b24808080800020190f0bbe0101137f238080808000210241102103200220036b21042004248080808000410a21052004200036020820042001360204200428020421062006210720052108200720084921094101210a2009200a71210b02400240200b450d002004280208210c2004280204210d200c200d109a80808000210e2004200e36020c0c010b2004280208210f20042802042110200f2010109b8080800021112004201136020c0b200428020c211241102113200420136a2114201424808080800020120f0b8801010e7f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c21052004280208210641e4002107200620076e210820052008109b8080800021092004280208210a41e400210b200a200b70210c2009200c109b80808000210d4110210e2004200e6a210f200f248080808000200d0f0b9002011d7f238080808000210241102103200220036b2104200424808080800041e40021052004200036020820042001360204200428020421062006210720052108200720084921094101210a2009200a71210b02400240200b450d002004280208210c2004280204210d200c200d109780808000210e2004200e36020c0c010b41e807210f2004280204211020102111200f211220112012492113410121142013201471211502402015450d00200428020821162004280204211720162017109d8080800021182004201836020c0c010b200428020821192004280204211a2019201a109880808000211b2004201b36020c0b200428020c211c4110211d2004201d6a211e201e248080808000201c0f0b6c010d7f238080808000210241102103200220036b21042004200036020c200420013602082004280208210541182106200520067421072007200675210841302109200820096a210a200428020c210b200b200a3a0000200428020c210c4101210d200c200d6a210e200e0f0b70010d7f238080808000210241102103200220036b210441808880800021052004200036020c20042001360208200428020c2106200428020821074101210820072008742109200520096a210a200a2f0000210b2006200b3b0000200428020c210c4102210d200c200d6a210e200e0f0baf0613037f047e037f017e047f047e037f037e017f037e0e7f037e017f037e037f037e017f037e187f238080808000210241302103200220036b210420042480808080004280c2d72f21052004200037032820042001360224200429032821062006210720052108200720085421094101210a2009200a71210b02400240200b450d002004290328210c200ca7210d2004200d3602202004280224210e2004280220210f200e200f1096808080002110200420103602240c010b42808084fea6dee1112111200429032821122012211320112114201320145421154101211620152016712117024002402017450d00200429032821184280c2d72f21192018201980211a201aa7211b2004201b36021c2004290328211c4280c2d72f211d201c201d82211e201ea7211f2004201f36021820042802242120200428021c21212020202110968080800021222004202236022420042802242123200428021821244190ce002125202420256e21262023202610988080800021272004202736022420042802242128200428021821294190ce00212a2029202a70212b2028202b109880808000212c2004202c3602240c010b2004290328212d42808084fea6dee111212e202d202e80212f202fa72130200420303602142004290328213142808084fea6dee11121322031203282213320042033370328200428022421342004280214213520342035109980808000213620042036360224200429032821374280c2d72f2138203720388021392039a7213a2004203a3602102004290328213b4280c2d72f213c203b203c82213d203da7213e2004203e36020c2004280224213f200428021021404190ce002141204020416e2142203f204210988080800021432004204336022420042802242144200428021021454190ce002146204520467021472044204710988080800021482004204836022420042802242149200428020c214a4190ce00214b204a204b6e214c2049204c109880808000214d2004204d3602242004280224214e200428020c214f4190ce002150204f2050702151204e20511098808080002152200420523602240b0b2004280224215341302154200420546a2155205524808080800020530f0b8801010e7f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c21052004280208210641e4002107200620076e210820052008109a8080800021092004280208210a41e400210b200a200b70210c2009200c109b80808000210d4110210e2004200e6a210f200f248080808000200d0f0b3701047f238080808000210141102102200120026b2103200324808080800041c88980800021042003200036020c2004109f80808000000b2d01037f238080808000210141102102200120026b210320032480808080002003200036020c108680808000000b4201067f238080808000210241102103200220036b21042004200036020c200420013602082004280208210520052d00002106200428020c2107200720063a00000f0b5701087f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410ac808080002105200510ad80808000210641102107200320076a2108200824808080800020060f0b6001087f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c210520042802082106200510ac8080800021072007200636020441102108200420086a210920092480808080000f0b6001087f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c210520042802082106200510ac808080002107200720063a000b41102108200420086a210920092480808080000f0b70010b7f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410aa808080002105200510ab808080002106200320063602082003280208210741102108200720086b21094110210a2003200a6a210b200b24808080800020090f0b8202011f7f238080808000210141102102200120026b21032003248080808000410b21042003200036020820032802082105200521062004210720062007492108410121092008200971210a02400240200a450d00410a210b2003200b36020c0c010b410b210c2003280208210d4101210e200d200e6a210f200f10ae80808000211041012111201020116b2112200320123602042003280204211320132114200c211520142015462116410121172016201771211802402018450d00200328020421194101211a2019201a6a211b2003201b3602040b2003280204211c2003201c36020c0b200328020c211d4110211e2003201e6a211f201f248080808000201d0f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410b080808000210541102106200320066a2107200724808080800020050f0b5d01087f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c2105200428020821062005200610af80808000210741102108200420086a2109200924808080800020070f0b6001087f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c210520042802082106200510ac8080800021072007200636020041102108200420086a210920092480808080000f0b6f010a7f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c210520042802082106418080808078210720062007722108200510ac808080002109200920083602084110210a2004200a6a210b200b2480808080000f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410bc80808000210541102106200320066a2107200724808080800020050f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410bb80808000210541102106200320066a2107200724808080800020050f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410ba80808000210541102106200320066a2107200724808080800020050f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410bf80808000210541102106200320066a2107200724808080800020050f0b3e01087f238080808000210141102102200120026b21032003200036020c200328020c2104410f2105200420056a2106417021072006200771210820080f0ba30101127f238080808000210241102103200220036b21042004248080808000417f21052004200036020c20042001360208200428020821062006210720052108200720084b21094101210a2009200a71210b0240200b450d0041d589808000210c200c109f80808000000b4101210d2004280208210e4100210f200e200f7421102010200d10c180808000211141102112200420126a2113201324808080800020110f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410c080808000210541102106200320066a2107200724808080800020050f0b2801047f238080808000210141102102200120026b21032003200036020c200328020c210420040f0b2801047f238080808000210141102102200120026b2103200320003602042003280204210420040f0b830101087f238080808000210341202104200320046b210520052480808080002005200036021c2005200136021820052002360214200528021c210620052802182107200710b1808080001a200610b2808080001a20052802142108200810b1808080001a200610b8808080001a41202109200520096a210a200a24808080800020060f0b9601010e7f238080808000210341202104200320046b2105200524808080800041102106200520066a21072007210841082109200520096a210a200a210b2005200036021c2005200136021820052002360214200528021c210c200c2008200b10b3808080001a2005280218210d2005280214210e200c200d200e10c2808080004120210f2005200f6a21102010248080808000200c0f0b5603037f017e027f238080808000210241102103200220036b210420042480808080002004200036020c20042001370300200429030021052000200510b68080800041102106200420066a210720072480808080000f0ba401030c7f017e037f238080808000210241c0002103200220036b2104200424808080800041102105200420056a21062006210741082108200420086a21092009210a4115210b2004200036023c200420013703302004200b36022c4115210c2007200c6a210d2004290330210e200a2007200d200e10b7808080002004280208210f20002007200f10b4808080001a41c0002110200420106a211120112480808080000f0b6f03057f017e027f238080808000210441202105200420056b210620062480808080002006200136021c2006200236021820062003370310200628021c21072006280218210820062903102109200020072008200910c5808080004120210a2006200a6a210b200b2480808080000f0b4c01067f238080808000210141102102200120026b210320032480808080002003200036020420032802042104200410b9808080001a41102105200320056a2106200624808080800020040f0b2801047f238080808000210141102102200120026b21032003200036020c200328020c210420040f0b2801047f238080808000210141102102200120026b21032003200036020c200328020c210420040f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020420032802042104200410bd80808000210541102106200320066a2107200724808080800020050f0b4d01077f238080808000210141102102200120026b210320032480808080002003200036020c200328020c2104200410be80808000210541102106200320066a2107200724808080800020050f0b2501047f238080808000210141102102200120026b2103417f21042003200036020c20040f0b2801047f238080808000210141102102200120026b21032003200036020c200328020c210420040f0b2801047f238080808000210141102102200120026b21032003200036020c200328020c210420040f0b2801047f238080808000210141102102200120026b21032003200036020c200328020c210420040f0b5401077f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c21052005108c80808000210641102107200420076a2108200824808080800020060f0baf0401397f238080808000210341202104200320046b210520052480808080002005200036021c2005200136021820052002360214200528021c210620052802182107200528021421082007200810c3808080002109200520093602102005280210210a200610a480808000210b200a210c200b210d200c200d4b210e4101210f200e200f71211002402010450d002006109e80808000000b410b2111200528021021122012211320112114201320144921154101211620152016712117024002402017450d00200528021021182006201810a380808000200610a18080800021192005201936020c0c010b2005280210211a201a10a580808000211b2005201b360208200610a680808000211c2005280208211d4101211e201d201e6a211f201c201f10a78080800021202005202036020c200528020c21212006202110a8808080002005280208212241012123202220236a21242006202410a980808000200528021021252006202510a2808080000b02400340200528021821262005280214212720262128202721292028202947212a4101212b202a202b71212c202c450d01200528020c212d2005280218212e202d202e10a0808080002005280218212f41012130202f20306a213120052031360218200528020c213241012133203220336a21342005203436020c0c000b0b41072135200520356a21362036213741002138200528020c2139200520383a00072039203710a0808080004120213a2005203a6a213b203b2480808080000f0b5d01087f238080808000210241102103200220036b210420042480808080002004200036020c20042001360208200428020c2105200428020821062005200610c480808000210741102108200420086a2109200924808080800020070f0b3d01067f238080808000210241102103200220036b210420042000360204200420013602002004280200210520042802042106200520066b210720070f0b9c02050d7f017e087f017e067f238080808000210441202105200420056b21062006248080808000411421072006200136021420062002360210200620033703082006280210210820062802142109200820096b210a2006200a3602042006280204210b2007210c200b210d200c200d4c210e4101210f200e200f71211002400240024020100d0020062903082111201110c6808080002112200628020421132012211420132115201420154c211641012117201620177121182018450d010b410021192006290308211a2006280214211b201a201b10c780808000211c2000201c360200200020193602040c010b413d211d2006280210211e2000201e3602002000201d3602040b4120211f2006201f6a212020202480808080000f0bd50107057f047e077f017e047f037e067f238080808000210141102102200120026b210341a08a808000210441c00021052003200037030820032903082106420121072006200784210820087921092009a7210a2005200a6b210b41d109210c200b200c6c210d410c210e200d200e75210f2003200f3602042003280204211020032903082111200328020421124103211320122013742114200420146a2115201529030021162011211720162118201720185421194101211a2019201a71211b2010201b6b211c4101211d201c201d6a211e201e0f0b6103037f017e047f238080808000210241102103200220036b210420042480808080002004200037030820042001360204200429030821052004280204210620052006109c80808000210741102108200420086a2109200924808080800020070f0b3601057f238080808000210241102103200220036b21042004200036020c20042001360208200428020c21052005280200210620060f0b1f01037f41b8908080002100410221012000200110c880808000210220020f0bb10103017f027e027f23808080800041106b22002480808080004200210142002102034020014203420142022002420183501b2002a741ffff03714103701b7c2101200242017c22024290ce00520d000b2000200110b58080800041dd04410041002000280200200020002d000b220341187441187541004822041b2000280204200320041b1080808080001a024020002c000b41004e0d002000280200108d808080000b200041106a24808080800041000b3b01017f23808080800041106b2201248080808000200141083a000e200120004100473a000f4111410041002001410e6a41021080808080001a000b040041020b040041020b040041020b0b00200010cb80808000000b0bc20402004180080bc003303030313032303330343035303630373038303931303131313231333134313531363137313831393230323132323233323432353236323732383239333033313332333333343335333633373338333934303431343234333434343534363437343834393530353135323533353435353536353735383539363036313632363336343635363636373638363937303731373237333734373537363737373837393830383138323833383438353836383738383839393039313932393339343935393639373938393962617369635f737472696e6700616c6c6f6361746f723c543e3a3a616c6c6f636174652873697a655f74206e2920276e272065786365656473206d6178696d756d20737570706f727465642073697a65000000000000000000000000000000000a000000000000006400000000000000e8030000000000001027000000000000a08601000000000040420f0000000000809698000000000000e1f5050000000000ca9a3b0000000000e40b540200000000e87648170000000010a5d4e800000000a0724e1809000000407a10f35a00000080c6a47e8d03000000c16ff286230000008a5d78456301000064a7b3b6e00d0000e8890423c78a0041c00b0b7405000000000000000000000001000000000000000000000000000000000000000200000003000000380800000000000000000000000000000200000000000000ffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0050000" );
-
    protocol::upload_contract_operation op;
-   op.set_bytecode( contract_bytecode );
+   op.set_bytecode( get_benchmark_wasm() );
    op.set_contract_id( contract_pk.get_public_key().to_address_bytes() );
 
    crypto::multihash empty_contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "empty_contract" } );
    crypto::private_key empty_contract_pk = crypto::private_key::regenerate( empty_contract_seed );
 
-/*
-#include <cstdint>
-#include <string>
-#include <koinos/system/system_calls.hpp>
-
-int main()
-{
-   return 0;
-}
-*/
-   std::string empty_contract_bytecode = util::from_hex< std::string >( "0x0061736d0100000001150460057f7f7f7f7f017f6000006000017f60017f00021a0103656e7612696e766f6b655f73797374656d5f63616c6c000003090801010201010203030405017001010105030100020608017f01418088040b071302066d656d6f72790200065f737461727400020a96010802000b2901017f108180808000108380808000210010858080800002402000450d002000108880808000000b0b08001086808080000b02000b0e001084808080001084808080000b040041000b3b01017f23808080800041106b2201248080808000200141083a000e200120004100473a000f4111410041002001410e6a41021080808080001a000b0b002000108780808000000b" );
-
    protocol::upload_contract_operation empty_contract_op;
-   empty_contract_op.set_bytecode( empty_contract_bytecode );
+   empty_contract_op.set_bytecode( get_empty_contract_wasm() );
    empty_contract_op.set_contract_id( empty_contract_pk.get_public_key().to_address_bytes() );
 
    protocol::transaction trx;
@@ -1581,9 +1566,9 @@ int main()
          auto start = std::chrono::high_resolution_clock::now();
          try
          {
-            ctx.get_backend()->run( hapi, contract_bytecode, hash );
+            ctx.get_backend()->run( hapi, get_benchmark_wasm(), hash );
          }
-         catch ( chain::exit_success& ) {}
+         catch ( chain::chain_success& ) {}
          auto stop = std::chrono::high_resolution_clock::now();
 
          uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
@@ -1756,9 +1741,9 @@ int main()
    auto serialized_public_key = util::converter::as< std::string >( _signing_private_key.get_public_key() );
 
    std::map< std::string, std::function< void( void ) > > system_call_map {
-      { "require_system_authority", [&]() { chain::system_call::require_system_authority( ctx, chain::set_system_call ); } },
+      { "check_system_authority", [&]() { chain::system_call::check_system_authority( ctx, chain::set_system_call ); } },
       { "recover_public_key", [&]() { chain::system_call::recover_public_key( ctx, chain::dsa::ecdsa_secp256k1, transaction.signatures( 0 ), transaction.id() ); } },
-      { "require_authority", [&]() { chain::system_call::require_authority( ctx, chain::contract_call, transaction.header().payer() ); } },
+      { "check_authority", [&]() { chain::system_call::check_authority( ctx, chain::contract_call, transaction.header().payer() ); } },
       { "get_last_irreversible_block", [&]() { chain::system_call::get_last_irreversible_block( ctx ); } },
       { "hash", [&]() { chain::system_call::hash( ctx, std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ), header_str ); } },
       { "get_caller", [&]() { chain::system_call::get_caller( ctx ); } },
@@ -1772,16 +1757,14 @@ int main()
       { "get_resource_limits", [&]() { chain::system_call::get_resource_limits( ctx ); } },
       { "consume_block_resources", [&]() { chain::system_call::consume_block_resources( ctx, 1, 1, 1 ); } },
       { "log", [&]() { chain::system_call::log( ctx, "message" ); } },
-      { "exit_contract", [&]() { try { chain::system_call::exit_contract( ctx, 0 ); } catch ( ... ) {} } },
+      { "exit", [&]() { try { chain::system_call::exit( ctx, chain::result() ); } catch ( ... ) {} } },
       { "process_block_signature", [&]() { chain::system_call::process_block_signature( ctx, block.id(), block.header(), block.signature() ); } },
-      { "get_entry_point", [&]() { chain::system_call::get_entry_point( ctx ); } },
-      { "get_contract_arguments", [&] { chain::system_call::get_contract_arguments( ctx ); } },
-      { "set_contract_result", [&]() { chain::system_call::set_contract_result( ctx, std::string{ "value" } ); } },
+      { "get_arguments", [&] { chain::system_call::get_arguments( ctx ); } },
       { "put_object", [&]() { chain::system_call::put_object( ctx, objs, std::string{ "key" }, header_str ); } },
       { "get_object", [&]() { chain::system_call::get_object( ctx, objs, std::string{ "key" } ); } },
       { "get_next_object", [&]() { chain::system_call::get_next_object( ctx, objs, std::string{ "key" } ); } },
       { "get_prev_object", [&]() { chain::system_call::get_prev_object( ctx, objs, std::string{ "key" } ); } },
-      { "call_contract", [&]() { chain::system_call::call_contract( ctx, empty_contract_op.contract_id(), 0x00, empty_contract_op.bytecode() ); } },
+      { "call", [&]() { chain::system_call::call( ctx, empty_contract_op.contract_id(), 0x00, empty_contract_op.bytecode() ); } },
       { "apply_set_system_call_operation", [&]() { chain::system_call::apply_set_system_call_operation( ctx, sscop ); } },
       { "apply_set_system_contract_operation", [&]() { chain::system_call::apply_set_system_contract_operation( ctx, ssconp ); } },
       { "apply_call_contract_operation", [&]() { chain::system_call::apply_call_contract_operation( ctx, cco ); } },
@@ -2083,19 +2066,19 @@ int main()
    std::map< std::string, std::vector< std::string > > subcalls;
    subcalls[ "process_block_signature" ] = { "get_object", "recover_public_key" };
    subcalls[ "apply_block" ] = { "get_resource_limits", "pre_block_callback", "verify_merkle_root", "hash", "process_block_signature", "put_object", "post_block_callback", "consume_block_resources" };
-   subcalls[ "apply_transaction" ] = { "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "require_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
-   subcalls[ "apply_upload_contract_operation" ] = { "require_authority", "hash", "put_object", "put_object" };
-   subcalls[ "apply_call_contract_operation" ] = { "call_contract" };
-   subcalls[ "apply_set_system_call_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
-   subcalls[ "apply_set_system_contract_operation" ] = { "require_system_authority", "get_object", "get_object", "put_object" };
-   subcalls[ "call_contract" ] = { "get_object", "get_object" };
-   subcalls[ "require_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
+   subcalls[ "apply_transaction" ] = { "get_object", "verify_merkle_root", "get_account_rc", "pre_transaction_callback", "check_authority", "verify_account_nonce", "set_account_nonce", "post_transaction_callback", "consume_account_rc" };
+   subcalls[ "apply_upload_contract_operation" ] = { "check_authority", "hash", "put_object", "put_object" };
+   subcalls[ "apply_call_contract_operation" ] = { "call" };
+   subcalls[ "apply_set_system_call_operation" ] = { "check_system_authority", "get_object", "get_object", "put_object" };
+   subcalls[ "apply_set_system_contract_operation" ] = { "check_system_authority", "get_object", "get_object", "put_object" };
+   subcalls[ "call" ] = { "get_object", "get_object" };
+   subcalls[ "check_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
    subcalls[ "get_account_nonce" ] = { "get_object" };
    subcalls[ "verify_account_nonce" ] = { "get_account_nonce" };
    subcalls[ "set_account_nonce" ] = { "put_object" };
    subcalls[ "get_account_rc" ] = { "get_object" };
    subcalls[ "get_resource_limits" ] = { "get_object" };
-   subcalls[ "require_system_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
+   subcalls[ "check_system_authority" ] = { "get_object", "recover_public_key", "recover_public_key", "recover_public_key" };
    subcalls[ "verify_signature" ] = { "recover_public_key" };
    subcalls[ "get_chain_id" ] = { "get_object" };
 

@@ -16,15 +16,15 @@ namespace koinos::chain {
 host_api::host_api( execution_context& ctx ) : _ctx( ctx ) {}
 host_api::~host_api() {}
 
-uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
-   KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges, "'invoke_thunk' must be called from a system context" );
-   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+   KOINOS_ASSERT_REVERSION( _ctx.get_privilege() == privilege::kernel_mode, "'invoke_thunk' must be called from a system context" );
+   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
 }
 
-uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
-   uint32_t bytes_returned = 0;
+   int32_t retcode = 0;
    auto key = util::converter::as< std::string >( sid );
    database_object object;
 
@@ -39,26 +39,40 @@ uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret
          {
             #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
             std::string args( arg_ptr, arg_len );
-            auto ret = _ctx.system_call( sid, args );
-            KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
+            auto [ ret, code ] = _ctx.system_call( sid, args );
+            KOINOS_ASSERT_REVERSION( ret.size() <= ret_len, "return buffer too small" );
             std::memcpy( ret.data(), ret_ptr, ret.size() );
-            bytes_returned = ret.size();
+            retcode = code;
+            *bytes_written = ret.size();
          }
          else
          {
             auto thunk_id = _ctx.thunk_translation( sid );
-            KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), thunk_not_found, "thunk ${tid} does not exist", ("tid", thunk_id) );
+            KOINOS_ASSERT_REVERSION( thunk_dispatcher::instance().thunk_exists( thunk_id ), "thunk ${tid} does not exist", ("tid", thunk_id) );
             auto desc = chain::system_call_id_descriptor();
             auto enum_value = desc->FindValueByNumber( thunk_id );
-            KOINOS_ASSERT( enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", thunk_id) );
+            KOINOS_ASSERT_REVERSION( enum_value, "unrecognized thunk id ${id}", ("id", thunk_id) );
             auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
             _ctx.resource_meter().use_compute_bandwidth( compute );
-            bytes_returned = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+            retcode = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
          }
       }
    );
 
-   return bytes_returned;
+   if ( _ctx.get_privilege() == privilege::user_mode && retcode >= constants::chain_reversion )
+      KOINOS_THROW( chain_reversion, "" );
+
+   if ( sid == system_call_id::exit )
+   {
+      if ( retcode >= constants::chain_reversion )
+         KOINOS_THROW( chain_reversion, "" );
+      if ( retcode <= constants::chain_failure )
+         KOINOS_THROW( chain_failure, "" );
+
+      KOINOS_THROW( chain_success, "" );
+   }
+
+   return retcode;
 }
 
 int64_t host_api::get_meter_ticks() const

@@ -7,7 +7,5 @@ const std::string contract_id = "\x00\x4c\x6c\x3b\xf1\x6e\x47\xa2\x54\xe3\x41\x2
 
 int main()
 {
-   koinos::system::call_contract( contract_id, 0, std::string() );
-
-   return 0;
+   koinos::system::exit( koinos::system::call( contract_id, 0, std::string() ).first );
 }

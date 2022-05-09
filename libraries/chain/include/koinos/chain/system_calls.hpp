@@ -17,12 +17,11 @@
 
 namespace koinos::chain {
 
-namespace exit_code {
-
-constexpr uint32_t success = 0;
-constexpr uint32_t failure = 1;
-
-} // exit_code
+namespace constants {
+   constexpr int32_t chain_success = 0;
+   constexpr int32_t chain_reversion = 1;
+   constexpr int32_t chain_failure = -1;
+}
 
 class execution_context;
 class thunk_dispatcher;
@@ -82,7 +81,7 @@ THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_bl
 THUNK_DECLARE( get_account_nonce_result, get_account_nonce, const std::string& account );
 THUNK_DECLARE( verify_account_nonce_result, verify_account_nonce, const std::string& account, const std::string& nonce );
 THUNK_DECLARE( void, set_account_nonce, const std::string& account, const std::string& nonce );
-THUNK_DECLARE( void, require_system_authority, system_authorization_type type );
+THUNK_DECLARE( check_system_authority_result, check_system_authority, system_authorization_type type );
 
 // Resource Subsystem
 
@@ -93,7 +92,7 @@ THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t
 
 // Database
 
-THUNK_DECLARE( put_object_result, put_object, const object_space& space, const std::string& key, const std::string& obj );
+THUNK_DECLARE( void, put_object, const object_space& space, const std::string& key, const std::string& obj );
 THUNK_DECLARE( void, remove_object, const object_space& space, const std::string& key );
 THUNK_DECLARE( get_object_result, get_object, const object_space& space, const std::string& key );
 THUNK_DECLARE( get_next_object_result, get_next_object, const object_space& space, const std::string& key );
@@ -114,13 +113,11 @@ THUNK_DECLARE( verify_vrf_proof_result, verify_vrf_proof, dsa type, const std::s
 
 // Contract Management
 
-THUNK_DECLARE( call_contract_result, call_contract, const std::string& contract_id, uint32_t entry_point, const std::string& args );
-THUNK_DECLARE_VOID( get_entry_point_result, get_entry_point );
-THUNK_DECLARE_VOID( get_contract_arguments_result, get_contract_arguments );
-THUNK_DECLARE( void, set_contract_result, const std::string& ret );
-THUNK_DECLARE( void, exit_contract, uint32_t exit_code );
+THUNK_DECLARE( call_result, call, const std::string& contract_id, uint32_t entry_point, const std::string& args );
+THUNK_DECLARE( void, exit, result res );
+THUNK_DECLARE_VOID( get_arguments_result, get_arguments );
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE( void, require_authority, authorization_type type, const std::string& account );
+THUNK_DECLARE( check_authority_result, check_authority, authorization_type type, const std::string& account );
 
 } // koinos::chain

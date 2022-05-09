@@ -142,8 +142,8 @@ void fizzy_runner::instantiate_module()
       return runner->_invoke_thunk( args, fizzy_context );
    };
 
-   FizzyValueType invoke_thunk_arg_types[] = {FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32};
-   size_t invoke_thunk_num_args = 5;
+   FizzyValueType invoke_thunk_arg_types[] = {FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32};
+   size_t invoke_thunk_num_args = 6;
    FizzyExternalFunction invoke_thunk_fn = {{ FizzyValueTypeI32, invoke_thunk_arg_types, invoke_thunk_num_args }, invoke_thunk, this };
 
    FizzyExternalFn invoke_system_call = [](void* voidptr_context, FizzyInstance* fizzy_instance, const FizzyValue* args, FizzyExecutionContext* fizzy_context) noexcept -> FizzyExecutionResult
@@ -152,8 +152,8 @@ void fizzy_runner::instantiate_module()
       return runner->_invoke_system_call( args, fizzy_context );
    };
 
-   FizzyValueType invoke_system_call_arg_types[] = {FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32};
-   size_t invoke_system_call_num_args = 5;
+   FizzyValueType invoke_system_call_arg_types[] = {FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32, FizzyValueTypeI32};
+   size_t invoke_system_call_num_args = 6;
    FizzyExternalFunction invoke_system_call_fn = {{ FizzyValueTypeI32, invoke_system_call_arg_types, invoke_system_call_num_args }, invoke_system_call, this };
 
    size_t num_host_funcs = 2;
@@ -188,6 +188,7 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
       char* ret_ptr = resolve_ptr(_instance, args[1].i32, ret_len);
       uint32_t arg_len = args[4].i32;
       const char* arg_ptr = resolve_ptr(_instance, args[3].i32, arg_len);
+      uint32_t* bytes_written = (uint32_t*)resolve_ptr(_instance, args[5].i32, sizeof(uint32_t));
 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_thunk()" );
@@ -198,7 +199,7 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
 
       try
       {
-         result.value.i32 = _hapi.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len );
+         result.value.i32 = _hapi.invoke_thunk( tid, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
          result.has_value = true;
       }
       catch ( ... )
@@ -233,6 +234,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
       char* ret_ptr = resolve_ptr(_instance, args[1].i32, ret_len);
       uint32_t arg_len = args[4].i32;
       const char* arg_ptr = resolve_ptr(_instance, args[3].i32, arg_len);
+      uint32_t* bytes_written = (uint32_t*)resolve_ptr(_instance, args[5].i32, sizeof(uint32_t));
 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_system_call()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_system_call()" );
@@ -242,7 +244,7 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
       try
       {
-         result.value.i32 = _hapi.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len );
+         result.value.i32 = _hapi.invoke_system_call( xid, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
          result.has_value = true;
       }
       catch ( ... )

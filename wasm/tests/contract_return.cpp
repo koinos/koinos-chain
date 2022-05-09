@@ -1,19 +1,13 @@
-#include <utility>
-
-#include <stdint.h>
-#include <string.h>
-
-#include <koinos/chain/system_call_ids.h>
-
-extern "C" {
-   uint32_t invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
-}
+#include <koinos/system/system_calls.hpp>
 
 int main()
 {
-   char message[64];
-   memset( message, 0, 64 );
-   invoke_system_call( std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::get_contract_arguments ), message, 64, 0, 0 );
-   invoke_system_call( std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::set_contract_result ), 0, 0, message, 64 );
+   auto [ entry, args ] = koinos::system::get_arguments();
+
+   koinos::system::result r;
+   r.set_code( 0 );
+   r.mutable_value().set( reinterpret_cast< const uint8_t* >( args.data() ), args.size() );
+   koinos::system::exit( r );
+
    return 0;
 }
