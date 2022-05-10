@@ -553,9 +553,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       network_bandwidth_used = context.resource_meter().network_bandwidth_used() - start_network_used;
       compute_bandwidth_used = context.resource_meter().compute_bandwidth_used() - start_compute_used;
 
-      // END: No throw section
-
       payer_session.reset();
+
+      // END: No throw section
 
       KOINOS_ASSERT_FAILURE(
          system_call::consume_account_rc( context, payer, used_rc ),
