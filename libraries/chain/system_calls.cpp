@@ -472,6 +472,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
             "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
             ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
          );
+
+         system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
       }
       catch ( const chain_reversion& e )
       {
@@ -539,9 +541,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          throw;
       }
 
-      context.set_state_node( block_node );
+      // BEGIN: No throw section
+      // Throwing will result in lost events and logs on transaction receipts.
 
-      system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
+      context.set_state_node( block_node );
 
       used_rc = payer_session->used_rc();
       events = payer_session->events();
@@ -549,6 +552,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       disk_storage_used = context.resource_meter().disk_storage_used() - start_disk_used;
       network_bandwidth_used = context.resource_meter().network_bandwidth_used() - start_network_used;
       compute_bandwidth_used = context.resource_meter().compute_bandwidth_used() - start_compute_used;
+
+      // END: No throw section
 
       payer_session.reset();
 
