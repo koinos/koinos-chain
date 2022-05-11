@@ -660,6 +660,94 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 
    BOOST_REQUIRE_EQUAL( bal_ret.value(), 0 );
 
+   BOOST_TEST_MESSAGE( "Creating hello contract upload operation" );
+
+   koinos::protocol::transaction trx3;
+
+   nonce_value.set_uint64_value( 2 );
+
+   // Upload the hello contract
+   auto op3 = trx3.add_operations()->mutable_upload_contract();
+   op3->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
+   op3->set_bytecode( get_hello_wasm() );
+   trx3.mutable_header()->set_rc_limit( 10'000'000 );
+   trx3.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx3.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx3, contract_private_key );
+
+   BOOST_TEST_MESSAGE( "Creating forever contract upload operation" );
+
+   auto forever_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "forever"s ) );
+
+   koinos::protocol::transaction trx4;
+
+   // Upload the hello contract
+   auto op4 = trx4.add_operations()->mutable_upload_contract();
+   op4->set_contract_id( util::converter::as< std::string >( forever_private_key.get_public_key().to_address_bytes() ) );
+   op4->set_bytecode( get_forever_wasm() );
+   trx4.mutable_header()->set_rc_limit( 10'000'000 );
+   trx4.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx4.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   set_transaction_merkle_roots( trx4, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx4, forever_private_key );
+
+   BOOST_TEST_MESSAGE( "Creating operation that calls both contracts" );
+
+   koinos::protocol::transaction trx5;
+
+   auto op5 = trx5.add_operations()->mutable_call_contract();
+   op5->set_contract_id( op3->contract_id() );
+   op5->set_entry_point( 0x00 );
+
+   auto op6 = trx5.add_operations()->mutable_call_contract();
+   op6->set_contract_id( op4->contract_id() );
+   op6->set_entry_point( 0x00 );
+
+   trx5.mutable_header()->set_rc_limit( 10'000'000 );
+   trx5.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+   trx5.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   set_transaction_merkle_roots( trx5, koinos::crypto::multicodec::sha2_256 );
+   sign_transaction( trx5, alice_private_key );
+
+   BOOST_TEST_MESSAGE( "Constructing block" );
+
+   koinos::rpc::chain::submit_block_request block_req2;
+
+   auto duration2 = std::chrono::system_clock::now().time_since_epoch();
+   block_req2.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+   block_req2.mutable_block()->mutable_header()->set_height( 2 );
+   block_req2.mutable_block()->mutable_header()->set_previous( block_req.block().id() );
+   block_req2.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+   *block_req2.mutable_block()->add_transactions() = trx3;
+   *block_req2.mutable_block()->add_transactions() = trx4;
+   *block_req2.mutable_block()->add_transactions() = trx5;
+
+   set_block_merkle_roots( *block_req2.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req2.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req2.block().header() ) ) );
+   sign_block( *block_req2.mutable_block(), _block_signing_private_key );
+
+   BOOST_TEST_MESSAGE( "Submitting block" );
+
+   auto resp = _controller.submit_block( block_req2 );
+
+
+   BOOST_TEST_MESSAGE( "Ensuring transaction(0) succeeded" );
+
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(0).id(), trx3.id() );
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(0).reverted(), false );
+
+   BOOST_TEST_MESSAGE( "Ensuring transaction(1) succeeded" );
+
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(1).id(), trx4.id() );
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(1).reverted(), false );
+
+   BOOST_TEST_MESSAGE( "Ensuring transaction(2) was reverted and the log still exists on the receipt" );
+
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).id(), trx5.id() );
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).reverted(), true );
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).logs(0), "Greetings from koinos vm" );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( receipt_test )
