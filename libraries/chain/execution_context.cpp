@@ -131,13 +131,13 @@ uint32_t execution_context::get_caller_entry_point() const
 
 void execution_context::set_privilege( privilege p )
 {
-   KOINOS_ASSERT_FAILURE( _stack.size(), "stack empty" );
+   KOINOS_ASSERT( _stack.size(), internal_error_exception, "stack empty" );
    _stack[ _stack.size() - 1 ].call_privilege = p;
 }
 
 privilege execution_context::get_privilege() const
 {
-   KOINOS_ASSERT_FAILURE( _stack.size(), "stack empty" );
+   KOINOS_ASSERT( _stack.size(), internal_error_exception, "stack empty" );
    return _stack[ _stack.size() - 1 ].call_privilege;
 }
 

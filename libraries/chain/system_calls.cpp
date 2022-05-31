@@ -296,14 +296,16 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
       context.resource_meter().set_resource_limit_data( system_call::get_resource_limits( context ) );
 
-      KOINOS_ASSERT_FAILURE(
+      KOINOS_ASSERT(
          system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) == block.id(),
+         malformed_block_exception,
          "block contains an invalid block id"
       );
 
       const crypto::multihash tx_root = util::converter::to< crypto::multihash >( block.header().transaction_merkle_root() );
-      KOINOS_ASSERT_FAILURE(
+      KOINOS_ASSERT(
          tx_root.code() == context.block_hash_code(),
+         malformed_block_exception,
          "unexpected transaction merkle root hash code - was: ${t}, expected: ${e}",
          ("t", std::underlying_type_t< crypto::multicodec >( tx_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
       );
@@ -329,16 +331,17 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
       context.resource_meter().use_network_bandwidth( block.ByteSizeLong() - transactions_bytes_size );
 
-      KOINOS_ASSERT_FAILURE( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), "transaction merkle root does not match" );
+      KOINOS_ASSERT( system_call::verify_merkle_root( context, block.header().transaction_merkle_root(), hashes ), malformed_block_exception, "transaction merkle root does not match" );
 
       auto block_hash = util::converter::to< crypto::multihash >( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( block.header() ) ) );
-      KOINOS_ASSERT_FAILURE(
+      KOINOS_ASSERT(
          system_call::process_block_signature(
             context,
             util::converter::as< std::string >( block_hash ),
             block.header(),
             block.signature()
          ),
+         invalid_signature_exception,
          "failed to process block signature"
       );
 
@@ -360,13 +363,14 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
       system_call::post_block_callback( context );
 
-      KOINOS_ASSERT_FAILURE(
+      KOINOS_ASSERT(
          system_call::consume_block_resources(
             context,
             context.resource_meter().disk_storage_used(),
             context.resource_meter().network_bandwidth_used(),
             context.resource_meter().compute_bandwidth_used()
          ),
+         failure_exception,
          "unable to consume block resources"
       );
 
@@ -430,20 +434,22 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       try
       {
          payer_rc = system_call::get_account_rc( context, payer );
-         KOINOS_ASSERT_FAILURE( payer_rc >= trx.header().rc_limit(), "payer does not have the rc to cover transaction rc limit" );
+         KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), failure_exception, "payer does not have the rc to cover transaction rc limit" );
 
          auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-         KOINOS_ASSERT_FAILURE( chain_id.exists(), "chain id does not exist" );
-         KOINOS_ASSERT_FAILURE( trx.header().chain_id() == chain_id.value(), "chain id mismatch" );
+         KOINOS_ASSERT( chain_id.exists(), "chain id does not exist" );
+         KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), failure_exception, "chain id mismatch" );
 
-         KOINOS_ASSERT_FAILURE(
+         KOINOS_ASSERT(
             system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( trx.header() ) ) == trx.id(),
+            failure_exception,
             "transaction contains an invalid transaction id"
          );
 
          const crypto::multihash op_root = util::converter::to< crypto::multihash >( trx.header().operation_merkle_root() );
-         KOINOS_ASSERT_FAILURE(
+         KOINOS_ASSERT(
             op_root.code() == context.block_hash_code(),
+            failure_exception,
             "unexpected operation merkle root hash code - was: ${o}, expected: ${e}",
             ("o", std::underlying_type_t< crypto::multicodec >( op_root.code() ))("e", std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ))
          );
@@ -455,20 +461,21 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          for ( const auto& op : trx.operations() )
             hashes.emplace_back( system_call::hash( context, std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ), util::converter::as< std::string >( op ) ) );
 
-         KOINOS_ASSERT_FAILURE( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), "operation merkle root does not match" );
+         KOINOS_ASSERT( system_call::verify_merkle_root( context, trx.header().operation_merkle_root(), hashes ), failure_exception, "operation merkle root does not match" );
 
          auto authorized = system_call::check_authority( context, transaction_application, payer );
-         KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payer )) );
+         KOINOS_ASSERT( authorized, authorization_failure_exception, "account ${account} has not authorized transaction", ("account", util::to_base58( payer )) );
 
          // If we are using the payee account's nonce, we also need to ensure they signed the transaction as well
          if ( use_payee_nonce )
          {
             authorized = system_call::check_authority( context, transaction_application, payee );
-            KOINOS_ASSERT_FAILURE( authorized, "account ${account} has not authorized transaction", ("account", util::to_base58( payee )) );
+            KOINOS_ASSERT( authorized, authorization_failure_exception, "account ${account} has not authorized transaction", ("account", util::to_base58( payee )) );
          }
 
-         KOINOS_ASSERT_FAILURE(
+         KOINOS_ASSERT(
             system_call::verify_account_nonce( context, nonce_account, trx.header().nonce() ),
+            invalid_nonce_exception,
             "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
             ("a", util::to_base58( nonce_account ))("n", util::to_hex( trx.header().nonce() ))("c", util::to_hex( system_call::get_account_nonce( context, nonce_account) ))
          );
@@ -557,8 +564,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
       // END: No throw section
 
-      KOINOS_ASSERT_FAILURE(
+      KOINOS_ASSERT(
          system_call::consume_account_rc( context, payer, used_rc ),
+         failure_exception,
          "unable to consume rc for payer: ${p}", ("p", util::to_base58( payer ) );
       );
 
@@ -567,8 +575,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       switch ( context.intent() )
       {
       case intent::block_application:
-         KOINOS_ASSERT_FAILURE(
+         KOINOS_ASSERT(
             std::holds_alternative< protocol::block_receipt >( context.receipt() ),
+            failure_exception,
             "expected block receipt with block application intent"
          );
          *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;
@@ -588,8 +597,9 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       switch ( context.intent() )
       {
       case intent::block_application:
-         KOINOS_ASSERT_FAILURE(
+         KOINOS_ASSERT(
             std::holds_alternative< protocol::block_receipt >( context.receipt() ),
+            failure_exception,
             "expected block receipt with block application intent"
          );
          *std::get< protocol::block_receipt >( context.receipt() ).add_transaction_receipts() = receipt;

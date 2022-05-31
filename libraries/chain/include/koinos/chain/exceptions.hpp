@@ -4,9 +4,6 @@
 
 namespace koinos::chain {
 
-#define KOINOS_ASSERT_FAILURE( cond, msg, ... ) \
-   KOINOS_ASSERT( cond, koinos::chain::chain_failure, msg, __VA_ARGS__ )
-
 KOINOS_DECLARE_EXCEPTION_WITH_CODE( reversion_exception, reversion );
 KOINOS_DECLARE_EXCEPTION_WITH_CODE( failure_exception, failure );
 
