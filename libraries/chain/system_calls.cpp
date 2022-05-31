@@ -437,7 +437,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          KOINOS_ASSERT( payer_rc >= trx.header().rc_limit(), failure_exception, "payer does not have the rc to cover transaction rc limit" );
 
          auto chain_id = system_call::get_object( context, state::space::metadata(), state::key::chain_id );
-         KOINOS_ASSERT( chain_id.exists(), "chain id does not exist" );
+         KOINOS_ASSERT( chain_id.exists(), failure_exception, "chain id does not exist" );
          KOINOS_ASSERT( trx.header().chain_id() == chain_id.value(), failure_exception, "chain id mismatch" );
 
          KOINOS_ASSERT(
