@@ -1323,7 +1323,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
       chain::system_call::apply_transaction( ctx, transaction );
       BOOST_FAIL( "expected exception not thrown" );
    }
-   catch ( chain::transaction_reverted& )
+   catch ( chain::reversion_exception& )
    {
       BOOST_FAIL( "transaction_reverted exception erroneously thrown" );
    }

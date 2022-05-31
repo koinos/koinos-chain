@@ -122,7 +122,7 @@ void assert_permissions( execution_context& context, const object_space& space )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
       {
-         KOINOS_ASSERT_REVERSION( space.system(), "privileged code can only accessed system space" );
+         KOINOS_ASSERT( space.system(), insufficient_privileges_exception, "privileged code can only accessed system space" );
       }
       else
       {

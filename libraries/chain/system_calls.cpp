@@ -177,7 +177,7 @@ std::pair< std::string, std::string > hash_compute_keys( crypto::multicodec id )
       case crypto::multicodec::ripemd_160:
          return { "ripemd_160_base", "ripemd_160_per_byte" };
       default:
-         KOINOS_THROW( unknown_hash_code, "unknown hash code" );
+         KOINOS_THROW( unknown_hash_code_exception, "unknown hash code" );
    }
 }
 
@@ -289,8 +289,8 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
    try
    {
-      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_REVERSION( context.intent() == intent::block_application, "expected block application intent while applying block" );
+      KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT( context.intent() == intent::block_application, insufficient_privileges_exception, "expected block application intent while applying block" );
 
       block_guard guard( context, block );
 
@@ -405,8 +405,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
    try
    {
-      KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-      KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+      KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+      KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
 
       transaction_guard guard( context, trx );
 
@@ -515,7 +515,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
             else if ( o.has_set_system_contract() )
                system_call::apply_set_system_contract_operation( context, o.set_system_contract() );
             else
-               KOINOS_ASSERT_REVERSION( false, "unknown operation" );
+               KOINOS_ASSERT( false, unknown_operation_exception, "unknown operation" );
          }
 
          system_call::post_transaction_callback( context );
@@ -611,11 +611,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
 THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_contract_operation&) o) )
 {
-   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
 
    auto authorized = system_call::check_authority( context, contract_upload, o.contract_id() );
-   KOINOS_ASSERT_REVERSION( authorized, "account ${account} has not authorized action", ("account", util::to_base58( o.contract_id() )) );
+   KOINOS_ASSERT( authorized, authorization_failure_exception, "account ${account} has not authorized action", ("account", util::to_base58( o.contract_id() )) );
 
    auto contract_meta_db_object =  system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
    contract_metadata_object contract_meta;
@@ -634,8 +634,8 @@ THUNK_DEFINE( void, apply_upload_contract_operation, ((const protocol::upload_co
 
 THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contract_operation&) o) )
 {
-   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
 
    // Drop to user mode
    with_privilege(
@@ -649,25 +649,25 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
 
 THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_system_call_operation&) o) )
 {
-   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-   KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_call ), "system authority required" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( system_call::check_system_authority( context, set_system_call ), system_authorization_failure_exception, "system authority required" );
 
    if ( o.target().has_system_call_bundle() )
    {
       auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.target().system_call_bundle().contract_id() );
-      KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
+      KOINOS_ASSERT( contract_object.exists(), invalid_contract_exception, "contract does not exist" );
       auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.target().system_call_bundle().contract_id() );
-      KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract metadata does not exist" );
+      KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract_exception, "contract metadata does not exist" );
       auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-      KOINOS_ASSERT_REVERSION( contract_meta.system(), "contract is not a system contract" );
-      KOINOS_ASSERT_REVERSION( o.call_id() != chain::system_call_id::call, "cannot override call_contract" );
+      KOINOS_ASSERT( contract_meta.system(), invalid_contract_exception, "contract is not a system contract" );
+      KOINOS_ASSERT( o.call_id() != chain::system_call_id::call, reversion_exception, "cannot override call_contract" );
 
       LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
    }
    else
    {
-      KOINOS_ASSERT_REVERSION( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
+      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), unknown_thunk_exception, "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
       LOG(info) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
    }
 
@@ -683,16 +683,16 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
 {
-   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
-   KOINOS_ASSERT_REVERSION( system_call::check_system_authority( context, set_system_contract ), "system authority required" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
+   KOINOS_ASSERT( system_call::check_system_authority( context, set_system_contract ), system_authorization_failure_exception, "system authority required" );
 
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
-   KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
+   KOINOS_ASSERT( contract_object.exists(), invalid_contract_exception, "contract does not exist" );
    auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), o.contract_id() );
-   KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract does not exist" );
+   KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract_exception, "contract does not exist" );
    auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-   KOINOS_ASSERT_REVERSION( contract_meta.hash().size(), "contract hash does not exist" );
+   KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract_exception, "contract hash does not exist" );
 
    contract_meta.set_system( o.system_contract() );
    system_call::put_object( context, state::space::contract_metadata(), o.contract_id(), util::converter::as< std::string >( contract_meta ) );
@@ -737,7 +737,7 @@ THUNK_DEFINE_VOID( get_transaction_result, get_transaction )
    get_transaction_result ret;
 
    const auto* transaction = context.get_transaction();
-   KOINOS_ASSERT_REVERSION( transaction != nullptr, "transaction does not exist" );
+   KOINOS_ASSERT( transaction != nullptr, internal_error_exception, "transaction does not exist" );
    *ret.mutable_value() = *transaction;
 
    return ret;
@@ -748,7 +748,7 @@ THUNK_DEFINE( get_transaction_field_result, get_transaction_field, ((const std::
    get_transaction_field_result ret;
 
    const auto* transaction = context.get_transaction();
-   KOINOS_ASSERT_REVERSION( transaction != nullptr, "transaction does not exist" );
+   KOINOS_ASSERT( transaction != nullptr, internal_error_exception, "transaction does not exist" );
 
    *ret.mutable_value() = get_nested_field_value( context, *transaction, field );
 
@@ -760,7 +760,7 @@ THUNK_DEFINE_VOID( get_block_result, get_block )
    get_block_result ret;
 
    const auto* block = context.get_block();
-   KOINOS_ASSERT_REVERSION( block != nullptr, "block does not exist" );
+   KOINOS_ASSERT( block != nullptr, internal_error_exception, "block does not exist" );
 
    *ret.mutable_value() = *block;
 
@@ -772,7 +772,7 @@ THUNK_DEFINE( get_block_field_result, get_block_field, ((const std::string&) fie
    get_block_field_result ret;
 
    const auto* block = context.get_block();
-   KOINOS_ASSERT_REVERSION( block != nullptr, "block does not exist" );
+   KOINOS_ASSERT( block != nullptr, internal_error_exception, "block does not exist" );
 
    *ret.mutable_value() = get_nested_field_value( context, *block, field );
 
@@ -812,15 +812,17 @@ THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ((const std::string&)
 THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
 {
    auto nonce_value = util::converter::to< value_type >( nonce );
-   KOINOS_ASSERT_REVERSION(
+   KOINOS_ASSERT(
       nonce_value.has_uint64_value(),
+      invalid_nonce_exception,
       "nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
       ("n", util::to_hex( nonce ))("a", util::to_base58( account ))
    );
 
    auto current_nonce_value = util::converter::to< value_type >( system_call::get_account_nonce( context, account ) );
-   KOINOS_ASSERT_REVERSION(
+   KOINOS_ASSERT(
       current_nonce_value.has_uint64_value(),
+      invalid_nonce_exception,
       "current nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
       ("n", util::to_hex( current_nonce_value ))("a", util::to_base58( account ))
    );
@@ -832,11 +834,12 @@ THUNK_DEFINE( verify_account_nonce_result, verify_account_nonce, ((const std::st
 
 THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std::string&) nonce) )
 {
-   KOINOS_ASSERT_REVERSION( context.get_caller_privilege() == privilege::kernel_mode, "calling privileged thunk from non-privileged code" );
+   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
 
    auto nonce_value = util::converter::to< value_type >( nonce );
-   KOINOS_ASSERT_REVERSION(
+   KOINOS_ASSERT(
       nonce_value.has_uint64_value(),
+      invalid_nonce_exception,
       "set nonce did not contain uint64 value - nonce: ${n}, account: ${a}",
       ("n", util::to_hex( nonce ))("a", util::to_base58( account )) );
 
@@ -850,7 +853,7 @@ THUNK_DEFINE( check_system_authority_result, check_system_authority, ((system_au
    auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    const auto* trx = context.get_transaction();
-   KOINOS_ASSERT_REVERSION( trx != nullptr, "transaction does not exist" );
+   KOINOS_ASSERT( trx != nullptr, internal_error_exception, "transaction does not exist" );
 
    bool authorized = false;
 
@@ -874,7 +877,7 @@ THUNK_DEFINE( check_system_authority_result, check_system_authority, ((system_au
 THUNK_DEFINE( get_account_rc_result, get_account_rc, ((const std::string&) account) )
 {
    auto obj = system_call::get_object( context, state::space::metadata(), state::key::max_account_resources );
-   KOINOS_ASSERT_REVERSION( obj.exists(), "max_account_resources does not exist" );
+   KOINOS_ASSERT( obj.exists(), internal_error_exception, "max_account_resources does not exist" );
 
    get_account_rc_result ret;
    ret.set_value( util::converter::to< chain::max_account_resources >( obj.value() ).value() );
@@ -894,7 +897,7 @@ THUNK_DEFINE_VOID( get_resource_limits_result, get_resource_limits )
    resource_limit_data rd;
 
    auto obj = system_call::get_object( context, state::space::metadata(), state::key::resource_limit_data );
-   KOINOS_ASSERT_REVERSION( obj.exists(), "resource_limit_data does not exist" );
+   KOINOS_ASSERT( obj.exists(), internal_error_exception, "resource_limit_data does not exist" );
 
    get_resource_limits_result ret;
    *ret.mutable_value() = util::converter::to< resource_limit_data >( obj.value() );
@@ -914,13 +917,13 @@ THUNK_DEFINE( consume_block_resources_result, consume_block_resources, ((uint64_
 
 THUNK_DEFINE( void, put_object, ((const object_space&) space, (const std::string&) key, (const std::string&) obj) )
 {
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "cannot put object during read only call" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "cannot put object during read only call" );
    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" ) * obj.size() );
 
    state::assert_permissions( context, space );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT_REVERSION( state, "current state node does not exist" );
+   KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
    auto val = util::converter::as< state_db::object_value >( obj );
 
    auto bytes_used = state->put_object( space, key, &val );
@@ -931,12 +934,12 @@ THUNK_DEFINE( void, put_object, ((const object_space&) space, (const std::string
 
 THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::string&) key) )
 {
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "cannot remove object during read only call" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "cannot remove object during read only call" );
 
    state::assert_permissions( context, space );
 
    auto state = context.get_state_node();
-   KOINOS_ASSERT_REVERSION( state, "current state node does not exist" );
+   KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
    state->remove_object( space, key );
 }
@@ -947,7 +950,7 @@ THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (cons
 
    abstract_state_node_ptr state = context.get_state_node();
 
-   KOINOS_ASSERT_REVERSION( state, "current state node does not exist" );
+   KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
    const auto result = state->get_object( space, key );
 
@@ -968,7 +971,7 @@ THUNK_DEFINE( get_next_object_result, get_next_object, ((const object_space&) sp
    state::assert_permissions( context, space );
 
    abstract_state_node_ptr state = context.get_state_node();
-   KOINOS_ASSERT_REVERSION( state, "current state node does not exist" );
+   KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
    const auto [result, next_key] = state->get_next_object( space, key );
 
@@ -990,7 +993,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
    state::assert_permissions( context, space );
 
    abstract_state_node_ptr state = context.get_state_node();
-   KOINOS_ASSERT_REVERSION( state, "current state node does not exist" );
+   KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
    const auto [result, next_key] = state->get_prev_object( space, key );
 
@@ -1018,9 +1021,9 @@ THUNK_DEFINE( void, log, ((const std::string&) msg) )
 
 THUNK_DEFINE( void, event, ((const std::string&) name, (const std::string&) data, (const std::vector< std::string >&) impacted) )
 {
-   KOINOS_ASSERT_REVERSION( name.size(), "event name cannot be empty" );
-   KOINOS_ASSERT_REVERSION( name.size() <= 128, "event name cannot be larger than 128 bytes" );
-   KOINOS_ASSERT_REVERSION( validate_utf( name ), "event name contains invalid utf-8" );
+   KOINOS_ASSERT( name.size(), reversion_exception, "event name cannot be empty" );
+   KOINOS_ASSERT( name.size() <= 128, reversion_exception, "event name cannot be larger than 128 bytes" );
+   KOINOS_ASSERT( validate_utf( name ), reversion_exception, "event name contains invalid utf-8" );
 
    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "event_per_impacted" ) * impacted.size() );
 
@@ -1062,15 +1065,15 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
 
 THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const std::string&) signature_data, (const std::string&) digest) )
 {
-   KOINOS_ASSERT_REVERSION( type == ecdsa_secp256k1, "unexpected dsa" );
+   KOINOS_ASSERT( type == ecdsa_secp256k1, unknown_dsa_exception, "unexpected dsa" );
 
-   KOINOS_ASSERT_REVERSION( signature_data.size() == 65, "unexpected signature length" );
+   KOINOS_ASSERT( signature_data.size() == 65, invalid_signature_exception, "unexpected signature length" );
    crypto::recoverable_signature signature = util::converter::as< crypto::recoverable_signature >( signature_data );
 
-   KOINOS_ASSERT_REVERSION( crypto::public_key::is_canonical( signature ), "signature must be canonical" );
+   KOINOS_ASSERT( crypto::public_key::is_canonical( signature ), invalid_signature_exception, "signature must be canonical" );
 
    auto pub_key = crypto::public_key::recover( signature, util::converter::to< crypto::multihash >( digest ) );
-   KOINOS_ASSERT_REVERSION( pub_key.valid(), "public key is invalid" );
+   KOINOS_ASSERT( pub_key.valid(), invalid_signature_exception, "public key is invalid" );
 
    recover_public_key_result ret;
    ret.set_value( util::converter::as< std::string >( pub_key ) );
@@ -1101,8 +1104,8 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    std::transform( std::begin( hashes ), std::end( hashes ), std::begin( leaves ), [&]( const std::string& s )
       {
          auto mh = util::converter::to< crypto::multihash >( s );
-         KOINOS_ASSERT_REVERSION( mh.code() == root_hash.code(), "leaf and merkle root hash codes do not match" );
-         KOINOS_ASSERT_REVERSION( mh.digest().size() == root_hash.digest().size(), "leaf and merkle root hash sizes do not match" );
+         KOINOS_ASSERT( mh.code() == root_hash.code(), unknown_hash_code_exception, "leaf and merkle root hash codes do not match" );
+         KOINOS_ASSERT( mh.digest().size() == root_hash.digest().size(), unknown_hash_code_exception, "leaf and merkle root hash sizes do not match" );
          return mh;
       }
    );
@@ -1118,7 +1121,7 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
 
 THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
 {
-   KOINOS_ASSERT_REVERSION( type == ecdsa_secp256k1, "unexpected dsa" );
+   KOINOS_ASSERT( type == ecdsa_secp256k1, unknown_dsa_exception, "unexpected dsa" );
 
    verify_signature_result ret;
    ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == public_key );
@@ -1127,7 +1130,7 @@ THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std
 
 THUNK_DEFINE( verify_vrf_proof_result, verify_vrf_proof, ((dsa) type, (const std::string&) public_key, (const std::string&) proof, (const std::string&) hash, (const std::string&) message) )
 {
-   KOINOS_ASSERT_REVERSION( type == ecdsa_secp256k1, "unexpected dsa" );
+   KOINOS_ASSERT( type == ecdsa_secp256k1, unknown_dsa_exception, "unexpected dsa" );
 
    verify_vrf_proof_result ret;
    ret.set_value( false );
@@ -1153,11 +1156,11 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
 {
    // We need to be in kernel mode to read the contract data
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), contract_id );
-   KOINOS_ASSERT_REVERSION( contract_object.exists(), "contract does not exist" );
+   KOINOS_ASSERT( contract_object.exists(), invalid_contract_exception, "contract does not exist" );
    auto contract_meta_object = system_call::get_object( context, state::space::contract_metadata(), contract_id );
-   KOINOS_ASSERT_REVERSION( contract_meta_object.exists(), "contract metadata does not exist" );
+   KOINOS_ASSERT( contract_meta_object.exists(), invalid_contract_exception, "contract metadata does not exist" );
    auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
-   KOINOS_ASSERT_REVERSION( contract_meta.hash().size(), "contract hash does not exist" );
+   KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract_exception, "contract hash does not exist" );
 
    try
    {
@@ -1254,7 +1257,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
 THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) type, (const std::string&) account) )
 {
-   KOINOS_ASSERT_REVERSION( !context.read_only(), "unable to perform action while context is read only" );
+   KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
 
    check_authority_result res;
 
@@ -1298,7 +1301,7 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
    else
    {
       const auto* trx = context.get_transaction();
-      KOINOS_ASSERT_REVERSION( trx != nullptr, "transaction does not exist" );
+      KOINOS_ASSERT( trx != nullptr, internal_error_exception, "transaction does not exist" );
 
       for ( const auto& sig : trx->signatures() )
       {

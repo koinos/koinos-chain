@@ -306,7 +306,7 @@ namespace detail
 
       std::string s;
       ret.SerializeToString( &s );
-      KOINOS_ASSERT_REVERSION( s.size() <= ret_len, "return buffer is not large enough for the return value" );
+      KOINOS_ASSERT( s.size() <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
       #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
       std::memcpy( ret_ptr, s.c_str(), s.size() );
       *bytes_written = s.size();
@@ -341,7 +341,7 @@ class thunk_dispatcher
       auto call_thunk( uint32_t id, execution_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), thunk_not_found, "thunk ${id} not found", ("id", id ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk_exception, "thunk ${id} not found", ("id", id ) );
          return std::any_cast< std::function<ThunkReturn(execution_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
