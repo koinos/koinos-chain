@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    sign_block( *block_req.mutable_block(), foo_key );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::chain_failure );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::invalid_signature_exception );
 
    BOOST_TEST_MESSAGE( "Error when previous block does not match" );
 
@@ -586,8 +586,7 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    BOOST_TEST_MESSAGE( "Test read contract db write" );
 
    request.set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
-   //BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context );
-   BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::chain_reversion );
+   BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context_exception );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
