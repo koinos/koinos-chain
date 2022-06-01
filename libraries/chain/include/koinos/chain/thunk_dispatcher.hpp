@@ -270,13 +270,9 @@ namespace detail
       {
          std::apply( thunk, thunk_args );
       }
-      catch ( const reversion_exception& )
+      catch ( const koinos::exception& e )
       {
-         code = reversion;
-      }
-      catch ( const failure_exception& )
-      {
-         code = failure;
+         code = e.get_code();
       }
 
       return code;

@@ -60,7 +60,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
    );
 
    if ( _ctx.get_privilege() == privilege::user_mode && retcode >= reversion )
-      KOINOS_THROW( reversion_exception, "" );
+      throw reversion_exception( retcode, "" );
 
    if ( sid == system_call_id::exit )
    {

@@ -586,8 +586,15 @@ BOOST_AUTO_TEST_CASE( read_contract_tests )
    BOOST_TEST_MESSAGE( "Test read contract db write" );
 
    request.set_contract_id( util::converter::as< std::string >( key3.get_public_key().to_address_bytes() ) );
-   BOOST_REQUIRE_THROW( _controller.read_contract( request ), koinos::chain::read_only_context_exception );
-
+   try
+   {
+      _controller.read_contract( request );
+      BOOST_FAIL( "expected reversion_exception not thrown" );
+   }
+   catch ( const chain::reversion_exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( e.get_code(), chain::read_only_context );
+   }
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( transaction_reversion_test )
