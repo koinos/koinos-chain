@@ -270,13 +270,13 @@ namespace detail
       {
          std::apply( thunk, thunk_args );
       }
-      catch ( const chain_reversion& )
+      catch ( const reversion_exception& )
       {
-         code = constants::chain_reversion;
+         code = reversion;
       }
-      catch ( const chain_failure& )
+      catch ( const failure_exception& )
       {
-         code = constants::chain_failure;
+         code = failure;
       }
 
       return code;
@@ -295,13 +295,9 @@ namespace detail
       {
          ret = std::apply( thunk, thunk_args );
       }
-      catch ( const chain_reversion& )
+      catch ( const koinos::exception& e )
       {
-         code = constants::chain_reversion;
-      }
-      catch ( const chain_failure& )
-      {
-         code = constants::chain_failure;
+         code = e.get_code();
       }
 
       std::string s;

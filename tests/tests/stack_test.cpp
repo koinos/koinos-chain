@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    sign_transaction( trx, user_key );
 
    ctx.set_transaction( trx );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::chain_reversion );
+   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::reversion_exception );
 }
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )

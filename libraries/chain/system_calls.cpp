@@ -158,7 +158,7 @@ void validate_hash_code( crypto::multicodec id )
       case crypto::multicodec::ripemd_160:
          break;
       default:
-         KOINOS_THROW( chain_reversion, "unknown hash code" );
+         KOINOS_THROW( unknown_hash_code_exception, "unknown hash code" );
    }
 }
 
@@ -357,7 +357,7 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          {
             system_call::apply_transaction( context, tx );
          }
-         catch ( const chain_reversion& ) {} /* do nothing */
+         catch ( const reversion_exception& ) {} /* do nothing */
          KOINOS_CAPTURE_CATCH_AND_RETHROW( ("transaction_id", util::to_hex( tx.id() )) )
       }
 
@@ -482,12 +482,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
          system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
       }
-      catch ( const chain_reversion& e )
+      catch ( const reversion_exception& e )
       {
          // All reversions here must become failures.
-         KOINOS_THROW( chain_failure, e.get_message() );
+         KOINOS_THROW( failure_exception, e.get_message() );
       }
-      catch ( const chain_failure& e )
+      catch ( const failure_exception& e )
       {
          throw;
       }
@@ -529,11 +529,11 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
          trx_node->commit();
       }
-      catch ( const chain_failure& )
+      catch ( const failure_exception& )
       {
          throw;
       }
-      catch ( const chain_reversion& e )
+      catch ( const reversion_exception& e )
       {
          // If the transaction fails for any other reason within the operations, it is reverted.
          // Mana is still charged, but the block does not fail
@@ -1189,14 +1189,14 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
          }
       );
    }
-   catch ( const chain_success& ) {}
+   catch ( const success_exception& ) {}
 
    const auto& res = context.get_result();
 
-   if ( res.code() >= constants::chain_reversion )
-      KOINOS_THROW( chain_reversion, res.value() );
-   if ( res.code() <= constants::chain_failure )
-      KOINOS_THROW( chain_failure, res.value() );
+   if ( res.code() >= reversion )
+      throw reversion_exception( res.code(), res.value() );
+   if ( res.code() <= failure )
+      throw failure_exception( res.code(), res.value() );
 
    call_result ret;
    *ret.mutable_value() = res.value();
@@ -1209,17 +1209,19 @@ THUNK_DEFINE( void, exit, ((result) res) )
 
    context.set_result( std::move( res ) );
 
-   if ( !code ) // code == constants::chain_success
+   if ( !code ) // code == success
    {
-      KOINOS_THROW( chain_success, "" );
+      KOINOS_THROW( success_exception, "" );
    }
-   else if ( code >= constants::chain_reversion )
+   else if ( code >= reversion )
    {
-      KOINOS_THROW( chain_reversion, res.value() );
+      // Boost throw?
+      throw reversion_exception( code, res.value() );
    }
-   else // code <= constants::chain_failure
+   else // code <= failure
    {
-      KOINOS_THROW( chain_failure, res.value() );
+      // Boost throw?
+      throw failure_exception( code, res.value() );
    }
 }
 

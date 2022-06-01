@@ -183,7 +183,7 @@ value_type get_repeated_field_value(
 value_type get_nested_field_value( execution_context& context, const google::protobuf::Message& parent_message, std::string field_name )
 {
    auto pool_descriptor = context.descriptor_pool().FindMessageTypeByName( parent_message.GetTypeName() );
-   KOINOS_ASSERT( pool_descriptor, reversion_exception, "${type} descriptor was not found", ("type", parent_message.GetTypeName()) );
+   KOINOS_ASSERT( pool_descriptor, internal_error_exception, "${type} descriptor was not found", ("type", parent_message.GetTypeName()) );
 
    std::vector< std::string > field_path;
    boost::split( field_path, field_name, boost::is_any_of( "." ) );
@@ -196,17 +196,17 @@ value_type get_nested_field_value( execution_context& context, const google::pro
    for ( const auto& segment : field_path )
    {
       auto pool_field_descriptor = pool_descriptor->FindFieldByName( segment );
-      KOINOS_ASSERT( pool_field_descriptor, reversion_exception, "unable to find field ${fname}", ("fname", segment) );
+      KOINOS_ASSERT( pool_field_descriptor, field_not_found_exception, "unable to find field ${fname}", ("fname", segment) );
 
       auto field_num          = pool_field_descriptor->number();
       type                    = pool_field_descriptor->type();
       auto message_descriptor = message->GetDescriptor();
       field_descriptor        = message_descriptor->FindFieldByNumber( field_num );
-      KOINOS_ASSERT( field_descriptor, reversion_exception, "unable to find field number ${fnum} on ${type} message", ("fnum", field_num)("type", message->GetTypeName()) );
+      KOINOS_ASSERT( field_descriptor, field_not_found_exception, "unable to find field number ${fnum} on ${type} message", ("fnum", field_num)("type", message->GetTypeName()) );
 
       if ( &segment != &field_path.back() )
       {
-         KOINOS_ASSERT( type == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE, reversion_exception, "expected nested field to be within a message" );
+         KOINOS_ASSERT( type == google::protobuf::FieldDescriptor::Type::TYPE_MESSAGE, field_not_found_exception, "expected nested field to be within a message" );
 
          message         = &reflection->GetMessage( *message, field_descriptor );
          reflection      = message->GetReflection();

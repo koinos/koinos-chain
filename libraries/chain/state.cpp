@@ -126,7 +126,7 @@ void assert_permissions( execution_context& context, const object_space& space )
       }
       else
       {
-         KOINOS_THROW( chain_reversion, "contract attempted access of non-contract database space" );
+         KOINOS_THROW( reversion_exception, "contract attempted access of non-contract database space" );
       }
    }
 }

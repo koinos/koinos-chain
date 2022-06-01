@@ -59,17 +59,17 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
       }
    );
 
-   if ( _ctx.get_privilege() == privilege::user_mode && retcode >= constants::chain_reversion )
-      KOINOS_THROW( chain_reversion, "" );
+   if ( _ctx.get_privilege() == privilege::user_mode && retcode >= reversion )
+      KOINOS_THROW( reversion_exception, "" );
 
    if ( sid == system_call_id::exit )
    {
-      if ( retcode >= constants::chain_reversion )
-         KOINOS_THROW( chain_reversion, "" );
-      if ( retcode <= constants::chain_failure )
-         KOINOS_THROW( chain_failure, "" );
+      if ( retcode >= reversion )
+         throw reversion_exception( retcode, "" );
+      if ( retcode <= failure )
+         throw failure_exception( retcode, "" );
 
-      KOINOS_THROW( chain_success, "" );
+      KOINOS_THROW( success_exception, "" );
    }
 
    return retcode;
