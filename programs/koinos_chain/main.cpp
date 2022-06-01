@@ -359,7 +359,10 @@ void attach_request_handler(
             {
                auto error = resp.mutable_error();
                error->set_message( e.what() );
-               error->set_data( e.get_json().dump() );
+
+               auto j = e.get_json();
+               j[ "code" ] = e.get_code();
+               error->set_data( j.dump() );
             }
             catch( std::exception& e )
             {
