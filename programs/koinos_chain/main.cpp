@@ -366,18 +366,35 @@ void attach_request_handler(
             }
             catch( std::exception& e )
             {
-               resp.mutable_error()->set_message( e.what() );
+               auto error = resp.mutable_error();
+               error->set_message( e.what() );
+
+               nlohmann::json j;
+               j[ "code" ] = chain::internal_error;
+               error->set_data( j.dump() );
             }
             catch( ... )
             {
                LOG(error) << "Unexpected error while handling rpc: " << args.ShortDebugString();
-               resp.mutable_error()->set_message( "Unexpected error while handling rpc" );
+
+               auto error = resp.mutable_error();
+               error->set_message( "unexpected error while handling rpc" );
+
+               nlohmann::json j;
+               j[ "code" ] = chain::internal_error;
+               error->set_data( j.dump() );
             }
          }
          else
          {
             LOG(warning) << "Received bad message";
-            resp.mutable_error()->set_message( "Received bad message" );
+
+            auto error = resp.mutable_error();
+            error->set_message( "received bad message" );
+
+            nlohmann::json j;
+            j[ "code" ] = chain::internal_error;
+            error->set_data( j.dump() );
          }
 
          LOG(debug) << "Sending RPC response: " << resp;
