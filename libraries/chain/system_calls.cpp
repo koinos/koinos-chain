@@ -1194,9 +1194,19 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
    const auto& res = context.get_result();
 
    if ( res.code() >= reversion )
-      throw reversion_exception( res.code(), res.value() );
+   {
+      if ( validate_utf( res.value() ) )
+         throw reversion_exception( res.code(), res.value() );
+      else
+         throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
+   }
    if ( res.code() <= failure )
-      throw failure_exception( res.code(), res.value() );
+   {
+      if ( validate_utf( res.value() ) )
+         throw failure_exception( res.code(), res.value() );
+      else
+         throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
+   }
 
    call_result ret;
    *ret.mutable_value() = res.value();
