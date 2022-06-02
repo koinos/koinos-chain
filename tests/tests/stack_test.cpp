@@ -13,6 +13,7 @@
 #include <koinos/crypto/elliptic.hpp>
 
 #include <koinos/tests/contracts.hpp>
+#include <koinos/tests/util.hpp>
 
 #include <koinos/util/hex.hpp>
 
@@ -474,7 +475,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    sign_transaction( trx, user_key );
 
    ctx.set_transaction( trx );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::reversion_exception );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::reversion );
 }
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
