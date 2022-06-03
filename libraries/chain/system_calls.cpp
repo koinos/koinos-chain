@@ -1209,7 +1209,7 @@ THUNK_DEFINE( void, exit, ((result) res) )
 
    if ( !res.code() ) // code == success
    {
-      KOINOS_THROW( success_exception, "" );
+      KOINOS_THROW( success_exception, res.value() );
    }
    else if ( res.code() >= reversion )
    {

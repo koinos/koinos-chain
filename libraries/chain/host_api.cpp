@@ -20,42 +20,45 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 {
    KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "'invoke_thunk' must be called from a system context" );
 
-   int32_t code = 0;
+   std::pair< std::string, int32_t > res;
 
    try
    {
-      code = thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+      res.second = thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
    }
    catch ( koinos::exception& e )
    {
-      if ( e.get_code() != chain::success )
+      res.first = e.get_message();
+      res.second = e.get_code();
+   }
+
+
+   if ( res.second != chain::success )
+   {
+      auto msg_len = res.first.size() + 1;
+      if ( msg_len <= ret_len )
       {
-         code = e.get_code();
-         auto msg_len = e.get_message().size() + 1;
-         if ( msg_len <= ret_len )
-         {
-            std::memcpy( ret_ptr, e.get_message().c_str(), msg_len );
-            *bytes_written = msg_len;
-         }
-         else
-         {
-            code = chain::insufficient_return_buffer;
-            *bytes_written = 0;
-         }
+         std::memcpy( ret_ptr, res.first.c_str(), msg_len );
+         *bytes_written = msg_len;
+      }
+      else
+      {
+         res.second = chain::insufficient_return_buffer;
+         *bytes_written = 0;
       }
    }
 
    if ( tid == system_call_id::exit )
    {
-      if ( code >= chain::reversion )
-         throw reversion_exception( code, "" );
-      if ( code <= chain::failure )
-         throw failure_exception( code, "" );
+      if ( res.second >= chain::reversion )
+         throw reversion_exception( res.second, res.first );
+      if ( res.second <= chain::failure )
+         throw failure_exception( res.second, res.first );
 
-      KOINOS_THROW( success_exception, "" );
+      KOINOS_THROW( success_exception, res.second );
    }
 
-   return code;
+   return res.second;
 }
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
