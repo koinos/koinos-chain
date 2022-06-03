@@ -83,7 +83,7 @@ class state_node_impl final
       std::pair< const object_value*, const object_key > get_next_object( const object_space& space, const object_key& key ) const;
       std::pair< const object_value*, const object_key > get_prev_object( const object_space& space, const object_key& key ) const;
       int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
-      void remove_object( const object_space& space, const object_key& key );
+      int32_t remove_object( const object_space& space, const object_key& key );
       crypto::multihash get_merkle_root() const;
 
       state_delta_ptr   _state;
@@ -502,14 +502,11 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
+   int32_t bytes_used = 0;
    auto pobj = merge_state( _state ).find( key_string );
 
-   int32_t bytes_used = 0;
-
    if ( pobj != nullptr )
-   {
       bytes_used -= pobj->size();
-   }
 
    bytes_used += val->size();
    _state->put( key_string, *val );
@@ -517,15 +514,24 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    return bytes_used;
 }
 
-void state_node_impl::remove_object( const object_space& space, const object_key& key )
+int32_t state_node_impl::remove_object( const object_space& space, const object_key& key )
 {
    KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
 
    chain::database_key db_key;
    *db_key.mutable_space() = space;
    db_key.set_key( key );
+   auto key_string = util::converter::as< std::string >( db_key );
 
-   _state->erase( util::converter::as< std::string >( db_key ) );
+   int32_t bytes_used = 0;
+   auto pobj = merge_state( _state ).find( key_string );
+
+   if ( pobj != nullptr )
+      bytes_used -= pobj->size();
+
+   _state->erase( key_string );
+
+   return bytes_used;
 }
 
 crypto::multihash state_node_impl::get_merkle_root() const
@@ -558,7 +564,7 @@ int32_t abstract_state_node::put_object( const object_space& space, const object
    return impl->put_object( space, key, val );
 }
 
-void abstract_state_node::remove_object( const object_space& space, const object_key& key )
+int32_t abstract_state_node::remove_object( const object_space& space, const object_key& key )
 {
    return impl->remove_object( space, key );
 }

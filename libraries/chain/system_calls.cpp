@@ -951,7 +951,10 @@ THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::str
    auto state = context.get_state_node();
    KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
-   state->remove_object( space, key );
+   auto bytes_used = state->remove_object( space, key );
+   bytes_used -= util::converter::as< std::string >( space ).size() + util::converter::as< std::string >( key ).size();
+
+   context.resource_meter().use_disk_storage( bytes_used );
 }
 
 THUNK_DEFINE( get_object_result, get_object, ((const object_space&) space, (const std::string&) key) )

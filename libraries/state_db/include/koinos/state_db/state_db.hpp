@@ -76,7 +76,7 @@ class abstract_state_node
       /**
        * Remove an object from the state_node
        */
-      void remove_object( const object_space& space, const object_key& key );
+      int32_t remove_object( const object_space& space, const object_key& key );
 
       /**
        * Return true if the node is writable.
