@@ -716,9 +716,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
-   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::reversion );
-   ctx.set_privilege( chain::privilege::kernel_mode );
 
    auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
    auto centry = cbr.add_entries();
@@ -733,7 +731,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
    host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
+   ctx.set_privilege( chain::privilege::kernel_mode );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 
