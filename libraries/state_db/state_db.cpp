@@ -82,8 +82,8 @@ class state_node_impl final
       const object_value* get_object( const object_space& space, const object_key& key ) const;
       std::pair< const object_value*, const object_key > get_next_object( const object_space& space, const object_key& key ) const;
       std::pair< const object_value*, const object_key > get_prev_object( const object_space& space, const object_key& key ) const;
-      int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
-      int32_t remove_object( const object_space& space, const object_key& key );
+      int64_t put_object( const object_space& space, const object_key& key, const object_value* val );
+      int64_t remove_object( const object_space& space, const object_key& key );
       crypto::multihash get_merkle_root() const;
 
       state_delta_ptr   _state;
@@ -493,7 +493,7 @@ std::pair< const object_value*, const object_key > state_node_impl::get_prev_obj
    return { nullptr, null_key };
 }
 
-int32_t state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
+int64_t state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
    KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
 
@@ -502,7 +502,7 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   int32_t bytes_used = 0;
+   int64_t bytes_used = 0;
    auto pobj = merge_state( _state ).find( key_string );
 
    if ( pobj != nullptr )
@@ -516,7 +516,7 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
    return bytes_used;
 }
 
-int32_t state_node_impl::remove_object( const object_space& space, const object_key& key )
+int64_t state_node_impl::remove_object( const object_space& space, const object_key& key )
 {
    KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
 
@@ -525,7 +525,7 @@ int32_t state_node_impl::remove_object( const object_space& space, const object_
    db_key.set_key( key );
    auto key_string = util::converter::as< std::string >( db_key );
 
-   int32_t bytes_used = 0;
+   int64_t bytes_used = 0;
    auto pobj = merge_state( _state ).find( key_string );
 
    if ( pobj != nullptr )
@@ -564,12 +564,12 @@ std::pair< const object_value*, const object_key > abstract_state_node::get_prev
    return impl->get_prev_object( space, key );
 }
 
-int32_t abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
+int64_t abstract_state_node::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
    return impl->put_object( space, key, val );
 }
 
-int32_t abstract_state_node::remove_object( const object_space& space, const object_key& key )
+int64_t abstract_state_node::remove_object( const object_space& space, const object_key& key )
 {
    return impl->remove_object( space, key );
 }
