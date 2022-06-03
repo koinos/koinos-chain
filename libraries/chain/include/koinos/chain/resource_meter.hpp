@@ -14,7 +14,7 @@ namespace compute_load {
 
 struct abstract_rc_session
 {
-   virtual void use_rc( uint64_t rc ) = 0;
+   virtual void use_rc( int64_t rc ) = 0;
    virtual uint64_t remaining_rc() = 0;
    virtual uint64_t used_rc() = 0;
 };
@@ -29,15 +29,15 @@ public:
 
    void set_session( std::shared_ptr< abstract_rc_session > s );
 
-   void use_disk_storage( uint64_t bytes );
+   void use_disk_storage( int64_t bytes );
    uint64_t disk_storage_used();
    uint64_t disk_storage_remaining();
 
-   void use_network_bandwidth( uint64_t bytes );
+   void use_network_bandwidth( int64_t bytes );
    uint64_t network_bandwidth_used();
    uint64_t network_bandwidth_remaining();
 
-   void use_compute_bandwidth( uint64_t ticks );
+   void use_compute_bandwidth( int64_t ticks );
    uint64_t compute_bandwidth_used();
    uint64_t compute_bandwidth_remaining();
 

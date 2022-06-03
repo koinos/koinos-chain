@@ -937,9 +937,9 @@ THUNK_DEFINE( void, put_object, ((const object_space&) space, (const std::string
    auto val = util::converter::as< state_db::object_value >( obj );
 
    auto bytes_used = state->put_object( space, key, &val );
+   bytes_used += util::converter::as< std::string >( space ).size() + util::converter::as< std::string >( key ).size();
 
-   if ( bytes_used > 0 )
-      context.resource_meter().use_disk_storage( bytes_used );
+   context.resource_meter().use_disk_storage( bytes_used );
 }
 
 THUNK_DEFINE( void, remove_object, ((const object_space&) space, (const std::string&) key) )
