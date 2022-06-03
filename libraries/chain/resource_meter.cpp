@@ -52,6 +52,9 @@ void resource_meter::use_disk_storage( int64_t bytes )
 
 uint64_t resource_meter::disk_storage_used()
 {
+   if ( _disk_storage_remaining > _resource_limit_data.disk_storage_limit() )
+      return 0;
+
    return _resource_limit_data.disk_storage_limit() - _disk_storage_remaining;
 }
 

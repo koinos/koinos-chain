@@ -507,6 +507,8 @@ int32_t state_node_impl::put_object( const object_space& space, const object_key
 
    if ( pobj != nullptr )
       bytes_used -= pobj->size();
+   else
+      bytes_used += key_string.size();
 
    bytes_used += val->size();
    _state->put( key_string, *val );
@@ -527,7 +529,10 @@ int32_t state_node_impl::remove_object( const object_space& space, const object_
    auto pobj = merge_state( _state ).find( key_string );
 
    if ( pobj != nullptr )
+   {
       bytes_used -= pobj->size();
+      bytes_used -= key_string.size();
+   }
 
    _state->erase( key_string );
 
