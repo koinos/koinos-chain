@@ -95,7 +95,6 @@ uint32_t execution_context::get_contract_entry_point() const
 void execution_context::push_frame( stack_frame&& frame )
 {
    KOINOS_ASSERT( _stack.size() < execution_context::stack_limit, chain::reversion_exception, "apply context stack overflow" );
-   //LOG(info) << "pushing frame {sid: " << frame.sid << ", contract_id: " << util::to_hex( frame.contract_id ) << ", privilege: " << (frame.call_privilege == privilege::user_mode ? " user_mode" : "kernel_mode") << "}";
    _stack.emplace_back( std::move(frame) );
 }
 
@@ -104,7 +103,6 @@ stack_frame execution_context::pop_frame()
    KOINOS_ASSERT( _stack.size(), chain::reversion_exception, "stack is empty" );
    auto frame = _stack[ _stack.size() - 1 ];
    _stack.pop_back();
-   //LOG(info) << "popping frame {sid: " << frame.sid << ", contract_id: " << util::to_hex( frame.contract_id ) << ", privilege: " << (frame.call_privilege == privilege::user_mode ? " user_mode" : "kernel_mode") << "}";
    return frame;
 }
 
