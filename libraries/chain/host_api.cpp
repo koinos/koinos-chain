@@ -32,6 +32,15 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
       res.second = e.get_code();
    }
 
+   if ( tid == system_call_id::exit )
+   {
+      if ( res.second >= chain::reversion )
+         throw reversion_exception( res.second, res.first );
+      if ( res.second <= chain::failure )
+         throw failure_exception( res.second, res.first );
+
+      throw success_exception( res.second, res.first );
+   }
 
    if ( res.second != chain::success )
    {
@@ -46,16 +55,6 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
          res.second = chain::insufficient_return_buffer;
          *bytes_written = 0;
       }
-   }
-
-   if ( tid == system_call_id::exit )
-   {
-      if ( res.second >= chain::reversion )
-         throw reversion_exception( res.second, res.first );
-      if ( res.second <= chain::failure )
-         throw failure_exception( res.second, res.first );
-
-      KOINOS_THROW( success_exception, res.second );
    }
 
    return res.second;
@@ -103,6 +102,19 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
       res.second = e.get_code();
    }
 
+   if ( _ctx.get_privilege() == privilege::user_mode && res.second >= reversion )
+      throw reversion_exception( res.second, res.first );
+
+   if ( sid == system_call_id::exit )
+   {
+      if ( res.second >= reversion )
+         throw reversion_exception( res.second, res.first );
+      if ( res.second <= failure )
+         throw failure_exception( res.second, res.first );
+
+      throw success_exception( res.second, res.first );
+   }
+
    if ( res.second != chain::success )
    {
       auto msg_len = res.first.size() + 1;
@@ -116,19 +128,6 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
          res.second = chain::insufficient_return_buffer;
          *bytes_written = 0;
       }
-   }
-
-   if ( _ctx.get_privilege() == privilege::user_mode && res.second >= reversion )
-      throw reversion_exception( res.second, res.first );
-
-   if ( sid == system_call_id::exit )
-   {
-      if ( res.second >= reversion )
-         throw reversion_exception( res.second, res.first );
-      if ( res.second <= failure )
-         throw failure_exception( res.second, res.first );
-
-      KOINOS_THROW( success_exception, res.first );
    }
 
    return res.second;

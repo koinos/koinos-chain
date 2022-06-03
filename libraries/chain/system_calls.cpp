@@ -1209,7 +1209,7 @@ THUNK_DEFINE( void, exit, ((result) res) )
 
    if ( !res.code() ) // code == success
    {
-      KOINOS_THROW( success_exception, res.value() );
+      throw success_exception( res.code(), res.value() );
    }
    else if ( res.code() >= reversion )
    {
@@ -1218,7 +1218,7 @@ THUNK_DEFINE( void, exit, ((result) res) )
       else
          throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }
-   else // res.code() <= failure )
+   else // code <= failure )
    {
       if ( validate_utf( res.value() ) )
          throw failure_exception( res.code(), res.value() );
