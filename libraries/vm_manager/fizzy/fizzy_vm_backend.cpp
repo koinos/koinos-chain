@@ -28,19 +28,19 @@ char* resolve_ptr( FizzyInstance* fizzy_instance, uint32_t ptr, uint32_t size )
    char* mem_data = (char *) fizzy_get_instance_memory_data( fizzy_instance );
    KOINOS_ASSERT( mem_data != nullptr, fizzy_returned_null_exception, "fizzy_get_instance_memory_data() unexpectedly returned null pointer" );
 
-   if( ptr == mem_size )
+   if ( ptr == mem_size )
    {
-      if( size == 0 )
+      if ( size == 0 )
          return mem_data + mem_size;
    }
-   else if( ptr > mem_size )
+   else if ( ptr > mem_size )
    {
       return nullptr;
    }
 
    // How much memory exists between pointer and end of memory?
    uint32_t mem_at_ptr = mem_size - ptr;
-   if( uint64_t(mem_at_ptr) < uint64_t(size) )
+   if ( uint64_t( mem_at_ptr ) < uint64_t(size) )
       return nullptr;
 
    return mem_data + ptr;
@@ -277,18 +277,18 @@ void fizzy_runner::call_start()
 
    FizzyExecutionResult result = fizzy_execute( _instance, start_func_idx, nullptr, _fizzy_context );
 
-   int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
+   int64_t* ticks = fizzy_get_execution_context_ticks( _fizzy_context );
    KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
    _hapi.use_meter_ticks( uint64_t( _previous_ticks - *ticks ) );
 
-   if( _exception )
+   if ( _exception )
    {
       std::exception_ptr exc = _exception;
       _exception = std::exception_ptr();
       std::rethrow_exception( exc );
    }
 
-   if( result.trapped )
+   if ( result.trapped )
    {
       KOINOS_THROW( wasm_trap_exception, "module exited due to trap" );
    }
@@ -309,10 +309,10 @@ void fizzy_vm_backend::run( abstract_host_api& hapi, const std::string& bytecode
    }
    else
    {
-      module_ptr = module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
+      module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
    }
 
-   fizzy_runner runner(hapi, module_ptr );
+   fizzy_runner runner( hapi, module_ptr );
    runner.instantiate_module();
    runner.call_start();
 }
