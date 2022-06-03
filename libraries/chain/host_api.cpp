@@ -63,7 +63,6 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
-   int32_t retcode = 0;
    std::pair< std::string, int32_t > res;
 
    try
@@ -93,7 +92,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
                KOINOS_ASSERT( enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", thunk_id) );
                auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
                _ctx.resource_meter().use_compute_bandwidth( compute );
-               retcode = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+               res.second = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
             }
          }
       );
