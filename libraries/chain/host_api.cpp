@@ -61,6 +61,7 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
    int32_t retcode = 0;
+   std::pair< std::string, int32_t > res;
 
    try
    {
@@ -78,11 +79,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
             {
                #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
                std::string args( arg_ptr, arg_len );
-               auto [ ret, code ] = _ctx.system_call( sid, args );
-               KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer_exception, "return buffer too small" );
-               std::memcpy( ret_ptr, ret.data(), ret.size() );
-               retcode = code;
-               *bytes_written = ret.size();
+               res = _ctx.system_call( sid, args );
             }
             else
             {
@@ -100,37 +97,39 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
    }
    catch ( const koinos::exception& e )
    {
-      if ( e.get_code() != chain::success )
+      res.first = e.get_message();
+      res.second = e.get_code();
+   }
+
+   if ( res.second != chain::success )
+   {
+      auto msg_len = res.first.size() + 1;
+      if ( msg_len <= ret_len )
       {
-         retcode = e.get_code();
-         auto msg_len = e.get_message().size() + 1;
-         if ( msg_len <= ret_len )
-         {
-            std::memcpy( ret_ptr, e.get_message().c_str(), msg_len );
-            *bytes_written = msg_len;
-         }
-         else
-         {
-            retcode = chain::insufficient_return_buffer;
-            *bytes_written = 0;
-         }
+         std::memcpy( ret_ptr, res.first.c_str(), msg_len );
+         *bytes_written = msg_len;
+      }
+      else
+      {
+         res.second = chain::insufficient_return_buffer;
+         *bytes_written = 0;
       }
    }
 
-   if ( _ctx.get_privilege() == privilege::user_mode && retcode >= reversion )
-      throw reversion_exception( retcode, "" );
+   if ( _ctx.get_privilege() == privilege::user_mode && res.second >= reversion )
+      throw reversion_exception( res.second, res.first );
 
    if ( sid == system_call_id::exit )
    {
-      if ( retcode >= reversion )
-         throw reversion_exception( retcode, "" );
-      if ( retcode <= failure )
-         throw failure_exception( retcode, "" );
+      if ( res.second >= reversion )
+         throw reversion_exception( res.second, res.first );
+      if ( res.second <= failure )
+         throw failure_exception( res.second, res.first );
 
-      KOINOS_THROW( success_exception, "" );
+      KOINOS_THROW( success_exception, res.first );
    }
 
-   return retcode;
+   return res.second;
 }
 
 int64_t host_api::get_meter_ticks() const

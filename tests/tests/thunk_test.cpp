@@ -704,17 +704,21 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto args = util::converter::as< std::string >( log_args );
    char ret_buf[100];
    uint32_t bytes_written = 0;
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
+   ctx.set_privilege( chain::privilege::kernel_mode );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::reversion );
+   ctx.set_privilege( chain::privilege::kernel_mode );
 
    auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
    auto centry = cbr.add_entries();

@@ -403,6 +403,7 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
    ctx.set_transaction( trx );
    try
    {
+      BOOST_TEST_MESSAGE( "--- test starts here ---" );
       chain::system_call::apply_transaction( ctx, trx );
       BOOST_FAIL( "no reversion when called from system context" );
    }

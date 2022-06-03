@@ -1193,6 +1193,11 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
 
    const auto& res = context.get_result();
 
+   if ( res.code() >= reversion )
+      throw reversion_exception( res.code(), res.value() );
+   if ( res.code() <= failure )
+      throw failure_exception( res.code(), res.value() );
+
    call_result ret;
    *ret.mutable_value() = res.value();
    return ret;
