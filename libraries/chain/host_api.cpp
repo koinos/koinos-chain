@@ -19,45 +19,103 @@ host_api::~host_api() {}
 int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
    KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "'invoke_thunk' must be called from a system context" );
-   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+
+   int32_t code = 0;
+
+   try
+   {
+      code = thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+   }
+   catch ( koinos::exception& e )
+   {
+      if ( e.get_code() != chain::success )
+      {
+         code = e.get_code();
+         auto msg_len = e.get_message().size() + 1;
+         if ( msg_len <= ret_len )
+         {
+            std::memcpy( ret_ptr, e.get_message().c_str(), msg_len );
+            *bytes_written = msg_len;
+         }
+         else
+         {
+            code = chain::insufficient_return_buffer;
+            *bytes_written = 0;
+         }
+      }
+   }
+
+   if ( tid == system_call_id::exit )
+   {
+      if ( code >= chain::reversion )
+         throw reversion_exception( code, "" );
+      if ( code <= chain::failure )
+         throw failure_exception( code, "" );
+
+      KOINOS_THROW( success_exception, "" );
+   }
+
+   return code;
 }
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
    int32_t retcode = 0;
-   auto key = util::converter::as< std::string >( sid );
-   database_object object;
 
-   with_stack_frame(
-      _ctx,
-      stack_frame {
-         .sid = sid,
-         .call_privilege = privilege::kernel_mode
-      },
-      [&]() {
-         if ( _ctx.system_call_exists( sid ) )
+   try
+   {
+      auto key = util::converter::as< std::string >( sid );
+      database_object object;
+
+      with_stack_frame(
+         _ctx,
+         stack_frame {
+            .sid = sid,
+            .call_privilege = privilege::kernel_mode
+         },
+         [&]() {
+            if ( _ctx.system_call_exists( sid ) )
+            {
+               #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
+               std::string args( arg_ptr, arg_len );
+               auto [ ret, code ] = _ctx.system_call( sid, args );
+               KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer_exception, "return buffer too small" );
+               std::memcpy( ret_ptr, ret.data(), ret.size() );
+               retcode = code;
+               *bytes_written = ret.size();
+            }
+            else
+            {
+               auto thunk_id = _ctx.thunk_translation( sid );
+               KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), unknown_thunk_exception, "thunk ${tid} does not exist", ("tid", thunk_id) );
+               auto desc = chain::system_call_id_descriptor();
+               auto enum_value = desc->FindValueByNumber( thunk_id );
+               KOINOS_ASSERT( enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", thunk_id) );
+               auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
+               _ctx.resource_meter().use_compute_bandwidth( compute );
+               retcode = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+            }
+         }
+      );
+   }
+   catch ( const koinos::exception& e )
+   {
+      if ( e.get_code() != chain::success )
+      {
+         retcode = e.get_code();
+         auto msg_len = e.get_message().size() + 1;
+         if ( msg_len <= ret_len )
          {
-            #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
-            std::string args( arg_ptr, arg_len );
-            auto [ ret, code ] = _ctx.system_call( sid, args );
-            KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer_exception, "return buffer too small" );
-            std::memcpy( ret.data(), ret_ptr, ret.size() );
-            retcode = code;
-            *bytes_written = ret.size();
+            std::memcpy( ret_ptr, e.get_message().c_str(), msg_len );
+            *bytes_written = msg_len;
          }
          else
          {
-            auto thunk_id = _ctx.thunk_translation( sid );
-            KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), unknown_thunk_exception, "thunk ${tid} does not exist", ("tid", thunk_id) );
-            auto desc = chain::system_call_id_descriptor();
-            auto enum_value = desc->FindValueByNumber( thunk_id );
-            KOINOS_ASSERT( enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", thunk_id) );
-            auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
-            _ctx.resource_meter().use_compute_bandwidth( compute );
-            retcode = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+            retcode = chain::insufficient_return_buffer;
+            *bytes_written = 0;
          }
       }
-   );
+   }
 
    if ( _ctx.get_privilege() == privilege::user_mode && retcode >= reversion )
       throw reversion_exception( retcode, "" );
