@@ -1732,7 +1732,7 @@ BOOST_AUTO_TEST_CASE( contract_exit )
    try
    {
       chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( res ) );
-      BOOST_TEST( false, "call did not throw reversion" );
+      BOOST_TEST( false, "call did not throw failure" );
    }
    catch ( const koinos::exception& e )
    {
