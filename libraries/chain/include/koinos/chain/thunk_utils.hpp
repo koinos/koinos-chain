@@ -265,6 +265,12 @@ namespace koinos::chain::detail {
                std::string _arg_str;                                                                                       \
                _args.SerializeToString( &_arg_str );                                                                       \
                auto [ _ret_str, code ] = context.system_call( _sid, _arg_str );                                            \
+               if ( code >= chain::reversion )                                                                             \
+                  throw chain::reversion_exception( code, _ret_str );                                                      \
+               else if ( code <= chain::failure )                                                                          \
+                  throw chain::failure_exception( code, _ret_str );                                                        \
+               else if ( _sid == system_call_id::exit )                                                                    \
+                  throw chain::success_exception( code );                                                                  \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
             }                                                                                                              \
             else                                                                                                           \

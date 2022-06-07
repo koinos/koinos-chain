@@ -1202,23 +1202,25 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
 
 THUNK_DEFINE( void, exit, ((result) res) )
 {
-   auto code = res.code();
+   context.set_result( res );
 
-   context.set_result( std::move( res ) );
-
-   if ( !code ) // code == success
+   if ( !res.code() ) // code == success
    {
-      KOINOS_THROW( success_exception, "" );
+      throw success_exception( res.code(), res.value() );
    }
-   else if ( code >= reversion )
+   else if ( res.code() >= reversion )
    {
-      // Boost throw?
-      throw reversion_exception( code, res.value() );
+      if ( validate_utf( res.value() ) )
+         throw reversion_exception( res.code(), res.value() );
+      else
+         throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }
-   else // code <= failure
+   else // code <= failure )
    {
-      // Boost throw?
-      throw failure_exception( code, res.value() );
+      if ( validate_utf( res.value() ) )
+         throw failure_exception( res.code(), res.value() );
+      else
+         throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }
 }
 

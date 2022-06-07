@@ -707,12 +707,14 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto args = util::converter::as< std::string >( log_args );
    char ret_buf[100];
    uint32_t bytes_written = 0;
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
+   ctx.set_privilege( chain::privilege::kernel_mode );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
@@ -732,7 +734,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
    host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
+   ctx.set_privilege( chain::privilege::kernel_mode );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 
@@ -1517,6 +1521,113 @@ BOOST_AUTO_TEST_CASE( get_chain_id )
    auto chain_id_str = util::converter::as< std::string >( chain_id );
    BOOST_REQUIRE_EQUAL( chain_id_str, chain::system_call::get_chain_id( ctx ) );
 }
+
+BOOST_AUTO_TEST_CASE( system_resources )
+{ try {
+   auto resource_limits = chain::system_call::get_resource_limits( ctx );
+   auto& meter = ctx.resource_meter();
+
+   BOOST_TEST_MESSAGE( "Set and check initial resource meter" );
+
+   meter.set_resource_limit_data( resource_limits );
+
+   uint64_t disk_storage_used = 0;
+   uint64_t system_disk_storage_used = 0;
+   uint64_t network_bandwidth_used = 0;
+   uint64_t system_network_bandwidth_used = 0;
+   uint64_t compute_bandwidth_used = 0;
+   uint64_t system_compute_bandwidth_used = 0;
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+   BOOST_TEST_MESSAGE( "Use system resources" );
+
+   meter.use_disk_storage( 100 );
+   disk_storage_used += 100;
+   system_disk_storage_used += 100;
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+
+   meter.use_network_bandwidth( 200 );
+   network_bandwidth_used += 200;
+   system_network_bandwidth_used += 200;
+
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+
+   meter.use_compute_bandwidth( 300 );
+   compute_bandwidth_used += 300;
+   system_compute_bandwidth_used += 300;
+
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+   BOOST_TEST_MESSAGE( "Use session resources" );
+
+   auto session = ctx.make_session( 1'000'000 );
+
+   meter.use_disk_storage( 400 );
+   disk_storage_used += 400;
+
+   meter.use_network_bandwidth( 500 );
+   network_bandwidth_used += 500;
+
+   meter.use_compute_bandwidth( 600 );
+   compute_bandwidth_used += 600;
+
+   session.reset();
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+   BOOST_TEST_MESSAGE( "End session and resume using system resources" );
+
+   meter.use_disk_storage( 700 );
+   disk_storage_used += 700;
+   system_disk_storage_used += 700;
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+
+   meter.use_network_bandwidth( 800 );
+   network_bandwidth_used += 800;
+   system_network_bandwidth_used += 800;
+
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+
+   meter.use_compute_bandwidth( 900 );
+   compute_bandwidth_used += 900;
+   system_compute_bandwidth_used += 900;
+
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {

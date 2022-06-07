@@ -266,14 +266,7 @@ namespace detail
       int32_t code = 0;
       *bytes_written = 0;
 
-      try
-      {
-         std::apply( thunk, thunk_args );
-      }
-      catch ( const koinos::exception& e )
-      {
-         code = e.get_code();
-      }
+      std::apply( thunk, thunk_args );
 
       return code;
    }
@@ -287,14 +280,7 @@ namespace detail
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
       ThunkReturn ret;
 
-      try
-      {
-         ret = std::apply( thunk, thunk_args );
-      }
-      catch ( const koinos::exception& e )
-      {
-         code = e.get_code();
-      }
+      ret = std::apply( thunk, thunk_args );
 
       std::string s;
       ret.SerializeToString( &s );
