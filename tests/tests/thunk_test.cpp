@@ -1629,6 +1629,83 @@ BOOST_AUTO_TEST_CASE( system_resources )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( system_rc )
+{ try {
+   crypto::multihash koin_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "koin" } );
+   crypto::private_key koin_pk = crypto::private_key::regenerate( koin_seed );
+   auto koin_id = koin_pk.get_public_key().to_address_bytes();
+
+   protocol::upload_contract_operation upload_op;
+   upload_op.set_bytecode( get_koin_wasm() );
+   upload_op.set_contract_id( koin_id );
+
+   protocol::transaction trx;
+   sign_transaction( trx, koin_pk );
+
+   ctx.set_transaction( trx );
+
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( koin_id );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _signing_private_key );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   protocol::set_system_call_operation set_syscall_op;
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( koin_id );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x2d464aab );
+   set_syscall_op.set_call_id( chain::get_account_rc );
+
+   chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x80e3f5c9 );
+   set_syscall_op.set_call_id( chain::consume_account_rc );
+
+   chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   BOOST_TEST_MESSAGE( "Testing failure to pay for system rc" );
+
+   auto parent_node = ctx.get_state_node();
+
+   protocol::block block;
+   block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+   block.mutable_header()->set_height( 1 );
+   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_previous_state_merkle_root( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+   set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
+   block.mutable_header()->set_signer( _signing_private_key.get_public_key().to_address_bytes() );
+   block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
+   block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
+
+   ctx.set_state_node( parent_node->create_anonymous_node() );
+   ctx.set_intent( chain::intent::block_application );
+   ctx.reset_cache();
+
+   KOINOS_CHECK_THROW( chain::system_call::apply_block( ctx, block ), chain::insufficient_rc );
+
+   ctx.set_state_node( parent_node );
+
+   BOOST_TEST_MESSAGE( "Mint KOIN to producer address" );
+
+   koinos::contracts::token::mint_arguments mint_args;
+   mint_args.set_to( _signing_private_key.get_public_key().to_address_bytes() );
+   mint_args.set_value( 1'000'000'000 );
+
+   auto response = koinos::chain::system_call::call( ctx, koin_id, token_entry::mint, util::converter::as< std::string >( mint_args ) );
+   BOOST_CHECK( util::converter::to< koinos::contracts::token::mint_result >( response ).value() );
+
+   BOOST_TEST_MESSAGE( "Testing block production with sufficient rc" );
+
+   ctx.set_state_node( parent_node->create_anonymous_node() );
+   ctx.set_intent( chain::intent::block_application );
+   ctx.reset_cache();
+
+   BOOST_CHECK_NO_THROW( chain::system_call::apply_block( ctx, block ) );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {
    crypto::multihash contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "contract" } );

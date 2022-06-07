@@ -36,6 +36,11 @@ void resource_meter::set_resource_limit_data( const resource_limit_data& rld )
    _system_compute_bandwidth_used = 0;
 }
 
+const resource_limit_data& resource_meter::get_resource_limit_data() const
+{
+   return _resource_limit_data;
+}
+
 void resource_meter::use_disk_storage( int64_t bytes )
 {
    KOINOS_ASSERT( bytes <= int64_t( _disk_storage_remaining ), disk_storage_limit_exceeded, "disk storage limit exceeded" );

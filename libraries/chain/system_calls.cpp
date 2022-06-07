@@ -363,12 +363,30 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
 
       system_call::post_block_callback( context );
 
+      const auto& meter = context.resource_meter();
+      const auto& rld = meter.get_resource_limit_data();
+
+      uint64_t system_rc_cost =
+         meter.system_disk_storage_used() * rld.disk_storage_cost() +
+         meter.system_network_bandwidth_used() * rld.network_bandwidth_cost() +
+         meter.system_compute_bandwidth_used() * rld.compute_bandwidth_cost();
+
+      KOINOS_ASSERT(
+         system_call::consume_account_rc(
+            context,
+            block.header().signer(),
+            system_rc_cost
+         ),
+         insufficient_rc_exception,
+         "unable to consume system rc for block producer: ${p}", ("p", util::to_base58( block.header().signer() ))
+      );
+
       KOINOS_ASSERT(
          system_call::consume_block_resources(
             context,
-            context.resource_meter().disk_storage_used(),
-            context.resource_meter().network_bandwidth_used(),
-            context.resource_meter().compute_bandwidth_used()
+            meter.disk_storage_used(),
+            meter.network_bandwidth_used(),
+            meter.compute_bandwidth_used()
          ),
          failure_exception,
          "unable to consume block resources"
@@ -673,7 +691,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_ASSERT( contract_meta.system(), invalid_contract_exception, "contract is not a system contract" );
       KOINOS_ASSERT( o.call_id() != chain::system_call_id::call, reversion_exception, "cannot override call_contract" );
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << o.target().system_call_bundle().entry_point();
+      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << util::to_hex( o.target().system_call_bundle().entry_point() );
    }
    else
    {
