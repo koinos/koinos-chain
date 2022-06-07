@@ -265,6 +265,12 @@ namespace koinos::chain::detail {
                std::string _arg_str;                                                                                       \
                _args.SerializeToString( &_arg_str );                                                                       \
                auto [ _ret_str, code ] = context.system_call( _sid, _arg_str );                                            \
+               if ( code >= chain::reversion )                                                                             \
+                  throw chain::reversion_exception( code, _ret_str );                                                      \
+               else if ( code <= chain::failure )                                                                          \
+                  throw chain::failure_exception( code, _ret_str );                                                        \
+               else if ( _sid == system_call_id::exit )                                                                    \
+                  throw chain::success_exception( code );                                                                  \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
             }                                                                                                              \
             else                                                                                                           \
@@ -272,7 +278,7 @@ namespace koinos::chain::detail {
                auto _thunk_id = context.thunk_translation( _sid );                                                         \
                auto _desc = chain::system_call_id_descriptor();                                                            \
                auto _enum_value = _desc->FindValueByNumber( _thunk_id );                                                   \
-               KOINOS_ASSERT_REVERSION( _enum_value, "unrecognized thunk id ${id}", ("id", _thunk_id) );                   \
+               KOINOS_ASSERT( _enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", _thunk_id) );                   \
                auto _compute = context.get_compute_bandwidth( _enum_value->name() );                                       \
                context.resource_meter().use_compute_bandwidth( _compute );                                                 \
                BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret =)                                                            \

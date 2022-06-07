@@ -32,6 +32,7 @@
 #include <koinos/contracts/token/token.pb.h>
 
 #include <koinos/tests/contracts.hpp>
+#include <koinos/tests/util.hpp>
 
 #include <koinos/util/base58.hpp>
 #include <koinos/util/hex.hpp>
@@ -181,10 +182,12 @@ struct thunk_fixture
          for ( const auto& entry : _genesis_data.entries() )
          {
             KOINOS_ASSERT(
-               root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
+               !root->get_object( entry.space(), entry.key() ),
                koinos::chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
+
+            root->put_object( entry.space(), entry.key(), &entry.value() );
          }
          LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
 
@@ -200,10 +203,11 @@ struct thunk_fixture
          LOG(info) << "Calculated chain ID: " << chain_id;
          auto chain_id_str = util::converter::as< std::string >( chain_id );
          KOINOS_ASSERT(
-            root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+            !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
             koinos::chain::unexpected_state,
             "encountered unexpected chain id in initial state"
          );
+         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
          LOG(info) << "Wrote chain ID into new database";
       } );
 
@@ -373,15 +377,13 @@ BOOST_AUTO_TEST_CASE( get_transaction_field )
 
    BOOST_TEST_MESSAGE( "Testing dynamic transaction field not found" );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::field_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "non_existent_field" ), chain::field_not_found );
 
    ctx.clear_transaction();
 
    BOOST_TEST_MESSAGE( "Testing dynamic transaction field unexpected access" );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::unexpected_access );
-   BOOST_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::get_transaction_field( ctx, "id" ), chain::internal_error );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -476,15 +478,13 @@ BOOST_AUTO_TEST_CASE( get_block_field )
 
    BOOST_TEST_MESSAGE( "Testing dynamic block field not found" );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::field_not_found );
-   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "non_existent_field" ), chain::field_not_found );
 
    ctx.clear_block();
 
    BOOST_TEST_MESSAGE( "Testing dynamic block field unexpected access" );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::unexpected_access );
-   BOOST_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::get_block_field( ctx, "id" ), chain::internal_error );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -654,8 +654,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    BOOST_TEST_MESSAGE( "Test failure to override system call without genesis key" );
 
-   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::authorization_failed );
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::system_authorization_failure );
 
    BOOST_TEST_MESSAGE( "Test failure to set system contract without genesis key" );
 
@@ -663,8 +662,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    system_contract_op.set_contract_id( contract_op2.contract_id() );
    system_contract_op.set_system_contract( true );
 
-   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::authorization_failed );
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_contract_operation( ctx, system_contract_op ), koinos::chain::system_authorization_failure );
 
    BOOST_TEST_MESSAGE( "Test failure to override system call without system contract" );
 
@@ -672,8 +670,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    sign_transaction( tx, _signing_private_key );
    ctx.set_transaction( tx );
 
-   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
 
    BOOST_TEST_MESSAGE( "Test success overriding a system call with the genesis key" );
 
@@ -693,8 +690,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    // Ensure exception thrown on invalid contract
    auto false_id = koinos::crypto::hash( koinos::crypto::multicodec::ripemd_160, 1234 );
    set_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( util::converter::as< std::string >( false_id ) );
-   //BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
-   BOOST_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op ), koinos::chain::invalid_contract );
 
    // Test invoking the overridden system call
    koinos::chain::system_call::apply_call_contract_operation( ctx, call_op );
@@ -710,20 +706,20 @@ BOOST_AUTO_TEST_CASE( override_tests )
    log_args.set_message( "Hello World" );
    auto args = util::converter::as< std::string >( log_args );
    char ret_buf[100];
-   //BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
    uint32_t bytes_written = 0;
-   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::chain_reversion );
+   ctx.set_privilege( chain::privilege::user_mode );
+   KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
+   ctx.set_privilege( chain::privilege::kernel_mode );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
-   //BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::unexpected_state );
-   BOOST_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::chain_reversion );
+   KOINOS_CHECK_THROW( koinos::chain::system_call::log( host._ctx, "Hello World" ), chain::reversion );
 
    auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
    auto centry = cbr.add_entries();
@@ -738,8 +734,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
    host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
-   //BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size() ), chain::thunk_not_enabled );
-   BOOST_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::chain_reversion );
+   ctx.set_privilege( chain::privilege::user_mode );
+   KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
+   ctx.set_privilege( chain::privilege::kernel_mode );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 
@@ -778,8 +775,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.chronicler().logs()[0] );
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .call_privilege = chain::user_mode } );
-   //BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size() ), chain::insufficient_privileges );
-   BOOST_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size(), &bytes_written ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size(), &bytes_written ), chain::insufficient_privileges );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
@@ -851,27 +847,20 @@ BOOST_AUTO_TEST_CASE( hash_thunk_test )
 
    BOOST_CHECK_EQUAL( thunk_hash, native_hash );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
-   BOOST_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::hash( ctx, 0xDEADBEEF /* unknown code */, blob ), koinos::chain::unknown_hash_code );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( privileged_calls )
 {
    ctx.set_privilege( chain::privilege::user_mode );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::insufficient_privileges );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::insufficient_privileges );
 
-   BOOST_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::chain_reversion );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::chain_reversion );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::chain_reversion );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::chain_reversion );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::chain_reversion );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_block( ctx, protocol::block{} ), koinos::chain::insufficient_privileges );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, protocol::transaction() ), koinos::chain::insufficient_privileges );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_upload_contract_operation( ctx, protocol::upload_contract_operation{} ), koinos::chain::insufficient_privileges );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, protocol::call_contract_operation{} ), koinos::chain::insufficient_privileges );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_set_system_call_operation( ctx, protocol::set_system_call_operation{} ), koinos::chain::insufficient_privileges );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_set_system_contract_operation( ctx, protocol::set_system_contract_operation{} ), koinos::chain::insufficient_privileges );
 }
 
 BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
@@ -898,7 +887,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    BOOST_TEST_MESSAGE( "apply context stack tests" );
    ctx.pop_frame();
 
-   BOOST_REQUIRE_THROW( ctx.pop_frame(), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( ctx.pop_frame(), chain::reversion );
 
    auto call1 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call1"s ) );
    ctx.push_frame( chain::stack_frame{ .contract_id = call1 } );
@@ -920,7 +909,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
       ctx.push_frame( chain::stack_frame{} );
    }
 
-   BOOST_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( ctx.push_frame( chain::stack_frame{} ), chain::reversion );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -979,8 +968,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_failure );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::invalid_nonce );
 
    nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
@@ -1001,8 +989,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_failure );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::invalid_nonce );
 
    nonce = chain::system_call::get_account_nonce( ctx, payer );
    BOOST_REQUIRE_EQUAL( nonce, util::converter::as< std::string >( nonce_value ) );
@@ -1025,8 +1012,7 @@ BOOST_AUTO_TEST_CASE( transaction_nonce_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, key );
 
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_exception );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_failure );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::invalid_nonce );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( get_contract_id_test )
@@ -1155,24 +1141,21 @@ BOOST_AUTO_TEST_CASE( token_tests )
    transfer_args.set_value( 25 );
 
    ctx.set_transaction( trx );
-   try
-   {
-      session = ctx.make_session( 10'000'000 );
-      koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
-      BOOST_FAIL( "Expected invalid signature exception" );
-   }
-   catch ( const koinos::chain::chain_reversion& ) {}
+   session = ctx.make_session( 10'000'000 );
+
+   KOINOS_REQUIRE_THROW(
+      koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) ),
+      chain::reversion
+   );
 
    sign_transaction( trx, bob_private_key );
    ctx.set_transaction( trx );
+   session = ctx.make_session( 10'000'000 );
 
-   try
-   {
-      session = ctx.make_session( 10'000'000 );
-      koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
-      BOOST_FAIL( "Expected invalid signature exception" );
-   }
-   catch ( const koinos::chain::chain_reversion& ) {}
+   KOINOS_REQUIRE_THROW(
+      koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) ),
+      chain::reversion
+   );
 
    sign_transaction( trx, alice_private_key );
    ctx.set_transaction( trx );
@@ -1240,8 +1223,7 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    auto compute_bandwidth_remaining = ctx.resource_meter().compute_bandwidth_remaining();
 
    auto session = ctx.make_session( 1'000'000 );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficient_rc );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::insufficient_rc );
    BOOST_REQUIRE_EQUAL( session->used_rc(), 1'000'000 );
    BOOST_REQUIRE_EQUAL( session->remaining_rc(), 0 );
    session.reset();
@@ -1257,6 +1239,64 @@ BOOST_AUTO_TEST_CASE( tick_limit )
    BOOST_REQUIRE_THROW( chain::system_call::apply_call_contract_operation( ctx, op2 ), chain::compute_bandwidth_limit_exceeded );
 
    BOOST_REQUIRE_EQUAL( ctx.resource_meter().compute_bandwidth_remaining(), 0 );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( disk_usage )
+{ try {
+   auto resource_limits = chain::system_call::get_resource_limits( ctx );
+   ctx.resource_meter().set_resource_limit_data( resource_limits );
+
+   auto rc_limit = 10'000'000;
+   auto payer_session = ctx.make_session( rc_limit );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_remaining(), resource_limits.disk_storage_limit() );
+
+   chain::object_space objs;
+   objs.set_zone( std::string{ "test" } );
+   objs.set_system( true );
+
+   auto key = "object_key";
+
+   chain::system_call::put_object( ctx, objs, key, std::string{ "stuff" } );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), resource_limits.disk_storage_limit() - ctx.resource_meter().disk_storage_remaining() );
+
+   payer_session.reset();
+
+   ctx.resource_meter().set_resource_limit_data( resource_limits );
+   payer_session = ctx.make_session( rc_limit );
+
+   chain::system_call::put_object( ctx, objs, key, std::string{ "stuf" } );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 0 );
+
+   chain::system_call::put_object( ctx, objs, key, std::string{ "stufff" } );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 1 );
+
+   chain::system_call::remove_object( ctx, objs, key );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 0 );
+
+   payer_session.reset();
+
+   ctx.resource_meter().set_resource_limit_data( resource_limits );
+   payer_session = ctx.make_session( rc_limit );
+   ctx.resource_meter().use_disk_storage( -100 );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 0 );
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_remaining(), resource_limits.disk_storage_limit() + 100 );
+   BOOST_CHECK_EQUAL( payer_session->used_rc(), 0 );
+   BOOST_CHECK_EQUAL( payer_session->remaining_rc(), rc_limit );
+
+   ctx.resource_meter().use_disk_storage( 200 );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 100 );
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_remaining(), resource_limits.disk_storage_limit() - 100 );
+   BOOST_CHECK_EQUAL( payer_session->used_rc(), 100 * resource_limits.disk_storage_cost() );
+   BOOST_CHECK_EQUAL( payer_session->remaining_rc(), rc_limit - payer_session->used_rc() );
+
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -1300,8 +1340,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    ctx.set_intent( chain::intent::transaction_application );
 
    ctx.set_state_node( trx_state_node );
-   //BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::transaction_reverted );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::invalid_contract );
    db.finalize_node( trx_state_node->id() );
 
    ctx.set_state_node( control_state_node );
@@ -1318,18 +1357,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    auto failed_trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "failed_trx"s ) );
    ctx.set_state_node( failed_trx_state_node );
 
-   try
-   {
-      chain::system_call::apply_transaction( ctx, transaction );
-      BOOST_FAIL( "expected exception not thrown" );
-   }
-   catch ( chain::transaction_reverted& )
-   {
-      BOOST_FAIL( "transaction_reverted exception erroneously thrown" );
-   }
-   catch ( koinos::exception& e ) { /* pass */ }
-
-   BOOST_TEST_MESSAGE( "Submitting failing transaction within a block" );
+   KOINOS_CHECK_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::failure );
 
    auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
    protocol::block block;
@@ -1352,11 +1380,11 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
       chain::system_call::apply_block( ctx, block );
       BOOST_FAIL( "expected exception not thrown" );
    }
-   catch ( const chain::chain_reversion& )
+   catch ( const chain::reversion_exception& )
    {
-      BOOST_FAIL( "chain_reversion exception erroneously thrown" );
+      BOOST_FAIL( "reversion_exception exception erroneously thrown" );
    }
-   catch ( const chain::chain_failure& e )
+   catch ( const chain::failure_exception& e )
    {
       const auto& data = e.get_json();
 
@@ -1433,13 +1461,10 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    transfer_args.set_value( 25 );
 
    sign_transaction( trx, key_a );
-
-   try
-   {
-      koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
-      BOOST_FAIL( "Expected invalid signature" );
-   }
-   catch ( const koinos::chain::chain_reversion& ) {}
+   KOINOS_REQUIRE_THROW(
+      koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) ),
+      chain::reversion
+   );
 
    sign_transaction( trx, key_b );
    koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
@@ -1459,12 +1484,9 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    upload_op.set_authorizes_upload_contract( false );
    upload_op.set_authorizes_transaction_application( true );
 
-   try
-   {
-      koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
-      BOOST_FAIL( "Expected invalid signature" );
-   }
-   catch ( const koinos::chain::chain_reversion& ) {}
+   KOINOS_REQUIRE_THROW(
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op ),
+      chain::authorization_failure );
 
    sign_transaction( trx, key_b );
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
@@ -1486,7 +1508,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    trx.clear_signatures();
    trx.add_signatures( util::converter::as< std::string >( key_a.sign_compact( id_mh ) ) );
 
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::chain_failure );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::authorization_failure );
 
    trx.add_signatures( util::converter::as< std::string >( key_b.sign_compact( id_mh ) ) );
 
@@ -1499,6 +1521,113 @@ BOOST_AUTO_TEST_CASE( get_chain_id )
    auto chain_id_str = util::converter::as< std::string >( chain_id );
    BOOST_REQUIRE_EQUAL( chain_id_str, chain::system_call::get_chain_id( ctx ) );
 }
+
+BOOST_AUTO_TEST_CASE( system_resources )
+{ try {
+   auto resource_limits = chain::system_call::get_resource_limits( ctx );
+   auto& meter = ctx.resource_meter();
+
+   BOOST_TEST_MESSAGE( "Set and check initial resource meter" );
+
+   meter.set_resource_limit_data( resource_limits );
+
+   uint64_t disk_storage_used = 0;
+   uint64_t system_disk_storage_used = 0;
+   uint64_t network_bandwidth_used = 0;
+   uint64_t system_network_bandwidth_used = 0;
+   uint64_t compute_bandwidth_used = 0;
+   uint64_t system_compute_bandwidth_used = 0;
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+   BOOST_TEST_MESSAGE( "Use system resources" );
+
+   meter.use_disk_storage( 100 );
+   disk_storage_used += 100;
+   system_disk_storage_used += 100;
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+
+   meter.use_network_bandwidth( 200 );
+   network_bandwidth_used += 200;
+   system_network_bandwidth_used += 200;
+
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+
+   meter.use_compute_bandwidth( 300 );
+   compute_bandwidth_used += 300;
+   system_compute_bandwidth_used += 300;
+
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+   BOOST_TEST_MESSAGE( "Use session resources" );
+
+   auto session = ctx.make_session( 1'000'000 );
+
+   meter.use_disk_storage( 400 );
+   disk_storage_used += 400;
+
+   meter.use_network_bandwidth( 500 );
+   network_bandwidth_used += 500;
+
+   meter.use_compute_bandwidth( 600 );
+   compute_bandwidth_used += 600;
+
+   session.reset();
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+   BOOST_TEST_MESSAGE( "End session and resume using system resources" );
+
+   meter.use_disk_storage( 700 );
+   disk_storage_used += 700;
+   system_disk_storage_used += 700;
+
+   BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
+   BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
+
+   meter.use_network_bandwidth( 800 );
+   network_bandwidth_used += 800;
+   system_network_bandwidth_used += 800;
+
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
+
+   meter.use_compute_bandwidth( 900 );
+   compute_bandwidth_used += 900;
+   system_compute_bandwidth_used += 900;
+
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
+   BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {
@@ -1568,7 +1697,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
          {
             ctx.get_backend()->run( hapi, get_benchmark_wasm(), hash );
          }
-         catch ( chain::chain_success& ) {}
+         catch ( chain::success_exception& ) {}
          auto stop = std::chrono::high_resolution_clock::now();
 
          uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();

@@ -13,6 +13,7 @@
 #include <koinos/crypto/elliptic.hpp>
 
 #include <koinos/tests/contracts.hpp>
+#include <koinos/tests/util.hpp>
 
 #include <koinos/util/hex.hpp>
 
@@ -169,10 +170,12 @@ struct stack_fixture
          for ( const auto& entry : _genesis_data.entries() )
          {
             KOINOS_ASSERT(
-               root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
+               !root->get_object( entry.space(), entry.key() ),
                koinos::chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
+
+            root->put_object( entry.space(), entry.key(), &entry.value() );
          }
          LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
 
@@ -188,10 +191,11 @@ struct stack_fixture
          LOG(info) << "Calculated chain ID: " << chain_id;
          auto chain_id_str = util::converter::as< std::string >( chain_id );
          KOINOS_ASSERT(
-            root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+            !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
             koinos::chain::unexpected_state,
             "encountered unexpected chain id in initial state"
          );
+         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
          LOG(info) << "Wrote chain ID into new database";
       } );
 
@@ -474,7 +478,7 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    sign_transaction( trx, user_key );
 
    ctx.set_transaction( trx );
-   BOOST_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::chain_reversion );
+   KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, trx ), chain::reversion );
 }
 
 BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
