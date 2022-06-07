@@ -182,10 +182,12 @@ struct thunk_fixture
          for ( const auto& entry : _genesis_data.entries() )
          {
             KOINOS_ASSERT(
-               root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
+               !root->get_object( entry.space(), entry.key() ),
                koinos::chain::unexpected_state,
                "encountered unexpected object in initial state"
             );
+
+            root->put_object( entry.space(), entry.key(), &entry.value() );
          }
          LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
 
@@ -201,10 +203,11 @@ struct thunk_fixture
          LOG(info) << "Calculated chain ID: " << chain_id;
          auto chain_id_str = util::converter::as< std::string >( chain_id );
          KOINOS_ASSERT(
-            root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+            !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
             koinos::chain::unexpected_state,
             "encountered unexpected chain id in initial state"
          );
+         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
          LOG(info) << "Wrote chain ID into new database";
       } );
 
@@ -1235,6 +1238,64 @@ BOOST_AUTO_TEST_CASE( tick_limit )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( disk_usage )
+{ try {
+   auto resource_limits = chain::system_call::get_resource_limits( ctx );
+   ctx.resource_meter().set_resource_limit_data( resource_limits );
+
+   auto rc_limit = 10'000'000;
+   auto payer_session = ctx.make_session( rc_limit );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_remaining(), resource_limits.disk_storage_limit() );
+
+   chain::object_space objs;
+   objs.set_zone( std::string{ "test" } );
+   objs.set_system( true );
+
+   auto key = "object_key";
+
+   chain::system_call::put_object( ctx, objs, key, std::string{ "stuff" } );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), resource_limits.disk_storage_limit() - ctx.resource_meter().disk_storage_remaining() );
+
+   payer_session.reset();
+
+   ctx.resource_meter().set_resource_limit_data( resource_limits );
+   payer_session = ctx.make_session( rc_limit );
+
+   chain::system_call::put_object( ctx, objs, key, std::string{ "stuf" } );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 0 );
+
+   chain::system_call::put_object( ctx, objs, key, std::string{ "stufff" } );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 1 );
+
+   chain::system_call::remove_object( ctx, objs, key );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 0 );
+
+   payer_session.reset();
+
+   ctx.resource_meter().set_resource_limit_data( resource_limits );
+   payer_session = ctx.make_session( rc_limit );
+   ctx.resource_meter().use_disk_storage( -100 );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 0 );
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_remaining(), resource_limits.disk_storage_limit() + 100 );
+   BOOST_CHECK_EQUAL( payer_session->used_rc(), 0 );
+   BOOST_CHECK_EQUAL( payer_session->remaining_rc(), rc_limit );
+
+   ctx.resource_meter().use_disk_storage( 200 );
+
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_used(), 100 );
+   BOOST_CHECK_EQUAL( ctx.resource_meter().disk_storage_remaining(), resource_limits.disk_storage_limit() - 100 );
+   BOOST_CHECK_EQUAL( payer_session->used_rc(), 100 * resource_limits.disk_storage_cost() );
+   BOOST_CHECK_EQUAL( payer_session->remaining_rc(), rc_limit - payer_session->used_rc() );
+
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( transaction_reversion )
 { try {
    using namespace koinos;
@@ -1511,32 +1572,32 @@ BOOST_AUTO_TEST_CASE( system_resources )
 
    BOOST_TEST_MESSAGE( "Use session resources" );
 
-   auto session = ctx.make_session( 10'000'000 );
+   auto session = ctx.make_session( 1'000'000 );
 
    meter.use_disk_storage( 400 );
    disk_storage_used += 400;
+
+   meter.use_network_bandwidth( 500 );
+   network_bandwidth_used += 500;
+
+   meter.use_compute_bandwidth( 600 );
+   compute_bandwidth_used += 600;
+
+   session.reset();
 
    BOOST_CHECK_EQUAL( meter.disk_storage_remaining(), resource_limits.disk_storage_limit() - disk_storage_used );
    BOOST_CHECK_EQUAL( meter.disk_storage_used(), disk_storage_used );
    BOOST_CHECK_EQUAL( meter.system_disk_storage_used(), system_disk_storage_used );
 
-   meter.use_network_bandwidth( 500 );
-   network_bandwidth_used += 500;
-
    BOOST_CHECK_EQUAL( meter.network_bandwidth_remaining(), resource_limits.network_bandwidth_limit() - network_bandwidth_used );
    BOOST_CHECK_EQUAL( meter.network_bandwidth_used(), network_bandwidth_used );
    BOOST_CHECK_EQUAL( meter.system_network_bandwidth_used(), system_network_bandwidth_used );
-
-   meter.use_compute_bandwidth( 600 );
-   compute_bandwidth_used += 600;
 
    BOOST_CHECK_EQUAL( meter.compute_bandwidth_remaining(), resource_limits.compute_bandwidth_limit() - compute_bandwidth_used );
    BOOST_CHECK_EQUAL( meter.compute_bandwidth_used(), compute_bandwidth_used );
    BOOST_CHECK_EQUAL( meter.system_compute_bandwidth_used(), system_compute_bandwidth_used );
 
    BOOST_TEST_MESSAGE( "End session and resume using system resources" );
-
-   session.reset();
 
    meter.use_disk_storage( 700 );
    disk_storage_used += 700;
