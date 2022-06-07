@@ -80,7 +80,7 @@ uint64_t resource_meter::disk_storage_remaining() const
 
 uint64_t resource_meter::system_disk_storage_used() const
 {
-   return std::max( 0ll, _system_disk_storage_used );
+   return std::max( int64_t( 0 ), _system_disk_storage_used );
 }
 
 void resource_meter::use_network_bandwidth( int64_t bytes )
@@ -122,7 +122,7 @@ uint64_t resource_meter::network_bandwidth_remaining() const
 
 uint64_t resource_meter::system_network_bandwidth_used() const
 {
-   return std::max( 0ll, _system_network_bandwidth_used );
+   return std::max( int64_t( 0 ), _system_network_bandwidth_used );
 }
 
 void resource_meter::use_compute_bandwidth( int64_t ticks )
@@ -164,7 +164,7 @@ uint64_t resource_meter::compute_bandwidth_remaining() const
 
 uint64_t resource_meter::system_compute_bandwidth_used() const
 {
-   return std::max( 0ll, _system_compute_bandwidth_used );
+   return std::max( int64_t( 0 ), _system_compute_bandwidth_used );
 }
 
 void resource_meter::set_session( std::shared_ptr< abstract_rc_session > s )
