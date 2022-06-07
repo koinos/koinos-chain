@@ -707,12 +707,14 @@ BOOST_AUTO_TEST_CASE( override_tests )
    auto args = util::converter::as< std::string >( log_args );
    char ret_buf[100];
    uint32_t bytes_written = 0;
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
    set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::log ) );
    set_op.mutable_target()->set_thunk_id( 0 );
+   ctx.set_privilege( chain::privilege::kernel_mode );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
@@ -732,7 +734,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
    host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
+   ctx.set_privilege( chain::privilege::user_mode );
    KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
+   ctx.set_privilege( chain::privilege::kernel_mode );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 

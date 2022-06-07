@@ -3,6 +3,7 @@
 #include <koinos/chain/thunk_dispatcher.hpp>
 #include <koinos/chain/types.hpp>
 #include <koinos/chain/execution_context.hpp>
+#include <koinos/util/hex.hpp>
 
 namespace koinos::chain {
 
@@ -294,22 +295,22 @@ const google::protobuf::DescriptorPool& execution_context::descriptor_pool()
 
 std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, const std::string& args )
 {
-   cache_system_call( id );
-
-   auto itr = _cache.system_call_table.find( id );
-   KOINOS_ASSERT( itr != _cache.system_call_table.end(), reversion_exception, "unable to find call id ${id} in system call cache", ("id", id) );
-
-   const auto* call_bundle = std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second );
-
-   KOINOS_ASSERT( call_bundle, reversion_exception, "system call ${id} is implemented via thunk", ("id", id) );
-
-   const auto& cid      = std::get< 0 >( *call_bundle );
-   const auto& bytecode = std::get< 1 >( *call_bundle );
-   auto entry_point     = std::get< 2 >( *call_bundle );
-   const auto& meta     = std::get< 3 >( *call_bundle );
-
    try
    {
+      cache_system_call( id );
+
+      auto itr = _cache.system_call_table.find( id );
+      KOINOS_ASSERT( itr != _cache.system_call_table.end(), reversion_exception, "unable to find call id ${id} in system call cache", ("id", id) );
+
+      const auto* call_bundle = std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second );
+
+      KOINOS_ASSERT( call_bundle, reversion_exception, "system call ${id} is implemented via thunk", ("id", id) );
+
+      const auto& cid      = std::get< 0 >( *call_bundle );
+      const auto& bytecode = std::get< 1 >( *call_bundle );
+      auto entry_point     = std::get< 2 >( *call_bundle );
+      const auto& meta     = std::get< 3 >( *call_bundle );
+
       with_stack_frame(
          *this,
          stack_frame {
@@ -325,14 +326,9 @@ std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, c
          }
       );
    }
-   catch ( const success_exception& ) {}
+   catch ( const koinos::exception& e ) {}
 
    const auto& result = get_result();
-
-   if ( result.code() >= reversion )
-      throw reversion_exception( result.code(), result.value() );
-   if ( result.code() <= failure )
-      throw failure_exception( result.code(), result.value() );
 
    return std::make_pair( result.value(), result.code() );
 }
