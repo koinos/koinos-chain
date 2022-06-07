@@ -44,7 +44,7 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 
    if ( res.second != chain::success )
    {
-      auto msg_len = res.first.size() + 1;
+      auto msg_len = res.first.size();
       if ( msg_len <= ret_len )
       {
          std::memcpy( ret_ptr, res.first.c_str(), msg_len );
@@ -117,7 +117,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
 
    if ( res.second != chain::success )
    {
-      auto msg_len = res.first.size() + 1;
+      auto msg_len = res.first.size();
       if ( msg_len <= ret_len )
       {
          std::memcpy( ret_ptr, res.first.c_str(), msg_len );
