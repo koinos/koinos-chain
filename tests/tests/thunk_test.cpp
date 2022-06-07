@@ -1629,6 +1629,135 @@ BOOST_AUTO_TEST_CASE( system_resources )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( contract_exit )
+{ try {
+   crypto::multihash exit_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "exit_contract" } );
+   crypto::private_key exit_pk = crypto::private_key::regenerate( exit_seed );
+   auto exit_contract_id = exit_pk.get_public_key().to_address_bytes();
+
+   crypto::multihash call_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "call_contract" } );
+   crypto::private_key call_pk = crypto::private_key::regenerate( call_seed );
+   auto call_contract_id = call_pk.get_public_key().to_address_bytes();
+
+   protocol::upload_contract_operation upload_exit_op;
+   upload_exit_op.set_bytecode( get_exit_wasm() );
+   upload_exit_op.set_contract_id( exit_contract_id );
+
+   protocol::upload_contract_operation upload_call_op;
+   upload_call_op.set_bytecode( get_call_wasm() );
+   upload_call_op.set_contract_id( call_contract_id );
+
+   protocol::transaction trx;
+   sign_transaction( trx, exit_pk );
+   auto trx_id = crypto::hash( crypto::multicodec::sha2_256, trx.header() );
+   trx.add_signatures( util::converter::as< std::string >( call_pk.sign_compact( trx_id ) ) );
+   ctx.set_transaction( trx );
+
+   chain::system_call::apply_upload_contract_operation( ctx, upload_exit_op );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_call_op );
+
+   BOOST_TEST_MESSAGE( "Testing failure returned to a user contract" );
+
+   chain::result res;
+   res.set_code( chain::failure );
+   res.set_value( "chain failure" );
+
+   chain::call_arguments call;
+   call.set_contract_id( exit_contract_id );
+   call.set_args( util::converter::as< std::string >( res ) );
+
+   auto call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
+   auto returned_res = util::converter::to< chain::result >( call_res );
+
+   BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
+   BOOST_CHECK_EQUAL( returned_res.value(), res.value() );
+
+   BOOST_TEST_MESSAGE( "Testing reversion returned to a user contract" );
+
+   res.set_code( chain::reversion );
+   res.set_value( "chain reversion" );
+
+   call.set_args( util::converter::as< std::string >( res ) );
+
+   try
+   {
+      chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
+      BOOST_TEST( false, "call did not throw reversion" );
+   }
+   catch ( const koinos::exception& e )
+   {
+      BOOST_CHECK_EQUAL( e.get_code(), res.code() );
+      BOOST_CHECK_EQUAL( e.get_message(), res.value() );
+   }
+
+   BOOST_TEST_MESSAGE( "Testing failure returned to a system contract" );
+
+   protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( call_contract_id );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _signing_private_key );
+
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   res.set_code( chain::failure );
+   res.set_value( "chain failure" );
+
+   call.set_args( util::converter::as< std::string >( res ) );
+
+   call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
+   returned_res = util::converter::to< chain::result >( call_res );
+
+   BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
+   BOOST_CHECK_EQUAL( returned_res.value(), res.value() );
+
+   BOOST_TEST_MESSAGE( "Testing reversion returned to a system contract" );
+
+   res.set_code( chain::reversion );
+   res.set_value( "chain reversion" );
+
+   call.set_args( util::converter::as< std::string >( res ) );
+
+   call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
+   returned_res = util::converter::to< chain::result >( call_res );
+
+   BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
+   BOOST_CHECK_EQUAL( returned_res.value(), res.value() );
+
+   BOOST_TEST_MESSAGE( "Testing failure is thrown when calling contract natively" );
+
+   res.set_code( chain::failure );
+   res.set_value( "chain failure" );
+
+   try
+   {
+      chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( res ) );
+      BOOST_TEST( false, "call did not throw reversion" );
+   }
+   catch ( const koinos::exception& e )
+   {
+      BOOST_CHECK_EQUAL( e.get_code(), res.code() );
+      BOOST_CHECK_EQUAL( e.get_message(), res.value() );
+   }
+
+   BOOST_TEST_MESSAGE( "Testing reversion is thrown when calling contract natively" );
+
+   res.set_code( chain::reversion );
+   res.set_value( "chain reversion" );
+
+   try
+   {
+      chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( res ) );
+      BOOST_TEST( false, "call did not throw reversion" );
+   }
+   catch ( const koinos::exception& e )
+   {
+      BOOST_CHECK_EQUAL( e.get_code(), res.code() );
+      BOOST_CHECK_EQUAL( e.get_message(), res.value() );
+   }
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {
    crypto::multihash contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "contract" } );
