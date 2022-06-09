@@ -17,7 +17,10 @@ int main()
 
    koinos::chain::result< koinos::system::detail::max_argument_size > r;
    r.set_code( code );
-   r.mutable_value().set( reinterpret_cast< uint8_t* >( value.data() ), value.size() );
+
+   koinos::write_buffer wbuf( koinos::system::detail::syscall_buffer.data(), koinos::system::detail::syscall_buffer.size() );
+   koinos::system::get_error_info().serialize( wbuf );
+   r.mutable_value().set( koinos::system::detail::syscall_buffer.data(), wbuf.get_size() );
 
    koinos::system::exit( 0, r );
 }

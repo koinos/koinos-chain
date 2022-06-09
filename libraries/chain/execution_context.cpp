@@ -82,13 +82,13 @@ void execution_context::clear_transaction()
 
 const std::string& execution_context::get_contract_call_args() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, chain::reversion_exception, "stack is empty" );
+   KOINOS_ASSERT( _stack.size() > 1, chain::internal_error_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].call_args;
 }
 
 uint32_t execution_context::get_contract_entry_point() const
 {
-   KOINOS_ASSERT( _stack.size() > 1, chain::reversion_exception, "stack is empty" );
+   KOINOS_ASSERT( _stack.size() > 1, chain::internal_error_exception, "stack is empty" );
    return _stack[ _stack.size() - 2 ].entry_point;
 }
 
@@ -100,7 +100,7 @@ void execution_context::push_frame( stack_frame&& frame )
 
 stack_frame execution_context::pop_frame()
 {
-   KOINOS_ASSERT( _stack.size(), chain::reversion_exception, "stack is empty" );
+   KOINOS_ASSERT( _stack.size(), chain::internal_error_exception, "stack is empty" );
    auto frame = _stack[ _stack.size() - 1 ];
    _stack.pop_back();
    return frame;

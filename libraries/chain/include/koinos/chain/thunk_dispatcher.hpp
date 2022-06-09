@@ -259,24 +259,20 @@ namespace detail
     * Two versions exist of the function, one that serializes the return value and one that does not.
     */
    template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
-   typename std::enable_if< std::is_same< ThunkReturn, void >::value, uint32_t >::type
+   typename std::enable_if< std::is_same< ThunkReturn, void >::value, void >::type
    call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg, uint32_t* bytes_written  )
    {
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
-      int32_t code = 0;
       *bytes_written = 0;
 
       std::apply( thunk, thunk_args );
-
-      return code;
    }
 
    template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
-   typename std::enable_if< !std::is_same< ThunkReturn, void >::value, uint32_t >::type
+   typename std::enable_if< !std::is_same< ThunkReturn, void >::value, void >::type
    call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg, uint32_t* bytes_written )
    {
       static_assert( std::is_same< RetStruct, ThunkReturn >::value, "thunk return does not match defined return in koinos-proto" );
-      int32_t code = 0;
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
       ThunkReturn ret;
 
@@ -288,8 +284,6 @@ namespace detail
       #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
       std::memcpy( ret_ptr, s.c_str(), s.size() );
       *bytes_written = s.size();
-
-      return code;
    }
 
 } // detail
@@ -313,7 +307,7 @@ namespace detail
 class thunk_dispatcher
 {
    public:
-      int32_t call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )const;
+      void call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )const;
 
       template< typename ThunkReturn, typename... ThunkArgs >
       auto call_thunk( uint32_t id, execution_context& ctx, ThunkArgs&... args ) const
@@ -327,13 +321,13 @@ class thunk_dispatcher
       void register_thunk( uint32_t id, ThunkReturn (*thunk_ptr)(execution_context&, ThunkArgs...) )
       {
          std::function<ThunkReturn(execution_context&, ThunkArgs...)> thunk = thunk_ptr;
-         _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written ) -> uint32_t
+         _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written )
          {
             ArgStruct args;
             ctx.resource_meter().use_compute_bandwidth( ctx.get_compute_bandwidth( "deserialize_message_per_byte" ) * arg_len );
             std::string s( arg_ptr, arg_len );
             args.ParseFromString( s );
-            return detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args, bytes_written );
+            detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args, bytes_written );
          });
          _pass_through_map.insert_or_assign( id, thunk );
       }
@@ -352,7 +346,7 @@ class thunk_dispatcher
    private:
       thunk_dispatcher();
 
-      typedef std::function< int32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written) > generic_thunk_handler;
+      typedef std::function< void(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written) > generic_thunk_handler;
 
       std::map< int32_t, generic_thunk_handler > _dispatch_map;
       std::map< int32_t, std::any >              _pass_through_map;

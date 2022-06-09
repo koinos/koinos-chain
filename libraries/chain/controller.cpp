@@ -669,7 +669,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
 
    auto value = system_call::get_resource_limits( ctx );

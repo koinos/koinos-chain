@@ -887,7 +887,7 @@ BOOST_AUTO_TEST_CASE( stack_tests )
    BOOST_TEST_MESSAGE( "apply context stack tests" );
    ctx.pop_frame();
 
-   KOINOS_REQUIRE_THROW( ctx.pop_frame(), chain::reversion );
+   KOINOS_REQUIRE_THROW( ctx.pop_frame(), chain::internal_error );
 
    auto call1 = util::converter::as< std::string >( crypto::hash( crypto::multicodec::ripemd_160, "call1"s ) );
    ctx.push_frame( chain::stack_frame{ .contract_id = call1 } );
@@ -1735,9 +1735,12 @@ BOOST_AUTO_TEST_CASE( contract_exit )
 
    BOOST_TEST_MESSAGE( "Testing failure returned to a user contract" );
 
+   chain::error_info einfo;
+   einfo.set_message( "chain failure" );
+
    chain::result res;
    res.set_code( chain::failure );
-   res.set_value( "chain failure" );
+   res.set_value( util::converter::as< std::string >( einfo ) );
 
    chain::call_arguments call;
    call.set_contract_id( exit_contract_id );
@@ -1745,14 +1748,16 @@ BOOST_AUTO_TEST_CASE( contract_exit )
 
    auto call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
    auto returned_res = util::converter::to< chain::result >( call_res );
+   auto returned_einfo = util::converter::to< chain::error_info >( returned_res.value() );
 
    BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
-   BOOST_CHECK_EQUAL( returned_res.value(), res.value() );
+   BOOST_CHECK_EQUAL( returned_einfo.message(), einfo.message() );
 
    BOOST_TEST_MESSAGE( "Testing reversion returned to a user contract" );
 
    res.set_code( chain::reversion );
-   res.set_value( "chain reversion" );
+   einfo.set_message( "chain reversion" );
+   res.set_value( util::converter::as< std::string >( einfo ) );
 
    call.set_args( util::converter::as< std::string >( res ) );
 
@@ -1764,7 +1769,7 @@ BOOST_AUTO_TEST_CASE( contract_exit )
    catch ( const koinos::exception& e )
    {
       BOOST_CHECK_EQUAL( e.get_code(), res.code() );
-      BOOST_CHECK_EQUAL( e.get_message(), res.value() );
+      BOOST_CHECK_EQUAL( e.get_message(), einfo.message() );
    }
 
    BOOST_TEST_MESSAGE( "Testing failure returned to a system contract" );
@@ -1778,33 +1783,38 @@ BOOST_AUTO_TEST_CASE( contract_exit )
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
    res.set_code( chain::failure );
-   res.set_value( "chain failure" );
+   einfo.set_message( "chain failure" );
+   res.set_value( util::converter::as< std::string >( einfo ) );
 
    call.set_args( util::converter::as< std::string >( res ) );
 
    call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
    returned_res = util::converter::to< chain::result >( call_res );
+   returned_einfo = util::converter::to< chain::error_info >( returned_res.value() );
 
    BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
-   BOOST_CHECK_EQUAL( returned_res.value(), res.value() );
+   BOOST_CHECK_EQUAL( returned_einfo.message(), einfo.message() );
 
    BOOST_TEST_MESSAGE( "Testing reversion returned to a system contract" );
 
    res.set_code( chain::reversion );
-   res.set_value( "chain reversion" );
+   einfo.set_message( "chain reversion" );
+   res.set_value( util::converter::as< std::string >( einfo ) );
 
    call.set_args( util::converter::as< std::string >( res ) );
 
    call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
    returned_res = util::converter::to< chain::result >( call_res );
+   returned_einfo = util::converter::to< chain::error_info >( returned_res.value() );
 
    BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
-   BOOST_CHECK_EQUAL( returned_res.value(), res.value() );
+   BOOST_CHECK_EQUAL( returned_einfo.message(), einfo.message() );
 
    BOOST_TEST_MESSAGE( "Testing failure is thrown when calling contract natively" );
 
    res.set_code( chain::failure );
-   res.set_value( "chain failure" );
+   einfo.set_message( "chain failure" );
+   res.set_value( util::converter::as< std::string >( einfo ) );
 
    try
    {
@@ -1814,13 +1824,14 @@ BOOST_AUTO_TEST_CASE( contract_exit )
    catch ( const koinos::exception& e )
    {
       BOOST_CHECK_EQUAL( e.get_code(), res.code() );
-      BOOST_CHECK_EQUAL( e.get_message(), res.value() );
+      BOOST_CHECK_EQUAL( e.get_message(), einfo.message() );
    }
 
    BOOST_TEST_MESSAGE( "Testing reversion is thrown when calling contract natively" );
 
    res.set_code( chain::reversion );
-   res.set_value( "chain reversion" );
+   einfo.set_message( "chain reversion" );
+   res.set_value( util::converter::as< std::string >( einfo ) );
 
    try
    {
@@ -1830,7 +1841,7 @@ BOOST_AUTO_TEST_CASE( contract_exit )
    catch ( const koinos::exception& e )
    {
       BOOST_CHECK_EQUAL( e.get_code(), res.code() );
-      BOOST_CHECK_EQUAL( e.get_message(), res.value() );
+      BOOST_CHECK_EQUAL( e.get_message(), einfo.message() );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }

@@ -1208,10 +1208,15 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
 
    const auto& res = context.get_result();
 
-   if ( res.code() >= reversion )
-      throw reversion_exception( res.code(), res.value() );
-   if ( res.code() <= failure )
-      throw failure_exception( res.code(), res.value() );
+   if ( res.code() )
+   {
+      auto einfo = util::converter::to< chain::error_info >( res.value() );
+
+      if ( res.code() >= reversion )
+         throw reversion_exception( res.code(), einfo.message() );
+      if ( res.code() <= failure )
+         throw failure_exception( res.code(), einfo.message() );
+   }
 
    call_result ret;
    *ret.mutable_value() = res.value();
@@ -1224,19 +1229,22 @@ THUNK_DEFINE( void, exit, ((result) res) )
 
    if ( !res.code() ) // code == success
    {
-      throw success_exception( res.code(), res.value() );
+      throw success_exception( res.code() );
    }
-   else if ( res.code() >= reversion )
+
+   auto einfo = util::converter::to< chain::error_info >( res.value() );
+
+   if ( res.code() >= reversion )
    {
-      if ( validate_utf( res.value() ) )
-         throw reversion_exception( res.code(), res.value() );
+      if ( validate_utf( einfo.message() ) )
+         throw reversion_exception( res.code(), einfo.message() );
       else
          throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }
    else // code <= failure )
    {
-      if ( validate_utf( res.value() ) )
-         throw failure_exception( res.code(), res.value() );
+      if ( validate_utf( einfo.message() ) )
+         throw failure_exception( res.code(), einfo.message() );
       else
          throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }

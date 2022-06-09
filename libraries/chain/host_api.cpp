@@ -24,7 +24,7 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 
    try
    {
-      res.second = thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+      thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
    }
    catch ( koinos::exception& e )
    {
@@ -39,15 +39,20 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
       if ( res.second <= chain::failure )
          throw failure_exception( res.second, res.first );
 
-      throw success_exception( res.second, res.first );
+      throw success_exception( res.second );
    }
 
    if ( res.second != chain::success )
    {
-      auto msg_len = res.first.size();
+      chain::error_info einfo;
+      einfo.set_message( res.first );
+
+      auto einfo_bytes = util::converter::as< std::string >( einfo );
+
+      auto msg_len = einfo_bytes.size();
       if ( msg_len <= ret_len )
       {
-         std::memcpy( ret_ptr, res.first.c_str(), msg_len );
+         std::memcpy( ret_ptr, einfo_bytes.data(), msg_len );
          *bytes_written = msg_len;
       }
       else
@@ -81,6 +86,9 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
                #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
                std::string args( arg_ptr, arg_len );
                res = _ctx.system_call( sid, args );
+
+               if ( res.second )
+                  res.first = util::converter::to< chain::error_info >( res.first ).message();
             }
             else
             {
@@ -91,7 +99,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
                KOINOS_ASSERT( enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", thunk_id) );
                auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
                _ctx.resource_meter().use_compute_bandwidth( compute );
-               res.second = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+               thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
             }
          }
       );
@@ -112,15 +120,20 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
       if ( res.second <= failure )
          throw failure_exception( res.second, res.first );
 
-      throw success_exception( res.second, res.first );
+      throw success_exception( res.second );
    }
 
    if ( res.second != chain::success )
    {
-      auto msg_len = res.first.size();
+      chain::error_info einfo;
+      einfo.set_message( res.first );
+
+      auto einfo_bytes = util::converter::as< std::string >( einfo );
+
+      auto msg_len = einfo_bytes.size();
       if ( msg_len <= ret_len )
       {
-         std::memcpy( ret_ptr, res.first.c_str(), msg_len );
+         std::memcpy( ret_ptr, einfo_bytes.data(), msg_len );
          *bytes_written = msg_len;
       }
       else
