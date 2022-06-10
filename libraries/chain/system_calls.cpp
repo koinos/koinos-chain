@@ -1208,43 +1208,47 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
 
    const auto& res = context.get_result();
 
-   if ( res.code() )
+   if ( res.code )
    {
-      auto einfo = util::converter::to< chain::error_info >( res.value() );
+      const auto& error = res.res.error();
 
-      if ( res.code() >= reversion )
-         throw reversion_exception( res.code(), einfo.message() );
-      if ( res.code() <= failure )
-         throw failure_exception( res.code(), einfo.message() );
+      if ( res.code >= reversion )
+         throw reversion_exception( res.code, error.message() );
+      if ( res.code <= failure )
+         throw failure_exception( res.code, error.message() );
    }
 
    call_result ret;
-   *ret.mutable_value() = res.value();
+   *ret.mutable_value() = res.res;
    return ret;
 }
 
-THUNK_DEFINE( void, exit, ((result) res) )
+THUNK_DEFINE( void, exit, ((int32_t) code, (result) res) )
 {
-   context.set_result( res );
+   LOG(info) << code;
+   LOG(info) << res;
 
-   if ( !res.code() ) // code == success
+   context.set_result( { code, res } );
+
+   if ( !code ) // code == success
    {
-      throw success_exception( res.code() );
+      throw success_exception( code );
    }
 
-   auto einfo = util::converter::to< chain::error_info >( res.value() );
+   KOINOS_ASSERT( res.has_error(), reversion_exception, "exit error did not contain error data" );
+   const auto& error = context.get_result().res.error();
 
-   if ( res.code() >= reversion )
+   if ( code >= reversion )
    {
-      if ( validate_utf( einfo.message() ) )
-         throw reversion_exception( res.code(), einfo.message() );
+      if ( validate_utf( error.message() ) )
+         throw reversion_exception( code, error.message() );
       else
          throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }
-   else // code <= failure )
+   else // code <= failure
    {
-      if ( validate_utf( einfo.message() ) )
-         throw failure_exception( res.code(), einfo.message() );
+      if ( validate_utf( error.message() ) )
+         throw failure_exception( code, error.message() );
       else
          throw reversion_exception( chain::reversion, "error message contains invalid utf-8" );
    }
@@ -1333,7 +1337,7 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
          args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
       }
 
-      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
+      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ).object() ).value();
    }
    else
    {

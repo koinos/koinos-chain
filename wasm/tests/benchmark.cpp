@@ -17,9 +17,7 @@ int main()
 
    koinos::system::result r;
    std::string s = std::to_string( accumulator );
-   r.mutable_value().set( (uint8_t*)s.data(), s.size() );
+   r.mutable_object().set( (uint8_t*)s.data(), s.size() );
 
-   koinos::system::exit( r );
-
-   return 0;
+   koinos::system::exit( 0, r );
 }

@@ -601,7 +601,7 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
    auto contract_ret = koinos::chain::system_call::call(ctx, op.contract_id(), 0, "echo");
 
-   BOOST_REQUIRE_EQUAL( contract_ret, "echo" );
+   BOOST_REQUIRE_EQUAL( contract_ret.object(), "echo" );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -1053,19 +1053,19 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .call_privilege = chain::user_mode } );
 
    auto response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::name, "" );
-   auto name = util::converter::to< koinos::contracts::token::name_result >( response );
+   auto name = util::converter::to< koinos::contracts::token::name_result >( response.object() );
    LOG(info) << name.value();
 
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::symbol, "" );
-   auto symbol = util::converter::to< koinos::contracts::token::symbol_result >( response );
+   auto symbol = util::converter::to< koinos::contracts::token::symbol_result >( response.object() );
    LOG(info) << symbol.value();
 
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::decimals, "" );
-   auto decimals = util::converter::to< koinos::contracts::token::decimals_result >( response );
+   auto decimals = util::converter::to< koinos::contracts::token::decimals_result >( response.object() );
    LOG(info) << decimals.value();
 
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::total_supply, "" );
-   auto supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
+   auto supply = util::converter::to< koinos::contracts::token::total_supply_result >( response.object() );
    LOG(info) << "KOIN supply: " << supply.value();
 
    auto alice_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
@@ -1077,12 +1077,12 @@ BOOST_AUTO_TEST_CASE( token_tests )
    koinos::contracts::token::balance_of_arguments balance_of_args;
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
-   auto balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   auto balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.object() );
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.object() );
    LOG(info) << "'bob' balance: " << balance.value();
 
    auto session = ctx.make_session( 10'000'000 );
@@ -1093,7 +1093,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    mint_args.set_value( 100 );
 
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
+   auto success = util::converter::to< koinos::contracts::token::mint_result >( response.object() );
    BOOST_REQUIRE( !success.value() );
    BOOST_CHECK_EQUAL( session->events().size(), 0 );
 
@@ -1101,7 +1101,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    ctx.set_privilege( chain::privilege::kernel_mode );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   success = util::converter::to< koinos::contracts::token::mint_result >( response );
+   success = util::converter::to< koinos::contracts::token::mint_result >( response.object() );
    BOOST_REQUIRE( success.value() );
 
    BOOST_REQUIRE_EQUAL( session->events().size(), 1 );
@@ -1120,18 +1120,18 @@ BOOST_AUTO_TEST_CASE( token_tests )
    ctx.set_privilege( chain::privilege::user_mode );
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.object() );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.object() );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::total_supply, "" );
-   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
+   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response.object() );
    LOG(info) << "KOIN supply: " << supply.value();
 
    LOG(info) << "Transfer from 'alice' to 'bob'";
@@ -1162,26 +1162,26 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    session = ctx.make_session( 10'000'000 );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
-   auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response );
+   auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response.object() );
    BOOST_REQUIRE( xfer_result.value() );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    session = ctx.make_session( 10'000'000 );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.object() );
 
    LOG(info) << "'alice' balance: " << balance.value();
 
    balance_of_args.set_owner( util::converter::as< std::string >( bob_address ) );
    session = ctx.make_session( 10'000'000 );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::balance_of, util::converter::as< std::string >( balance_of_args ) );
-   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response );
+   balance = util::converter::to< koinos::contracts::token::balance_of_result >( response.object() );
 
    LOG(info) << "'bob' balance: " << balance.value();
 
    session = ctx.make_session( 10'000'000 );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::total_supply, "" );
-   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response );
+   supply = util::converter::to< koinos::contracts::token::total_supply_result >( response.object() );
    LOG(info) << "KOIN supply: " << supply.value();
 }
 catch( const koinos::vm_manager::vm_exception& e )
@@ -1441,7 +1441,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    auto session = ctx.make_session( 100'000'000 );
 
    auto response = koinos::chain::system_call::call( ctx, upload_op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   auto success = util::converter::to< koinos::contracts::token::mint_result >( response );
+   auto success = util::converter::to< koinos::contracts::token::mint_result >( response.object() );
    BOOST_REQUIRE( success.value() );
 
    BOOST_TEST_MESSAGE( "Override authorize call contract" );
@@ -1694,7 +1694,7 @@ BOOST_AUTO_TEST_CASE( system_rc )
    mint_args.set_value( 1'000'000'000 );
 
    auto response = koinos::chain::system_call::call( ctx, koin_id, token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   BOOST_CHECK( util::converter::to< koinos::contracts::token::mint_result >( response ).value() );
+   BOOST_CHECK( util::converter::to< koinos::contracts::token::mint_result >( response.object() ).value() );
 
    BOOST_TEST_MESSAGE( "Testing block production with sufficient rc" );
 
@@ -1735,31 +1735,29 @@ BOOST_AUTO_TEST_CASE( contract_exit )
 
    BOOST_TEST_MESSAGE( "Testing failure returned to a user contract" );
 
-   chain::error_info einfo;
-   einfo.set_message( "chain failure" );
-
-   chain::result res;
-   res.set_code( chain::failure );
-   res.set_value( util::converter::as< std::string >( einfo ) );
+   chain::exit_arguments args;
+   args.set_code( chain::failure );
+   args.mutable_res()->mutable_error()->set_message( "chain failure" );
 
    chain::call_arguments call;
    call.set_contract_id( exit_contract_id );
-   call.set_args( util::converter::as< std::string >( res ) );
+   call.set_args( util::converter::as< std::string >( args ) );
 
    auto call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
-   auto returned_res = util::converter::to< chain::result >( call_res );
-   auto returned_einfo = util::converter::to< chain::error_info >( returned_res.value() );
+   auto returned_res = util::converter::to< chain::exit_arguments >( call_res.object() );
 
-   BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
-   BOOST_CHECK_EQUAL( returned_einfo.message(), einfo.message() );
+   LOG(info) << call_res;
+   LOG(info) << returned_res;
+
+   BOOST_CHECK_EQUAL( returned_res.code(), args.code() );
+   BOOST_CHECK_EQUAL( returned_res.res().error().message(), args.res().error().message() );
 
    BOOST_TEST_MESSAGE( "Testing reversion returned to a user contract" );
 
-   res.set_code( chain::reversion );
-   einfo.set_message( "chain reversion" );
-   res.set_value( util::converter::as< std::string >( einfo ) );
+   args.set_code( chain::reversion );
+   args.mutable_res()->mutable_error()->set_message( "chain reversion" );
 
-   call.set_args( util::converter::as< std::string >( res ) );
+   call.set_args( util::converter::as< std::string >( args ) );
 
    try
    {
@@ -1768,8 +1766,8 @@ BOOST_AUTO_TEST_CASE( contract_exit )
    }
    catch ( const koinos::exception& e )
    {
-      BOOST_CHECK_EQUAL( e.get_code(), res.code() );
-      BOOST_CHECK_EQUAL( e.get_message(), einfo.message() );
+      BOOST_CHECK_EQUAL( e.get_code(), args.code() );
+      BOOST_CHECK_EQUAL( e.get_message(), args.res().error().message() );
    }
 
    BOOST_TEST_MESSAGE( "Testing failure returned to a system contract" );
@@ -1782,66 +1780,60 @@ BOOST_AUTO_TEST_CASE( contract_exit )
 
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   res.set_code( chain::failure );
-   einfo.set_message( "chain failure" );
-   res.set_value( util::converter::as< std::string >( einfo ) );
+   args.set_code( chain::failure );
+   args.mutable_res()->mutable_error()->set_message( "chain failure" );
 
-   call.set_args( util::converter::as< std::string >( res ) );
+   call.set_args( util::converter::as< std::string >( args ) );
 
    call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
-   returned_res = util::converter::to< chain::result >( call_res );
-   returned_einfo = util::converter::to< chain::error_info >( returned_res.value() );
+   returned_res = util::converter::to< chain::exit_arguments >( call_res.object() );
 
-   BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
-   BOOST_CHECK_EQUAL( returned_einfo.message(), einfo.message() );
+   BOOST_CHECK_EQUAL( returned_res.code(), args.code() );
+   BOOST_CHECK_EQUAL( returned_res.res().error().message(), args.res().error().message() );
 
    BOOST_TEST_MESSAGE( "Testing reversion returned to a system contract" );
 
-   res.set_code( chain::reversion );
-   einfo.set_message( "chain reversion" );
-   res.set_value( util::converter::as< std::string >( einfo ) );
+   args.set_code( chain::reversion );
+   args.mutable_res()->mutable_error()->set_message( "chain reversion" );
 
-   call.set_args( util::converter::as< std::string >( res ) );
+   call.set_args( util::converter::as< std::string >( args ) );
 
    call_res = chain::system_call::call( ctx, call_contract_id, 0, util::converter::as< std::string >( call ) );
-   returned_res = util::converter::to< chain::result >( call_res );
-   returned_einfo = util::converter::to< chain::error_info >( returned_res.value() );
+   returned_res = util::converter::to< chain::exit_arguments >( call_res.object() );
 
-   BOOST_CHECK_EQUAL( returned_res.code(), res.code() );
-   BOOST_CHECK_EQUAL( returned_einfo.message(), einfo.message() );
+   BOOST_CHECK_EQUAL( returned_res.code(), args.code() );
+   BOOST_CHECK_EQUAL( returned_res.res().error().message(), args.res().error().message() );
 
    BOOST_TEST_MESSAGE( "Testing failure is thrown when calling contract natively" );
 
-   res.set_code( chain::failure );
-   einfo.set_message( "chain failure" );
-   res.set_value( util::converter::as< std::string >( einfo ) );
+   args.set_code( chain::failure );
+   args.mutable_res()->mutable_error()->set_message( "chain failure" );
 
    try
    {
-      chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( res ) );
+      chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( args ) );
       BOOST_TEST( false, "call did not throw failure" );
    }
    catch ( const koinos::exception& e )
    {
-      BOOST_CHECK_EQUAL( e.get_code(), res.code() );
-      BOOST_CHECK_EQUAL( e.get_message(), einfo.message() );
+      BOOST_CHECK_EQUAL( e.get_code(), args.code() );
+      BOOST_CHECK_EQUAL( e.get_message(), args.res().error().message() );
    }
 
    BOOST_TEST_MESSAGE( "Testing reversion is thrown when calling contract natively" );
 
-   res.set_code( chain::reversion );
-   einfo.set_message( "chain reversion" );
-   res.set_value( util::converter::as< std::string >( einfo ) );
+   args.set_code( chain::reversion );
+   args.mutable_res()->mutable_error()->set_message( "chain reversion" );
 
    try
    {
-      chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( res ) );
+      chain::system_call::call( ctx, exit_contract_id, 0, util::converter::as< std::string >( args ) );
       BOOST_TEST( false, "call did not throw reversion" );
    }
    catch ( const koinos::exception& e )
    {
-      BOOST_CHECK_EQUAL( e.get_code(), res.code() );
-      BOOST_CHECK_EQUAL( e.get_message(), einfo.message() );
+      BOOST_CHECK_EQUAL( e.get_code(), args.code() );
+      BOOST_CHECK_EQUAL( e.get_message(), args.res().error().message() );
    }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
@@ -2103,7 +2095,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
       { "get_resource_limits", [&]() { chain::system_call::get_resource_limits( ctx ); } },
       { "consume_block_resources", [&]() { chain::system_call::consume_block_resources( ctx, 1, 1, 1 ); } },
       { "log", [&]() { chain::system_call::log( ctx, "message" ); } },
-      { "exit", [&]() { try { chain::system_call::exit( ctx, chain::result() ); } catch ( ... ) {} } },
+      { "exit", [&]() { try { chain::system_call::exit( ctx, 0, chain::result() ); } catch ( ... ) {} } },
       { "process_block_signature", [&]() { chain::system_call::process_block_signature( ctx, block.id(), block.header(), block.signature() ); } },
       { "get_arguments", [&] { chain::system_call::get_arguments( ctx ); } },
       { "put_object", [&]() { chain::system_call::put_object( ctx, objs, std::string{ "key" }, header_str ); } },

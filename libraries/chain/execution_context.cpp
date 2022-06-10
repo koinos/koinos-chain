@@ -293,7 +293,7 @@ const google::protobuf::DescriptorPool& execution_context::descriptor_pool()
    return *_cache.descriptor_pool;
 }
 
-std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, const std::string& args )
+const execution_result& execution_context::system_call( uint32_t id, const std::string& args )
 {
    try
    {
@@ -328,9 +328,7 @@ std::pair< std::string, int32_t > execution_context::system_call( uint32_t id, c
    }
    catch ( const koinos::exception& e ) {}
 
-   const auto& result = get_result();
-
-   return std::make_pair( result.value(), result.code() );
+   return get_result();
 }
 
 bool execution_context::system_call_exists( uint32_t id )
@@ -370,17 +368,17 @@ const crypto::multicodec& execution_context::block_hash_code()
    return *_cache.block_hash_code;
 }
 
-void execution_context::set_result( const result& r )
+void execution_context::set_result( const execution_result& r )
 {
    _result = r;
 }
 
-void execution_context::set_result( result&& r )
+void execution_context::set_result( execution_result&& r )
 {
    _result = std::move( r );
 }
 
-const result& execution_context::get_result()
+const execution_result& execution_context::get_result()
 {
    return _result;
 }

@@ -5,9 +5,8 @@ int main()
    auto [ entry, args ] = koinos::system::get_arguments();
 
    koinos::system::result r;
-   r.set_code( 0 );
-   r.mutable_value().set( reinterpret_cast< const uint8_t* >( args.data() ), args.size() );
-   koinos::system::exit( r );
+   r.mutable_object().set( reinterpret_cast< const uint8_t* >( args.data() ), args.size() );
+   koinos::system::exit( 0, r );
 
    return 0;
 }

@@ -264,18 +264,17 @@ namespace koinos::chain::detail {
                BOOST_PP_IF(BOOST_VMD_IS_EMPTY(FWD),,_THUNK_ARG_PACK(FWD));                                                 \
                std::string _arg_str;                                                                                       \
                _args.SerializeToString( &_arg_str );                                                                       \
-               auto [ _ret_str, code ] = context.system_call( _sid, _arg_str );                                            \
-               if ( code )                                                                                                 \
+               const auto& _res = context.system_call( _sid, _arg_str );                                            \
+               if ( _res.code )                                                                                                 \
                {                                                                                                           \
-                  auto einfo = util::converter::to< chain::error_info >( _ret_str );                                       \
-                  if ( code >= chain::reversion )                                                                          \
-                     throw chain::reversion_exception( code, einfo.message() );                                            \
-                  else if ( code <= chain::failure )                                                                       \
-                     throw chain::failure_exception( code, einfo.message() );                                              \
+                  if ( _res.code >= chain::reversion )                                                                          \
+                     throw chain::reversion_exception( _res.code, _res.res.error().message() );                                            \
+                  else if ( _res.code <= chain::failure )                                                                       \
+                     throw chain::failure_exception( _res.code, _res.res.error().message() );                                              \
                }                                                                                                           \
                else if ( _sid == system_call_id::exit )                                                                    \
-                  throw chain::success_exception( code );                                                                  \
-               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _ret_str );)                                 \
+                  throw chain::success_exception( _res.code );                                                                  \
+               BOOST_PP_IF(_THUNK_IS_VOID(RETURN_TYPE),,_ret.ParseFromString( _res.res.object() );)                                 \
             }                                                                                                              \
             else                                                                                                           \
             {                                                                                                              \

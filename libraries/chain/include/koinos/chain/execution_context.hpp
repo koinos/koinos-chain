@@ -40,6 +40,12 @@ struct stack_frame
    uint32_t    entry_point = 0;
 };
 
+struct execution_result
+{
+   int32_t code = 0;
+   result  res;
+};
+
 enum class intent : uint64_t
 {
    read_only,
@@ -115,15 +121,15 @@ class execution_context
 
       const google::protobuf::DescriptorPool& descriptor_pool();
 
-      std::pair< std::string, int32_t > system_call( uint32_t id, const std::string& args );
+      const execution_result& system_call( uint32_t id, const std::string& args );
       uint32_t thunk_translation( uint32_t id );
       bool system_call_exists( uint32_t id );
       const crypto::multicodec& block_hash_code();
 
-      void set_result( const result& r );
-      void set_result( result&& r );
+      void set_result( const execution_result& r );
+      void set_result( execution_result&& r );
 
-      const result& get_result();
+      const execution_result& get_result();
 
    private:
       void build_compute_registry_cache();
@@ -147,7 +153,7 @@ class execution_context
       chain::receipt                            _receipt;
 
       execution_context_cache                   _cache;
-      result                                    _result;
+      execution_result                          _result;
 };
 
 namespace detail {
