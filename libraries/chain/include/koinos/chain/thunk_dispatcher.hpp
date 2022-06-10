@@ -259,27 +259,31 @@ namespace detail
     * Two versions exist of the function, one that serializes the return value and one that does not.
     */
    template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
-   typename std::enable_if< std::is_same< ThunkReturn, void >::value, uint32_t >::type
-   call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
+   typename std::enable_if< std::is_same< ThunkReturn, void >::value, void >::type
+   call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg, uint32_t* bytes_written  )
    {
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
+      *bytes_written = 0;
+
       std::apply( thunk, thunk_args );
-      return 0;
    }
 
    template< typename ArgStruct, typename RetStruct, typename ThunkReturn, typename... ThunkArgs >
-   typename std::enable_if< !std::is_same< ThunkReturn, void >::value, uint32_t >::type
-   call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg )
+   typename std::enable_if< !std::is_same< ThunkReturn, void >::value, void >::type
+   call_thunk_impl( const std::function< ThunkReturn(execution_context&, ThunkArgs...) >& thunk, execution_context& ctx, char* ret_ptr, uint32_t ret_len, ArgStruct& arg, uint32_t* bytes_written )
    {
       static_assert( std::is_same< RetStruct, ThunkReturn >::value, "thunk return does not match defined return in koinos-proto" );
       auto thunk_args = std::tuple_cat( std::tuple< execution_context& >( ctx ), message_to_tuple< ThunkArgs... >( arg ) );
-      auto ret = std::apply( thunk, thunk_args );
+      ThunkReturn ret;
+
+      ret = std::apply( thunk, thunk_args );
+
       std::string s;
       ret.SerializeToString( &s );
-      KOINOS_ASSERT( s.size() <= ret_len, koinos::exception, "return buffer is not large enough for the return value" );
+      KOINOS_ASSERT( s.size() <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
       #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
       std::memcpy( ret_ptr, s.c_str(), s.size() );
-      return s.size();
+      *bytes_written = s.size();
    }
 
 } // detail
@@ -303,13 +307,13 @@ namespace detail
 class thunk_dispatcher
 {
    public:
-      uint32_t call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )const;
+      void call_thunk( uint32_t id, execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )const;
 
       template< typename ThunkReturn, typename... ThunkArgs >
       auto call_thunk( uint32_t id, execution_context& ctx, ThunkArgs&... args ) const
       {
          auto it = _pass_through_map.find( id );
-         KOINOS_ASSERT( it != _pass_through_map.end(), thunk_not_found, "thunk ${id} not found", ("id", id ) );
+         KOINOS_ASSERT( it != _pass_through_map.end(), unknown_thunk_exception, "thunk ${id} not found", ("id", id ) );
          return std::any_cast< std::function<ThunkReturn(execution_context&, ThunkArgs...)> >(it->second)( ctx, args... );
       }
 
@@ -317,13 +321,13 @@ class thunk_dispatcher
       void register_thunk( uint32_t id, ThunkReturn (*thunk_ptr)(execution_context&, ThunkArgs...) )
       {
          std::function<ThunkReturn(execution_context&, ThunkArgs...)> thunk = thunk_ptr;
-         _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len ) -> uint32_t
+         _dispatch_map.insert_or_assign( id, [thunk]( execution_context& ctx, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written )
          {
             ArgStruct args;
             ctx.resource_meter().use_compute_bandwidth( ctx.get_compute_bandwidth( "deserialize_message_per_byte" ) * arg_len );
             std::string s( arg_ptr, arg_len );
             args.ParseFromString( s );
-            return detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args );
+            detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args, bytes_written );
          });
          _pass_through_map.insert_or_assign( id, thunk );
       }
@@ -342,11 +346,11 @@ class thunk_dispatcher
    private:
       thunk_dispatcher();
 
-      typedef std::function< uint32_t(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len) > generic_thunk_handler;
+      typedef std::function< void(execution_context&, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written) > generic_thunk_handler;
 
-      std::map< uint32_t, generic_thunk_handler > _dispatch_map;
-      std::map< uint32_t, std::any >              _pass_through_map;
-      std::set< uint32_t >                        _genesis_thunks;
+      std::map< int32_t, generic_thunk_handler > _dispatch_map;
+      std::map< int32_t, std::any >              _pass_through_map;
+      std::set< uint32_t >                       _genesis_thunks;
 };
 
 } // koinos::chain

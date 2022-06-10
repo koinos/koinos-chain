@@ -1,7 +1,8 @@
-
+#include <cstdint>
+#include <string>
 #include <koinos/system/system_calls.hpp>
 
 int main()
 {
-   koinos::system::log( "foobar" );
+   return 0;
 }

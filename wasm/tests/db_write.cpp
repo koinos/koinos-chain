@@ -8,6 +8,6 @@ int main()
 {
    koinos::system::object_space space;
    space.set_system( true );
-   koinos::system::detail::put_object( space, "\x00"s, koinos::system::get_contract_arguments() );
+   koinos::system::detail::put_object( space, "\x00"s, koinos::system::get_arguments().second );
    return 0;
 }

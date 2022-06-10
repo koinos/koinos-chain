@@ -71,12 +71,12 @@ class abstract_state_node
        * - Fail if node is not writable.
        * - If object exists, object is overwritten.
        */
-      int32_t put_object( const object_space& space, const object_key& key, const object_value* val );
+      int64_t put_object( const object_space& space, const object_key& key, const object_value* val );
 
       /**
        * Remove an object from the state_node
        */
-      void remove_object( const object_space& space, const object_key& key );
+      int64_t remove_object( const object_space& space, const object_key& key );
 
       /**
        * Return true if the node is writable.

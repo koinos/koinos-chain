@@ -140,10 +140,12 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       for ( const auto& entry : data.entries() )
       {
          KOINOS_ASSERT(
-            root->put_object( entry.space(), entry.key(), &entry.value() ) == entry.value().size(),
+            !root->get_object( entry.space(), entry.key() ),
             koinos::chain::unexpected_state,
             "encountered unexpected object in initial state"
          );
+
+         root->put_object( entry.space(), entry.key(), &entry.value() );
       }
       LOG(info) << "Wrote " << data.entries().size() << " genesis objects into new database";
 
@@ -159,10 +161,12 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       LOG(info) << "Calculated chain ID: " << chain_id;
       auto chain_id_str = util::converter::as< std::string >( chain_id );
       KOINOS_ASSERT(
-         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str ) == chain_id_str.size(),
+         !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
          koinos::chain::unexpected_state,
          "encountered unexpected chain id in initial state"
       );
+
+      root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
       LOG(info) << "Wrote chain ID into new database";
    } );
 
@@ -665,7 +669,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
 
    auto value = system_call::get_resource_limits( ctx );
@@ -730,10 +734,8 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
    ctx.resource_meter().set_resource_limit_data( rl );
 
-   auto result = system_call::call_contract( ctx, request.contract_id(), request.entry_point(), request.args() );
-
    rpc::chain::read_contract_response resp;
-   resp.set_result( result );
+   resp.set_result( system_call::call( ctx, request.contract_id(), request.entry_point(), request.args() ) );
    for ( const auto& message : ctx.chronicler().logs() )
       *resp.add_logs() = message;
 

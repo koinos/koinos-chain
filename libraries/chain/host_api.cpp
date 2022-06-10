@@ -16,49 +16,134 @@ namespace koinos::chain {
 host_api::host_api( execution_context& ctx ) : _ctx( ctx ) {}
 host_api::~host_api() {}
 
-uint32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
-   KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges, "'invoke_thunk' must be called from a system context" );
-   return thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
+   KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "'invoke_thunk' must be called from a system context" );
+
+   std::pair< std::string, int32_t > res;
+
+   try
+   {
+      thunk_dispatcher::instance().call_thunk( tid, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+   }
+   catch ( koinos::exception& e )
+   {
+      res.first = e.get_message();
+      res.second = e.get_code();
+   }
+
+   if ( tid == system_call_id::exit )
+   {
+      if ( res.second >= chain::reversion )
+         throw reversion_exception( res.second, res.first );
+      if ( res.second <= chain::failure )
+         throw failure_exception( res.second, res.first );
+
+      throw success_exception( res.second );
+   }
+
+   if ( res.second != chain::success )
+   {
+      chain::error_info einfo;
+      einfo.set_message( res.first );
+
+      auto einfo_bytes = util::converter::as< std::string >( einfo );
+
+      auto msg_len = einfo_bytes.size();
+      if ( msg_len <= ret_len )
+      {
+         std::memcpy( ret_ptr, einfo_bytes.data(), msg_len );
+         *bytes_written = msg_len;
+      }
+      else
+      {
+         res.second = chain::insufficient_return_buffer;
+         *bytes_written = 0;
+      }
+   }
+
+   return res.second;
 }
 
-uint32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len )
+int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
-   uint32_t bytes_returned = 0;
-   auto key = util::converter::as< std::string >( sid );
-   database_object object;
+   std::pair< std::string, int32_t > res;
 
-   with_stack_frame(
-      _ctx,
-      stack_frame {
-         .sid = sid,
-         .call_privilege = privilege::kernel_mode
-      },
-      [&]() {
-         if ( _ctx.system_call_exists( sid ) )
-         {
-            #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
-            std::string args( arg_ptr, arg_len );
-            auto ret = _ctx.system_call( sid, args );
-            KOINOS_ASSERT( ret.size() <= ret_len, insufficient_return_buffer, "return buffer too small" );
-            std::memcpy( ret.data(), ret_ptr, ret.size() );
-            bytes_returned = ret.size();
+   try
+   {
+      auto key = util::converter::as< std::string >( sid );
+      database_object object;
+
+      with_stack_frame(
+         _ctx,
+         stack_frame {
+            .sid = sid,
+            .call_privilege = privilege::kernel_mode
+         },
+         [&]() {
+            if ( _ctx.system_call_exists( sid ) )
+            {
+               #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
+               std::string args( arg_ptr, arg_len );
+               res = _ctx.system_call( sid, args );
+
+               if ( res.second )
+                  res.first = util::converter::to< chain::error_info >( res.first ).message();
+            }
+            else
+            {
+               auto thunk_id = _ctx.thunk_translation( sid );
+               KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), unknown_thunk_exception, "thunk ${tid} does not exist", ("tid", thunk_id) );
+               auto desc = chain::system_call_id_descriptor();
+               auto enum_value = desc->FindValueByNumber( thunk_id );
+               KOINOS_ASSERT( enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", thunk_id) );
+               auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
+               _ctx.resource_meter().use_compute_bandwidth( compute );
+               thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+            }
          }
-         else
-         {
-            auto thunk_id = _ctx.thunk_translation( sid );
-            KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( thunk_id ), thunk_not_found, "thunk ${tid} does not exist", ("tid", thunk_id) );
-            auto desc = chain::system_call_id_descriptor();
-            auto enum_value = desc->FindValueByNumber( thunk_id );
-            KOINOS_ASSERT( enum_value, thunk_not_found, "unrecognized thunk id ${id}", ("id", thunk_id) );
-            auto compute = _ctx.get_compute_bandwidth( enum_value->name() );
-            _ctx.resource_meter().use_compute_bandwidth( compute );
-            bytes_returned = thunk_dispatcher::instance().call_thunk( thunk_id, _ctx, ret_ptr, ret_len, arg_ptr, arg_len );
-         }
+      );
+   }
+   catch ( const koinos::exception& e )
+   {
+      res.first = e.get_message();
+      res.second = e.get_code();
+   }
+
+   if ( _ctx.get_privilege() == privilege::user_mode && res.second >= reversion )
+      throw reversion_exception( res.second, res.first );
+
+   if ( sid == system_call_id::exit )
+   {
+      if ( res.second >= reversion )
+         throw reversion_exception( res.second, res.first );
+      if ( res.second <= failure )
+         throw failure_exception( res.second, res.first );
+
+      throw success_exception( res.second );
+   }
+
+   if ( res.second != chain::success )
+   {
+      chain::error_info einfo;
+      einfo.set_message( res.first );
+
+      auto einfo_bytes = util::converter::as< std::string >( einfo );
+
+      auto msg_len = einfo_bytes.size();
+      if ( msg_len <= ret_len )
+      {
+         std::memcpy( ret_ptr, einfo_bytes.data(), msg_len );
+         *bytes_written = msg_len;
       }
-   );
+      else
+      {
+         res.second = chain::insufficient_return_buffer;
+         *bytes_written = 0;
+      }
+   }
 
-   return bytes_returned;
+   return res.second;
 }
 
 int64_t host_api::get_meter_ticks() const

@@ -70,10 +70,15 @@ BOOST_AUTO_TEST_CASE( basic_test )
    std::string a_key = "a";
    std::string a_val = "alice";
 
+   chain::database_key db_key;
+   *db_key.mutable_space() = space;
+   db_key.set_key( a_key );
+   auto key_size = util::converter::as< std::string >( db_key ).size();
+
    crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
    auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
    BOOST_REQUIRE( state_1 );
-   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() + key_size );
 
    // Object should not exist on older state node
    BOOST_CHECK_EQUAL( db.get_root()->get_object( space, a_key ), nullptr );
@@ -536,7 +541,12 @@ BOOST_AUTO_TEST_CASE( reset_test )
    std::string a_key = "a";
    std::string a_val = "alice";
 
-   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
+   chain::database_key db_key;
+   *db_key.mutable_space() = space;
+   db_key.set_key( a_key );
+   auto key_size = util::converter::as< std::string >( db_key ).size();
+
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() + key_size );
    db.finalize_node( state_1->id() );
 
    auto val_ptr = db.get_head()->get_object( space, a_key );
@@ -569,7 +579,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    BOOST_TEST_MESSAGE( "Creating object on committed state node" );
 
    state_1 = db.create_writable_node( db.get_head()->id(), state_id );
-   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() );
+   BOOST_CHECK_EQUAL( state_1->put_object( space, a_key, &a_val ), a_val.size() + key_size );
    db.finalize_node( state_1->id() );
    auto state_1_id = state_1->id();
    state_1.reset();
@@ -611,7 +621,12 @@ BOOST_AUTO_TEST_CASE( anonymous_node_test )
    std::string a_key = "a";
    std::string a_val = "alice";
 
-   BOOST_CHECK( state_1->put_object( space, a_key, &a_val ) == a_val.size() );
+   chain::database_key db_key;
+   *db_key.mutable_space() = space;
+   db_key.set_key( a_key );
+   auto key_size = util::converter::as< std::string >( db_key ).size();
+
+   BOOST_CHECK( state_1->put_object( space, a_key, &a_val ) == a_val.size() + key_size );
 
    auto ptr = state_1->get_object( space, a_key );
    BOOST_REQUIRE( ptr );

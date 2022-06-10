@@ -26,7 +26,7 @@ int main()
       }
    }
 
-   koinos::system::set_contract_result( res );
+   koinos::system::exit( 0, res );
 
    return 0;
 }

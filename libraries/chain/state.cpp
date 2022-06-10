@@ -122,11 +122,11 @@ void assert_permissions( execution_context& context, const object_space& space )
    {
       if ( context.get_privilege() == privilege::kernel_mode )
       {
-         KOINOS_ASSERT( space.system(), insufficient_privileges, "privileged code can only accessed system space" );
+         KOINOS_ASSERT( space.system(), insufficient_privileges_exception, "privileged code can only accessed system space" );
       }
       else
       {
-         KOINOS_THROW( out_of_bounds, "contract attempted access of non-contract database space" );
+         KOINOS_THROW( reversion_exception, "contract attempted access of non-contract database space" );
       }
    }
 }

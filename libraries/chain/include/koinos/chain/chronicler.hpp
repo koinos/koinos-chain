@@ -2,6 +2,7 @@
 #include <koinos/protocol/protocol.pb.h>
 #include <string>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace koinos::chain {

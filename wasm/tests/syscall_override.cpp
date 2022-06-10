@@ -1,50 +1,30 @@
 
-#include <utility>
+#include <koinos/system/system_calls.hpp>
 
-#include <stdint.h>
-#include <string.h>
-
-#include <koinos/chain/system_call_ids.h>
-
-char prepend[] = "test: ";
-#define PREPEND_LEN 6
-
-extern "C" {
-   uint32_t invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
-   uint32_t invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len );
-}
-
-void log( char* msg )
-{
-   char args[129];
-
-   int i = 0;
-
-   args[0] = '\x0a';
-
-   while( i < PREPEND_LEN )
-   {
-      args[i+2] = prepend[i];
-      i++;
-   }
-
-   i = 0;
-
-   while( msg[i] && i < 129 )
-   {
-      args[i + PREPEND_LEN + 2] = msg[i];
-      i++;
-   }
-
-   args[1] = (uint8_t)(i + PREPEND_LEN);
-
-   invoke_thunk( std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::log ), 0, 0, args, i + PREPEND_LEN + 2 );
-}
+extern "C" int32_t invoke_thunk( uint32_t sid, char* ret_ptr, uint32_t ret_len, char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written );
 
 int main()
 {
-   char message[65];
-   memset( message, 0, 65 );
-   invoke_system_call( std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::get_contract_arguments ), message, 63, 0, 0 );
-   log( message + 4 );
+   auto args = koinos::system::get_arguments().second;
+
+   koinos::read_buffer rdbuf( (uint8_t*)args.c_str(), args.size() );
+   koinos::chain::log_arguments< koinos::system::detail::max_argument_size > log_args;
+   log_args.deserialize( rdbuf );
+
+   auto msg = "test: " + std::string( reinterpret_cast< const char* >( log_args.get_message().get_const() ), log_args.get_message().get_length() );
+   log_args.mutable_message() = msg.c_str();
+
+   koinos::write_buffer buffer( koinos::system::detail::syscall_buffer.data(), koinos::system::detail::syscall_buffer.size() );
+   log_args.serialize( buffer );
+
+   uint32_t bytes_written;
+
+   return invoke_thunk(
+      std::underlying_type_t< koinos::chain::system_call_id >( koinos::chain::system_call_id::log ),
+      reinterpret_cast< char* >( koinos::system::detail::syscall_buffer.data() ),
+      std::size( koinos::system::detail::syscall_buffer ),
+      reinterpret_cast< char* >( buffer.data() ),
+      buffer.get_size(),
+      &bytes_written
+   );
 }
