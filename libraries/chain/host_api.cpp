@@ -89,6 +89,15 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
 
                if ( code )
                   error = res.res.error();
+               else if ( res.res.has_object() )
+               {
+                  auto obj_len = res.res.object().size();
+                  KOINOS_ASSERT( obj_len <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
+                  memcpy( ret_ptr, res.res.object().data(), obj_len );
+                  *bytes_written = obj_len;
+               }
+               else
+                  *bytes_written = 0;
             }
             else
             {
