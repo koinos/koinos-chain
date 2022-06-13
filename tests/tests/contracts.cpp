@@ -5,9 +5,11 @@
 #include <koinos/tests/wasm/call.hpp>
 #include <koinos/tests/wasm/contract_return.hpp>
 #include <koinos/tests/wasm/db_write.hpp>
+#include <koinos/tests/wasm/echo.hpp>
 #include <koinos/tests/wasm/empty_contract.hpp>
 #include <koinos/tests/wasm/exit.hpp>
 #include <koinos/tests/wasm/forever.hpp>
+#include <koinos/tests/wasm/get_arguments_override.hpp>
 #include <koinos/tests/wasm/hello.hpp>
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
@@ -33,9 +35,11 @@ KOINOS_DEFINE_GET_WASM( benchmark )
 KOINOS_DEFINE_GET_WASM( call )
 KOINOS_DEFINE_GET_WASM( contract_return )
 KOINOS_DEFINE_GET_WASM( db_write )
+KOINOS_DEFINE_GET_WASM( echo )
 KOINOS_DEFINE_GET_WASM( empty_contract )
 KOINOS_DEFINE_GET_WASM( exit )
 KOINOS_DEFINE_GET_WASM( forever )
+KOINOS_DEFINE_GET_WASM( get_arguments_override )
 KOINOS_DEFINE_GET_WASM( hello )
 KOINOS_DEFINE_GET_WASM( koin )
 KOINOS_DEFINE_GET_WASM( syscall_override )

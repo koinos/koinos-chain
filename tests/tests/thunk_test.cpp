@@ -1838,6 +1838,61 @@ BOOST_AUTO_TEST_CASE( contract_exit )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( syscall_override_return )
+{ try {
+   crypto::multihash echo_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "echo_contract" } );
+   crypto::private_key echo_pk = crypto::private_key::regenerate( echo_seed );
+   auto echo_contract_id = echo_pk.get_public_key().to_address_bytes();
+
+   crypto::multihash override_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "get_arguments_override" } );
+   crypto::private_key override_pk = crypto::private_key::regenerate( override_seed );
+   auto override_contract_id = override_pk.get_public_key().to_address_bytes();
+
+   protocol::upload_contract_operation upload_op;
+   upload_op.set_bytecode( get_echo_wasm() );
+   upload_op.set_contract_id( echo_contract_id );
+
+   protocol::transaction trx;
+   sign_transaction( trx, echo_pk );
+
+   ctx.set_transaction( trx );
+
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   chain::system_call::call( ctx, echo_contract_id, 0, "hello world" );
+
+   BOOST_REQUIRE_EQUAL( ctx.chronicler().logs().size(), 1 );
+   BOOST_CHECK_EQUAL( ctx.chronicler().logs()[0], "hello world" );
+
+   upload_op.set_bytecode( get_get_arguments_override_wasm() );
+   upload_op.set_contract_id( override_contract_id );
+
+   sign_transaction( trx, override_pk );
+   chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+   protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( override_contract_id );
+   set_system_op.set_system_contract( true );
+
+   sign_transaction( trx, _signing_private_key );
+   chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
+
+   protocol::set_system_call_operation set_syscall_op;
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( override_contract_id );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x0 );
+   set_syscall_op.set_call_id( chain::get_arguments );
+
+   chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
+
+   ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+
+   chain::system_call::call( ctx, echo_contract_id, 0, "hello world" );
+
+   BOOST_REQUIRE_EQUAL( ctx.chronicler().logs().size(), 2 );
+   BOOST_CHECK_EQUAL( ctx.chronicler().logs()[1], "override" );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {
    crypto::multihash contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "contract" } );

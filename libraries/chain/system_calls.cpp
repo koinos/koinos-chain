@@ -1225,9 +1225,6 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
 
 THUNK_DEFINE( void, exit, ((int32_t) code, (result) res) )
 {
-   LOG(info) << code;
-   LOG(info) << res;
-
    context.set_result( { code, res } );
 
    if ( !code ) // code == success
