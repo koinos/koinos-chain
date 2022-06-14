@@ -268,9 +268,9 @@ namespace koinos::chain::detail {
                if ( _res.code )                                                                                            \
                {                                                                                                           \
                   if ( _res.code >= chain::reversion )                                                                     \
-                     throw chain::reversion_exception( _res.code, _res.res.error().message() );                            \
+                     throw chain::reversion_exception( _res.code, _res.res.error() );                                      \
                   else if ( _res.code <= chain::failure )                                                                  \
-                     throw chain::failure_exception( _res.code, _res.res.error().message() );                              \
+                     throw chain::failure_exception( _res.code, _res.res.error() );                                        \
                }                                                                                                           \
                else if ( _sid == system_call_id::exit )                                                                    \
                   throw chain::success_exception( _res.code );                                                             \

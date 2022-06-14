@@ -30,15 +30,15 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
    catch ( koinos::exception& e )
    {
       code = e.get_code();
-      error.set_message( e.get_message() );
+      error = e.get_data();
    }
 
    if ( tid == system_call_id::exit )
    {
       if ( code >= chain::reversion )
-         throw reversion_exception( code, error.message() );
+         throw reversion_exception( code, error );
       if ( code <= chain::failure )
-         throw failure_exception( code, error.message() );
+         throw failure_exception( code, error );
 
       throw success_exception( code );
    }
@@ -115,21 +115,21 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
    }
    catch ( const koinos::exception& e )
    {
-      error.set_message( e.get_message() );
+      error = e.get_data();
       code = e.get_code();
    }
 
    if ( _ctx.get_privilege() == privilege::user_mode && code >= reversion )
-      throw reversion_exception( code, error.message() );
+      throw reversion_exception( code, error );
 
    if ( sid == system_call_id::exit )
    {
       if ( code >= reversion )
-         throw reversion_exception( code, error.message() );
+         throw reversion_exception( code, error );
       if ( code <= failure )
-         throw failure_exception( code, error.message() );
+         throw failure_exception( code, error );
 
-      throw success_exception( error.message() );
+      throw success_exception();
    }
 
    if ( code != chain::success )
