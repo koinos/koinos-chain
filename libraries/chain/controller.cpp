@@ -579,7 +579,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    {
       std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
 
-      ctx.set_state_node( _db.get_head() );
+      ctx.set_state_node( _db.get_head()->create_anonymous_node() );
       head_block_ptr = _cached_head_block;
    }
 
@@ -594,7 +594,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    rpc::chain::get_head_info_response resp;
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
-   resp.set_head_state_merkle_root( util::converter::as< std::string >( ctx.get_state_node()->get_merkle_root() ) );
+   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->get_merkle_root() ) );
 
    return resp;
 }
@@ -606,7 +606,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
 
    rpc::chain::get_chain_id_response resp;
@@ -626,7 +626,7 @@ fork_data controller_impl::get_fork_data()
 
    std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _db.get_root() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
    fork_heads = _db.get_fork_heads();
 
@@ -635,7 +635,7 @@ fork_data controller_impl::get_fork_data()
 
    for ( auto& fork : fork_heads )
    {
-      ctx.set_state_node( fork );
+      ctx.set_state_node( fork->create_anonymous_node() );
       ctx.reset_cache();
       auto head_info = system_call::get_head_info( ctx );
       fdata.first.emplace_back( std::move( head_info.head_topology() ) );
@@ -689,7 +689,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
 
    auto value = system_call::get_account_rc( ctx, request.account() );
@@ -726,7 +726,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
       .call_privilege = privilege::user_mode,
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
 
    resource_limit_data rl;
@@ -752,7 +752,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head() );
+   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
    ctx.reset_cache();
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() );
