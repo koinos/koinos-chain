@@ -108,7 +108,7 @@ THUNK_DECLARE( verify_vrf_proof_result, verify_vrf_proof, dsa type, const std::s
 // Contract Management
 
 THUNK_DECLARE( call_result, call, const std::string& contract_id, uint32_t entry_point, const std::string& args );
-THUNK_DECLARE( void, exit, result res );
+THUNK_DECLARE( void, exit, int32_t code, result res );
 THUNK_DECLARE_VOID( get_arguments_result, get_arguments );
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 THUNK_DECLARE_VOID( get_caller_result, get_caller );

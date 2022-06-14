@@ -20,7 +20,8 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
 {
    KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "'invoke_thunk' must be called from a system context" );
 
-   std::pair< std::string, int32_t > res;
+   int32_t code = 0;
+   error_data error;
 
    try
    {
@@ -28,46 +29,44 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
    }
    catch ( koinos::exception& e )
    {
-      res.first = e.get_message();
-      res.second = e.get_code();
+      code = e.get_code();
+      error.set_message( e.get_message() );
    }
 
    if ( tid == system_call_id::exit )
    {
-      if ( res.second >= chain::reversion )
-         throw reversion_exception( res.second, res.first );
-      if ( res.second <= chain::failure )
-         throw failure_exception( res.second, res.first );
+      if ( code >= chain::reversion )
+         throw reversion_exception( code, error.message() );
+      if ( code <= chain::failure )
+         throw failure_exception( code, error.message() );
 
-      throw success_exception( res.second );
+      throw success_exception( code );
    }
 
-   if ( res.second != chain::success )
+   if ( code != chain::success )
    {
-      chain::error_info einfo;
-      einfo.set_message( res.first );
+      auto error_bytes = util::converter::as< std::string >( error );
 
-      auto einfo_bytes = util::converter::as< std::string >( einfo );
-
-      auto msg_len = einfo_bytes.size();
+      auto msg_len = error_bytes.size();
       if ( msg_len <= ret_len )
       {
-         std::memcpy( ret_ptr, einfo_bytes.data(), msg_len );
+         std::memcpy( ret_ptr, error_bytes.data(), msg_len );
          *bytes_written = msg_len;
       }
       else
       {
-         res.second = chain::insufficient_return_buffer;
+         code = chain::insufficient_return_buffer;
          *bytes_written = 0;
       }
    }
 
-   return res.second;
+   return code;
 }
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
 {
-   std::pair< std::string, int32_t > res;
+   int32_t code = 0;
+   error_data error;
 
    try
    {
@@ -85,10 +84,20 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
             {
                #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
                std::string args( arg_ptr, arg_len );
-               res = _ctx.system_call( sid, args );
+               auto res = _ctx.system_call( sid, args );
+               code = res.code;
 
-               if ( res.second )
-                  res.first = util::converter::to< chain::error_info >( res.first ).message();
+               if ( code )
+                  error = res.res.error();
+               else if ( res.res.has_object() )
+               {
+                  auto obj_len = res.res.object().size();
+                  KOINOS_ASSERT( obj_len <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
+                  memcpy( ret_ptr, res.res.object().data(), obj_len );
+                  *bytes_written = obj_len;
+               }
+               else
+                  *bytes_written = 0;
             }
             else
             {
@@ -106,44 +115,41 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
    }
    catch ( const koinos::exception& e )
    {
-      res.first = e.get_message();
-      res.second = e.get_code();
+      error.set_message( e.get_message() );
+      code = e.get_code();
    }
 
-   if ( _ctx.get_privilege() == privilege::user_mode && res.second >= reversion )
-      throw reversion_exception( res.second, res.first );
+   if ( _ctx.get_privilege() == privilege::user_mode && code >= reversion )
+      throw reversion_exception( code, error.message() );
 
    if ( sid == system_call_id::exit )
    {
-      if ( res.second >= reversion )
-         throw reversion_exception( res.second, res.first );
-      if ( res.second <= failure )
-         throw failure_exception( res.second, res.first );
+      if ( code >= reversion )
+         throw reversion_exception( code, error.message() );
+      if ( code <= failure )
+         throw failure_exception( code, error.message() );
 
-      throw success_exception( res.second );
+      throw success_exception( error.message() );
    }
 
-   if ( res.second != chain::success )
+   if ( code != chain::success )
    {
-      chain::error_info einfo;
-      einfo.set_message( res.first );
+      auto error_bytes = util::converter::as< std::string >( error );
 
-      auto einfo_bytes = util::converter::as< std::string >( einfo );
-
-      auto msg_len = einfo_bytes.size();
+      auto msg_len = error_bytes.size();
       if ( msg_len <= ret_len )
       {
-         std::memcpy( ret_ptr, einfo_bytes.data(), msg_len );
+         std::memcpy( ret_ptr, error_bytes.data(), msg_len );
          *bytes_written = msg_len;
       }
       else
       {
-         res.second = chain::insufficient_return_buffer;
+         code = chain::insufficient_return_buffer;
          *bytes_written = 0;
       }
    }
 
-   return res.second;
+   return code;
 }
 
 int64_t host_api::get_meter_ticks() const

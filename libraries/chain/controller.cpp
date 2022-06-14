@@ -735,7 +735,10 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
    ctx.resource_meter().set_resource_limit_data( rl );
 
    rpc::chain::read_contract_response resp;
-   resp.set_result( system_call::call( ctx, request.contract_id(), request.entry_point(), request.args() ) );
+   auto res = system_call::call( ctx, request.contract_id(), request.entry_point(), request.args() );
+   if ( res.has_object() )
+      resp.set_result( res.object() );
+
    for ( const auto& message : ctx.chronicler().logs() )
       *resp.add_logs() = message;
 

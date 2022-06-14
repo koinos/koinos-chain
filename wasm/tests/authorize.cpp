@@ -26,7 +26,7 @@ int main()
       }
    }
 
-   koinos::system::exit( 0, res );
+   koinos::system::exit( res );
 
    return 0;
 }
