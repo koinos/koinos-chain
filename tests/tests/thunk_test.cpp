@@ -562,6 +562,87 @@ BOOST_AUTO_TEST_CASE( db_crud )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( db_permissions )
+{ try {
+   auto test_key_a = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "test a"s ) );
+   auto test_address_a = test_key_a.get_public_key().to_address_bytes();
+
+   auto test_key_b = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "test b"s ) );
+   auto test_address_b = test_key_b.get_public_key().to_address_bytes();
+
+   chain::object_space space;
+
+
+   BOOST_TEST_MESSAGE( "Test failure accessing user data outside your zone from user context" );
+
+   ctx.push_frame( chain::stack_frame{ .contract_id = test_address_a, .call_privilege = chain::user_mode } );
+   ctx.push_frame( chain::stack_frame{ .call_privilege = chain::user_mode } );
+
+   space.set_zone( test_address_b );
+   space.set_system( false );
+
+   KOINOS_CHECK_THROW( chain::state::assert_permissions( ctx, space ), chain::reversion );
+
+
+   BOOST_TEST_MESSAGE( "Test success accessing user data inside your zone from user context" );
+
+   space.set_zone( test_address_a );
+
+   BOOST_CHECK_NO_THROW( chain::state::assert_permissions( ctx, space ) );
+
+
+   BOOST_TEST_MESSAGE( "Test failure accessing kernel data outside your zone from user context" );
+
+   space.set_zone( test_address_b );
+   space.set_system( true );
+
+   KOINOS_CHECK_THROW( chain::state::assert_permissions( ctx, space ), chain::insufficient_privileges );
+
+
+   BOOST_TEST_MESSAGE( "Test failure accessing kernel data inside your zone from user context" );
+
+   space.set_zone( test_address_a );
+
+   KOINOS_CHECK_THROW( chain::state::assert_permissions( ctx, space ), chain::insufficient_privileges );
+
+
+   BOOST_TEST_MESSAGE( "Test failure accessing user data outside your zone from kernel context" );
+
+   ctx.pop_frame();
+   ctx.pop_frame();
+
+   ctx.push_frame( chain::stack_frame{ .contract_id = test_address_a, .call_privilege = chain::kernel_mode } );
+   ctx.push_frame( chain::stack_frame{ .call_privilege = chain::kernel_mode } );
+
+   space.set_zone( test_address_b );
+   space.set_system( false );
+
+   KOINOS_CHECK_THROW( chain::state::assert_permissions( ctx, space ), chain::reversion );
+
+
+   BOOST_TEST_MESSAGE( "Test failure accessing user data inside your zone from kernel context" );
+
+   space.set_zone( test_address_a );
+
+   KOINOS_CHECK_THROW( chain::state::assert_permissions( ctx, space ), chain::reversion );
+
+
+   BOOST_TEST_MESSAGE( "Test success accessing kernel data outside your zone from kernel context" );
+
+   space.set_zone( test_address_b );
+   space.set_system( true );
+
+   BOOST_CHECK_NO_THROW( chain::state::assert_permissions( ctx, space ) );
+
+
+   BOOST_TEST_MESSAGE( "Test success accessing kernel data inside your zone from kernel context" );
+
+   space.set_zone( test_address_a );
+
+   BOOST_CHECK_NO_THROW( chain::state::assert_permissions( ctx, space ) );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( contract_tests )
 { try {
    BOOST_TEST_MESSAGE( "Test uploading a contract" );
