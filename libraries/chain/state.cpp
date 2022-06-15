@@ -116,18 +116,14 @@ const object_space transaction_nonce()
 
 void assert_permissions( execution_context& context, const object_space& space )
 {
-   auto privilege = context.get_privilege();
-   const auto& caller = context.get_caller();
-   if ( space.zone() != caller )
+   if ( context.get_privilege() == privilege::kernel_mode )
    {
-      if ( context.get_privilege() == privilege::kernel_mode )
-      {
-         KOINOS_ASSERT( space.system(), insufficient_privileges_exception, "privileged code can only accessed system space" );
-      }
-      else
-      {
-         KOINOS_THROW( reversion_exception, "contract attempted access of non-contract database space" );
-      }
+      KOINOS_ASSERT( space.system(), reversion_exception, "privileged code can only access system space" );
+   }
+   else
+   {
+      KOINOS_ASSERT( !space.system(), insufficient_privileges_exception, "user code cannot access system space" );
+      KOINOS_ASSERT( space.zone() == context.get_caller(), reversion_exception, "user code cannot access other contract space" );
    }
 }
 
