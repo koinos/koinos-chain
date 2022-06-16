@@ -1193,17 +1193,14 @@ BOOST_AUTO_TEST_CASE( token_tests )
    mint_args.set_to( util::converter::as< std::string >( alice_address ) );
    mint_args.set_value( 100 );
 
-   response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   auto success = util::converter::to< koinos::contracts::token::mint_result >( response.object() );
-   BOOST_REQUIRE( !success.value() );
+   KOINOS_CHECK_THROW( koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) ), chain::reversion );
    BOOST_CHECK_EQUAL( session->events().size(), 0 );
 
    session = ctx.make_session( 10'000'000 );
 
    ctx.set_privilege( chain::privilege::kernel_mode );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   success = util::converter::to< koinos::contracts::token::mint_result >( response.object() );
-   BOOST_REQUIRE( success.value() );
+   BOOST_CHECK_NO_THROW( util::converter::to< koinos::contracts::token::mint_result >( response.object() ) );
 
    BOOST_REQUIRE_EQUAL( session->events().size(), 1 );
    {
@@ -1263,8 +1260,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    session = ctx.make_session( 10'000'000 );
    response = koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
-   auto xfer_result = util::converter::to< koinos::contracts::token::transfer_result >( response.object() );
-   BOOST_REQUIRE( xfer_result.value() );
+   BOOST_CHECK_NO_THROW( util::converter::to< koinos::contracts::token::transfer_result >( response.object() ) );
 
    balance_of_args.set_owner( util::converter::as< std::string >( alice_address ) );
    session = ctx.make_session( 10'000'000 );
@@ -1542,8 +1538,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    auto session = ctx.make_session( 100'000'000 );
 
    auto response = koinos::chain::system_call::call( ctx, upload_op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   auto success = util::converter::to< koinos::contracts::token::mint_result >( response.object() );
-   BOOST_REQUIRE( success.value() );
+   BOOST_CHECK_NO_THROW( util::converter::to< koinos::contracts::token::mint_result >( response.object() ) );
 
    BOOST_TEST_MESSAGE( "Override authorize call contract" );
    upload_op.set_contract_id( key_a.get_public_key().to_address_bytes() );
@@ -1794,8 +1789,7 @@ BOOST_AUTO_TEST_CASE( system_rc )
    mint_args.set_to( _signing_private_key.get_public_key().to_address_bytes() );
    mint_args.set_value( 1'000'000'000 );
 
-   auto response = koinos::chain::system_call::call( ctx, koin_id, token_entry::mint, util::converter::as< std::string >( mint_args ) );
-   BOOST_CHECK( util::converter::to< koinos::contracts::token::mint_result >( response.object() ).value() );
+   BOOST_CHECK_NO_THROW( koinos::chain::system_call::call( ctx, koin_id, token_entry::mint, util::converter::as< std::string >( mint_args ) ) );
 
    BOOST_TEST_MESSAGE( "Testing block production with sufficient rc" );
 
