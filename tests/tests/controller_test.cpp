@@ -860,7 +860,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).rc_used(), rc2 );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).payer(), util::converter::as< std::string >( alice_private_key.get_public_key().to_address_bytes() ) );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).max_payer_rc(), max_payer2 );
-   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).reverted(), false );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).reverted(), true );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).events_size(), 0 );
 
    LOG(info) << block_resp;
@@ -873,7 +873,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    koinos::contracts::token::transfer_arguments xfer_arg;
    xfer_arg.set_from( alice_address );
    xfer_arg.set_to( contract_private_key.get_public_key().to_address_bytes() );
-   xfer_arg.set_value( 100 );
+   xfer_arg.set_value( 0 );
 
    auto op3 = trx3.add_operations()->mutable_call_contract();
    op3->set_contract_id( op1->contract_id() );
@@ -911,7 +911,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().payer(), util::converter::as< std::string >( alice_private_key.get_public_key().to_address_bytes() ) );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().max_payer_rc(), max_payer3 );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().reverted(), false );
-   BOOST_REQUIRE_EQUAL( tx_resp.receipt().events_size(), 0 );
+   BOOST_REQUIRE_EQUAL( tx_resp.receipt().events_size(), 1 );
 
    LOG(info) << tx_resp.receipt();
 
