@@ -924,7 +924,7 @@ THUNK_DEFINE_VOID( get_operation_result, get_operation )
    get_operation_result ret;
 
    const auto* op = context.get_operation();
-   KOINOS_ASSERT( op != nullptr, operation_not_found, "outside an operational context" );
+   KOINOS_ASSERT( op != nullptr, operation_not_found_exception, "outside an operational context" );
    *ret.mutable_value() = *op;
 
    return ret;

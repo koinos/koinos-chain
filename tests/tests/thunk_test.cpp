@@ -125,6 +125,7 @@ struct thunk_fixture
          { "get_last_irreversible_block", 772 },
          { "get_next_object", 11181 },
          { "get_object", 1054 },
+         { "get_operation", 1081 },
          { "get_prev_object", 15445 },
          { "get_resource_limits", 1227 },
          { "get_transaction", 1584 },
@@ -494,18 +495,23 @@ BOOST_AUTO_TEST_CASE( get_operation )
    auto test_address_a = test_key_a.get_public_key().to_address_bytes();
 
    protocol::operation op;
-   op.mutable_call_contract()->set_contract_id( op );
+   op.mutable_call_contract()->set_contract_id( test_address_a );
 
    BOOST_CHECK( !ctx.get_operation() );
-   KOINOS_CHECK_THROW( chain::system_call::get_opertation( ctx ) );
+   KOINOS_CHECK_THROW( chain::system_call::get_operation( ctx ), chain::operation_not_found );
 
    ctx.set_operation( op );
 
-   BOOST_CHECK_EQUAL( ctx.get_operation(), op );
+   BOOST_CHECK_EQUAL( ctx.get_operation(), &op );
+   auto op2 = chain::system_call::get_operation( ctx );
+   BOOST_CHECK( op2.has_call_contract() );
+   BOOST_CHECK_EQUAL( op2.call_contract().contract_id(), test_address_a );
 
    ctx.clear_operation();
 
-   BOOST_CHECK_EQUAL( !ctx.get_operation() );
+   BOOST_CHECK( !ctx.get_operation() );
+   KOINOS_CHECK_THROW( chain::system_call::get_operation( ctx ), chain::operation_not_found );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( db_crud )
@@ -2193,6 +2199,10 @@ BOOST_AUTO_TEST_CASE( thunk_time )
 
    chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, util::converter::as< std::string >( nonce_value ) );
 
+   protocol::operation call_op;
+   call_op.mutable_call_contract()->set_contract_id( contract_pk.get_public_key().to_address_bytes() );
+   ctx.set_operation( call_op );
+
    protocol::transaction transaction;
    transaction.mutable_header()->set_chain_id( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::chain_id ).value() );
    transaction.mutable_header()->set_payer( _signing_private_key.get_public_key().to_address_bytes() );
@@ -2206,6 +2216,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
    transaction.add_signatures( util::converter::as< std::string >( contract_pk.sign_compact( trx_id ) ) );
    transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
    transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
+   ctx.set_transaction( transaction );
 
    auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
    protocol::block block;
@@ -2218,6 +2229,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
    block.mutable_header()->set_signer( _signing_private_key.get_public_key().to_address_bytes() );
    block.set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
    block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
+   ctx.set_block( block );
 
    auto header_str = util::converter::as< std::string >( block.header() );
    auto nonce_str = util::converter::as< std::string >( nonce_value );
@@ -2267,7 +2279,8 @@ BOOST_AUTO_TEST_CASE( thunk_time )
       { "verify_account_nonce", [&]() { chain::system_call::verify_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
       { "set_account_nonce", [&]() { chain::system_call::set_account_nonce( ctx, std::string{ "0x123" }, nonce_str ); } },
       { "verify_vrf_proof", [&]() { chain::system_call::verify_vrf_proof( ctx, chain::dsa::ecdsa_secp256k1, serialized_public_key, proof, proof_hash, message ); } },
-      { "get_chain_id", [&]() { chain::system_call::get_chain_id( ctx ); } }
+      { "get_chain_id", [&]() { chain::system_call::get_chain_id( ctx ); } },
+      { "get_operation", [&]() { chain::system_call::get_operation( ctx ); } }
    };
 
    for ( const auto& [ name, call ] : system_call_map )
