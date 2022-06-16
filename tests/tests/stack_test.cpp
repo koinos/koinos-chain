@@ -113,6 +113,7 @@ struct stack_fixture
          { "get_last_irreversible_block", 772 },
          { "get_next_object", 11181 },
          { "get_object", 1054 },
+         { "get_operation", 1081 },
          { "get_prev_object", 15445 },
          { "get_resource_limits", 1227 },
          { "get_transaction", 1584 },

@@ -22,6 +22,7 @@ KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( field_not_found_exception, failure_e
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unknown_hash_code_exception, failure_exception, unknown_hash_code );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unknown_dsa_exception, failure_exception, unknown_dsa );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unknown_system_call_exception, failure_exception, unknown_system_call );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( operation_not_found_exception, failure_exception, operation_not_found );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( authorization_failure_exception, failure_exception, authorization_failure );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( invalid_nonce_exception, failure_exception, invalid_nonce );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( invalid_signature_exception, failure_exception, invalid_signature );
