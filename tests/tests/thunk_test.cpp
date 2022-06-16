@@ -488,6 +488,26 @@ BOOST_AUTO_TEST_CASE( get_block_field )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( get_operation )
+{ try {
+   auto test_key_a = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "test a"s ) );
+   auto test_address_a = test_key_a.get_public_key().to_address_bytes();
+
+   protocol::operation op;
+   op.mutable_call_contract()->set_contract_id( op );
+
+   BOOST_CHECK( !ctx.get_operation() );
+   KOINOS_CHECK_THROW( chain::system_call::get_opertation( ctx ) );
+
+   ctx.set_operation( op );
+
+   BOOST_CHECK_EQUAL( ctx.get_operation(), op );
+
+   ctx.clear_operation();
+
+   BOOST_CHECK_EQUAL( !ctx.get_operation() );
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_CASE( db_crud )
 { try {
    std::string object_data;
