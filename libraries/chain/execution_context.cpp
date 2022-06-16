@@ -80,6 +80,21 @@ void execution_context::clear_transaction()
    _trx = nullptr;
 }
 
+void execution_context::set_operation( const protocol::operation& op )
+{
+   _op = &op;
+}
+
+const protocol::operation* execution_context::get_operation() const
+{
+   return _op;
+}
+
+void execution_context::clear_operation()
+{
+   _op = nullptr;
+}
+
 const std::string& execution_context::get_contract_call_args() const
 {
    KOINOS_ASSERT( _stack.size() > 1, chain::internal_error_exception, "stack is empty" );

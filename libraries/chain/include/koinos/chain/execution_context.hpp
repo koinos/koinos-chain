@@ -86,6 +86,10 @@ class execution_context
       const protocol::transaction* get_transaction() const;
       void clear_transaction();
 
+      void set_operation( const protocol::operation& );
+      const protocol::operation* get_operation() const;
+      void clear_operation();
+
       void set_contract_call_args( const std::string& args );
       const std::string& get_contract_call_args() const;
 
@@ -145,6 +149,7 @@ class execution_context
 
       const protocol::block*                    _block = nullptr;
       const protocol::transaction*              _trx = nullptr;
+      const protocol::operation*                _op = nullptr;
 
       chain::resource_meter                     _resource_meter;
       chain::chronicler                         _chronicler;

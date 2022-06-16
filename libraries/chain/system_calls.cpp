@@ -68,6 +68,7 @@ void register_thunks( thunk_dispatcher& td )
       (verify_account_nonce)
       (set_account_nonce)
       (check_system_authority)
+      (get_operation)
 
       // Resource Subsystem
       (get_account_rc)
@@ -138,6 +139,24 @@ struct transaction_guard
    ~transaction_guard()
    {
       ctx.clear_transaction();
+   }
+
+   execution_context& ctx;
+};
+
+// RAII class to ensure apply context operation state is consistent if there is an error applying
+// the operation.
+struct operation_guard
+{
+   operation_guard( execution_context& context, const protocol::operation& op ) :
+      ctx( context )
+   {
+      ctx.set_operation( op );
+   }
+
+   ~operation_guard()
+   {
+      ctx.clear_operation();
    }
 
    execution_context& ctx;
@@ -531,6 +550,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
          for ( const auto& o : trx.operations() )
          {
+            operation_guard guard( context, o );
+
             if ( o.has_upload_contract() )
                system_call::apply_upload_contract_operation( context, o.upload_contract() );
             else if ( o.has_call_contract() )
@@ -896,6 +917,17 @@ THUNK_DEFINE( check_system_authority_result, check_system_authority, ((system_au
    res.set_value( authorized );
 
    return res;
+}
+
+THUNK_DEFINE_VOID( get_operation_result, get_operation )
+{
+   get_operation_result ret;
+
+   const auto* op = context.get_operation();
+   KOINOS_ASSERT( op != nullptr, operation_not_found_exception, "outside an operational context" );
+   *ret.mutable_value() = *op;
+
+   return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
