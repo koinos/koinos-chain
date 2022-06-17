@@ -1251,7 +1251,9 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
    }
 
    call_result ret;
-   *ret.mutable_value() = res.res;
+   if ( res.res.has_object() )
+      *ret.mutable_value() = res.res.object();
+
    return ret;
 }
 
@@ -1366,7 +1368,7 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
          args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
       }
 
-      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ).object() ).value();
+      authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
    }
    else
    {
