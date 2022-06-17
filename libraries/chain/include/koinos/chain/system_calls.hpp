@@ -113,6 +113,13 @@ THUNK_DECLARE( void, exit, int32_t code, result res );
 THUNK_DECLARE_VOID( get_arguments_result, get_arguments );
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE( check_authority_result, check_authority, authorization_type type, const std::string& account );
+THUNK_DECLARE( check_authority_result, check_authority, authorization_type type, const std::string& account, const std::string& data );
+
+namespace system_call {
+   inline bool check_authority( execution_context& context, authorization_type type, const std::string& account )
+   {
+      return check_authority( context, type, account, "" );
+   }
+}
 
 } // koinos::chain

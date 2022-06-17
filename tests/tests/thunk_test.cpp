@@ -1568,6 +1568,9 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
       chain::reversion
    );
 
+   BOOST_CHECK( !chain::system_call::check_authority( ctx, chain::contract_call, key_a.get_public_key().to_address_bytes() ) );
+   BOOST_CHECK( chain::system_call::check_authority( ctx, chain::contract_call, key_a.get_public_key().to_address_bytes(), "foobar" ) );
+
    sign_transaction( trx, key_b );
    koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
    BOOST_TEST_PASSPOINT();

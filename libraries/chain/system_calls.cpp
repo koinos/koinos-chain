@@ -1327,7 +1327,7 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
    return ret;
 }
 
-THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) type, (const std::string&) account) )
+THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) type, (const std::string&) account, (const std::string&) data) )
 {
    KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
 
@@ -1366,6 +1366,8 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
       {
          args.mutable_call()->set_contract_id( context.get_caller() );
          args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
+         args.mutable_call()->set_caller( thunk::_get_caller( context ).value().caller() );
+         args.mutable_call()->set_data( data );
       }
 
       authorized = util::converter::to< authorize_result >( system_call::call( context, account, authorize_entrypoint, util::converter::as< std::string >( args ) ) ).value();
