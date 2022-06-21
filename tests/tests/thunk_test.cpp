@@ -1607,7 +1607,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    sign_transaction( trx, key_a );
    KOINOS_REQUIRE_THROW(
       koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) ),
-      chain::reversion
+      chain::authorization_failure
    );
 
    sign_transaction( trx, key_b );
