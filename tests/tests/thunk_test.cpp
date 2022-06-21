@@ -1199,7 +1199,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
    mint_args.set_to( util::converter::as< std::string >( alice_address ) );
    mint_args.set_value( 100 );
 
-   KOINOS_CHECK_THROW( koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) ), chain::reversion );
+   KOINOS_CHECK_THROW( koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) ), chain::authorization_failure );
    BOOST_CHECK_EQUAL( session->events().size(), 0 );
 
    session = ctx.make_session( 10'000'000 );
@@ -1249,7 +1249,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    KOINOS_REQUIRE_THROW(
       koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) ),
-      chain::reversion
+      chain::authorization_failure
    );
 
    sign_transaction( trx, bob_private_key );
@@ -1258,7 +1258,7 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    KOINOS_REQUIRE_THROW(
       koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::transfer, util::converter::as< std::string >( transfer_args ) ),
-      chain::reversion
+      chain::authorization_failure
    );
 
    sign_transaction( trx, alice_private_key );
@@ -1293,6 +1293,48 @@ catch( const koinos::vm_manager::vm_exception& e )
    BOOST_FAIL("VM Exception");
 }
 KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( call_contract_operation_failure )
+{ try {
+   auto contract_private_key = crypto::private_key::regenerate( crypto::hash( koinos::crypto::multicodec::sha2_256, "token_contract"s ) );
+   auto contract_address = contract_private_key.get_public_key().to_address_bytes();
+   protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   auto alice_private_key = crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
+   auto alice_address = alice_private_key.get_public_key().to_address_bytes();
+
+   auto session = ctx.make_session( 10'000'000 );
+
+   BOOST_TEST_MESSAGE( "Upload token contract" );
+
+   protocol::upload_contract_operation op;
+   op.set_contract_id( util::converter::as< std::string >( contract_address ) );
+   op.set_bytecode( get_koin_wasm() );
+
+   chain::system_call::apply_upload_contract_operation( ctx, op );
+
+   BOOST_TEST_MESSAGE( "Check direct call throws a failure" );
+
+   contracts::token::mint_arguments mint_args;
+   mint_args.set_to( util::converter::as< std::string >( alice_address ) );
+   mint_args.set_value( 100 );
+   ctx.set_privilege( chain::privilege::user_mode );
+
+   KOINOS_CHECK_THROW( koinos::chain::system_call::call( ctx, op.contract_id(), token_entry::mint, util::converter::as< std::string >( mint_args ) ), chain::authorization_failure );
+
+   BOOST_TEST_MESSAGE( "Check reversion is thrown when called through 'apply_call_contract_operation'" );
+
+   protocol::call_contract_operation call_op;
+   call_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
+   call_op.set_entry_point( token_entry::mint );
+   call_op.set_args( util::converter::as< std::string >( mint_args ) );
+   ctx.set_privilege( chain::privilege::kernel_mode );
+
+   KOINOS_CHECK_THROW( chain::system_call::apply_call_contract_operation( ctx, call_op ), chain::reversion );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( tick_limit )
 { try {
