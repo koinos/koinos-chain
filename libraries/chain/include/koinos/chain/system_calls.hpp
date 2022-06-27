@@ -49,6 +49,12 @@ void register_thunks( thunk_dispatcher& td );
  * unique, thunk_id.
  */
 
+namespace thunk {
+
+void _nop( execution_context& );
+
+} // thunk
+
 // General Blockchain Management
 
 THUNK_DECLARE_VOID( get_head_info_result, get_head_info );

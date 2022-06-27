@@ -496,7 +496,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
    const_cast< chain::thunk_dispatcher& >( chain::thunk_dispatcher::instance() ).register_thunk< chain::log_arguments, chain::log_result >( 0, chain::thunk::dummy_thunk );
    auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
    auto centry = cbr.add_entries();
-   centry->set_name( "reserved_id" );
+   centry->set_name( "nop" );
    centry->set_compute( 0 );
 
    chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry, util::converter::as< std::string >( cbr ) );

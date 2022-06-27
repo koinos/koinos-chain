@@ -830,7 +830,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    auto cbr = util::converter::to< chain::compute_bandwidth_registry >( chain::system_call::get_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry ).value() );
    auto centry = cbr.add_entries();
-   centry->set_name( "reserved_id" );
+   centry->set_name( "nop" );
    centry->set_compute( 0 );
 
    chain::system_call::put_object( ctx, chain::state::space::metadata(), chain::state::key::compute_bandwidth_registry, util::converter::as< std::string >( cbr ) );
@@ -847,7 +847,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
 
-   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::reserved_id ) );
+   set_op.set_call_id( std::underlying_type_t< chain::system_call_id >( chain::system_call_id::nop ) );
    koinos::chain::system_call::apply_set_system_call_operation( ctx, set_op );
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
