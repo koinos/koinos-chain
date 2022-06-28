@@ -116,7 +116,7 @@ const object_space transaction_nonce()
 
 void assert_permissions( execution_context& context, const object_space& space )
 {
-   if ( context.get_privilege() == privilege::kernel_mode )
+   if ( context.get_caller_privilege() == privilege::kernel_mode )
    {
       KOINOS_ASSERT( space.system(), reversion_exception, "privileged code can only access system space" );
    }

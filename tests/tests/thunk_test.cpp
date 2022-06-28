@@ -1155,7 +1155,19 @@ BOOST_AUTO_TEST_CASE( token_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
 
+   koinos::protocol::set_system_contract_operation sys_op;
+   sys_op.set_contract_id( op.contract_id() );
+   sys_op.set_system_contract( true );
+
+   sign_transaction( trx, _signing_private_key );
+   ctx.set_transaction( trx );
+
+   koinos::chain::system_call::apply_set_system_contract_operation( ctx, sys_op );
+
    BOOST_TEST_MESSAGE( "Test executing a contract" );
+
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "token_tests"s, .call_privilege = chain::user_mode } );
 
@@ -1315,7 +1327,19 @@ BOOST_AUTO_TEST_CASE( call_contract_operation_failure )
 
    chain::system_call::apply_upload_contract_operation( ctx, op );
 
+   koinos::protocol::set_system_contract_operation sys_op;
+   sys_op.set_contract_id( op.contract_id() );
+   sys_op.set_system_contract( true );
+
+   sign_transaction( trx, _signing_private_key );
+   ctx.set_transaction( trx );
+
+   koinos::chain::system_call::apply_set_system_contract_operation( ctx, sys_op );
+
    BOOST_TEST_MESSAGE( "Check direct call throws a failure" );
+
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
 
    contracts::token::mint_arguments mint_args;
    mint_args.set_to( util::converter::as< std::string >( alice_address ) );
@@ -1578,10 +1602,22 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
 
+   koinos::protocol::set_system_contract_operation sys_op;
+   sys_op.set_contract_id( upload_op.contract_id() );
+   sys_op.set_system_contract( true );
+
+   sign_transaction( trx, _signing_private_key );
+   ctx.set_transaction( trx );
+
+   koinos::chain::system_call::apply_set_system_contract_operation( ctx, sys_op );
+
    // Mint to key_a
    koinos::contracts::token::mint_arguments mint_args;
    mint_args.set_to( util::converter::as< std::string >( key_a.get_public_key().to_address_bytes() ) );
    mint_args.set_value( 100 );
+
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
 
    auto session = ctx.make_session( 100'000'000 );
 
