@@ -202,6 +202,12 @@ struct controller_fixture
       transaction.mutable_header()->set_operation_merkle_root( util::converter::as< std::string >( operation_merkle_tree.root()->hash() ) );
    }
 
+   void add_signature( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
+   {
+      auto id_mh = util::converter::to< crypto::multihash >( transaction.id() );
+      transaction.add_signatures( util::converter::as< std::string >( transaction_signing_key.sign_compact( id_mh ) ) );
+   }
+
    void sign_transaction( protocol::transaction& transaction, crypto::private_key& transaction_signing_key )
    {
       transaction.mutable_header()->set_payer( transaction_signing_key.get_public_key().to_address_bytes() );
@@ -606,11 +612,15 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( get_koin_wasm() );
+   auto sys_op = trx1.add_operations()->mutable_set_system_contract();
+   sys_op->set_contract_id( op1->contract_id() );
+   sys_op->set_system_contract( true );
    trx1.mutable_header()->set_rc_limit( 10'000'000 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    trx1.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx1, contract_private_key );
+   add_signature( trx1, _block_signing_private_key );
 
    koinos::protocol::transaction trx2;
 
@@ -768,11 +778,15 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    auto op1 = trx1.add_operations()->mutable_upload_contract();
    op1->set_contract_id( util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    op1->set_bytecode( get_koin_wasm() );
+   auto sys_op = trx1.add_operations()->mutable_set_system_contract();
+   sys_op->set_contract_id( op1->contract_id() );
+   sys_op->set_system_contract( true );
    trx1.mutable_header()->set_rc_limit( rc_limit1 );
    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
    trx1.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx1, contract_private_key );
+   add_signature( trx1, _block_signing_private_key );
 
    koinos::protocol::transaction trx2;
 
@@ -849,7 +863,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).payer(), util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).max_payer_rc(), max_payer1 );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).reverted(), false );
-   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).events_size(), 0 );
+   BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 0 ).events_size(), 1 );
 
    uint64_t rc2 = 0;
    rc2 += block_resp.receipt().transaction_receipts( 1 ).disk_storage_used() * rld.resource_limit_data().disk_storage_cost();

@@ -105,6 +105,7 @@ void register_thunks( thunk_dispatcher& td )
 
    THUNK_REGISTER( td,
       // Non genesis thunks go here
+      (nop)
    )
 }
 
@@ -269,6 +270,12 @@ bool validate_utf( const std::basic_string< T >& p_str )
    }
    return true;
 }
+
+namespace thunk {
+
+void _nop( execution_context& ) {}
+
+} // thunk
 
 THUNK_DEFINE_BEGIN();
 
