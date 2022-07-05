@@ -383,6 +383,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          *ba.mutable_block() = block;
          *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
          ba.set_live( live );
+         ba.set_head( block_node == _db.get_head() );
 
          _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
 
