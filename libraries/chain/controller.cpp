@@ -362,7 +362,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          _db.finalize_node( block_node->id() );
 
-         if ( block_node == _db.get_head() )
+         if ( block_node->id() == _db.get_head()->id() )
          {
             _cached_head_block = std::make_shared< protocol::block >( block );
          }
@@ -383,7 +383,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          *ba.mutable_block() = block;
          *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
          ba.set_live( live );
-         ba.set_head( block_node == _db.get_head() );
+         ba.set_head( block_node->id() == _db.get_head()->id() );
 
          _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
 
