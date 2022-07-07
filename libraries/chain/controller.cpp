@@ -596,6 +596,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
    resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->get_merkle_root() ) );
+   resp.set_head_block_time( head_info.head_block_time() );
 
    return resp;
 }
