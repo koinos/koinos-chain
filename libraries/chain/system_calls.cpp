@@ -588,6 +588,12 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 
          reverted_exception_ptr = std::current_exception();
       }
+      catch ( const std::exception& e )
+      {
+         LOG(error) << e.what();
+         assert( false );
+         throw;
+      }
       catch ( ... )
       {
          assert( false );

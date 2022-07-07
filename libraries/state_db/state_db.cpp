@@ -6,8 +6,10 @@
 #include <koinos/state_db/detail/state_delta.hpp>
 #include <koinos/util/conversion.hpp>
 
+#include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <unordered_set>
@@ -86,8 +88,8 @@ class state_node_impl final
       int64_t remove_object( const object_space& space, const object_key& key );
       crypto::multihash get_merkle_root() const;
 
-      state_delta_ptr   _state;
-      shared_lock_ptr   _lock;
+      state_delta_ptr         _state;
+      shared_lock_ptr         _lock;
 };
 
 /**
@@ -172,7 +174,7 @@ void database_impl::open_lockless( const std::filesystem::path& p, std::function
    {
       init( root );
    }
-   root->impl->_state->set_writable( false );
+   root->impl->_state->finalize();
    _index.insert( root->impl->_state );
    _root = root->impl->_state;
    _head = root->impl->_state;
@@ -256,15 +258,34 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
    std::lock_guard< std::mutex > index_lock( _index_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
 
-   auto parent_state = _index.find( parent_id );
-   if( parent_state != _index.end() && !(*parent_state)->is_writable() )
+   if ( auto parent_state = _index.find( parent_id ); parent_state != _index.end() )
    {
-      auto node = std::make_shared< state_node >();
-      node->impl->_state = (*parent_state)->make_child( new_id );
-      if( _index.insert( node->impl->_state ).second )
+      // Needs to be configurable
+      auto timeout = std::chrono::system_clock::now() + std::chrono::seconds( 1 );
+
+      std::unique_lock< std::timed_mutex > lock( (*parent_state)->cv_mutex(), timeout );
+
+      // We need to own the lock
+      if ( lock.owns_lock() )
       {
-         node->impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
-         return node;
+         // Check if the node is finalized
+         bool is_finalized = (*parent_state)->is_finalized();
+
+         // If the node is finalized, try to wait for the node to be finalized
+         if ( !is_finalized && (*parent_state)->cv().wait_until( lock, timeout ) == std::cv_status::no_timeout )
+            is_finalized = (*parent_state)->is_finalized();
+
+         // Finally, if the node is finalized, we can create a new writable node with the desired parent
+         if ( is_finalized )
+         {
+            auto node = std::make_shared< state_node >();
+            node->impl->_state = (*parent_state)->make_child( new_id );
+            if ( _index.insert( node->impl->_state ).second )
+            {
+               node->impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
+               return node;
+            }
+         }
       }
    }
 
@@ -278,7 +299,13 @@ void database_impl::finalize_node( const state_node_id& node_id )
    auto node = get_node_lockless( node_id );
    KOINOS_ASSERT( node, illegal_argument, "node ${n} not found.", ("n", node_id) );
 
-   node->impl->_state->set_writable( false );
+   {
+      std::lock_guard< std::timed_mutex > index_lock( node->impl->_state->cv_mutex() );
+
+      node->impl->_state->finalize();
+   }
+
+   node->impl->_state->cv().notify_all();
 
    if( node->revision() > _head->revision() )
    {
@@ -495,7 +522,7 @@ std::pair< const object_value*, const object_key > state_node_impl::get_prev_obj
 
 int64_t state_node_impl::put_object( const object_space& space, const object_key& key, const object_value* val )
 {
-   KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
+   KOINOS_ASSERT( !_state->is_finalized(), node_finalized, "cannot write to a finalized node" );
 
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -518,7 +545,7 @@ int64_t state_node_impl::put_object( const object_space& space, const object_key
 
 int64_t state_node_impl::remove_object( const object_space& space, const object_key& key )
 {
-   KOINOS_ASSERT( _state->is_writable(), node_finalized, "cannot write to a finalized node" );
+   KOINOS_ASSERT( !_state->is_finalized(), node_finalized, "cannot write to a finalized node" );
 
    chain::database_key db_key;
    *db_key.mutable_space() = space;
@@ -574,14 +601,14 @@ int64_t abstract_state_node::remove_object( const object_space& space, const obj
    return impl->remove_object( space, key );
 }
 
-bool abstract_state_node::is_writable() const
+bool abstract_state_node::is_finalized() const
 {
-   return impl->_state->is_writable();
+   return impl->_state->is_finalized();
 }
 
 crypto::multihash abstract_state_node::get_merkle_root() const
 {
-   KOINOS_ASSERT( !is_writable(), koinos::exception, "cannot get the merkle root of a writable node" );
+   KOINOS_ASSERT( is_finalized(), koinos::exception, "node must be finalized to calculation merkle root" );
    return impl->get_merkle_root();
 }
 
@@ -656,7 +683,7 @@ abstract_state_node_ptr anonymous_state_node::get_parent() const
 
 void anonymous_state_node::commit()
 {
-   KOINOS_ASSERT( parent->is_writable(), node_finalized, "cannot commit to a finalized node" );
+   KOINOS_ASSERT( !parent->is_finalized(), node_finalized, "cannot commit to a finalized node" );
    impl->_state->squash();
    reset();
 }

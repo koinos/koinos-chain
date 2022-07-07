@@ -150,14 +150,24 @@ void state_delta::set_revision( uint64_t revision )
    }
 }
 
-bool state_delta::is_writable() const
+bool state_delta::is_finalized() const
 {
-   return _writable;
+   return _finalized;
 }
 
-void state_delta::set_writable( bool writable )
+void state_delta::finalize()
 {
-   _writable = writable;
+   _finalized = true;
+}
+
+std::condition_variable_any& state_delta::cv()
+{
+   return _cv;
+}
+
+std::timed_mutex& state_delta::cv_mutex()
+{
+   return _cv_mutex;
 }
 
 crypto::multihash state_delta::get_merkle_root() const

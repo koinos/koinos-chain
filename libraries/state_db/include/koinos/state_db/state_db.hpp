@@ -81,7 +81,7 @@ class abstract_state_node
       /**
        * Return true if the node is writable.
        */
-      bool is_writable() const;
+      bool is_finalized() const;
 
       /**
        * Return the merkle root of writes on this state node

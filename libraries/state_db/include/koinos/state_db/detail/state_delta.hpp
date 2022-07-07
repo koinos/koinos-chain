@@ -7,8 +7,10 @@
 #include <koinos/crypto/multihash.hpp>
 
 #include <any>
+#include <condition_variable>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <unordered_set>
 
 namespace koinos::state_db::detail {
@@ -30,7 +32,10 @@ namespace koinos::state_db::detail {
          uint64_t                                   _revision = 0;
          mutable std::optional< crypto::multihash > _merkle_root;
 
-         bool                                       _writable = true;
+         bool                                       _finalized = false;
+
+         std::timed_mutex                           _cv_mutex;
+         std::condition_variable_any                _cv;
 
       public:
          state_delta() = default;
@@ -54,8 +59,11 @@ namespace koinos::state_db::detail {
          uint64_t revision() const;
          void set_revision( uint64_t revision );
 
-         bool is_writable() const;
-         void set_writable( bool );
+         bool is_finalized() const;
+         void finalize();
+
+         std::condition_variable_any& cv();
+         std::timed_mutex& cv_mutex();
 
          crypto::multihash get_merkle_root() const;
 
