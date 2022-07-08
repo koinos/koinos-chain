@@ -547,7 +547,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       // the rest of the transaction is reverted or not.
       auto block_node = context.get_state_node();
       auto trx_node = block_node->create_anonymous_node();
-      context.set_state_node( trx_node, block_node->get_parent() );
+      context.set_state_node( trx_node, block_node->parent() );
 
       try
       {

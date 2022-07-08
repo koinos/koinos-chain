@@ -5,6 +5,7 @@
 #include <koinos/state_db/state_db_types.hpp>
 
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/protocol/protocol.pb.h>
 
 #include <any>
 #include <condition_variable>
@@ -65,13 +66,14 @@ namespace koinos::state_db::detail {
          std::condition_variable_any& cv();
          std::timed_mutex& cv_mutex();
 
-         crypto::multihash get_merkle_root() const;
+         crypto::multihash merkle_root() const;
 
          const state_node_id& id() const;
          const state_node_id& parent_id() const;
          std::shared_ptr< state_delta > parent() const;
+         const protocol::block_header& block_header() const;
 
-         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id() );
+         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id(), const protocol::block_header& header = protocol::block_header() );
 
          const std::shared_ptr< backend_type > backend() const;
 

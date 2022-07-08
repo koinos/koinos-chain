@@ -30,8 +30,12 @@ class map_backend final : public abstract_backend {
       virtual iterator find( const key_type& k ) override;
       virtual iterator lower_bound( const key_type& k ) override;
 
+      virtual const protocol::block_header& block_header() const override;
+      virtual void set_block_header( const protocol::block_header& ) override;
+
    private:
       std::map< key_type, value_type > _map;
+      protocol::block_header           _header;
 };
 
 } // koinos::state_db::backends::map

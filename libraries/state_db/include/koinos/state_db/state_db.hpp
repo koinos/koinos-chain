@@ -2,6 +2,8 @@
 #pragma once
 #include <koinos/state_db/state_db_types.hpp>
 
+#include <koinos/protocol/protocol.pb.h>
+
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <any>
@@ -86,24 +88,25 @@ class abstract_state_node
       /**
        * Return the merkle root of writes on this state node
        */
-      crypto::multihash get_merkle_root() const;
+      crypto::multihash merkle_root() const;
 
       /**
        * Returns an anonymous state node with this node as its parent.
        */
       anonymous_state_node_ptr create_anonymous_node();
 
-      virtual const state_node_id&    id() const = 0;
-      virtual const state_node_id&    parent_id() const = 0;
-      virtual uint64_t                revision() const = 0;
-      virtual abstract_state_node_ptr get_parent() const = 0;
+      virtual const state_node_id&          id() const = 0;
+      virtual const state_node_id&          parent_id() const = 0;
+      virtual uint64_t                      revision() const = 0;
+      virtual abstract_state_node_ptr       parent() const = 0;
+      virtual const protocol::block_header& block_header() const = 0;
 
       friend class detail::database_impl;
 
    protected:
       virtual std::shared_ptr< abstract_state_node > shared_from_derived() = 0;
 
-      std::unique_ptr< detail::state_node_impl > impl;
+      std::unique_ptr< detail::state_node_impl > _impl;
 };
 
 class anonymous_state_node final : public abstract_state_node, public std::enable_shared_from_this< anonymous_state_node >
@@ -112,10 +115,11 @@ class anonymous_state_node final : public abstract_state_node, public std::enabl
       anonymous_state_node();
       ~anonymous_state_node();
 
-      const state_node_id&    id() const override;
-      const state_node_id&    parent_id() const override;
-      uint64_t                revision() const override;
-      abstract_state_node_ptr get_parent() const override;
+      const state_node_id&          id() const override;
+      const state_node_id&          parent_id() const override;
+      uint64_t                      revision() const override;
+      abstract_state_node_ptr       parent() const override;
+      const protocol::block_header& block_header() const override;
 
       void commit();
       void reset();
@@ -126,7 +130,7 @@ class anonymous_state_node final : public abstract_state_node, public std::enabl
       std::shared_ptr< abstract_state_node > shared_from_derived()override;
 
    private:
-      abstract_state_node_ptr parent;
+      abstract_state_node_ptr _parent;
 };
 
 /**
@@ -138,16 +142,21 @@ class state_node final : public abstract_state_node, public std::enable_shared_f
       state_node();
       ~state_node();
 
-      const state_node_id&    id() const override;
-      const state_node_id&    parent_id() const override;
-      uint64_t                revision() const override;
-      abstract_state_node_ptr get_parent() const override;
+      const state_node_id&          id() const override;
+      const state_node_id&          parent_id() const override;
+      uint64_t                      revision() const override;
+      abstract_state_node_ptr       parent() const override;
+      const protocol::block_header& block_header() const override;
 
    protected:
       std::shared_ptr< abstract_state_node > shared_from_derived()override;
 };
 
 using state_node_ptr = std::shared_ptr< state_node >;
+using genesis_init_function = std::function< void( state_node_ptr ) >;
+using state_node_comparator_function = std::function< state_node_ptr( state_node_ptr, state_node_ptr ) >;
+
+state_node_ptr fifo_comparator( state_node_ptr current_head, state_node_ptr new_head );
 
 /**
  * database is designed to provide parallel access to the database across
@@ -191,7 +200,7 @@ class database final
       /**
        * Open the database.
        */
-      void open( const std::filesystem::path& p, std::function< void( state_node_ptr ) > init = nullptr );
+      void open( const std::filesystem::path& p, genesis_init_function init = nullptr, state_node_comparator_function comp = &fifo_comparator );
 
       /**
        * Close the database.
@@ -231,7 +240,7 @@ class database final
        * to be freed.  This merge may occur immediately, or it may be
        * deferred or parallelized.
        */
-      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id );
+      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id, const protocol::block_header& header = protocol::block_header() );
 
       /**
        * Finalize a node.  The node will no longer be writable.

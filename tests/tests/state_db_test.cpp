@@ -723,11 +723,11 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
    merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( c_db_key ) );
    merkle_leafs.push_back( c_val );
 
-   BOOST_CHECK_THROW( state_1->get_merkle_root(), koinos::exception );
+   BOOST_CHECK_THROW( state_1->merkle_root(), koinos::exception );
    db.finalize_node( state_1_id );
 
    auto merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
-   BOOST_CHECK_EQUAL( merkle_root, state_1->get_merkle_root() );
+   BOOST_CHECK_EQUAL( merkle_root, state_1->merkle_root() );
 
    auto state_2_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
    auto state_2 = db.create_writable_node( state_1_id, state_2_id );
@@ -754,13 +754,13 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
 
    db.finalize_node( state_2_id );
    merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
-   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
+   BOOST_CHECK_EQUAL( merkle_root, state_2->merkle_root() );
 
    state_1.reset();
    state_2.reset();
    db.commit_node( state_2_id );
    state_2 = db.get_node( state_2_id );
-   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
+   BOOST_CHECK_EQUAL( merkle_root, state_2->merkle_root() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

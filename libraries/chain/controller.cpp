@@ -257,7 +257,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
-   block_node = _db.create_writable_node( parent_id, block_id );
+   block_node = _db.create_writable_node( parent_id, block_id, block.header() );
 
    // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
    // than the parent block timestamp.
@@ -298,7 +298,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds, "block timestamp is too old" );
 
       KOINOS_ASSERT(
-         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->get_merkle_root() ),
+         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->merkle_root() ),
          state_merkle_mismatch,
          "block previous state merkle mismatch"
       );
@@ -368,7 +368,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
+      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
 
       if ( _client )
       {
@@ -595,7 +595,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    rpc::chain::get_head_info_response resp;
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
-   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->get_merkle_root() ) );
+   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->merkle_root() ) );
    resp.set_head_block_time( head_info.head_block_time() );
 
    return resp;

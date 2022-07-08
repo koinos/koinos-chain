@@ -2,6 +2,8 @@
 
 #include <koinos/state_db/backends/iterator.hpp>
 
+#include <koinos/protocol/protocol.pb.h>
+
 namespace koinos::state_db::backends {
 
 class abstract_backend
@@ -26,6 +28,9 @@ class abstract_backend
 
       virtual iterator find( const key_type& k ) = 0;
       virtual iterator lower_bound( const key_type& k ) = 0;
+
+      virtual const protocol::block_header& block_header() const = 0;
+      virtual void set_block_header( const protocol::block_header& ) = 0;
 };
 
 } // koinos::state_db::backends
