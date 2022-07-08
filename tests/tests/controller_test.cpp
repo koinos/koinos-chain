@@ -306,7 +306,9 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
-   _controller.submit_block( block_req );
+   auto block_resp = _controller.submit_block( block_req );
+
+   BOOST_CHECK_EQUAL( 1, block_resp.receipt().height() );
 
    BOOST_TEST_MESSAGE( "Error when block is too old" );
 
