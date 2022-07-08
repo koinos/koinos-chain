@@ -540,7 +540,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt, "expected transaction receipt" );
       *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
 
-      if ( _client )
+      if ( request.broadcast() && _client )
       {
          broadcast::transaction_accepted ta;
          *ta.mutable_transaction() = transaction;
