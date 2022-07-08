@@ -204,6 +204,7 @@ std::pair< std::string, std::string > hash_compute_keys( crypto::multicodec id )
 void generate_receipt( execution_context& context, protocol::block_receipt& receipt, const protocol::block& block )
 {
    receipt.set_id( block.id() );
+   receipt.set_height( block.header().height() );
    receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() );
    receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
    receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
