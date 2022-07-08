@@ -16,13 +16,19 @@ namespace koinos::chain {
 
 namespace detail { class controller_impl; }
 
+enum class fork_resolution_algorithm
+{
+   fifo,
+   block_time
+};
+
 class controller final
 {
    public:
       controller( uint64_t read_compute_bandwith_limit = 0 );
       ~controller();
 
-      void open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset );
       void close();
       void set_client( std::shared_ptr< mq::client > c );
 

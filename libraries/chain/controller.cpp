@@ -76,13 +76,18 @@ std::string format_time( int64_t time )
    return ss.str();
 }
 
+state_db::state_node_ptr block_time_comparator( state_db::state_node_ptr head_block, state_db::state_node_ptr new_block )
+{
+   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+}
+
 class controller_impl final
 {
    public:
       controller_impl( uint64_t read_compute_bandwith_limit );
       ~controller_impl();
 
-      void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
       void close();
       void set_client( std::shared_ptr< mq::client > c );
 
@@ -132,8 +137,21 @@ controller_impl::~controller_impl()
    close();
 }
 
-void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset )
 {
+   state_db::state_node_comparator_function comp;
+
+   switch( algo )
+   {
+      case fork_resolution_algorithm::block_time:
+         comp = &block_time_comparator;
+         break;
+      case fork_resolution_algorithm::fifo:
+         [[fallthrough]];
+      default:
+         comp = &state_db::fifo_comparator;
+   }
+
    _db.open( p, [&]( state_db::state_node_ptr root )
    {
       // Write genesis objects into the database
@@ -168,7 +186,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
       root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
       LOG(info) << "Wrote chain ID into new database";
-   } );
+   }, comp );
 
    if ( reset )
    {
@@ -772,9 +790,9 @@ controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_
 
 controller::~controller() = default;
 
-void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset )
 {
-   _my->open( p, data, reset );
+   _my->open( p, data, algo, reset );
 }
 
 void controller::close()
