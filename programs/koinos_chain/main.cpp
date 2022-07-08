@@ -159,9 +159,9 @@ int main( int argc, char** argv )
       }
 
       if ( fork_algorithm_option == FIFO_ALGORITHM )
-         fork_algorithm = chain::fork_resolution_algorithm::fifo
+         fork_algorithm = chain::fork_resolution_algorithm::fifo;
       else if ( fork_algorithm_option == BLOCK_TIME_ALGORITHM )
-         fork_algorithm = chain::fork_resolution_algorithm::block_time
+         fork_algorithm = chain::fork_resolution_algorithm::block_time;
       else
          KOINOS_ASSERT( false, invalid_argument, "${a} is not a valid fork algorithm", ("a", fork_algorithm_option) );
 
@@ -231,7 +231,7 @@ int main( int argc, char** argv )
       for ( std::size_t i = 0; i < jobs; i++ )
          threads.emplace_back( [&]() { server_ioc.run(); } );
 
-      controller.open( statedir, genesis_data, reset );
+      controller.open( statedir, genesis_data, fork_algorithm, reset );
 
       LOG(info) << "Connecting AMQP client...";
       client->connect( amqp_url );
