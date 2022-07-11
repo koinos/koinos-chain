@@ -285,7 +285,7 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
             std::unique_lock< std::timed_mutex > index_lock( _index_mutex, timeout );
 
             // Ensure the parent node still exists in the index and then insert the child node
-            if ( lock.owns_lock() && _index.find( parent_id ) != _index.end() && _index.insert( node->_impl->_state ).second )
+            if ( index_lock.owns_lock() && _index.find( parent_id ) != _index.end() && _index.insert( node->_impl->_state ).second )
             {
                node->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
                return node;
