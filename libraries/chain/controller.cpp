@@ -646,7 +646,7 @@ fork_data controller_impl::get_fork_data()
 
    std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_root()->create_anonymous_node() );
    ctx.reset_cache();
    fork_heads = _db.get_fork_heads();
 
