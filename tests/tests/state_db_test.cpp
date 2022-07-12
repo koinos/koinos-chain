@@ -956,4 +956,118 @@ BOOST_AUTO_TEST_CASE( map_backend_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+koinos::state_db::state_node_ptr block_time_comparator( koinos::state_db::state_node_ptr head_block, koinos::state_db::state_node_ptr new_block )
+{
+   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+}
+
+BOOST_AUTO_TEST_CASE( fork_resolution )
+{ try {
+   /**
+    * The final fork graph looks like the following:
+    *
+    *           / state_1 (100) --- state_4 (110)
+    *          /                 \
+    * genesis --- state_2 (99)    \ state_5 (110)
+    *          \
+    *           \ state_3 (101)
+    */
+
+   BOOST_TEST_MESSAGE( "Test default FIFO fork resolution" );
+
+   auto genesis_id = db.get_head()->id();
+
+   protocol::block_header header;
+   header.set_timestamp( 100 );
+
+   crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 99 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   auto state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 101 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   auto state_3 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 110 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   auto state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 5 );
+   auto state_5 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_5 );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   BOOST_TEST_MESSAGE( "Test block time fork resolution" );
+
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &block_time_comparator );
+
+   header.set_timestamp( 100 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 99 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 101 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   state_3 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 110 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 5 );
+   state_5 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_5 );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
