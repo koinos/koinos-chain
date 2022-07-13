@@ -172,7 +172,7 @@ struct stack_fixture
          {
             KOINOS_ASSERT(
                !root->get_object( entry.space(), entry.key() ),
-               koinos::chain::unexpected_state,
+               koinos::chain::unexpected_state_exception,
                "encountered unexpected object in initial state"
             );
 
@@ -183,7 +183,7 @@ struct stack_fixture
          // Read genesis public key from the database, assert its existence at the correct location
          KOINOS_ASSERT(
             root->get_object( chain::state::space::metadata(), chain::state::key::genesis_key ),
-            koinos::chain::unexpected_state,
+            koinos::chain::unexpected_state_exception,
             "could not find genesis public key in database"
          );
 
@@ -193,7 +193,7 @@ struct stack_fixture
          auto chain_id_str = util::converter::as< std::string >( chain_id );
          KOINOS_ASSERT(
             !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
-            koinos::chain::unexpected_state,
+            koinos::chain::unexpected_state_exception,
             "encountered unexpected chain id in initial state"
          );
          root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );

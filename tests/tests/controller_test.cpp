@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
 
    block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unexpected_height );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unexpected_height_exception );
 
    BOOST_TEST_MESSAGE( "Error when signature does not match" );
 
@@ -284,7 +284,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::unknown_previous_block_exception );
 
    BOOST_TEST_MESSAGE( "Error when block timestamp is too far in the future" );
 
@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
    block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds_exception );
 
    duration = std::chrono::system_clock::now().time_since_epoch();
    block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
@@ -320,7 +320,7 @@ BOOST_AUTO_TEST_CASE( submission_tests )
    block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
    sign_block( *block_req.mutable_block(), _block_signing_private_key );
 
-   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds );
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), chain::timestamp_out_of_bounds_exception );
 
    BOOST_TEST_MESSAGE( "Test chain ID retrieval" );
 

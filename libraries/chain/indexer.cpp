@@ -42,7 +42,7 @@ void indexer::handle_error( const std::string& msg )
 
    if ( _complete.has_value() )
    {
-      _complete->set_exception( std::make_exception_ptr( indexer_failure( msg ) ) );
+      _complete->set_exception( std::make_exception_ptr( indexer_failure_exception( msg ) ) );
       _complete.reset();
    }
 

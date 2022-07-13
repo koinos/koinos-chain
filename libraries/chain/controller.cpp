@@ -141,7 +141,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       {
          KOINOS_ASSERT(
             !root->get_object( entry.space(), entry.key() ),
-            koinos::chain::unexpected_state,
+            unexpected_state_exception,
             "encountered unexpected object in initial state"
          );
 
@@ -152,7 +152,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       // Read genesis public key from the database, assert its existence at the correct location
       KOINOS_ASSERT(
          root->get_object( state::space::metadata(), state::key::genesis_key ),
-         koinos::chain::unexpected_state,
+         unexpected_state_exception,
          "could not find genesis public key in database"
       );
 
@@ -162,7 +162,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       auto chain_id_str = util::converter::as< std::string >( chain_id );
       KOINOS_ASSERT(
          !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
-         koinos::chain::unexpected_state,
+         unexpected_state_exception,
          "encountered unexpected chain id in initial state"
       );
 
@@ -192,14 +192,14 @@ void controller_impl::set_client( std::shared_ptr< mq::client > c )
 
 void controller_impl::validate_block( const protocol::block& b )
 {
-   KOINOS_ASSERT( b.id().size(), missing_required_arguments, "missing expected field in block: ${field}", ("field", "id") );
-   KOINOS_ASSERT( b.has_header(), missing_required_arguments, "missing expected field in block: ${field}", ("field", "header")("block_id", util::to_hex( b.id() )) );
-   KOINOS_ASSERT( b.header().previous().size(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "previous")("block_id", util::to_hex( b.id() )) );
-   KOINOS_ASSERT( b.header().height(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "height")("block_id", util::to_hex( b.id() )) );
-   KOINOS_ASSERT( b.header().timestamp(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "timestamp")("block_id", util::to_hex( b.id() )) );
-   KOINOS_ASSERT( b.header().previous_state_merkle_root().size(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "previous_state_merkle_root")("block_id", util::to_hex( b.id() )) );
-   KOINOS_ASSERT( b.header().transaction_merkle_root().size(), missing_required_arguments, "missing expected field in block header: ${field}", ("field", "transaction_merkle_root")("block_id", util::to_hex( b.id() )) );
-   KOINOS_ASSERT( b.signature().size(), missing_required_arguments, "missing expected field in block: ${field}", ("field", "signature_data")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.id().size(), missing_required_arguments_exception, "missing expected field in block: ${field}", ("field", "id") );
+   KOINOS_ASSERT( b.has_header(), missing_required_arguments_exception, "missing expected field in block: ${field}", ("field", "header")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().previous().size(), missing_required_arguments_exception, "missing expected field in block header: ${field}", ("field", "previous")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().height(), missing_required_arguments_exception, "missing expected field in block header: ${field}", ("field", "height")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().timestamp(), missing_required_arguments_exception, "missing expected field in block header: ${field}", ("field", "timestamp")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().previous_state_merkle_root().size(), missing_required_arguments_exception, "missing expected field in block header: ${field}", ("field", "previous_state_merkle_root")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.header().transaction_merkle_root().size(), missing_required_arguments_exception, "missing expected field in block header: ${field}", ("field", "transaction_merkle_root")("block_id", util::to_hex( b.id() )) );
+   KOINOS_ASSERT( b.signature().size(), missing_required_arguments_exception, "missing expected field in block: ${field}", ("field", "signature_data")("block_id", util::to_hex( b.id() )) );
 
    for ( const auto& t : b.transactions() )
       validate_transaction( t );
@@ -207,11 +207,11 @@ void controller_impl::validate_block( const protocol::block& b )
 
 void controller_impl::validate_transaction( const protocol::transaction& t )
 {
-   KOINOS_ASSERT( t.id().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "id") );
-   KOINOS_ASSERT( t.has_header(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "header")("transaction_id", util::to_hex( t.id() )) );
-   KOINOS_ASSERT( t.header().rc_limit(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "rc_limit")("transaction_id", util::to_hex( t.id() )) );
-   KOINOS_ASSERT( t.header().operation_merkle_root().size(), missing_required_arguments, "missing expected field in transaction header: ${field}", ("field", "operation_merkle_root")("transaction_id", util::to_hex( t.id() )) );
-   KOINOS_ASSERT( t.signatures().size(), missing_required_arguments, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.id().size(), missing_required_arguments_exception, "missing expected field in transaction: ${field}", ("field", "id") );
+   KOINOS_ASSERT( t.has_header(), missing_required_arguments_exception, "missing expected field in transaction: ${field}", ("field", "header")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.header().rc_limit(), missing_required_arguments_exception, "missing expected field in transaction header: ${field}", ("field", "rc_limit")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.header().operation_merkle_root().size(), missing_required_arguments_exception, "missing expected field in transaction header: ${field}", ("field", "operation_merkle_root")("transaction_id", util::to_hex( t.id() )) );
+   KOINOS_ASSERT( t.signatures().size(), missing_required_arguments_exception, "missing expected field in transaction: ${field}", ("field", "signature_data")("transaction_id", util::to_hex( t.id() )) );
 }
 
 rpc::chain::submit_block_response controller_impl::submit_block(
@@ -246,7 +246,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    if ( !parent_node )
    {
       auto root = _db.get_root();
-      KOINOS_ASSERT( block_id == root->id(), unknown_previous_block, "unknown previous block" );
+      KOINOS_ASSERT( block_id == root->id(), unknown_previous_block_exception, "unknown previous block" );
       return {}; // Block is current LIB
    }
 
@@ -283,23 +283,23 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       // Genesis case, when the first block is submitted the previous must be the zero hash
       if ( parent_id.is_zero() )
       {
-         KOINOS_ASSERT( block_height == 1, unexpected_height, "first block must have height of 1" );
+         KOINOS_ASSERT( block_height == 1, unexpected_height_exception, "first block must have height of 1" );
       }
 
-      KOINOS_ASSERT( block_node, block_state_error, "could not create new block state node" );
+      KOINOS_ASSERT( block_node, block_state_error_exception, "could not create new block state node" );
 
       KOINOS_ASSERT(
          block_height == parent_height + 1,
-         unexpected_height,
+         unexpected_height_exception,
          "expected block height of ${a}, was ${b}", ("a", parent_height + 1)("b", block_height)
       );
 
-      KOINOS_ASSERT( block.header().timestamp() <= time_upper_bound, timestamp_out_of_bounds, "block timestamp is too far in the future" );
-      KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds, "block timestamp is too old" );
+      KOINOS_ASSERT( block.header().timestamp() <= time_upper_bound, timestamp_out_of_bounds_exception, "block timestamp is too far in the future" );
+      KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds_exception, "block timestamp is too old" );
 
       KOINOS_ASSERT(
          block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->get_merkle_root() ),
-         state_merkle_mismatch,
+         state_merkle_mismatch_exception,
          "block previous state merkle mismatch"
       );
 
@@ -312,7 +312,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       system_call::apply_block( ctx, block );
 
-      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ), unexpected_receipt, "expected block receipt" );
+      KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ), unexpected_receipt_exception, "expected block receipt" );
       *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
 
       if ( _client )
@@ -326,8 +326,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          rpc::block_store::block_store_response resp;
          resp.ParseFromString( future.get() );
 
-         KOINOS_ASSERT( !resp.has_error(), rpc_failure, "received error from block store: ${e}", ("e", resp.error()) );
-         KOINOS_ASSERT( resp.has_add_block(), rpc_failure, "unexpected response when submitting block: ${r}", ("r", resp) );
+         KOINOS_ASSERT( !resp.has_error(), rpc_failure_exception, "received error from block store: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_add_block(), rpc_failure_exception, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
       uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
@@ -489,7 +489,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       pending_trx_node = _db.get_head()->create_anonymous_node();
    }
 
-   KOINOS_ASSERT( pending_trx_node, pending_state_error, "error retrieving pending state node" );
+   KOINOS_ASSERT( pending_trx_node, pending_state_error_exception, "error retrieving pending state node" );
    KOINOS_ASSERT( head_block_ptr, koinos::exception, "error retrieving head block" );
 
    ctx.set_block( *head_block_ptr );
@@ -531,13 +531,13 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          rpc::mempool::mempool_response resp;
          resp.ParseFromString( future.get() );
 
-         KOINOS_ASSERT( !resp.has_error(), rpc_failure, "received error from mempool: ${e}", ("e", resp.error()) );
-         KOINOS_ASSERT( resp.has_check_pending_account_resources(), rpc_failure, "received unexpected response from mempool" );
+         KOINOS_ASSERT( !resp.has_error(), rpc_failure_exception, "received error from mempool: ${e}", ("e", resp.error()) );
+         KOINOS_ASSERT( resp.has_check_pending_account_resources(), rpc_failure_exception, "received unexpected response from mempool" );
       }
 
       LOG(info) << "Transaction application successful - ID: " << transaction_id;
 
-      KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt, "expected transaction receipt" );
+      KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt_exception, "expected transaction receipt" );
       *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
 
       if ( request.broadcast() && _client )
@@ -684,7 +684,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
 
 rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::chain::get_account_rc_request& request )
 {
-   KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "payer") );
+   KOINOS_ASSERT( request.account().size(), missing_required_arguments_exception, "missing expected field: ${f}", ("f", "payer") );
 
    execution_context ctx( _vm_backend );
    ctx.push_frame( stack_frame {
@@ -721,7 +721,7 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 
 rpc::chain::read_contract_response controller_impl::read_contract( const rpc::chain::read_contract_request& request )
 {
-   KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "contract_id") );
+   KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments_exception, "missing expected field: ${f}", ("f", "contract_id") );
 
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
@@ -747,7 +747,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 
 rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const rpc::chain::get_account_nonce_request& request )
 {
-   KOINOS_ASSERT( request.account().size(), missing_required_arguments, "missing expected field: ${f}", ("f", "account") );
+   KOINOS_ASSERT( request.account().size(), missing_required_arguments_exception, "missing expected field: ${f}", ("f", "account") );
 
    execution_context ctx( _vm_backend );
 

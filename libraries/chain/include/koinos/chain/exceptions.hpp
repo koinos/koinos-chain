@@ -30,57 +30,21 @@ KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( malformed_block_exception, failure_e
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( malformed_transaction_exception, failure_exception, malformed_transaction );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( block_resource_failure_exception, failure_exception, block_resource_failure );
 
-KOINOS_DECLARE_EXCEPTION( chain_exception );
-
-// Database exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( database_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( state_node_not_found, database_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( out_of_bounds, database_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_state, database_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( retrieval_failure, database_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( insufficent_buffer_size, database_exception );
-
-// Controller exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( controller_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_height, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_previous_block, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( duplicate_trx_state, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( pending_state_error, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( timestamp_out_of_bounds, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( missing_required_arguments, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( state_merkle_mismatch, controller_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( block_state_error, controller_exception );
-
-// Resource exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( resource_exception, chain_exception );
-
-// Block resource exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( block_resource_limit_exception, resource_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( network_bandwidth_limit_exceeded, block_resource_limit_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( compute_bandwidth_limit_exceeded, block_resource_limit_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( disk_storage_limit_exceeded, block_resource_limit_exception );
-
-// VM exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( unknown_backend_exception, chain_exception );
-
-// Parse exception
-KOINOS_DECLARE_DERIVED_EXCEPTION( parse_failure, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_type, parse_failure );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_field_size, parse_failure );
-KOINOS_DECLARE_DERIVED_EXCEPTION( field_not_found, parse_failure );
-
-// Context exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( context_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_intent, context_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_access, context_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( unexpected_receipt, context_exception );
-
-// RPC exceptions
-KOINOS_DECLARE_DERIVED_EXCEPTION( rpc_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( rpc_failure, rpc_exception );
-
-// Indexer exception
-KOINOS_DECLARE_DERIVED_EXCEPTION( indexer_exception, chain_exception );
-KOINOS_DECLARE_DERIVED_EXCEPTION( indexer_failure, indexer_exception );
+// Framework failures
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unknown_backend_exception, failure_exception, unknown_backend );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unexpected_state_exception, failure_exception, unexpected_state );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( missing_required_arguments_exception, failure_exception, missing_required_arguments );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unknown_previous_block_exception, failure_exception, unknown_previous_block );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unexpected_height_exception, failure_exception, unexpected_height );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( block_state_error_exception, failure_exception, block_state_error );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( state_merkle_mismatch_exception, failure_exception, state_merkle_mismatch );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unexpected_receipt_exception, failure_exception, unexpected_receipt );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( rpc_failure_exception, failure_exception, rpc_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( pending_state_error_exception, failure_exception, pending_state_error );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( timestamp_out_of_bounds_exception, failure_exception, timestamp_out_of_bounds );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( indexer_failure_exception, failure_exception, indexer_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( network_bandwidth_limit_exceeded_exception, failure_exception, network_bandwidth_limit_exceeded );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( compute_bandwidth_limit_exceeded_exception, failure_exception, compute_bandwidth_limit_exceeded );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( disk_storage_limit_exceeded_exception, failure_exception, disk_storage_limit_exceeded );
 
 } // koinos::chain

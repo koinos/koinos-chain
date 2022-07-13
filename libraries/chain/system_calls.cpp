@@ -703,7 +703,7 @@ THUNK_DEFINE( void, apply_call_contract_operation, ((const protocol::call_contra
          {
             system_call::call( context, o.contract_id(), o.entry_point(), o.args() );
          }
-         catch( const failure_exception& e )
+         catch ( const failure_exception& e )
          {
             throw reversion_exception( e.get_data() );
          }
