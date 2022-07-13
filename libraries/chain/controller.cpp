@@ -490,7 +490,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    }
 
    KOINOS_ASSERT( pending_trx_node, pending_state_error_exception, "error retrieving pending state node" );
-   KOINOS_ASSERT( head_block_ptr, unexpected_state_exception, "error retrieving head block" );
+   KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
    ctx.set_block( *head_block_ptr );
    ctx.set_state_node( pending_trx_node );
@@ -584,7 +584,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
       head_block_ptr = _cached_head_block;
    }
 
-   KOINOS_ASSERT( head_block_ptr, unexpected_state_exception, "error retrieving pending state node" );
+   KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving pending state node" );
 
    ctx.set_block( *head_block_ptr );
    ctx.reset_cache();
