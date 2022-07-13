@@ -363,11 +363,18 @@ void database_impl::commit_node( const state_node_id& node_id )
    auto node = get_node_lockless( node_id );
    KOINOS_ASSERT( node, illegal_argument, "node ${n} not found", ("n", node_id) );
 
-   std::unordered_set< state_node_id > whitelist{ node->id() };
-
    auto old_root = _root;
    _root = node->impl->_state;
-   _index.modify( _index.find( node->id() ), []( state_delta_ptr& n ){ n->commit(); } );
+
+   // Resetting the node will release the read lock on the node mutex
+   node.reset();
+
+   {
+      std::unique_lock< std::shared_mutex > node_lock( _node_mutex );
+      _index.modify( _index.find( node_id ), []( state_delta_ptr& n ){ n->commit(); } );
+   }
+
+   std::unordered_set< state_node_id > whitelist{ node_id };
    discard_node_lockless( old_root->id(), whitelist );
 }
 
