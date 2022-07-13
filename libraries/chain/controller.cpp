@@ -76,13 +76,18 @@ std::string format_time( int64_t time )
    return ss.str();
 }
 
+state_db::state_node_ptr block_time_comparator( state_db::state_node_ptr head_block, state_db::state_node_ptr new_block )
+{
+   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+}
+
 class controller_impl final
 {
    public:
       controller_impl( uint64_t read_compute_bandwith_limit );
       ~controller_impl();
 
-      void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
       void close();
       void set_client( std::shared_ptr< mq::client > c );
 
@@ -132,8 +137,21 @@ controller_impl::~controller_impl()
    close();
 }
 
-void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset )
 {
+   state_db::state_node_comparator_function comp;
+
+   switch( algo )
+   {
+      case fork_resolution_algorithm::block_time:
+         comp = &block_time_comparator;
+         break;
+      case fork_resolution_algorithm::fifo:
+         [[fallthrough]];
+      default:
+         comp = &state_db::fifo_comparator;
+   }
+
    _db.open( p, [&]( state_db::state_node_ptr root )
    {
       // Write genesis objects into the database
@@ -168,7 +186,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
       root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
       LOG(info) << "Wrote chain ID into new database";
-   } );
+   }, comp );
 
    if ( reset )
    {
@@ -257,7 +275,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
-   block_node = _db.create_writable_node( parent_id, block_id );
+   block_node = _db.create_writable_node( parent_id, block_id, block.header() );
 
    // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
    // than the parent block timestamp.
@@ -298,7 +316,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds_exception, "block timestamp is too old" );
 
       KOINOS_ASSERT(
-         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->get_merkle_root() ),
+         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->merkle_root() ),
          state_merkle_mismatch_exception,
          "block previous state merkle mismatch"
       );
@@ -368,7 +386,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
+      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
 
       if ( _client )
       {
@@ -595,7 +613,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    rpc::chain::get_head_info_response resp;
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
-   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->get_merkle_root() ) );
+   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->merkle_root() ) );
    resp.set_head_block_time( head_info.head_block_time() );
 
    return resp;
@@ -628,7 +646,7 @@ fork_data controller_impl::get_fork_data()
 
    std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_root()->create_anonymous_node() );
    ctx.reset_cache();
    fork_heads = _db.get_fork_heads();
 
@@ -772,9 +790,9 @@ controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_
 
 controller::~controller() = default;
 
-void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset )
 {
-   _my->open( p, data, reset );
+   _my->open( p, data, algo, reset );
 }
 
 void controller::close()

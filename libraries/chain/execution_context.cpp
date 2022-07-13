@@ -28,7 +28,7 @@ void execution_context::set_state_node( abstract_state_node_ptr node, abstract_s
    if ( parent )
       _parent_state_node = parent;
    else if ( _current_state_node )
-      _parent_state_node = node->get_parent();
+      _parent_state_node = node->parent();
    else
       _parent_state_node.reset();
 }

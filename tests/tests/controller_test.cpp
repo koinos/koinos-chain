@@ -158,7 +158,7 @@ struct controller_fixture
       entry->set_value( util::converter::as< std::string >( unsigned_varint{ std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ) } ) );
       *entry->mutable_space() = chain::state::space::metadata();
 
-      _controller.open( _state_dir, _genesis_data, false );
+      _controller.open( _state_dir, _genesis_data, chain::fork_resolution_algorithm::fifo, false );
    }
 
    virtual ~controller_fixture()
