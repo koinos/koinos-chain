@@ -43,7 +43,7 @@ const resource_limit_data& resource_meter::get_resource_limit_data() const
 
 void resource_meter::use_disk_storage( int64_t bytes )
 {
-   KOINOS_ASSERT( bytes <= int64_t( _disk_storage_remaining ), disk_storage_limit_exceeded, "disk storage limit exceeded" );
+   KOINOS_ASSERT( bytes <= int64_t( _disk_storage_remaining ), disk_storage_limit_exceeded_exception, "disk storage limit exceeded" );
 
    if ( auto session = _session.lock() )
    {
@@ -90,8 +90,8 @@ uint64_t resource_meter::system_disk_storage_used() const
 
 void resource_meter::use_network_bandwidth( int64_t bytes )
 {
-   KOINOS_ASSERT( bytes <= _network_bandwidth_remaining, network_bandwidth_limit_exceeded, "network bandwidth limit exceeded" );
-   KOINOS_ASSERT( bytes >= 0, network_bandwidth_limit_exceeded, "cannot consume negative network bandwidth" );
+   KOINOS_ASSERT( bytes <= _network_bandwidth_remaining, network_bandwidth_limit_exceeded_exception, "network bandwidth limit exceeded" );
+   KOINOS_ASSERT( bytes >= 0, network_bandwidth_limit_exceeded_exception, "cannot consume negative network bandwidth" );
 
    if ( auto session = _session.lock() )
    {
@@ -132,8 +132,8 @@ uint64_t resource_meter::system_network_bandwidth_used() const
 
 void resource_meter::use_compute_bandwidth( int64_t ticks )
 {
-   KOINOS_ASSERT( ticks <= _compute_bandwidth_remaining, compute_bandwidth_limit_exceeded, "compute bandwidth limit exceeded" );
-   KOINOS_ASSERT( ticks >= 0, compute_bandwidth_limit_exceeded, "cannot consume compute bandwidth bandwidth" );
+   KOINOS_ASSERT( ticks <= _compute_bandwidth_remaining, compute_bandwidth_limit_exceeded_exception, "compute bandwidth limit exceeded" );
+   KOINOS_ASSERT( ticks >= 0, compute_bandwidth_limit_exceeded_exception, "cannot consume compute bandwidth bandwidth" );
 
    if ( auto session = _session.lock() )
    {
