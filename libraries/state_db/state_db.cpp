@@ -138,6 +138,19 @@ class database_impl final
       std::map< state_node_id, state_delta_ptr > _fork_heads;
       state_delta_ptr                            _root;
 
+      /* Regarding mutexes used for synchronizing state_db...
+       *
+       * There are three mutexes that can be locked. They are:
+       *   - _index_mutex (locks access to _index)
+       *   - _node_mutex (locks access to creating new state_node_ptrs)
+       *   - state_delta::cv_mutex() (locks access to a state_delta cv)
+       *
+       * Shared locks on the _node_mutex must exist beyond the scope of calls to state_db,
+       * so _node_mutex must be locked first.
+       *
+       * Consequently, _index_mutex must be locked last. All functions in state_db MUST
+       * follow this convention or we risk deadlock.
+       */
       mutable std::timed_mutex                   _index_mutex;
       mutable std::shared_mutex                  _node_mutex;
 };
@@ -149,8 +162,8 @@ void database_impl::reset()
    //
    // So the caller needs to be very careful to only call this method if deleting the database is desirable!
    //
-   std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    std::unique_lock< std::shared_mutex > node_lock( _node_mutex );
+   std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
 
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    // Wipe and start over from empty database!
@@ -161,6 +174,7 @@ void database_impl::reset()
 
 void database_impl::open( const std::filesystem::path& p, genesis_init_function init, state_node_comparator_function comp )
 {
+   std::unique_lock< std::shared_mutex > node_lock( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    open_lockless( p, init, comp );
 }
@@ -187,6 +201,7 @@ void database_impl::open_lockless( const std::filesystem::path& p, genesis_init_
 
 void database_impl::close()
 {
+   std::shared_lock< std::shared_mutex > node_lock( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    close_lockless();
 }
@@ -201,6 +216,7 @@ void database_impl::close_lockless()
 
 state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const state_node_id& child_id ) const
 {
+   auto node_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    KOINOS_ASSERT( revision >= _root->revision(), illegal_argument,
@@ -208,7 +224,13 @@ state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const sta
       ("root", _root->revision())("req", revision) );
 
    if( revision == _root->revision() )
-      return get_root_lockless();
+   {
+      auto root = get_root_lockless();
+      if ( root )
+         root->_impl->_lock = node_lock;
+
+      return root;
+   }
 
    auto child = get_node_lockless( child_id );
    if( !child )
@@ -228,14 +250,20 @@ state_node_ptr database_impl::get_node_at_revision( uint64_t revision, const sta
 
    auto node = std::make_shared< state_node >();
    node->_impl->_state = *node_itr;
-   node->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
+   node->_impl->_lock = node_lock;
    return node;
 }
 
 state_node_ptr database_impl::get_node( const state_node_id& node_id ) const
 {
+   auto node_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
-   return get_node_lockless( node_id );
+
+   auto node = get_node_lockless( node_id );
+   if ( node )
+      node->_impl->_lock = node_lock;
+
+   return node;
 }
 
 state_node_ptr database_impl::get_node_lockless( const state_node_id& node_id ) const
@@ -248,7 +276,6 @@ state_node_ptr database_impl::get_node_lockless( const state_node_id& node_id ) 
    {
       auto node = std::make_shared< state_node >();
       node->_impl->_state = *node_itr;
-      node->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
       return node;
    }
 
@@ -257,6 +284,8 @@ state_node_ptr database_impl::get_node_lockless( const state_node_id& node_id ) 
 
 state_node_ptr database_impl::create_writable_node( const state_node_id& parent_id, const state_node_id& new_id, const protocol::block_header& header )
 {
+   auto node_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
+
    // Needs to be configurable
    auto timeout = std::chrono::system_clock::now() + std::chrono::seconds( 1 );
 
@@ -287,7 +316,7 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
             // Ensure the parent node still exists in the index and then insert the child node
             if ( index_lock.owns_lock() && _index.find( parent_id ) != _index.end() && _index.insert( node->_impl->_state ).second )
             {
-               node->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
+               node->_impl->_lock = node_lock;
                return node;
             }
          }
@@ -299,6 +328,7 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
 
 void database_impl::finalize_node( const state_node_id& node_id )
 {
+   std::shared_lock< std::shared_mutex > node_lock( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    auto node = get_node_lockless( node_id );
@@ -333,6 +363,7 @@ void database_impl::finalize_node( const state_node_id& node_id )
 
 void database_impl::discard_node( const state_node_id& node_id, const std::unordered_set< state_node_id >& whitelist )
 {
+   std::shared_lock< std::shared_mutex > node_lock( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    discard_node_lockless( node_id, whitelist );
 }
@@ -394,6 +425,7 @@ void database_impl::discard_node_lockless( const state_node_id& node_id, const s
 
 void database_impl::commit_node( const state_node_id& node_id )
 {
+   std::unique_lock< std::shared_mutex > node_lock( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "cannot commit root node, root node already committed" );
@@ -403,13 +435,7 @@ void database_impl::commit_node( const state_node_id& node_id )
    auto old_root = _root;
    _root = node->_impl->_state;
 
-   // Resetting the node will release the read lock on the node mutex
-   node.reset();
-
-   {
-      std::unique_lock< std::shared_mutex > node_lock( _node_mutex );
-      _index.modify( _index.find( node_id ), []( state_delta_ptr& n ){ n->commit(); } );
-   }
+   _index.modify( _index.find( node_id ), []( state_delta_ptr& n ){ n->commit(); } );
 
    std::unordered_set< state_node_id > whitelist{ node_id };
    discard_node_lockless( old_root->id(), whitelist );
@@ -417,8 +443,14 @@ void database_impl::commit_node( const state_node_id& node_id )
 
 state_node_ptr database_impl::get_head() const
 {
+   auto node_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
-   return get_head_lockless();
+
+   auto head = get_head_lockless();
+   if ( head )
+      head->_impl->_lock = node_lock;
+
+   return head;
 }
 
 state_node_ptr database_impl::get_head_lockless() const
@@ -426,12 +458,12 @@ state_node_ptr database_impl::get_head_lockless() const
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    auto head = std::make_shared< state_node >();
    head->_impl->_state = _head;
-   head->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    return head;
 }
 
 std::vector< state_node_ptr > database_impl::get_fork_heads() const
 {
+   auto node_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    std::vector< state_node_ptr > fork_heads;
@@ -441,7 +473,7 @@ std::vector< state_node_ptr > database_impl::get_fork_heads() const
    {
       auto fork_head = std::make_shared< state_node >();
       fork_head->_impl->_state = head.second;
-      fork_head->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
+      fork_head->_impl->_lock = node_lock;
       fork_heads.push_back( fork_head );
    }
 
@@ -450,8 +482,14 @@ std::vector< state_node_ptr > database_impl::get_fork_heads() const
 
 state_node_ptr database_impl::get_root() const
 {
+   auto node_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
-   return get_root_lockless();
+
+   auto root = get_root_lockless();
+   if ( root )
+      root->_impl->_lock = node_lock;
+
+   return root;
 }
 
 state_node_ptr database_impl::get_root_lockless() const
@@ -459,7 +497,6 @@ state_node_ptr database_impl::get_root_lockless() const
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    auto root = std::make_shared< state_node >();
    root->_impl->_state = _root;
-   root->_impl->_lock = std::make_shared< std::shared_lock< std::shared_mutex > >( _node_mutex );
    return root;
 }
 
