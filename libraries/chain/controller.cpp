@@ -376,14 +376,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       auto lib = system_call::get_last_irreversible_block( ctx );
 
       {
+         // We need to finalize out node, checking if it is the new head block, and update the cached head block
+         // as an atomic action or else we risk _db.get_head() and _cached_head_block desyncing from each other
          std::unique_lock< std::shared_mutex > lock( _cached_head_block_mutex );
 
          _db.finalize_node( block_node->id() );
 
          if ( block_node->id() == _db.get_head()->id() )
-         {
             _cached_head_block = std::make_shared< protocol::block >( block );
-         }
       }
 
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
@@ -498,20 +498,23 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    execution_context ctx( _vm_backend, intent::transaction_application );
    std::shared_ptr< const protocol::block > head_block_ptr;
-   std::shared_ptr< abstract_state_node > pending_trx_node;
 
    {
       std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
-
       head_block_ptr = _cached_head_block;
-      pending_trx_node = _db.get_head()->create_anonymous_node();
    }
 
-   KOINOS_ASSERT( pending_trx_node, pending_state_error_exception, "error retrieving pending state node" );
    KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
+   // The actual head block (i.e. _db.get_head()) might change due to a race condition
+   // We're going to ignore that and use the head at the time of reading _cached_head_block
+   // In a production environment this will be close enough and an app will never
+   // be able to tell the difference.
+   auto head = _db.get_node( head_block_ptr->id() );
+   KOINOS_ASSERT( head, internal_error_exception, "error retrieving head block state node" );
+
    ctx.set_block( *head_block_ptr );
-   ctx.set_state_node( pending_trx_node );
+   ctx.set_state_node( head->create_anonymous_node() );
 
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::kernel_mode
@@ -597,10 +600,19 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
 
    {
       std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
-
-      ctx.set_state_node( _db.get_head()->create_anonymous_node() );
       head_block_ptr = _cached_head_block;
    }
+
+   KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
+
+   // The actual head block (i.e. _db.get_head()) might change due to a race condition
+   // We're going to ignore that and use the head at the time of reading _cached_head_block
+   // In a production environment this will be close enough and an app will never
+   // be able to tell the difference.
+   auto head = _db.get_node( head_block_ptr->id() );
+   KOINOS_ASSERT( head, internal_error_exception, "error retrieving head block state node" );
+
+   ctx.set_state_node( head->create_anonymous_node() );
 
    KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
