@@ -117,8 +117,7 @@ class controller_impl final
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
 
-      fork_data get_fork_data();
-      fork_data get_fork_data_lockless();
+      fork_data get_fork_data( state_db::shared_lock_ptr db_lock );
 };
 
 controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _read_compute_bandwidth_limit( read_compute_bandwidth_limit )
@@ -249,14 +248,13 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto time_upper_bound  = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
    uint64_t parent_height = 0;
 
-   state_db::state_node_ptr block_node;
    auto db_lock = _db.get_shared_lock();
 
    const auto& block = request.block();
    auto block_id     = util::converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
    auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
-   block_node        = _db.get_node( block_id, db_lock );
+   auto block_node        = _db.get_node( block_id, db_lock );
    auto parent_node  = _db.get_node( parent_id, db_lock );
 
    if ( block_node ) return {}; // Block has been applied
@@ -391,7 +389,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( _client )
       {
-         const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+         const auto [ fork_heads, last_irreversible_block ] = get_fork_data( db_lock );
 
          broadcast::block_irreversible bc;
          bc.mutable_topology()->CopyFrom( last_irreversible_block );
@@ -647,7 +645,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
    return resp;
 }
 
-fork_data controller_impl::get_fork_data()
+fork_data controller_impl::get_fork_data( state_db::shared_lock_ptr db_lock  )
 {
    fork_data fdata;
    execution_context ctx( _vm_backend );
@@ -656,7 +654,6 @@ fork_data controller_impl::get_fork_data()
       .call_privilege = privilege::kernel_mode
    } );
 
-   auto db_lock = _db.get_shared_lock();
    std::vector< state_db::state_node_ptr > fork_heads;
 
    ctx.set_state_node( _db.get_root( db_lock )->create_anonymous_node() );
@@ -737,7 +734,7 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 {
    rpc::chain::get_fork_heads_response resp;
 
-   const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+   const auto [ fork_heads, last_irreversible_block ] = get_fork_data( _db.get_shared_lock() );
    auto topo = resp.mutable_last_irreversible_block();
    *topo = std::move( last_irreversible_block );
 
