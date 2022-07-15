@@ -463,7 +463,11 @@ void database_impl::commit_node( const state_node_id& node_id, const unique_lock
    KOINOS_ASSERT( verify_unique_lock( lock ), illegal_argument, "database is not properly locked" );;
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
-   KOINOS_ASSERT( node_id != _root->id(), illegal_argument, "cannot commit root node, root node already committed" );
+
+   // If the node_id to commit is the root id, return. It is already committed.
+   if ( node_id == _root->id() )
+      return;
+
    auto node = get_node_lockless( node_id );
    KOINOS_ASSERT( node, illegal_argument, "node ${n} not found", ("n", node_id) );
 
