@@ -250,20 +250,21 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    uint64_t parent_height = 0;
 
    state_db::state_node_ptr block_node;
+   auto db_lock = _db.get_shared_lock();
 
    const auto& block = request.block();
    auto block_id     = util::converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
    auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
-   block_node        = _db.get_node( block_id );
-   auto parent_node  = _db.get_node( parent_id );
+   block_node        = _db.get_node( block_id, db_lock );
+   auto parent_node  = _db.get_node( parent_id, db_lock );
 
    if ( block_node ) return {}; // Block has been applied
 
    // This prevents returning "unknown previous block" when the pushed block is the LIB
    if ( !parent_node )
    {
-      auto root = _db.get_root();
+      auto root = _db.get_root( db_lock );
       KOINOS_ASSERT( block_id == root->id(), unknown_previous_block_exception, "unknown previous block" );
       return {}; // Block is current LIB
    }
@@ -275,7 +276,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
-   block_node = _db.create_writable_node( parent_id, block_id, block.header() );
+   block_node = _db.create_writable_node( parent_id, block_id, block.header(), db_lock );
 
    // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
    // than the parent block timestamp.
@@ -378,11 +379,11 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       {
          // We need to finalize out node, checking if it is the new head block, and update the cached head block
          // as an atomic action or else we risk _db.get_head() and _cached_head_block desyncing from each other
-         std::unique_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+         std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
 
-         _db.finalize_node( block_node->id() );
+         _db.finalize_node( block_node->id(), db_lock );
 
-         if ( block_node->id() == _db.get_head()->id() )
+         if ( block_node->id() == _db.get_head( db_lock )->id() )
             _cached_head_block = std::make_shared< protocol::block >( block );
       }
 
@@ -401,7 +402,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          *ba.mutable_block() = block;
          *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
          ba.set_live( live );
-         ba.set_head( block_node->id() == _db.get_head()->id() );
+         ba.set_head( block_node->id() == _db.get_head( db_lock )->id() );
 
          _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
 
@@ -430,14 +431,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      if ( std::optional< state_node_ptr > node; lib > _db.get_root()->revision() )
+      if ( std::optional< state_node_ptr > node; lib > _db.get_root( db_lock )->revision() )
       {
-         auto lib_id = _db.get_node_at_revision( lib, block_node->id() )->id();
+         auto lib_id = _db.get_node_at_revision( lib, block_node->id(), db_lock )->id();
+         db_lock.reset();
          block_node.reset();
          parent_node.reset();
-         ctx.set_state_node( state_node_ptr() );
+         ctx.clear_state_node();
 
+         // This will defaulty grab the unique lock
          _db.commit_node( lib_id );
+
+         db_lock = _db.get_shared_lock();
       }
    }
    catch ( koinos::exception& e )
@@ -461,7 +466,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id(), db_lock );
       }
 
       throw;
@@ -472,7 +477,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id(), db_lock );
       }
 
       throw;
@@ -496,22 +501,19 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
+   auto db_lock = _db.get_shared_lock();
+   state_node_ptr head;
    execution_context ctx( _vm_backend, intent::transaction_application );
    std::shared_ptr< const protocol::block > head_block_ptr;
 
    {
-      std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+      std::shared_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
       head_block_ptr = _cached_head_block;
+      KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
+
+      head = _db.get_head( db_lock );
+      //KOINOS_ASSERT( util::converter::as< std::string >( head->id() ) == head_block_ptr->id(), internal_error_exception, "cached head block does not match head block" );
    }
-
-   KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
-
-   // The actual head block (i.e. _db.get_head()) might change due to a race condition
-   // We're going to ignore that and use the head at the time of reading _cached_head_block
-   // In a production environment this will be close enough and an app will never
-   // be able to tell the difference.
-   auto head = _db.get_node( head_block_ptr->id() );
-   KOINOS_ASSERT( head, internal_error_exception, "error retrieving head block state node" );
 
    ctx.set_block( *head_block_ptr );
    ctx.set_state_node( head->create_anonymous_node() );
@@ -596,21 +598,19 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
       .call_privilege = privilege::kernel_mode
    } );
 
+   auto db_lock = _db.get_shared_lock();
+   state_node_ptr head;
    std::shared_ptr< const protocol::block > head_block_ptr;
 
    {
-      std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+      std::shared_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
       head_block_ptr = _cached_head_block;
+
+      KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
+
+      head = _db.get_head( db_lock );
+      //KOINOS_ASSERT( util::converter::as< std::string >( head->id() ) == head_block_ptr->id(), internal_error_exception, "cached head block does not match head block" );
    }
-
-   KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
-
-   // The actual head block (i.e. _db.get_head()) might change due to a race condition
-   // We're going to ignore that and use the head at the time of reading _cached_head_block
-   // In a production environment this will be close enough and an app will never
-   // be able to tell the difference.
-   auto head = _db.get_node( head_block_ptr->id() );
-   KOINOS_ASSERT( head, internal_error_exception, "error retrieving head block state node" );
 
    ctx.set_state_node( head->create_anonymous_node() );
 
@@ -625,7 +625,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    rpc::chain::get_head_info_response resp;
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
-   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->merkle_root() ) );
+   resp.set_head_state_merkle_root( util::converter::as< std::string >( head->merkle_root() ) );
    resp.set_head_block_time( head_info.head_block_time() );
 
    return resp;
@@ -656,11 +656,12 @@ fork_data controller_impl::get_fork_data()
       .call_privilege = privilege::kernel_mode
    } );
 
+   auto db_lock = _db.get_shared_lock();
    std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _db.get_root()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_root( db_lock )->create_anonymous_node() );
    ctx.reset_cache();
-   fork_heads = _db.get_fork_heads();
+   fork_heads = _db.get_fork_heads( db_lock );
 
    auto head_info = system_call::get_head_info( ctx );
    fdata.second = head_info.head_topology();

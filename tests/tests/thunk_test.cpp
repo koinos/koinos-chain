@@ -227,6 +227,7 @@ struct thunk_fixture
    ~thunk_fixture()
    {
       boost::log::core::get()->remove_all_sinks();
+      ctx.clear_state_node();
       db.close();
       std::filesystem::remove_all( temp );
    }

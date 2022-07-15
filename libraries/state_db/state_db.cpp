@@ -102,7 +102,7 @@ class database_impl final
 {
    public:
       database_impl() {}
-      ~database_impl() { close( unique_lock_ptr() ); }
+      ~database_impl() { close_lockless(); }
 
       shared_lock_ptr get_shared_lock() const;
       unique_lock_ptr get_unique_lock() const;
@@ -537,7 +537,6 @@ state_node_ptr database_impl::get_root_lockless() const
 
 bool database_impl::is_open() const
 {
-   std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
    return (bool)_root && (bool)_head;
 }
 
