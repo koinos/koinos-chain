@@ -227,6 +227,7 @@ struct stack_fixture
    ~stack_fixture()
    {
       boost::log::core::get()->remove_all_sinks();
+      ctx.clear_state_node();
       db.close();
       std::filesystem::remove_all( temp );
    }

@@ -38,6 +38,9 @@
 #define KOINOS_MINOR_VERSION "3"
 #define KOINOS_PATCH_VERSION "0"
 
+#define FIFO_ALGORITHM                      "fifo"
+#define BLOCK_TIME_ALGORITHM                "block-time"
+
 #define HELP_OPTION                         "help"
 #define VERSION_OPTION                      "version"
 #define BASEDIR_OPTION                      "basedir"
@@ -55,6 +58,8 @@
 #define GENESIS_DATA_FILE_DEFAULT           "genesis_data.json"
 #define READ_COMPUTE_BANDWITH_LIMIT_OPTION  "read-compute-bandwidth-limit"
 #define READ_COMPUTE_BANDWITH_LIMIT_DEFAULT 10'000'000
+#define FORK_ALGORITHM_OPTION               "fork-algorithm"
+#define FORK_ALGORITHM_DEFAULT              FIFO_ALGORITHM
 
 KOINOS_DECLARE_EXCEPTION( service_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_argument, service_exception );
@@ -68,11 +73,12 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
 int main( int argc, char** argv )
 {
-   std::string amqp_url, log_level, instance_id;
+   std::string amqp_url, log_level, instance_id, fork_algorithm_option;
    std::filesystem::path statedir, genesis_data_file;
    uint64_t jobs, read_compute_limit;
    chain::genesis_data genesis_data;
    bool reset;
+   chain::fork_resolution_algorithm fork_algorithm;
 
    try
    {
@@ -90,7 +96,8 @@ int main( int argc, char** argv )
          (GENESIS_DATA_FILE_OPTION          ",g", program_options::value< std::string >(), "The genesis data file")
          (STATEDIR_OPTION                       , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
-         (RESET_OPTION                          , program_options::value< bool >(), "Reset the database");
+         (RESET_OPTION                          , program_options::value< bool >(), "Reset the database")
+         (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', or 'block-time'. (Default: 'fifo')");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -132,14 +139,15 @@ int main( int argc, char** argv )
          chain_config = config[ util::service::chain ];
       }
 
-      amqp_url           = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
-      log_level          = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-      instance_id        = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
-      statedir           = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
-      genesis_data_file  = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
-      reset              = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
-      jobs               = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
-      read_compute_limit = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
+      amqp_url              = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+      log_level             = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      instance_id           = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
+      statedir              = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
+      genesis_data_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
+      reset                 = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
+      jobs                  = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
+      read_compute_limit    = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
+      fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
 
@@ -149,6 +157,13 @@ int main( int argc, char** argv )
       {
          LOG(warning) << "Could not find config (config.yml or config.yaml expected). Using default values";
       }
+
+      if ( fork_algorithm_option == FIFO_ALGORITHM )
+         fork_algorithm = chain::fork_resolution_algorithm::fifo;
+      else if ( fork_algorithm_option == BLOCK_TIME_ALGORITHM )
+         fork_algorithm = chain::fork_resolution_algorithm::block_time;
+      else
+         KOINOS_ASSERT( false, invalid_argument, "${a} is not a valid fork algorithm", ("a", fork_algorithm_option) );
 
       if ( statedir.is_relative() )
          statedir = basedir / util::service::chain / statedir;
@@ -216,7 +231,7 @@ int main( int argc, char** argv )
       for ( std::size_t i = 0; i < jobs; i++ )
          threads.emplace_back( [&]() { server_ioc.run(); } );
 
-      controller.open( statedir, genesis_data, reset );
+      controller.open( statedir, genesis_data, fork_algorithm, reset );
 
       LOG(info) << "Connecting AMQP client...";
       client->connect( amqp_url );

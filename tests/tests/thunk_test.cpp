@@ -227,6 +227,7 @@ struct thunk_fixture
    ~thunk_fixture()
    {
       boost::log::core::get()->remove_all_sinks();
+      ctx.clear_state_node();
       db.close();
       std::filesystem::remove_all( temp );
    }
@@ -1516,7 +1517,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    chain::system_call::set_account_nonce( ctx, transaction.header().payer(), transaction.header().nonce() );
    db.finalize_node( control_state_node->id() );
 
-   BOOST_REQUIRE( trx_state_node->get_merkle_root() == control_state_node->get_merkle_root() );
+   BOOST_REQUIRE( trx_state_node->merkle_root() == control_state_node->merkle_root() );
 
    BOOST_TEST_MESSAGE( "Test proper throwing when transaction is not reverted" );
 
@@ -1533,7 +1534,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
    block.mutable_header()->set_height( 1 );
    block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
-   block.mutable_header()->set_previous_state_merkle_root( util::converter::as< std::string >( parent_node->get_merkle_root() ) );
+   block.mutable_header()->set_previous_state_merkle_root( util::converter::as< std::string >( parent_node->merkle_root() ) );
    *block.add_transactions() = transaction;
    set_block_merkle_roots( block, crypto::multicodec::sha2_256 );
    block.mutable_header()->set_signer( _signing_private_key.get_public_key().to_address_bytes() );
@@ -2304,7 +2305,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
    block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
    block.mutable_header()->set_height( 1 );
    block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
-   block.mutable_header()->set_previous_state_merkle_root( util::converter::as< std::string >( parent_node->get_merkle_root() ) );
+   block.mutable_header()->set_previous_state_merkle_root( util::converter::as< std::string >( parent_node->merkle_root() ) );
    auto transaction_merkle_tree = crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::transaction >{} );
    block.mutable_header()->set_transaction_merkle_root( util::converter::as< std::string >( transaction_merkle_tree.root()->hash() ) );
    block.mutable_header()->set_signer( _signing_private_key.get_public_key().to_address_bytes() );
