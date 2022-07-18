@@ -723,11 +723,11 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
    merkle_leafs.emplace_back( koinos::util::converter::as< std::string >( c_db_key ) );
    merkle_leafs.push_back( c_val );
 
-   BOOST_CHECK_THROW( state_1->get_merkle_root(), koinos::exception );
+   BOOST_CHECK_THROW( state_1->merkle_root(), koinos::exception );
    db.finalize_node( state_1_id );
 
    auto merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
-   BOOST_CHECK_EQUAL( merkle_root, state_1->get_merkle_root() );
+   BOOST_CHECK_EQUAL( merkle_root, state_1->merkle_root() );
 
    auto state_2_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
    auto state_2 = db.create_writable_node( state_1_id, state_2_id );
@@ -754,13 +754,13 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
 
    db.finalize_node( state_2_id );
    merkle_root = koinos::crypto::merkle_tree< std::string >( koinos::crypto::multicodec::sha2_256, merkle_leafs ).root()->hash();
-   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
+   BOOST_CHECK_EQUAL( merkle_root, state_2->merkle_root() );
 
    state_1.reset();
    state_2.reset();
    db.commit_node( state_2_id );
    state_2 = db.get_node( state_2_id );
-   BOOST_CHECK_EQUAL( merkle_root, state_2->get_merkle_root() );
+   BOOST_CHECK_EQUAL( merkle_root, state_2->merkle_root() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -953,6 +953,120 @@ BOOST_AUTO_TEST_CASE( map_backend_test )
    backend.put( "foo", "bar" );
    BOOST_REQUIRE( backend.get( "foo" ) );
    BOOST_CHECK_EQUAL( *backend.get( "foo" ), "bar" );
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+koinos::state_db::state_node_ptr block_time_comparator( koinos::state_db::state_node_ptr head_block, koinos::state_db::state_node_ptr new_block )
+{
+   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+}
+
+BOOST_AUTO_TEST_CASE( fork_resolution )
+{ try {
+   /**
+    * The final fork graph looks like the following:
+    *
+    *           / state_1 (100) --- state_4 (110)
+    *          /                 \
+    * genesis --- state_2 (99)    \ state_5 (110)
+    *          \
+    *           \ state_3 (101)
+    */
+
+   BOOST_TEST_MESSAGE( "Test default FIFO fork resolution" );
+
+   auto genesis_id = db.get_head()->id();
+
+   protocol::block_header header;
+   header.set_timestamp( 100 );
+
+   crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 99 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   auto state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 101 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   auto state_3 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 110 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   auto state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 5 );
+   auto state_5 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_5 );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   BOOST_TEST_MESSAGE( "Test block time fork resolution" );
+
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &block_time_comparator );
+
+   header.set_timestamp( 100 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 99 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 101 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   state_3 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 110 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 5 );
+   state_5 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_5 );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

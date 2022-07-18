@@ -100,14 +100,16 @@ void state_delta::commit()
 {
    KOINOS_ASSERT( !is_root(), internal_error, "cannot commit root" );
 
-   auto merkle_root = get_merkle_root();
+   auto current_merkle_root = merkle_root();
+   protocol::block_header header = block_header();
 
    // As a side effect, get_root()->_backend has been moved to _backend
    commit_helper();
 
+   _backend->set_block_header( header );
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_revision( _revision );
    std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_id( _id );
-   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_merkle_root( merkle_root );
+   std::static_pointer_cast< backends::rocksdb::rocksdb_backend >( _backend )->set_merkle_root( current_merkle_root );
    _removed_objects.clear();
    _parent.reset();
 }
@@ -150,17 +152,27 @@ void state_delta::set_revision( uint64_t revision )
    }
 }
 
-bool state_delta::is_writable() const
+bool state_delta::is_finalized() const
 {
-   return _writable;
+   return _finalized;
 }
 
-void state_delta::set_writable( bool writable )
+void state_delta::finalize()
 {
-   _writable = writable;
+   _finalized = true;
 }
 
-crypto::multihash state_delta::get_merkle_root() const
+std::condition_variable_any& state_delta::cv()
+{
+   return _cv;
+}
+
+std::timed_mutex& state_delta::cv_mutex()
+{
+   return _cv_mutex;
+}
+
+crypto::multihash state_delta::merkle_root() const
 {
    if ( !_merkle_root )
    {
@@ -197,13 +209,19 @@ crypto::multihash state_delta::get_merkle_root() const
    return *_merkle_root;
 }
 
-std::shared_ptr< state_delta > state_delta::make_child( const state_node_id& id )
+const protocol::block_header& state_delta::block_header() const
+{
+   return _backend->block_header();
+}
+
+std::shared_ptr< state_delta > state_delta::make_child( const state_node_id& id, const protocol::block_header& header )
 {
    auto child = std::make_shared< state_delta >();
    child->_parent = shared_from_this();
    child->_id = id;
    child->_revision = _revision + 1;
    child->_backend = std::make_shared< backends::map::map_backend >();
+   child->_backend->set_block_header( header );
 
    return child;
 }

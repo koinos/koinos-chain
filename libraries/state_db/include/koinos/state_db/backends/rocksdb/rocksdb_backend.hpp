@@ -54,6 +54,9 @@ class rocksdb_backend final : public abstract_backend {
       virtual iterator find( const key_type& k ) override;
       virtual iterator lower_bound( const key_type& k ) override;
 
+      virtual const protocol::block_header& block_header() const override;
+      virtual void set_block_header( const protocol::block_header& ) override;
+
    private:
       void load_metadata();
       void store_metadata();
@@ -70,6 +73,7 @@ class rocksdb_backend final : public abstract_backend {
       size_type                                 _revision = 0;
       crypto::multihash                         _id;
       crypto::multihash                         _merkle_root;
+      protocol::block_header                    _header;
 };
 
 } // koinos::state_db::backends::rocksdb

@@ -5,10 +5,13 @@
 #include <koinos/state_db/state_db_types.hpp>
 
 #include <koinos/crypto/multihash.hpp>
+#include <koinos/protocol/protocol.pb.h>
 
 #include <any>
+#include <condition_variable>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <unordered_set>
 
 namespace koinos::state_db::detail {
@@ -30,7 +33,10 @@ namespace koinos::state_db::detail {
          uint64_t                                   _revision = 0;
          mutable std::optional< crypto::multihash > _merkle_root;
 
-         bool                                       _writable = true;
+         bool                                       _finalized = false;
+
+         std::timed_mutex                           _cv_mutex;
+         std::condition_variable_any                _cv;
 
       public:
          state_delta() = default;
@@ -54,16 +60,20 @@ namespace koinos::state_db::detail {
          uint64_t revision() const;
          void set_revision( uint64_t revision );
 
-         bool is_writable() const;
-         void set_writable( bool );
+         bool is_finalized() const;
+         void finalize();
 
-         crypto::multihash get_merkle_root() const;
+         std::condition_variable_any& cv();
+         std::timed_mutex& cv_mutex();
+
+         crypto::multihash merkle_root() const;
 
          const state_node_id& id() const;
          const state_node_id& parent_id() const;
          std::shared_ptr< state_delta > parent() const;
+         const protocol::block_header& block_header() const;
 
-         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id() );
+         std::shared_ptr< state_delta > make_child( const state_node_id& id = state_node_id(), const protocol::block_header& header = protocol::block_header() );
 
          const std::shared_ptr< backend_type > backend() const;
 

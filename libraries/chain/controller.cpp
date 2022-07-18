@@ -76,13 +76,18 @@ std::string format_time( int64_t time )
    return ss.str();
 }
 
+state_db::state_node_ptr block_time_comparator( state_db::state_node_ptr head_block, state_db::state_node_ptr new_block )
+{
+   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+}
+
 class controller_impl final
 {
    public:
       controller_impl( uint64_t read_compute_bandwith_limit );
       ~controller_impl();
 
-      void open( const std::filesystem::path& p, const genesis_data& data, bool reset );
+      void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
       void close();
       void set_client( std::shared_ptr< mq::client > c );
 
@@ -112,8 +117,7 @@ class controller_impl final
       void validate_block( const protocol::block& b );
       void validate_transaction( const protocol::transaction& t );
 
-      fork_data get_fork_data();
-      fork_data get_fork_data_lockless();
+      fork_data get_fork_data( state_db::shared_lock_ptr db_lock );
 };
 
 controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _read_compute_bandwidth_limit( read_compute_bandwidth_limit )
@@ -132,8 +136,21 @@ controller_impl::~controller_impl()
    close();
 }
 
-void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
+void controller_impl::open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset )
 {
+   state_db::state_node_comparator_function comp;
+
+   switch( algo )
+   {
+      case fork_resolution_algorithm::block_time:
+         comp = &block_time_comparator;
+         break;
+      case fork_resolution_algorithm::fifo:
+         [[fallthrough]];
+      default:
+         comp = &state_db::fifo_comparator;
+   }
+
    _db.open( p, [&]( state_db::state_node_ptr root )
    {
       // Write genesis objects into the database
@@ -168,7 +185,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
       root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
       LOG(info) << "Wrote chain ID into new database";
-   } );
+   }, comp );
 
    if ( reset )
    {
@@ -231,21 +248,21 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto time_upper_bound  = std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
    uint64_t parent_height = 0;
 
-   state_db::state_node_ptr block_node;
+   auto db_lock = _db.get_shared_lock();
 
    const auto& block = request.block();
    auto block_id     = util::converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
    auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
-   block_node        = _db.get_node( block_id );
-   auto parent_node  = _db.get_node( parent_id );
+   auto block_node   = _db.get_node( block_id, db_lock );
+   auto parent_node  = _db.get_node( parent_id, db_lock );
 
    if ( block_node ) return {}; // Block has been applied
 
    // This prevents returning "unknown previous block" when the pushed block is the LIB
    if ( !parent_node )
    {
-      auto root = _db.get_root();
+      auto root = _db.get_root( db_lock );
       KOINOS_ASSERT( block_id == root->id(), unknown_previous_block_exception, "unknown previous block" );
       return {}; // Block is current LIB
    }
@@ -257,7 +274,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
-   block_node = _db.create_writable_node( parent_id, block_id );
+   block_node = _db.create_writable_node( parent_id, block_id, block.header(), db_lock );
 
    // If this is not the genesis case, we must ensure that the proposed block timestamp is greater
    // than the parent block timestamp.
@@ -298,7 +315,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds_exception, "block timestamp is too old" );
 
       KOINOS_ASSERT(
-         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->get_merkle_root() ),
+         block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->merkle_root() ),
          state_merkle_mismatch_exception,
          "block previous state merkle mismatch"
       );
@@ -358,21 +375,21 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       auto lib = system_call::get_last_irreversible_block( ctx );
 
       {
-         std::unique_lock< std::shared_mutex > lock( _cached_head_block_mutex );
+         // We need to finalize out node, checking if it is the new head block, and update the cached head block
+         // as an atomic action or else we risk _db.get_head() and _cached_head_block desyncing from each other
+         std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
 
-         _db.finalize_node( block_node->id() );
+         _db.finalize_node( block_node->id(), db_lock );
 
-         if ( block_node->id() == _db.get_head()->id() )
-         {
+         if ( block_node->id() == _db.get_head( db_lock )->id() )
             _cached_head_block = std::make_shared< protocol::block >( block );
-         }
       }
 
-      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->get_merkle_root() ) );
+      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
 
       if ( _client )
       {
-         const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+         const auto [ fork_heads, last_irreversible_block ] = get_fork_data( db_lock );
 
          broadcast::block_irreversible bc;
          bc.mutable_topology()->CopyFrom( last_irreversible_block );
@@ -383,7 +400,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          *ba.mutable_block() = block;
          *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
          ba.set_live( live );
-         ba.set_head( block_node->id() == _db.get_head()->id() );
+         ba.set_head( block_node->id() == _db.get_head( db_lock )->id() );
 
          _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
 
@@ -412,14 +429,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      if ( std::optional< state_node_ptr > node; lib > _db.get_root()->revision() )
+      if ( lib > _db.get_root( db_lock )->revision() )
       {
-         auto lib_id = _db.get_node_at_revision( lib, block_node->id() )->id();
+         auto lib_id = _db.get_node_at_revision( lib, block_node->id(), db_lock )->id();
+         db_lock.reset();
          block_node.reset();
          parent_node.reset();
-         ctx.set_state_node( state_node_ptr() );
+         ctx.clear_state_node();
 
+         // This will defaulty grab the unique lock
          _db.commit_node( lib_id );
+
+         db_lock = _db.get_shared_lock();
       }
    }
    catch ( koinos::exception& e )
@@ -443,7 +464,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id(), db_lock );
       }
 
       throw;
@@ -454,7 +475,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       if ( block_node )
       {
-         _db.discard_node( block_node->id() );
+         _db.discard_node( block_node->id(), db_lock );
       }
 
       throw;
@@ -478,22 +499,21 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
    LOG(info) << "Pushing transaction - ID: " << transaction_id;
 
+   auto db_lock = _db.get_shared_lock();
+   state_node_ptr head;
    execution_context ctx( _vm_backend, intent::transaction_application );
    std::shared_ptr< const protocol::block > head_block_ptr;
-   std::shared_ptr< abstract_state_node > pending_trx_node;
 
    {
-      std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
-
+      std::shared_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
       head_block_ptr = _cached_head_block;
-      pending_trx_node = _db.get_head()->create_anonymous_node();
+      KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
+
+      head = _db.get_head( db_lock );
    }
 
-   KOINOS_ASSERT( pending_trx_node, pending_state_error_exception, "error retrieving pending state node" );
-   KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
-
    ctx.set_block( *head_block_ptr );
-   ctx.set_state_node( pending_trx_node );
+   ctx.set_state_node( head->create_anonymous_node() );
 
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::kernel_mode
@@ -575,14 +595,20 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
       .call_privilege = privilege::kernel_mode
    } );
 
+   auto db_lock = _db.get_shared_lock();
+   state_node_ptr head;
    std::shared_ptr< const protocol::block > head_block_ptr;
 
    {
-      std::shared_lock< std::shared_mutex > lock( _cached_head_block_mutex );
-
-      ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+      std::shared_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
       head_block_ptr = _cached_head_block;
+
+      KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
+
+      head = _db.get_head( db_lock );
    }
+
+   ctx.set_state_node( head->create_anonymous_node() );
 
    KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
@@ -595,7 +621,7 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
    rpc::chain::get_head_info_response resp;
    *resp.mutable_head_topology() = topo;
    resp.set_last_irreversible_block( head_info.last_irreversible_block() );
-   resp.set_head_state_merkle_root( util::converter::as< std::string >( _db.get_head()->get_merkle_root() ) );
+   resp.set_head_state_merkle_root( util::converter::as< std::string >( head->merkle_root() ) );
    resp.set_head_block_time( head_info.head_block_time() );
 
    return resp;
@@ -617,7 +643,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
    return resp;
 }
 
-fork_data controller_impl::get_fork_data()
+fork_data controller_impl::get_fork_data( state_db::shared_lock_ptr db_lock )
 {
    fork_data fdata;
    execution_context ctx( _vm_backend );
@@ -628,9 +654,9 @@ fork_data controller_impl::get_fork_data()
 
    std::vector< state_db::state_node_ptr > fork_heads;
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_root( db_lock )->create_anonymous_node() );
    ctx.reset_cache();
-   fork_heads = _db.get_fork_heads();
+   fork_heads = _db.get_fork_heads( db_lock );
 
    auto head_info = system_call::get_head_info( ctx );
    fdata.second = head_info.head_topology();
@@ -706,7 +732,7 @@ rpc::chain::get_fork_heads_response controller_impl::get_fork_heads( const rpc::
 {
    rpc::chain::get_fork_heads_response resp;
 
-   const auto [ fork_heads, last_irreversible_block ] = get_fork_data();
+   const auto [ fork_heads, last_irreversible_block ] = get_fork_data( _db.get_shared_lock() );
    auto topo = resp.mutable_last_irreversible_block();
    *topo = std::move( last_irreversible_block );
 
@@ -772,9 +798,9 @@ controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_
 
 controller::~controller() = default;
 
-void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, bool reset )
+void controller::open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset )
 {
-   _my->open( p, data, reset );
+   _my->open( p, data, algo, reset );
 }
 
 void controller::close()
