@@ -254,7 +254,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto block_id     = util::converter::to< crypto::multihash >( block.id() );
    auto block_height = block.header().height();
    auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
-   auto block_node        = _db.get_node( block_id, db_lock );
+   auto block_node   = _db.get_node( block_id, db_lock );
    auto parent_node  = _db.get_node( parent_id, db_lock );
 
    if ( block_node ) return {}; // Block has been applied
@@ -429,7 +429,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          }
       }
 
-      if ( std::optional< state_node_ptr > node; lib > _db.get_root( db_lock )->revision() )
+      if ( lib > _db.get_root( db_lock )->revision() )
       {
          auto lib_id = _db.get_node_at_revision( lib, block_node->id(), db_lock )->id();
          db_lock.reset();
@@ -510,7 +510,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
       head = _db.get_head( db_lock );
-      //KOINOS_ASSERT( util::converter::as< std::string >( head->id() ) == head_block_ptr->id(), internal_error_exception, "cached head block does not match head block" );
    }
 
    ctx.set_block( *head_block_ptr );
@@ -607,7 +606,6 @@ rpc::chain::get_head_info_response controller_impl::get_head_info( const rpc::ch
       KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
       head = _db.get_head( db_lock );
-      //KOINOS_ASSERT( util::converter::as< std::string >( head->id() ) == head_block_ptr->id(), internal_error_exception, "cached head block does not match head block" );
    }
 
    ctx.set_state_node( head->create_anonymous_node() );
