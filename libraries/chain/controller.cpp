@@ -643,7 +643,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
    return resp;
 }
 
-fork_data controller_impl::get_fork_data( state_db::shared_lock_ptr db_lock  )
+fork_data controller_impl::get_fork_data( state_db::shared_lock_ptr db_lock )
 {
    fork_data fdata;
    execution_context ctx( _vm_backend );
