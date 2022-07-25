@@ -128,9 +128,17 @@ fizzy_runner::~fizzy_runner()
 
 const FizzyModule* parse_bytecode( const char* bytecode_data, size_t bytecode_size )
 {
+   FizzyError fizzy_err;
    KOINOS_ASSERT( bytecode_data != nullptr, fizzy_returned_null_exception, "fizzy_instance was unexpectedly null pointer" );
-   auto module_ptr = fizzy_parse(reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, nullptr);
-   KOINOS_ASSERT( module_ptr != nullptr, module_parse_exception, "could not parse fizzy module" );
+   auto module_ptr = fizzy_parse( reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, &fizzy_err );
+
+   if ( module_ptr == nullptr)
+   {
+      std::string error_code = fizzy_error_code_name( fizzy_err.code );
+      std::string error_message = fizzy_err.message;
+      KOINOS_THROW( module_parse_exception, "could not parse fizzy module - ${code}: ${msg}", ("code", error_code)("msg", error_message) );
+   }
+
    return module_ptr;
 }
 
