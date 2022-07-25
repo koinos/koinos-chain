@@ -39,11 +39,11 @@ class object_cache
       object_cache( std::size_t size );
       ~object_cache();
 
-      std::shared_ptr< const value_type > get( const key_type& k );
-      std::shared_ptr< const value_type > put( const key_type& k, const value_type& v );
+      std::pair< bool, std::shared_ptr< const value_type > > get( const key_type& k );
+      std::shared_ptr< const value_type > put( const key_type& k, std::shared_ptr< const value_type > v );
 
       void remove( const key_type& k );
-      void remove( const ::rocksdb::Slice& k );
+      //void remove( const ::rocksdb::Slice& k );
 
       void clear();
 

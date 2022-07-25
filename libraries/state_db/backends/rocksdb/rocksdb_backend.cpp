@@ -327,7 +327,7 @@ void rocksdb_backend::put( const key_type& k, const value_type& v )
    }
 
    std::lock_guard lock( _cache->get_mutex() );
-   _cache->put( k, v );
+   _cache->put( k, std::make_shared< const object_cache::value_type >( v ) );
 }
 
 const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k ) const
@@ -335,11 +335,15 @@ const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k ) con
    KOINOS_ASSERT( _db, rocksdb_database_not_open_exception, "database not open" );
 
    std::lock_guard lock( _cache->get_mutex() );
-   auto ptr = _cache->get( k );
-   if ( ptr )
+   auto [cache_hit, ptr] = _cache->get( k );
+   if ( cache_hit )
    {
-      return &*ptr;
+      if ( ptr )
+         return &*ptr;
+
+      return nullptr;
    }
+
 
    value_type value;
    auto status = _db->Get(
@@ -350,9 +354,9 @@ const rocksdb_backend::value_type* rocksdb_backend::get( const key_type& k ) con
    );
 
    if ( status.ok() )
-   {
-      return &*_cache->put( k, value );
-   }
+      return &*_cache->put( k, std::make_shared< const object_cache::value_type >( value ) );
+   else if ( status.IsNotFound() )
+      _cache->put( k, std::shared_ptr< const object_cache::value_type >() );
 
    return nullptr;
 }
@@ -375,7 +379,7 @@ void rocksdb_backend::erase( const key_type& k )
    }
 
    std::lock_guard lock( _cache->get_mutex() );
-   _cache->remove( ::rocksdb::Slice( k ) );
+   _cache->put( k, std::shared_ptr< const object_cache::value_type >() );
 }
 
 void rocksdb_backend::clear()

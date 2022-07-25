@@ -107,12 +107,14 @@ void rocksdb_iterator::update_cache_value() const
       auto key_slice = _iter->key();
       auto key = std::make_shared< std::string >( key_slice.data(), key_slice.size() );
       std::lock_guard< std::mutex > lock( _cache->get_mutex() );
-      auto ptr = _cache->get( *key );
+      auto [cache_hit, ptr] = _cache->get( *key );
+
+      KOINOS_ASSERT( cache_hit, rocksdb_internal_exception, "iterator erroneosly hit null value in cache" );
 
       if ( !ptr )
       {
          auto value_slice = _iter->value();
-         ptr = _cache->put( *key, std::string( value_slice.data(), value_slice.size() ) );
+         ptr = _cache->put( *key, std::make_shared< const object_cache::value_type >( value_slice.data(), value_slice.size() ) );
       }
 
       _cache_value = ptr;

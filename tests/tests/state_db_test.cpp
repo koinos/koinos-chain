@@ -854,39 +854,77 @@ BOOST_AUTO_TEST_CASE( rocksdb_object_cache_test )
 { try {
    std::size_t cache_size = 1024;
    koinos::state_db::backends::rocksdb::object_cache cache( cache_size );
+   using value_type = koinos::state_db::backends::rocksdb::object_cache::value_type;
 
    std::string a_key = "a";
    std::string a_val = "alice";
+   auto a_ptr = std::make_shared< const value_type >( a_val );
 
-   BOOST_CHECK( !cache.get( a_key ) );
-   BOOST_CHECK( cache.put( a_key, a_val ) );
+   {
+      auto [cache_hit, val] = cache.get( a_key );
+      BOOST_CHECK( !cache_hit );
+      BOOST_CHECK( !val );
+   }
 
-   auto val_ptr = cache.get( a_key );
-   BOOST_REQUIRE( val_ptr );
-   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+   BOOST_CHECK( cache.put( a_key, a_ptr ) );
+
+   {
+      auto [ cache_hit, val_ptr ] = cache.get( a_key );
+      BOOST_CHECK( cache_hit );
+      BOOST_REQUIRE( val_ptr );
+      BOOST_CHECK_EQUAL( *val_ptr, a_val );
+   }
 
    std::string b_key = "b";
    std::string b_val = "bob";
+   auto b_ptr = std::make_shared< const value_type >( b_val );
 
-   cache.put( b_key, b_val );
-   val_ptr = cache.get( b_key );
-   BOOST_REQUIRE( val_ptr );
-   BOOST_CHECK_EQUAL( *val_ptr, b_val );
+   cache.put( b_key, b_ptr );
+
+   {
+      auto [ cache_hit, val_ptr ] = cache.get( b_key );
+      BOOST_CHECK( cache_hit );
+      BOOST_REQUIRE( val_ptr );
+      BOOST_CHECK_EQUAL( *val_ptr, b_val );
+   }
 
    // Will put 'a' first in the cache to evict 'b'
    cache.get( a_key );
 
    std::string fill_key = "f";
    std::string fill_val( cache_size - a_val.size() - b_val.size() + 1, 'f' );
-   BOOST_CHECK( cache.put( fill_key, fill_val ) );
-   BOOST_CHECK( !cache.get( b_key ) );
+   auto fill_ptr = std::make_shared< const value_type >( fill_val );
+   BOOST_CHECK( cache.put( fill_key, fill_ptr ) );
 
-   val_ptr = cache.get( a_key );
-   BOOST_REQUIRE( val_ptr );
-   BOOST_CHECK_EQUAL( *val_ptr, a_val );
+   {
+      auto [ cache_hit, val_ptr ] = cache.get( b_key );
+      BOOST_CHECK( !cache_hit );
+      BOOST_CHECK( !val_ptr );
+   }
 
-   BOOST_CHECK( cache.put( fill_key, fill_val ) );
-   BOOST_CHECK( !cache.get( b_key ) );
+   {
+      auto [ cache_hit, val_ptr ] = cache.get( a_key );
+      BOOST_CHECK( cache_hit );
+      BOOST_REQUIRE( val_ptr );
+      BOOST_CHECK_EQUAL( *val_ptr, a_val );
+   }
+
+   BOOST_CHECK( cache.put( fill_key, fill_ptr ) );
+   {
+      auto [ cache_hit, val_ptr ] = cache.get( b_key );
+      BOOST_CHECK( !cache_hit );
+      BOOST_CHECK( !val_ptr );
+   }
+
+   std::string null_key = "n";
+   std::shared_ptr< const value_type > null_ptr;
+   BOOST_CHECK( !cache.put( null_key, null_ptr ) );
+
+   {
+      auto [ cache_hit, val_ptr ] = cache.get( null_key );
+      BOOST_CHECK( cache_hit );
+      BOOST_REQUIRE( !val_ptr );
+   }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
