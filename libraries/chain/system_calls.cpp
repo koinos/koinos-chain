@@ -1094,6 +1094,7 @@ THUNK_DEFINE( get_prev_object_result, get_prev_object, ((const object_space&) sp
 
 THUNK_DEFINE( void, log, ((const std::string&) msg) )
 {
+   KOINOS_ASSERT( validate_utf( msg ), reversion_exception, "log entry contains invalid utf-8" );
    context.chronicler().push_log( msg );
 }
 
