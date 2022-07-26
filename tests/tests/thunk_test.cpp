@@ -2068,6 +2068,7 @@ BOOST_AUTO_TEST_CASE( syscall_override_return )
    chain::system_call::apply_set_system_call_operation( ctx, set_syscall_op );
 
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
+   ctx.reset_cache();
 
    chain::system_call::call( ctx, echo_contract_id, 0, "hello world" );
 

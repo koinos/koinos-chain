@@ -53,13 +53,25 @@ enum class intent : uint64_t
    transaction_application
 };
 
+struct system_call_cache_bundle
+{
+   std::string                     contract_id;
+   std::string                     contract_bytecode;
+   uint32_t                        entry_point;
+   chain::contract_metadata_object contract_metadata;
+};
+
+struct thunk_cache_bundle
+{
+   uint32_t thunk_id;
+   bool     is_override;
+};
+
 struct execution_context_cache
 {
-   using system_call_cache_bundle = std::tuple< std::string, std::string, uint32_t, chain::contract_metadata_object >;
-
    std::optional< std::map< std::string, uint64_t > > compute_bandwidth;
    std::optional< google::protobuf::DescriptorPool > descriptor_pool;
-   std::map< uint32_t, std::variant< system_call_cache_bundle, uint32_t > > system_call_table;
+   std::map< uint32_t, std::variant< system_call_cache_bundle, thunk_cache_bundle > > system_call_table;
    std::optional< crypto::multicodec > block_hash_code;
 };
 
