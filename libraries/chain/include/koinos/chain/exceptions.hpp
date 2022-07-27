@@ -4,10 +4,6 @@
 
 namespace koinos::chain {
 
-KOINOS_DECLARE_EXCEPTION_WITH_CODE( reversion_exception, reversion );
-KOINOS_DECLARE_EXCEPTION_WITH_CODE( failure_exception, failure );
-KOINOS_DECLARE_EXCEPTION_WITH_CODE( success_exception, success );
-
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( system_authorization_failure_exception, reversion_exception, system_authorization_failure );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( invalid_contract_exception, reversion_exception, invalid_contract );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( insufficient_privileges_exception, reversion_exception, insufficient_privileges );
