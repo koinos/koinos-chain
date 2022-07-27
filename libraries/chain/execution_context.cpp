@@ -351,7 +351,7 @@ const execution_result& execution_context::system_call( uint32_t id, const std::
          }
       );
    }
-   catch ( const koinos::exception& e ) {}
+   catch ( const success_exception& ) {}
 
    return get_result();
 }
