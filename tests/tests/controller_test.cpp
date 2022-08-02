@@ -371,10 +371,10 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
 
    auto head_info_res = _controller.get_head_info();
 
+   auto start_time = std::chrono::system_clock::now().time_since_epoch();
    for ( uint64_t i = 1; i <= chain::default_irreversible_threshold; i++ )
    {
-      auto duration = std::chrono::system_clock::now().time_since_epoch();
-      block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+      block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( start_time + std::chrono::milliseconds{ i } ).count() );
       block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
       block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
@@ -390,10 +390,11 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       BOOST_REQUIRE( head_info_res.last_irreversible_block() == 0 );
    }
 
+   start_time = std::chrono::system_clock::now().time_since_epoch();
    for ( uint64_t i = chain::default_irreversible_threshold + 1; i <= chain::default_irreversible_threshold + 3; i++ )
    {
       auto duration = std::chrono::system_clock::now().time_since_epoch();
-      block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+      block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( start_time + std::chrono::milliseconds{ i } ).count() );
       block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );
       block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
@@ -727,7 +728,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    koinos::rpc::chain::submit_block_request block_req2;
 
    auto duration2 = std::chrono::system_clock::now().time_since_epoch();
-   block_req2.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+   block_req2.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( duration2 ).count() );
    block_req2.mutable_block()->mutable_header()->set_height( 2 );
    block_req2.mutable_block()->mutable_header()->set_previous( block_req.block().id() );
    block_req2.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );

@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
+#include <boost/thread.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 
 #include <yaml-cpp/yaml.h>
@@ -203,7 +204,7 @@ int main( int argc, char** argv )
 
    std::atomic< bool > stopped = false;
    int retcode = EXIT_SUCCESS;
-   std::vector< std::thread > threads;
+   std::vector< boost::thread > threads;
 
    asio::io_context client_ioc, server_ioc, main_ioc;
    auto client = std::make_shared< mq::client >( client_ioc );
@@ -226,10 +227,13 @@ int main( int argc, char** argv )
          main_ioc.stop();
       } );
 
-      threads.emplace_back( [&]() { client_ioc.run(); } );
-      threads.emplace_back( [&]() { client_ioc.run(); } );
+      boost::thread::attributes attrs;
+      attrs.set_stack_size( 8192 * 1024 );
+
+      threads.emplace_back( attrs, [&]() { client_ioc.run(); } );
+      threads.emplace_back( attrs, [&]() { client_ioc.run(); } );
       for ( std::size_t i = 0; i < jobs; i++ )
-         threads.emplace_back( [&]() { server_ioc.run(); } );
+         threads.emplace_back( attrs, [&]() { server_ioc.run(); } );
 
       controller.open( statedir, genesis_data, fork_algorithm, reset );
 

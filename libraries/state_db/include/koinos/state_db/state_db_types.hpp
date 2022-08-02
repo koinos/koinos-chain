@@ -14,7 +14,7 @@ using object_space  = chain::object_space;
 using object_key    = std::string;
 using object_value  = std::string;
 
-KOINOS_DECLARE_EXCEPTION( state_db_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( state_db_exception, chain::reversion_exception );
 
 KOINOS_DECLARE_DERIVED_EXCEPTION( database_not_open, state_db_exception );
 

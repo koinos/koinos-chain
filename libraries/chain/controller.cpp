@@ -312,7 +312,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       );
 
       KOINOS_ASSERT( block.header().timestamp() <= time_upper_bound, timestamp_out_of_bounds_exception, "block timestamp is too far in the future" );
-      KOINOS_ASSERT( block.header().timestamp() >= time_lower_bound, timestamp_out_of_bounds_exception, "block timestamp is too old" );
+      KOINOS_ASSERT( block.header().timestamp() >  time_lower_bound, timestamp_out_of_bounds_exception, "block timestamp is too old" );
 
       KOINOS_ASSERT(
          block.header().previous_state_merkle_root() == util::converter::as< std::string >( parent_node->merkle_root() ),

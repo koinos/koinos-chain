@@ -6,7 +6,7 @@
 namespace koinos::vm_manager {
 
 // Root of exception hierarchy for vm_manager library
-KOINOS_DECLARE_EXCEPTION( vm_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( vm_exception, chain::reversion_exception );
 
 // Exceptions thrown by vm_manager
 KOINOS_DECLARE_DERIVED_EXCEPTION( vm_manager_exception, vm_exception );
