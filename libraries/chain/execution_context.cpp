@@ -260,8 +260,6 @@ void execution_context::cache_system_call( uint32_t id )
          KOINOS_ASSERT( contract_meta, invalid_contract_exception, "contract metadata for call id ${id} not found", ("id", id) );
          KOINOS_ASSERT( contract_bytecode, invalid_contract_exception, "contract bytecode for call id ${id} not found", ("id", id) );
 
-         //_cache.system_call_table[ id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
-
          auto success = _cache.system_call_table.emplace(
             id,
             system_call_cache_bundle {
@@ -271,6 +269,7 @@ void execution_context::cache_system_call( uint32_t id )
                util::converter::to< chain::contract_metadata_object >( *contract_meta )
             }
          ).second;
+         KOINOS_ASSERT( success, internal_error_exception, "caching system call ${id} failed", ("id", id) );
       }
       else
       {

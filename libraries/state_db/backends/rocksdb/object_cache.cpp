@@ -59,11 +59,6 @@ void object_cache::remove( const key_type& k )
    assert( _object_map.size() == _lru_list.size() );
 }
 
-//void object_cache::remove( const ::rocksdb::Slice& k )
-//{
-//   remove( std::string( k.data(), k.size() ) );
-//}
-
 void object_cache::clear()
 {
    _object_map.clear();

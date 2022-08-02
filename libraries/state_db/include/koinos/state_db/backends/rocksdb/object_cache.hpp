@@ -43,7 +43,6 @@ class object_cache
       std::shared_ptr< const value_type > put( const key_type& k, std::shared_ptr< const value_type > v );
 
       void remove( const key_type& k );
-      //void remove( const ::rocksdb::Slice& k );
 
       void clear();
 

@@ -103,14 +103,11 @@ class fizzy_runner
 
 fizzy_runner::~fizzy_runner()
 {
-   if( _instance != nullptr )
-   {
+   if ( _instance != nullptr )
       fizzy_free_instance( _instance );
-      _instance = nullptr;
-   }
 
-   if( _fizzy_context != nullptr )
-      fizzy_free_execution_context(_fizzy_context);
+   if ( _fizzy_context != nullptr )
+      fizzy_free_execution_context( _fizzy_context );
 }
 
 module_ptr parse_bytecode( const char* bytecode_data, size_t bytecode_size )
@@ -151,7 +148,7 @@ void fizzy_runner::instantiate_module()
    size_t memory_pages_limit = 512;     // Number of 64k pages allowed to allocate
 
    KOINOS_ASSERT( _instance == nullptr, runner_state_exception, "_instance was unexpectedly non-null" );
-   _instance = fizzy_resolve_instantiate(_module->get(), host_funcs, num_host_funcs, nullptr, nullptr, nullptr, 0, memory_pages_limit, &fizzy_err);
+   _instance = fizzy_resolve_instantiate( _module->get(), host_funcs, num_host_funcs, nullptr, nullptr, nullptr, 0, memory_pages_limit, &fizzy_err );
    if( _instance == nullptr )
    {
       std::string error_code = fizzy_error_code_name( fizzy_err.code );
