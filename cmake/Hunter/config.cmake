@@ -32,8 +32,8 @@ hunter_config(rocksdb
 )
 
 hunter_config(fizzy
-   URL "https://github.com/wasmx/fizzy/archive/86268ecd0e42f376b2e80d6e72ba8ec653099879.tar.gz"
-   SHA1 "c4af52631141582bce4f99ea6c404a80882a4c1d"
+   URL "https://github.com/wasmx/fizzy/archive/d4c38210c8aaaeec7ec593d06c6e08cb0390bd49.tar.gz"
+   SHA1 "e353a4bef635fa6a17027ee89a21b52f88b7ee61"
 )
 
 hunter_config(rabbitmq-c
