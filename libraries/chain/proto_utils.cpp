@@ -18,12 +18,6 @@ value_type get_field_value(
 
    switch ( type )
    {
-      case google::protobuf::FieldDescriptor::TYPE_DOUBLE:
-         v.set_double_value( reflection->GetDouble( message, field_descriptor ) );
-         break;
-      case google::protobuf::FieldDescriptor::TYPE_FLOAT:
-         v.set_float_value( reflection->GetFloat( message, field_descriptor ) );
-         break;
       case google::protobuf::FieldDescriptor::TYPE_INT64:
          v.set_int64_value( reflection->GetInt64( message, field_descriptor ) );
          break;
@@ -96,14 +90,6 @@ value_type get_repeated_field_value(
 
    switch ( type )
    {
-      case google::protobuf::FieldDescriptor::TYPE_DOUBLE:
-         for ( int i = 0; i < len; i++ )
-            list.add_values()->set_double_value( reflection->GetRepeatedDouble( message, field_descriptor, i ) );
-         break;
-      case google::protobuf::FieldDescriptor::TYPE_FLOAT:
-         for ( int i = 0; i < len; i++ )
-            list.add_values()->set_float_value( reflection->GetRepeatedFloat( message, field_descriptor, i ) );
-         break;
       case google::protobuf::FieldDescriptor::TYPE_INT64:
          for ( int i = 0; i < len; i++ )
             list.add_values()->set_int64_value( reflection->GetRepeatedInt64( message, field_descriptor, i ) );
