@@ -88,10 +88,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
                code = res.code;
 
                if ( code )
-               {
                   error = res.res.error();
-                  LOG(info) << code;
-               }
                else if ( res.res.has_object() )
                {
                   auto obj_len = res.res.object().size();
