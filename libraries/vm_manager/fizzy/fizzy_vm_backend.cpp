@@ -83,10 +83,9 @@ std::string fizzy_error_code_name(FizzyErrorCode code) noexcept
 class fizzy_runner
 {
    public:
-      fizzy_runner( abstract_host_api& h, const FizzyModule* m ) : _hapi(h), _module(m) {}
+      fizzy_runner( abstract_host_api& h, module_ptr m ) : _hapi(h), _module(m) {}
       ~fizzy_runner();
 
-      const FizzyModule* parse_bytecode( const char* bytecode_data, size_t bytecode_size );
       void instantiate_module();
       void call_start();
 
@@ -95,7 +94,7 @@ class fizzy_runner
 
    private:
       abstract_host_api&     _hapi;
-      const FizzyModule*     _module = nullptr;
+      module_ptr             _module = nullptr;
       FizzyInstance*         _instance = nullptr;
       FizzyExecutionContext* _fizzy_context = nullptr;
       int64_t                _previous_ticks;
@@ -104,42 +103,27 @@ class fizzy_runner
 
 fizzy_runner::~fizzy_runner()
 {
-   if( _instance != nullptr )
-   {
+   if ( _instance != nullptr )
       fizzy_free_instance( _instance );
-      _instance = nullptr;
-      // As per fizzy docs, don't free _module if _instance was created successfully
-      _module = nullptr;
-   }
-   else
-   {
-      if( _module != nullptr )
-      {
-         // While testing the changes for #400, I was getting malloc errors that resolved themselves
-         // by commenting out this line (freeing already freed memory). It would appear that fizzy_initialize
-         // takes ownership even on failure and this line is not needed.
-         // The bug I ran in to could be replicated via an uploaded contract and is therefore and attack vector.
-         // fizzy_free_module( _module );
-      }
-   }
-   if( _fizzy_context != nullptr )
-      fizzy_free_execution_context(_fizzy_context);
+
+   if ( _fizzy_context != nullptr )
+      fizzy_free_execution_context( _fizzy_context );
 }
 
-const FizzyModule* parse_bytecode( const char* bytecode_data, size_t bytecode_size )
+module_ptr parse_bytecode( const char* bytecode_data, size_t bytecode_size )
 {
    FizzyError fizzy_err;
    KOINOS_ASSERT( bytecode_data != nullptr, fizzy_returned_null_exception, "fizzy_instance was unexpectedly null pointer" );
-   auto module_ptr = fizzy_parse( reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, &fizzy_err );
+   auto ptr = fizzy_parse(reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, nullptr);
 
-   if ( module_ptr == nullptr)
+   if ( ptr == nullptr)
    {
       std::string error_code = fizzy_error_code_name( fizzy_err.code );
       std::string error_message = fizzy_err.message;
       KOINOS_THROW( module_parse_exception, "could not parse fizzy module - ${code}: ${msg}", ("code", error_code)("msg", error_message) );
    }
 
-   return module_ptr;
+   return std::make_shared< const module_guard >( ptr );
 }
 
 void fizzy_runner::instantiate_module()
@@ -172,7 +156,7 @@ void fizzy_runner::instantiate_module()
    size_t memory_pages_limit = 512;     // Number of 64k pages allowed to allocate
 
    KOINOS_ASSERT( _instance == nullptr, runner_state_exception, "_instance was unexpectedly non-null" );
-   _instance = fizzy_resolve_instantiate(_module, host_funcs, num_host_funcs, nullptr, nullptr, nullptr, 0, memory_pages_limit, &fizzy_err);
+   _instance = fizzy_resolve_instantiate( _module->get(), host_funcs, num_host_funcs, nullptr, nullptr, nullptr, 0, memory_pages_limit, &fizzy_err );
    if( _instance == nullptr )
    {
       std::string error_code = fizzy_error_code_name( fizzy_err.code );
@@ -280,7 +264,7 @@ void fizzy_runner::call_start()
    KOINOS_ASSERT( _fizzy_context != nullptr, create_context_exception, "could not create execution context" );
 
    uint32_t start_func_idx = 0;
-   bool success = fizzy_find_exported_function_index( _module, "_start", &start_func_idx );
+   bool success = fizzy_find_exported_function_index( _module->get(), "_start", &start_func_idx );
    KOINOS_ASSERT( success, module_start_exception, "module does not have _start function" );
 
    FizzyExecutionResult result = fizzy_execute( _instance, start_func_idx, nullptr, _fizzy_context );
@@ -304,23 +288,23 @@ void fizzy_runner::call_start()
 
 void fizzy_vm_backend::run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id )
 {
-   const FizzyModule* module_ptr = nullptr;
+   module_ptr ptr;
 
    if ( id.size() )
    {
-      module_ptr = _cache.get_module( id );
-      if ( !module_ptr )
+      ptr = _cache.get_module( id );
+      if ( !ptr )
       {
-         module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
-         _cache.put_module( id, module_ptr );
+         ptr = parse_bytecode( bytecode.data(), bytecode.size() );
+         _cache.put_module( id, ptr );
       }
    }
    else
    {
-      module_ptr = parse_bytecode( bytecode.data(), bytecode.size() );
+      ptr = parse_bytecode( bytecode.data(), bytecode.size() );
    }
 
-   fizzy_runner runner( hapi, module_ptr );
+   fizzy_runner runner( hapi, ptr );
    runner.instantiate_module();
    runner.call_start();
 }

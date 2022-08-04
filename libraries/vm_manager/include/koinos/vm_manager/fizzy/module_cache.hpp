@@ -2,10 +2,24 @@
 
 #include <list>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 
 namespace koinos::vm_manager::fizzy {
+
+class module_guard {
+   private:
+      const FizzyModule* _module;
+
+   public:
+      module_guard( const FizzyModule* m ) : _module(m) {}
+      ~module_guard() { fizzy_free_module( _module ); }
+
+      const FizzyModule* get() const { return _module; }
+};
+
+using module_ptr = std::shared_ptr< const module_guard >;
 
 class module_cache
 {
@@ -16,7 +30,7 @@ class module_cache
          std::map<
             std::string,
             std::pair<
-               const FizzyModule*,
+               module_ptr,
                typename lru_list_type::iterator
             >
          >;
@@ -30,8 +44,8 @@ class module_cache
       module_cache( std::size_t size );
       ~module_cache();
 
-      const FizzyModule* get_module( const std::string& id );
-      void put_module( const std::string& id, const FizzyModule* module );
+      module_ptr get_module( const std::string& id );
+      void put_module( const std::string& id, module_ptr module );
 };
 
 } // koinos::vm_manager::fizzy

@@ -252,20 +252,35 @@ void execution_context::cache_system_call( uint32_t id )
 
       if ( system_call_target.has_system_call_bundle() )
       {
-         auto contract_id       = system_call_target.system_call_bundle().contract_id();
-         auto entry_point       = system_call_target.system_call_bundle().entry_point();
-         auto contract_meta     = parent_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
-         auto contract_bytecode = parent_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
+         const auto& contract_id = system_call_target.system_call_bundle().contract_id();
+         auto entry_point        = system_call_target.system_call_bundle().entry_point();
+         auto contract_meta      = parent_state_node->get_object( state::space::contract_metadata(), util::converter::as< std::string >( contract_id ) );
+         auto contract_bytecode  = parent_state_node->get_object( state::space::contract_bytecode(), util::converter::as< std::string >( contract_id ) );
 
          KOINOS_ASSERT( contract_meta, invalid_contract_exception, "contract metadata for call id ${id} not found", ("id", id) );
          KOINOS_ASSERT( contract_bytecode, invalid_contract_exception, "contract bytecode for call id ${id} not found", ("id", id) );
 
-         _cache.system_call_table[ id ] = std::make_tuple( contract_id, *contract_bytecode, entry_point, util::converter::to< chain::contract_metadata_object >( *contract_meta ) );
+         auto success = _cache.system_call_table.emplace(
+            id,
+            system_call_cache_bundle {
+               contract_id,
+               *contract_bytecode,
+               entry_point,
+               util::converter::to< chain::contract_metadata_object >( *contract_meta )
+            }
+         ).second;
+         KOINOS_ASSERT( success, internal_error_exception, "caching system call ${id} failed", ("id", id) );
       }
       else
       {
-         _cache.system_call_table[ id ] = system_call_target.thunk_id();
+         auto success = _cache.system_call_table.emplace( id, thunk_cache_bundle { system_call_target.thunk_id(), true } ).second;
+         KOINOS_ASSERT( success, internal_error_exception, "caching system call ${id} failed", ("id", id) );
       }
+   }
+   else
+   {
+      auto success = _cache.system_call_table.emplace( id, thunk_cache_bundle { id, false } ).second;
+      KOINOS_ASSERT( success, internal_error_exception, "caching system call ${id} failed", ("id", id) );
    }
 }
 
@@ -317,31 +332,25 @@ const execution_result& execution_context::system_call( uint32_t id, const std::
       auto itr = _cache.system_call_table.find( id );
       KOINOS_ASSERT( itr != _cache.system_call_table.end(), reversion_exception, "unable to find call id ${id} in system call cache", ("id", id) );
 
-      const auto* call_bundle = std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second );
-
+      const auto* call_bundle = std::get_if< system_call_cache_bundle >( &itr->second );
       KOINOS_ASSERT( call_bundle, reversion_exception, "system call ${id} is implemented via thunk", ("id", id) );
-
-      const auto& cid      = std::get< 0 >( *call_bundle );
-      const auto& bytecode = std::get< 1 >( *call_bundle );
-      auto entry_point     = std::get< 2 >( *call_bundle );
-      const auto& meta     = std::get< 3 >( *call_bundle );
 
       with_stack_frame(
          *this,
          stack_frame {
-            .contract_id = cid,
-            .call_privilege = meta.system() ? privilege::kernel_mode : privilege::user_mode,
+            .contract_id = call_bundle->contract_id,
+            .call_privilege = call_bundle->contract_metadata.system() ? privilege::kernel_mode : privilege::user_mode,
             .call_args = args,
-            .entry_point = entry_point
+            .entry_point = call_bundle->entry_point
          },
          [&]
          {
             chain::host_api hapi( *this );
-            get_backend()->run( hapi, bytecode, meta.hash() );
+            get_backend()->run( hapi, call_bundle->contract_bytecode, call_bundle->contract_metadata.hash() );
          }
       );
    }
-   catch ( const koinos::exception& e ) {}
+   catch ( const success_exception& ) {}
 
    return get_result();
 }
@@ -354,7 +363,7 @@ bool execution_context::system_call_exists( uint32_t id )
    if ( itr == _cache.system_call_table.end() )
       return false;
 
-   return std::get_if< execution_context_cache::system_call_cache_bundle >( &itr->second ) != nullptr;
+   return std::get_if< system_call_cache_bundle >( &itr->second ) != nullptr;
 }
 
 uint32_t execution_context::thunk_translation( uint32_t id )
@@ -362,17 +371,19 @@ uint32_t execution_context::thunk_translation( uint32_t id )
    cache_system_call( id );
 
    auto itr = _cache.system_call_table.find( id );
-   if ( itr == _cache.system_call_table.end() )
+   KOINOS_ASSERT( itr != _cache.system_call_table.end(), reversion_exception, "unable to find call id ${id} in system call cache", ("id", id) );
+
+   const auto* thunk_bundle = std::get_if< thunk_cache_bundle >( &itr->second );
+   KOINOS_ASSERT( thunk_bundle, reversion_exception, "system call ${id} is implemented via contract override", ("id", id) );
+
+   if ( thunk_bundle->is_override )
    {
-      KOINOS_ASSERT( thunk_dispatcher::instance().thunk_is_genesis( id ), unknown_thunk_exception, "thunk ${id} is not enabled", ("id", id) );
-      return id;
+      return thunk_bundle->thunk_id;
    }
 
-   const auto* thunk_id = std::get_if< uint32_t >( &itr->second );
-
-   KOINOS_ASSERT( thunk_id, reversion_exception, "system call ${id} is implemented via contract override", ("id", id) );
-
-   return *thunk_id;
+   KOINOS_ASSERT( thunk_bundle->thunk_id == id, internal_error_exception, "non-override cached thunk id ${cached} does not match id ${id}", ("cached", thunk_bundle->thunk_id)("id", id) );
+   KOINOS_ASSERT( thunk_dispatcher::instance().thunk_is_genesis( id ), unknown_thunk_exception, "thunk ${id} is not enabled", ("id", id) );
+   return id;
 }
 
 const crypto::multicodec& execution_context::block_hash_code()

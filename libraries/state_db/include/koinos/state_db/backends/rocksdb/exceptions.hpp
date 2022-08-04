@@ -11,5 +11,6 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( rocksdb_database_not_open_exception, rocksdb_b
 KOINOS_DECLARE_DERIVED_EXCEPTION( rocksdb_read_exception, rocksdb_backend_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( rocksdb_write_exception, rocksdb_backend_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( rocksdb_session_in_progress, rocksdb_backend_exception );
+KOINOS_DECLARE_DERIVED_EXCEPTION( rocksdb_internal_exception, rocksdb_backend_exception );
 
 } // koinos::state_db::backends::rocksdb
