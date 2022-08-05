@@ -304,6 +304,7 @@ BOOST_FIXTURE_TEST_SUITE( thunk_tests, thunk_fixture )
 
 BOOST_AUTO_TEST_CASE( get_transaction_field )
 { try {
+   auto leak = malloc(1024);
    koinos::protocol::transaction trx;
 
    koinos::contracts::token::transfer_arguments xfer_arg;
