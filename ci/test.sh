@@ -8,7 +8,7 @@ if [[ -z $BUILD_DOCKER ]]; then
    if [ "$RUN_TYPE" = "test" ]; then
       exec ctest -j3 --output-on-failure && ../libraries/vendor/mira/test/mira_test
    elif [ "$RUN_TYPE" = "coverage" ]; then
-      exec valgrind --error-exitcode --leak-check=yes ./koinos_tests
+      exec valgrind --error-exitcode=1 --leak-check=yes ./koinos_tests
    fi
 fi
 
