@@ -1648,7 +1648,7 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    );
 
    BOOST_CHECK( !chain::system_call::check_authority( ctx, chain::contract_call, key_a.get_public_key().to_address_bytes() ) );
-   BOOST_CHECK( chain::system_call::check_authority( ctx, chain::contract_call, key_a.get_public_key().to_address_bytes(), "foobar" ) );
+   BOOST_CHECK( chain::system_call::check_authority( ctx, chain::contract_call, key_a.get_public_key().to_address_bytes(), "\1" ) );
 
    sign_transaction( trx, key_b );
    koinos::chain::system_call::call( ctx, util::converter::as< std::string >( contract_address ), token_entry::transfer, util::converter::as< std::string >( transfer_args ) );
@@ -2325,7 +2325,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
 
    std::map< std::string, std::function< void( void ) > > system_call_map {
       { "check_system_authority", [&]() { chain::system_call::check_system_authority( ctx, chain::set_system_call ); } },
-      { "recover_public_key", [&]() { chain::system_call::recover_public_key( ctx, chain::dsa::ecdsa_secp256k1, transaction.signatures( 0 ), transaction.id() ); } },
+      { "recover_public_key", [&]() { chain::system_call::recover_public_key( ctx, chain::dsa::ecdsa_secp256k1, transaction.signatures( 0 ), transaction.id(), true ); } },
       { "check_authority", [&]() { chain::system_call::check_authority( ctx, chain::contract_call, transaction.header().payer() ); } },
       { "get_last_irreversible_block", [&]() { chain::system_call::get_last_irreversible_block( ctx ); } },
       { "hash", [&]() { chain::system_call::hash( ctx, std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ), header_str ); } },
@@ -2336,7 +2336,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
       { "consume_account_rc", [&]() { chain::system_call::consume_account_rc( ctx, transaction.header().payer(), 1 ); } },
       { "get_transaction_field", [&]() { chain::system_call::get_transaction_field( ctx, "header" ); } },
       { "get_block_field", [&]() { chain::system_call::get_block_field( ctx, "header" ); } },
-      { "verify_signature", [&]() { chain::system_call::verify_signature( ctx, chain::dsa::ecdsa_secp256k1, trx.signatures( 0 ), trx.signatures( 0 ), trx.id() ); } },
+      { "verify_signature", [&]() { chain::system_call::verify_signature( ctx, chain::dsa::ecdsa_secp256k1, trx.signatures( 0 ), trx.signatures( 0 ), trx.id(), true ); } },
       { "get_resource_limits", [&]() { chain::system_call::get_resource_limits( ctx ); } },
       { "consume_block_resources", [&]() { chain::system_call::consume_block_resources( ctx, 1, 1, 1 ); } },
       { "log", [&]() { chain::system_call::log( ctx, "message" ); } },
