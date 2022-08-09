@@ -798,7 +798,7 @@ THUNK_DEFINE( process_block_signature_result, process_block_signature, ((const s
    auto genesis_addr = system_call::get_object( context, state::space::metadata(), state::key::genesis_key ).value();
 
    process_block_signature_result ret;
-   ret.set_value( genesis_addr == util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, signature_data, id ) ).to_address_bytes() );
+   ret.set_value( genesis_addr == util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, signature_data, id, true ) ).to_address_bytes() );
    return ret;
 }
 
@@ -929,7 +929,7 @@ THUNK_DEFINE( check_system_authority_result, check_system_authority, ((system_au
 
    for ( const auto& sig : trx->signatures() )
    {
-      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id() ) ).to_address_bytes();
+      auto addr = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id(), true ) ).to_address_bytes();
       authorized = ( addr == genesis_addr );
       if ( authorized )
          break;
@@ -1142,7 +1142,7 @@ THUNK_DEFINE( hash_result, hash, ((uint64_t) id, (const std::string&) obj, (uint
    return ret;
 }
 
-THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const std::string&) signature_data, (const std::string&) digest) )
+THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const std::string&) signature_data, (const std::string&) digest, (bool) compressed) )
 {
    KOINOS_ASSERT( type == ecdsa_secp256k1, unknown_dsa_exception, "unexpected dsa" );
 
@@ -1198,12 +1198,12 @@ THUNK_DEFINE( verify_merkle_root_result, verify_merkle_root, ((const std::string
    return ret;
 }
 
-THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest) )
+THUNK_DEFINE( verify_signature_result, verify_signature, ((dsa) type, (const std::string&) public_key, (const std::string&) signature, (const std::string&) digest, (bool) compressed) )
 {
    KOINOS_ASSERT( type == ecdsa_secp256k1, unknown_dsa_exception, "unexpected dsa" );
 
    verify_signature_result ret;
-   ret.set_value( system_call::recover_public_key( context, type, signature, digest ) == public_key );
+   ret.set_value( system_call::recover_public_key( context, type, signature, digest, compressed ) == public_key );
    return ret;
 }
 
@@ -1401,7 +1401,7 @@ THUNK_DEFINE( check_authority_result, check_authority, ((authorization_type) typ
 
       for ( const auto& sig : trx->signatures() )
       {
-         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id() ) ).to_address_bytes();
+         auto signer_address = util::converter::to< crypto::public_key >( system_call::recover_public_key( context, ecdsa_secp256k1, sig, trx->id(), true ) ).to_address_bytes();
          authorized = ( signer_address == account );
          if ( authorized )
             break;
