@@ -21,7 +21,7 @@ int main()
    koinos::chain::authorize_result res;
 
    // If there is any auxilarly data, return true (for testing only)
-   if ( auth_args.mutable_call().mutable_data().get_length() )
+   if ( auth_args.mutable_call().mutable_data().get_length() == 1 && auth_args.mutable_call().mutable_data().get( 0 ) )
    {
       res.set_value( 1 );
       koinos::system::exit( res );

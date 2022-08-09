@@ -1155,7 +1155,11 @@ THUNK_DEFINE( recover_public_key_result, recover_public_key, ((dsa) type, (const
    KOINOS_ASSERT( pub_key.valid(), invalid_signature_exception, "public key is invalid" );
 
    recover_public_key_result ret;
-   ret.set_value( util::converter::as< std::string >( pub_key ) );
+   if ( compressed )
+      ret.set_value( util::converter::as< std::string >( pub_key ) );
+   else
+      ret.set_value( util::converter::as< std::string >( pub_key.serialize_uncompressed() ) );
+
    return ret;
 }
 
