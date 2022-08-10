@@ -721,7 +721,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
-   KOINOS_ASSERT( system_call::check_system_authority( context, set_system_call ), system_authorization_failure_exception, "system authority required" );
+   KOINOS_ASSERT( system_call::check_system_authority( context ), system_authorization_failure_exception, "system authority required" );
 
    if ( o.target().has_system_call_bundle() )
    {
@@ -755,7 +755,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
 {
    KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
    KOINOS_ASSERT( !context.read_only(), read_only_context_exception, "unable to perform action while context is read only" );
-   KOINOS_ASSERT( system_call::check_system_authority( context, set_system_contract ), system_authorization_failure_exception, "system authority required" );
+   KOINOS_ASSERT( system_call::check_system_authority( context ), system_authorization_failure_exception, "system authority required" );
 
    auto contract_object = system_call::get_object( context, state::space::contract_bytecode(), o.contract_id() );
    KOINOS_ASSERT( contract_object.exists(), invalid_contract_exception, "contract does not exist" );
@@ -916,7 +916,7 @@ THUNK_DEFINE( void, set_account_nonce, ((const std::string&) account, (const std
    system_call::put_object( context, state::space::transaction_nonce(), account, nonce );
 }
 
-THUNK_DEFINE( check_system_authority_result, check_system_authority, ((system_authorization_type) type) )
+THUNK_DEFINE_VOID( check_system_authority_result, check_system_authority )
 {
    check_system_authority_result res;
 
