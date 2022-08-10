@@ -81,7 +81,7 @@ THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_bl
 THUNK_DECLARE( get_account_nonce_result, get_account_nonce, const std::string& account );
 THUNK_DECLARE( verify_account_nonce_result, verify_account_nonce, const std::string& account, const std::string& nonce );
 THUNK_DECLARE( void, set_account_nonce, const std::string& account, const std::string& nonce );
-THUNK_DECLARE( check_system_authority_result, check_system_authority, system_authorization_type type );
+THUNK_DECLARE_VOID( check_system_authority_result, check_system_authority );
 THUNK_DECLARE_VOID( get_operation_result, get_operation );
 
 // Resource Subsystem

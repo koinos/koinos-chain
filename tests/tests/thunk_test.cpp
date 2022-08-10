@@ -2324,7 +2324,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
    auto serialized_public_key = util::converter::as< std::string >( _signing_private_key.get_public_key() );
 
    std::map< std::string, std::function< void( void ) > > system_call_map {
-      { "check_system_authority", [&]() { chain::system_call::check_system_authority( ctx, chain::set_system_call ); } },
+      { "check_system_authority", [&]() { chain::system_call::check_system_authority( ctx ); } },
       { "recover_public_key", [&]() { chain::system_call::recover_public_key( ctx, chain::dsa::ecdsa_secp256k1, transaction.signatures( 0 ), transaction.id(), true ); } },
       { "check_authority", [&]() { chain::system_call::check_authority( ctx, chain::contract_call, transaction.header().payer() ); } },
       { "get_last_irreversible_block", [&]() { chain::system_call::get_last_irreversible_block( ctx ); } },
