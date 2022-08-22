@@ -36,7 +36,7 @@
 #include <koinos/util/services.hpp>
 
 #define KOINOS_MAJOR_VERSION "0"
-#define KOINOS_MINOR_VERSION "3"
+#define KOINOS_MINOR_VERSION "4"
 #define KOINOS_PATCH_VERSION "0"
 
 #define FIFO_ALGORITHM                      "fifo"
