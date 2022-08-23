@@ -110,7 +110,7 @@ void rocksdb_iterator::update_cache_value() const
       auto [cache_hit, ptr] = _cache->get( *key );
 
       if ( cache_hit )
-         KOINOS_ASSERT( ptr, rocksdb_internal_exception, "iterator erroneosly hit null value in cache" );
+         KOINOS_ASSERT( ptr, rocksdb_internal_exception, "iterator erroneously hit null value in cache" );
 
       if ( !ptr )
       {
