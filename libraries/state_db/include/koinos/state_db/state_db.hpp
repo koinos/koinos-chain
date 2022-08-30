@@ -155,11 +155,14 @@ class state_node final : public abstract_state_node, public std::enable_shared_f
 
 using state_node_ptr = std::shared_ptr< state_node >;
 using genesis_init_function = std::function< void( state_node_ptr ) >;
-using state_node_comparator_function = std::function< state_node_ptr( state_node_ptr, state_node_ptr ) >;
+using fork_list = std::vector< state_node_ptr >;
+using state_node_comparator_function = std::function< state_node_ptr( fork_list&, state_node_ptr, state_node_ptr ) >;
 using shared_lock_ptr = std::shared_ptr< const std::shared_lock< std::shared_mutex > >;
 using unique_lock_ptr = std::shared_ptr< const std::unique_lock< std::shared_mutex > >;
 
-state_node_ptr fifo_comparator( state_node_ptr current_head, state_node_ptr new_head );
+state_node_ptr fifo_comparator( fork_list& forks, state_node_ptr current_head, state_node_ptr new_head );
+state_node_ptr block_time_comparator( fork_list& forks, state_node_ptr current_head, state_node_ptr new_head );
+state_node_ptr pob_comparator( fork_list& forks, state_node_ptr current_head, state_node_ptr new_head );
 
 /**
  * database is designed to provide parallel access to the database across

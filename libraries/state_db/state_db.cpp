@@ -383,17 +383,42 @@ void database_impl::finalize_node( const state_node_id& node_id, const shared_lo
    }
    else if ( node->revision() == _head->revision() )
    {
-      _head = _comp( get_head_lockless(), node )->_impl->_state;
+      fork_list forks;
+      forks.reserve( _fork_heads.size() );
+      std::transform(
+         std::begin( _fork_heads ), std::end( _fork_heads ), std::back_inserter( forks ),
+         []( const auto& entry )
+         {
+            state_node_ptr s = std::make_shared< state_node >();
+            s->_impl->_state = entry.second;
+            return s;
+         }
+      );
+
+      auto head = get_head_lockless();
+      if ( auto new_head = _comp( forks, head, node ); new_head != nullptr )
+      {
+         _head = new_head->_impl->_state;
+      }
+      else
+      {
+         _head = head->parent()->_impl->_state;
+         auto head_itr = _fork_heads.find( head->id() );
+         if ( head_itr != std::end( _fork_heads ) )
+            _fork_heads.erase( head_itr );
+         _fork_heads.insert_or_assign( head->parent()->id(), _head );
+      }
    }
 
    // When node is finalized, parent node needs to be removed from heads, if it exists.
-   auto parent_itr = _fork_heads.find( node->parent_id() );
-   if ( parent_itr != _fork_heads.end() )
+   if ( node->parent_id() != _head->id() )
    {
-      _fork_heads.erase( parent_itr );
-   }
+      auto parent_itr = _fork_heads.find( node->parent_id() );
+      if ( parent_itr != std::end( _fork_heads ) )
+         _fork_heads.erase( parent_itr );
 
-   _fork_heads.insert_or_assign( node->id(), node->_impl->_state );
+      _fork_heads.insert_or_assign( node->id(), node->_impl->_state );
+   }
 }
 
 void database_impl::discard_node( const state_node_id& node_id, const std::unordered_set< state_node_id >& whitelist, const shared_lock_ptr& lock )
@@ -802,9 +827,53 @@ abstract_state_node_ptr anonymous_state_node::shared_from_derived()
 }
 
 
-state_node_ptr fifo_comparator( state_node_ptr current_head, state_node_ptr new_head )
+state_node_ptr fifo_comparator( fork_list& forks, state_node_ptr current_head, state_node_ptr new_head )
 {
    return current_head;
+}
+
+state_node_ptr block_time_comparator( fork_list& forks, state_node_ptr head_block, state_node_ptr new_block )
+{
+   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+}
+
+state_node_ptr pob_comparator( fork_list& forks, state_node_ptr head_block, state_node_ptr new_block )
+{
+   if ( head_block->block_header().signer() != new_block->block_header().signer() )
+      return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
+
+   auto it = std::find_if( std::begin( forks ), std::end( forks ), [&]( state_node_ptr p ) { return p->id() == head_block->id(); } );
+   if ( it != std::end( forks ) )
+      forks.erase( it );
+
+   struct {
+      bool operator()( abstract_state_node_ptr a, abstract_state_node_ptr b ) const
+      {
+         if ( a->revision() > b->revision() )
+            return true;
+         else if ( a->revision() < b->revision() )
+            return false;
+
+         if ( a->block_header().timestamp() < b->block_header().timestamp() )
+            return true;
+         else if ( a->block_header().timestamp() > b->block_header().timestamp() )
+            return false;
+
+         if ( a->id() < b->id() )
+            return true;
+
+         return false;
+      }
+   } priority_algorithm;
+
+   if ( std::size( forks ) )
+   {
+      std::sort( std::begin( forks ), std::end( forks ), priority_algorithm );
+      it = std::begin( forks );
+      return priority_algorithm( head_block->parent(), *it ) ? state_node_ptr() : *it;
+   }
+
+   return state_node_ptr();
 }
 
 database::database() : impl( new detail::database_impl() ) {}
