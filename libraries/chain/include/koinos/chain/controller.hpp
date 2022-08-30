@@ -19,7 +19,8 @@ namespace detail { class controller_impl; }
 enum class fork_resolution_algorithm
 {
    fifo,
-   block_time
+   block_time,
+   pob
 };
 
 class controller final

@@ -140,6 +140,9 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
       case fork_resolution_algorithm::block_time:
          comp = &state_db::block_time_comparator;
          break;
+      case fork_resolution_algorithm::pob:
+         comp = &state_db::pob_comparator;
+         break;
       case fork_resolution_algorithm::fifo:
          [[fallthrough]];
       default:
