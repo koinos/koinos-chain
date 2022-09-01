@@ -109,7 +109,8 @@ void rocksdb_iterator::update_cache_value() const
       std::lock_guard< std::mutex > lock( _cache->get_mutex() );
       auto [cache_hit, ptr] = _cache->get( *key );
 
-      KOINOS_ASSERT( cache_hit, rocksdb_internal_exception, "iterator erroneosly hit null value in cache" );
+      if ( cache_hit )
+         KOINOS_ASSERT( ptr, rocksdb_internal_exception, "iterator erroneously hit null value in cache" );
 
       if ( !ptr )
       {

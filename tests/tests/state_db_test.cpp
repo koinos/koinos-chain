@@ -1391,4 +1391,48 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+BOOST_AUTO_TEST_CASE( restart_cache )
+{ try {
+
+   crypto::multihash state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   auto state_1 = db.create_writable_node( db.get_head()->id(), state_id );
+   BOOST_REQUIRE( state_1 );
+
+   object_space space;
+   std::string a_key = "a";
+   std::string a_val = "alice";
+
+   chain::database_key db_key;
+   *db_key.mutable_space() = space;
+   db_key.set_key( a_key );
+
+   state_1->put_object( space, a_key, &a_val );
+
+   {
+      auto [ptr, key] = state_1->get_next_object( space, std::string() );
+
+      BOOST_REQUIRE( ptr );
+      BOOST_CHECK_EQUAL( *ptr, a_val );
+      BOOST_CHECK_EQUAL( key, a_key );
+   }
+
+   db.finalize_node( state_id );
+   state_1.reset();
+
+   db.commit_node( state_id );
+
+   db.close();
+   db.open( temp );
+
+   state_1 = db.get_root();
+   {
+      auto [ptr, key] = state_1->get_next_object( space, std::string() );
+
+      BOOST_REQUIRE( ptr );
+      BOOST_CHECK_EQUAL( *ptr, a_val );
+      BOOST_CHECK_EQUAL( key, a_key );
+   }
+
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
 BOOST_AUTO_TEST_SUITE_END()
