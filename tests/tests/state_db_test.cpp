@@ -1177,6 +1177,7 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
 
    // BEGIN: Create two forks, then double produce on the newer fork
+
    /**
     *                                            / state_3 (height: 2, time: 101, signer: signer3) <-- Double production
     *                                           /
@@ -1227,6 +1228,28 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    db.finalize_node( state_id );
    BOOST_CHECK( db.get_head()->id() == state_2->id() );
 
+   /**
+    * Fork heads
+    *
+    *                                            / state_3 (height: 2, time: 101)
+    *                                           /
+    *           / state_1 (height: 1, time: 100) - state_4 (height: 2, time: 102)
+    *          /
+    * genesis --- state_2 (height: 1, time: 99)
+    *
+    *
+    */
+
+   auto fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE( fork_heads.size() == 3 );
+   auto it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_2->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_3->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_4->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   fork_heads.clear();
+
    // END: Create two forks, then double produce on the newer fork
 
    state_1.reset();
@@ -1239,10 +1262,11 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
 
    // BEGIN: Create two forks, then double produce on the older fork
+
    /**
     *                 Resulting head              / state_3 (height: 2, time: 101, signer: signer3) <-- Double production
     *                       V                    /
-    *           / state_1 (height: 1, time: 99) - state_4 (height: 2, time: 102, signer: signer3) <-- Double production
+    *           / state_1 (height: 1, time: 99) --- state_4 (height: 2, time: 102, signer: signer3) <-- Double production
     *          /
     * genesis --- state_2 (height: 1, time: 100)
     *
@@ -1289,12 +1313,26 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    db.finalize_node( state_id );
    BOOST_CHECK( db.get_head()->id() == state_1->id() );
 
+   /**
+    * Fork heads
+    *
+    *           / state_1 (height: 1, time: 99)
+    *          /
+    * genesis --- state_2 (height: 1, time: 100)
+    *
+    *
+    */
+
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE( fork_heads.size() == 2 );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_1->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_2->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   fork_heads.clear();
+
    // END: Create two forks, then double produce on the older fork
 
-   // We rolled back head, it should be in the fork heads query
-   auto fork_heads = db.get_fork_heads();
-   auto it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == db.get_head()->id(); } );
-   BOOST_REQUIRE( it != std::end( fork_heads ) );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
