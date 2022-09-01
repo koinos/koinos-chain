@@ -1333,6 +1333,62 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
 
    // END: Create two forks, then double produce on the older fork
 
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+
+   // BEGIN: Edge case when double production is the first block
+
+   /**
+    *
+    *
+    *           / state_1 (height: 1, time: 99, signer: signer1)  <--- Double production
+    *          /
+    * genesis --- state_2 (height: 1, time: 100, signer: signer1) <--- Double production
+    *
+    *
+    */
+
+   header.set_timestamp( 99 );
+   header.set_signer( signer1 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 100 );
+   header.set_signer( signer1 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+
+   /**
+    * Fork heads
+    *
+    * genesis
+    *
+    */
+
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE( fork_heads.size() == 1 );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == genesis_id; } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   fork_heads.clear();
+
+   // END: Edge case when double production is the first block
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
