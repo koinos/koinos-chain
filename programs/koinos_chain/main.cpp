@@ -161,13 +161,24 @@ int main( int argc, char** argv )
       }
 
       if ( fork_algorithm_option == FIFO_ALGORITHM )
+      {
+         LOG(info) << "Using fork resolution algorithm: " << FIFO_ALGORITHM;
          fork_algorithm = chain::fork_resolution_algorithm::fifo;
+      }
       else if ( fork_algorithm_option == BLOCK_TIME_ALGORITHM )
+      {
+         LOG(info) << "Using fork resolution algorithm: " << BLOCK_TIME_ALGORITHM;
          fork_algorithm = chain::fork_resolution_algorithm::block_time;
+      }
       else if ( fork_algorithm_option == POB_ALGORITHM )
+      {
+         LOG(info) << "Using fork resolution algorithm: " << POB_ALGORITHM;
          fork_algorithm = chain::fork_resolution_algorithm::pob;
+      }
       else
-         KOINOS_ASSERT( false, invalid_argument, "${a} is not a valid fork algorithm", ("a", fork_algorithm_option) );
+      {
+         KOINOS_THROW( invalid_argument, "${a} is not a valid fork algorithm", ("a", fork_algorithm_option) );
+      }
 
       if ( statedir.is_relative() )
          statedir = basedir / util::service::chain / statedir;
