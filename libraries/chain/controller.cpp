@@ -754,7 +754,17 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
       .call_privilege = privilege::user_mode,
    } );
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   std::shared_ptr< const protocol::block > head_block_ptr;
+
+   {
+      std::shared_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
+      head_block_ptr = _cached_head_block;
+      KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
+
+      ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   }
+
+   ctx.set_block( *head_block_ptr );
    ctx.reset_cache();
 
    resource_limit_data rl;
