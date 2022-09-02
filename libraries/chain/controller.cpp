@@ -76,11 +76,6 @@ std::string format_time( int64_t time )
    return ss.str();
 }
 
-state_db::state_node_ptr block_time_comparator( state_db::state_node_ptr head_block, state_db::state_node_ptr new_block )
-{
-   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
-}
-
 class controller_impl final
 {
    public:
@@ -143,7 +138,10 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
    switch( algo )
    {
       case fork_resolution_algorithm::block_time:
-         comp = &block_time_comparator;
+         comp = &state_db::block_time_comparator;
+         break;
+      case fork_resolution_algorithm::pob:
+         comp = &state_db::pob_comparator;
          break;
       case fork_resolution_algorithm::fifo:
          [[fallthrough]];

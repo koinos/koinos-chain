@@ -12,6 +12,7 @@
 #include <koinos/state_db/state_db.hpp>
 #include <koinos/util/conversion.hpp>
 #include <koinos/util/random.hpp>
+#include <koinos/util/hex.hpp>
 
 
 #include <deque>
@@ -994,11 +995,6 @@ BOOST_AUTO_TEST_CASE( map_backend_test )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
-koinos::state_db::state_node_ptr block_time_comparator( koinos::state_db::state_node_ptr head_block, koinos::state_db::state_node_ptr new_block )
-{
-   return new_block->block_header().timestamp() < head_block->block_header().timestamp() ? new_block : head_block;
-}
-
 BOOST_AUTO_TEST_CASE( fork_resolution )
 { try {
    /**
@@ -1056,16 +1052,16 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    db.finalize_node( state_id );
    BOOST_CHECK( db.get_head()->id() == state_4->id() );
 
-   BOOST_TEST_MESSAGE( "Test block time fork resolution" );
-
    state_1.reset();
    state_2.reset();
    state_3.reset();
    state_4.reset();
    state_5.reset();
 
+   BOOST_TEST_MESSAGE( "Test block time fork resolution" );
+
    db.close();
-   db.open( temp, [&]( state_node_ptr ){}, &block_time_comparator );
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::block_time_comparator );
 
    header.set_timestamp( 100 );
    state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
@@ -1105,6 +1101,293 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    BOOST_CHECK( db.get_head()->id() == state_4->id() );
    db.finalize_node( state_id );
    BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   BOOST_TEST_MESSAGE( "Test pob fork resolution" );
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+
+   std::string signer1 = "signer1";
+   std::string signer2 = "signer2";
+   std::string signer3 = "signer3";
+   std::string signer4 = "signer4";
+   std::string signer5 = "signer5";
+
+   // BEGIN: Mimic block time behavior (as long as signers are different)
+
+   header.set_timestamp( 100 );
+   header.set_signer( signer1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 99 );
+   header.set_signer( signer2 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 101 );
+   header.set_signer( signer3 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   state_3 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 110 );
+   header.set_signer( signer4 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   header.set_signer( signer5 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 5 );
+   state_5 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_5 );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_4->id() );
+
+   // END: Mimic block time behavior (as long as signers are different)
+
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+
+   // BEGIN: Create two forks, then double produce on the newer fork
+
+   /**
+    *                                            / state_3 (height: 2, time: 101, signer: signer3) <-- Double production
+    *                                           /
+    *           / state_1 (height: 1, time: 100) - state_4 (height: 2, time: 102, signer: signer3) <-- Double production
+    *          /
+    * genesis --- state_2 (height: 1, time: 99) <-- Resulting head
+    *
+    *
+    */
+
+   header.set_timestamp( 100 );
+   header.set_signer( signer1 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 99 );
+   header.set_signer( signer2 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   header.set_timestamp( 101 );
+   header.set_signer( signer3 );
+   header.set_height( 2 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   state_3 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_3->id() );
+
+   header.set_timestamp( 102 );
+   header.set_signer( signer3 );
+   header.set_height( 2 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_3->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_2->id() );
+
+   /**
+    * Fork heads
+    *
+    *                                            / state_3 (height: 2, time: 101)
+    *                                           /
+    *           / state_1 (height: 1, time: 100) - state_4 (height: 2, time: 102)
+    *          /
+    * genesis --- state_2 (height: 1, time: 99)
+    *
+    *
+    */
+
+   auto fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE( fork_heads.size() == 3 );
+   auto it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_2->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_3->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_4->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   fork_heads.clear();
+
+   // END: Create two forks, then double produce on the newer fork
+
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+
+   // BEGIN: Create two forks, then double produce on the older fork
+
+   /**
+    *                 Resulting head              / state_3 (height: 2, time: 101, signer: signer3) <-- Double production
+    *                       V                    /
+    *           / state_1 (height: 1, time: 99) --- state_4 (height: 2, time: 102, signer: signer3) <-- Double production
+    *          /
+    * genesis --- state_2 (height: 1, time: 100)
+    *
+    *
+    */
+
+   header.set_timestamp( 99 );
+   header.set_signer( signer1 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 100 );
+   header.set_signer( signer2 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 101 );
+   header.set_signer( signer3 );
+   header.set_height( 2 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 3 );
+   state_3 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_3 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_3->id() );
+
+   header.set_timestamp( 102 );
+   header.set_signer( signer3 );
+   header.set_height( 2 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 4 );
+   state_4 = db.create_writable_node( state_1->id(), state_id, header );
+   BOOST_REQUIRE( state_4 );
+   BOOST_CHECK( db.get_head()->id() == state_3->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   /**
+    * Fork heads
+    *
+    *           / state_1 (height: 1, time: 99)
+    *          /
+    * genesis --- state_2 (height: 1, time: 100)
+    *
+    *
+    */
+
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE( fork_heads.size() == 2 );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_1->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == state_2->id(); } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   fork_heads.clear();
+
+   // END: Create two forks, then double produce on the older fork
+
+   state_1.reset();
+   state_2.reset();
+   state_3.reset();
+   state_4.reset();
+   state_5.reset();
+
+   db.close();
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+
+   // BEGIN: Edge case when double production is the first block
+
+   /**
+    *
+    *
+    *           / state_1 (height: 1, time: 99, signer: signer1)  <--- Double production
+    *          /
+    * genesis --- state_2 (height: 1, time: 100, signer: signer1) <--- Double production
+    *
+    *
+    */
+
+   header.set_timestamp( 99 );
+   header.set_signer( signer1 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 1 );
+   state_1 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_1 );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+
+   header.set_timestamp( 100 );
+   header.set_signer( signer1 );
+   header.set_height( 1 );
+   state_id = crypto::hash( crypto::multicodec::sha2_256, 2 );
+   state_2 = db.create_writable_node( genesis_id, state_id, header );
+   BOOST_REQUIRE( state_2 );
+   BOOST_CHECK( db.get_head()->id() == state_1->id() );
+   db.finalize_node( state_id );
+   BOOST_CHECK( db.get_head()->id() == genesis_id );
+
+   /**
+    * Fork heads
+    *
+    * genesis
+    *
+    */
+
+   fork_heads = db.get_fork_heads();
+   BOOST_REQUIRE( fork_heads.size() == 1 );
+   it = std::find_if( std::begin( fork_heads ), std::end( fork_heads ), [&]( state_node_ptr p ) { return p->id() == genesis_id; } );
+   BOOST_REQUIRE( it != std::end( fork_heads ) );
+   fork_heads.clear();
+
+   // END: Edge case when double production is the first block
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 

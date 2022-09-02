@@ -41,6 +41,7 @@
 
 #define FIFO_ALGORITHM                      "fifo"
 #define BLOCK_TIME_ALGORITHM                "block-time"
+#define POB_ALGORITHM                       "pob"
 
 #define HELP_OPTION                         "help"
 #define VERSION_OPTION                      "version"
@@ -98,7 +99,7 @@ int main( int argc, char** argv )
          (STATEDIR_OPTION                       , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
          (RESET_OPTION                          , program_options::value< bool >(), "Reset the database")
-         (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', or 'block-time'. (Default: 'fifo')");
+         (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -160,11 +161,24 @@ int main( int argc, char** argv )
       }
 
       if ( fork_algorithm_option == FIFO_ALGORITHM )
+      {
+         LOG(info) << "Using fork resolution algorithm: " << FIFO_ALGORITHM;
          fork_algorithm = chain::fork_resolution_algorithm::fifo;
+      }
       else if ( fork_algorithm_option == BLOCK_TIME_ALGORITHM )
+      {
+         LOG(info) << "Using fork resolution algorithm: " << BLOCK_TIME_ALGORITHM;
          fork_algorithm = chain::fork_resolution_algorithm::block_time;
+      }
+      else if ( fork_algorithm_option == POB_ALGORITHM )
+      {
+         LOG(info) << "Using fork resolution algorithm: " << POB_ALGORITHM;
+         fork_algorithm = chain::fork_resolution_algorithm::pob;
+      }
       else
-         KOINOS_ASSERT( false, invalid_argument, "${a} is not a valid fork algorithm", ("a", fork_algorithm_option) );
+      {
+         KOINOS_THROW( invalid_argument, "${a} is not a valid fork algorithm", ("a", fork_algorithm_option) );
+      }
 
       if ( statedir.is_relative() )
          statedir = basedir / util::service::chain / statedir;
