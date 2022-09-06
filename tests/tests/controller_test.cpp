@@ -410,6 +410,31 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
       BOOST_REQUIRE( head_info_res.last_irreversible_block() == i - chain::default_irreversible_threshold );
    }
 
+   BOOST_TEST_MESSAGE( "Check parent pre block irreversibility submission" );
+
+   head_info_res = _controller.get_head_info();
+
+   block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block_req.mutable_block()->mutable_header()->set_height( head_info_res.last_irreversible_block() - 1 );
+   block_req.mutable_block()->mutable_header()->set_previous( "a_random_unknown_id" );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), koinos::chain::pre_irreversibility_block_exception );
+
+   BOOST_TEST_MESSAGE( "Check parent unknown block at LIB height" );
+
+   block_req.mutable_block()->mutable_header()->set_height( head_info_res.last_irreversible_block() );
+   block_req.mutable_block()->mutable_header()->set_previous( "a_random_unknown_id" );
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+   BOOST_CHECK_THROW( _controller.submit_block( block_req ), koinos::chain::unknown_previous_block_exception );
+
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( fork_heads )
