@@ -42,5 +42,6 @@ KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( indexer_failure_exception, failure_e
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( network_bandwidth_limit_exceeded_exception, failure_exception, network_bandwidth_limit_exceeded );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( compute_bandwidth_limit_exceeded_exception, failure_exception, compute_bandwidth_limit_exceeded );
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( disk_storage_limit_exceeded_exception, failure_exception, disk_storage_limit_exceeded );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( pre_irreversibility_block_exception, failure_exception, pre_irreversibility_block );
 
 } // koinos::chain

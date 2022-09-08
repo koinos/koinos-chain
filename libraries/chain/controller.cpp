@@ -261,6 +261,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    if ( !parent_node )
    {
       auto root = _db.get_root( db_lock );
+      KOINOS_ASSERT( block_height >= root->revision(), pre_irreversibility_block_exception, "block is prior to irreversibility" );
       KOINOS_ASSERT( block_id == root->id(), unknown_previous_block_exception, "unknown previous block" );
       return {}; // Block is current LIB
    }
