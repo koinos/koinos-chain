@@ -200,7 +200,7 @@ struct stack_fixture
          LOG(info) << "Wrote chain ID into new database";
       } );
 
-      ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
+      ctx.set_state_node( db.create_writable_node( db.get_head( db.get_shared_lock() )->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ), protocol::block_header(), db.get_shared_lock() ) );
       ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "stack_tests"s,

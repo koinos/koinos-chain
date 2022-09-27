@@ -906,34 +906,34 @@ void database::reset( const unique_lock_ptr& lock )
 
 state_node_ptr database::get_node_at_revision( uint64_t revision, const state_node_id& child_id, const shared_lock_ptr& lock ) const
 {
-   return impl->get_node_at_revision( revision, child_id, lock ? lock : get_shared_lock() );
+   return impl->get_node_at_revision( revision, child_id, lock );
 }
 
 state_node_ptr database::get_node_at_revision( uint64_t revision, const shared_lock_ptr& lock ) const
 {
    static const state_node_id null_id;
-   return impl->get_node_at_revision( revision, null_id, lock ? lock : get_shared_lock() );
+   return impl->get_node_at_revision( revision, null_id, lock );
 }
 
 state_node_ptr database::get_node( const state_node_id& node_id, const shared_lock_ptr& lock ) const
 {
-   return impl->get_node( node_id, lock ? lock : get_shared_lock() );
+   return impl->get_node( node_id, lock );
 }
 
 state_node_ptr database::create_writable_node( const state_node_id& parent_id, const state_node_id& new_id, const protocol::block_header& header, const shared_lock_ptr& lock )
 {
-   return impl->create_writable_node( parent_id, new_id, header, lock ? lock : get_shared_lock() );
+   return impl->create_writable_node( parent_id, new_id, header, lock );
 }
 
 void database::finalize_node( const state_node_id& node_id, const shared_lock_ptr& lock )
 {
-   impl->finalize_node( node_id, lock ? lock : get_shared_lock() );
+   impl->finalize_node( node_id, lock );
 }
 
 void database::discard_node( const state_node_id& node_id, const shared_lock_ptr& lock )
 {
    static const std::unordered_set< state_node_id > whitelist;
-   impl->discard_node( node_id, whitelist, lock ? lock : get_shared_lock() );
+   impl->discard_node( node_id, whitelist, lock );
 }
 
 void database::commit_node( const state_node_id& node_id, const unique_lock_ptr& lock )
@@ -943,17 +943,17 @@ void database::commit_node( const state_node_id& node_id, const unique_lock_ptr&
 
 state_node_ptr database::get_head( const shared_lock_ptr& lock ) const
 {
-   return impl->get_head( lock ? lock : get_shared_lock() );
+   return impl->get_head( lock );
 }
 
 std::vector< state_node_ptr > database::get_fork_heads( const shared_lock_ptr& lock ) const
 {
-   return impl->get_fork_heads( lock ? lock : get_shared_lock() );
+   return impl->get_fork_heads( lock );
 }
 
 state_node_ptr database::get_root( const shared_lock_ptr& lock ) const
 {
-   return impl->get_root( lock ? lock : get_shared_lock() );
+   return impl->get_root( lock );
 }
 
 } // koinos::state_db
