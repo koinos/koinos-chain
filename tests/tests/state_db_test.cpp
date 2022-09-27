@@ -48,13 +48,13 @@ struct state_db_fixture
       temp = std::filesystem::temp_directory_path() / util::random_alphanumeric( 8 );
       std::filesystem::create_directory( temp );
 
-      db.open( temp );
+      db.open( temp, [&]( state_db::state_node_ptr root ){}, &state_db::fifo_comparator, db.get_unique_lock() );
    }
 
    ~state_db_fixture()
    {
       boost::log::core::get()->remove_all_sinks();
-      db.close();
+      db.close( db.get_unique_lock() );
       std::filesystem::remove_all( temp );
    }
 
@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE( fork_tests )
 
    BOOST_TEST_MESSAGE( "Test commit" );
    shared_db_lock.reset();
-   db.commit_node( block_1000_id );
+   db.commit_node( block_1000_id, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
    BOOST_REQUIRE( db.get_root( shared_db_lock )->id() == block_1000_id );
    BOOST_REQUIRE( db.get_root( shared_db_lock )->revision() == 1000 );
@@ -565,9 +565,9 @@ BOOST_AUTO_TEST_CASE( reset_test )
    BOOST_TEST_MESSAGE( "Closing and opening database" );
    shared_db_lock.reset();
    state_1.reset();
-   db.close();
+   db.close( db.get_unique_lock() );
 
-   BOOST_CHECK_THROW( db.reset(), koinos::exception );
+   BOOST_CHECK_THROW( db.reset( db.get_unique_lock() ), koinos::exception );
 
    shared_db_lock = db.get_shared_lock();
    BOOST_CHECK_THROW( db.get_node_at_revision( 1, shared_db_lock ), koinos::exception );
@@ -581,9 +581,9 @@ BOOST_AUTO_TEST_CASE( reset_test )
    BOOST_CHECK_THROW( db.get_root( shared_db_lock ), koinos::exception );
    shared_db_lock.reset();
 
-   BOOST_CHECK_THROW( db.commit_node( crypto::hash( crypto::multicodec::sha2_256, 1 ) ), koinos::exception );
+   BOOST_CHECK_THROW( db.commit_node( crypto::hash( crypto::multicodec::sha2_256, 1 ), db.get_unique_lock() ), koinos::exception );
 
-   db.open( temp );
+   db.open( temp, []( state_db::state_node_ptr root ){}, &state_db::fifo_comparator, db.get_unique_lock() );
 
    shared_db_lock = db.get_shared_lock();
 
@@ -600,7 +600,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
    auto state_1_id = state_1->id();
    state_1.reset();
    shared_db_lock.reset();
-   db.commit_node( state_1_id );
+   db.commit_node( state_1_id, db.get_unique_lock() );
 
    shared_db_lock = db.get_shared_lock();
    val_ptr = db.get_head( shared_db_lock )->get_object( space, a_key );
@@ -611,8 +611,8 @@ BOOST_AUTO_TEST_CASE( reset_test )
    BOOST_TEST_MESSAGE( "Closing and opening database" );
    shared_db_lock.reset();
    state_1.reset();
-   db.close();
-   db.open( temp );
+   db.close( db.get_unique_lock() );
+   db.open( temp, []( state_db::state_node_ptr root ){}, &state_db::fifo_comparator, db.get_unique_lock() );
 
    // State node was committed and should exist on open
    shared_db_lock = db.get_shared_lock();
@@ -624,7 +624,7 @@ BOOST_AUTO_TEST_CASE( reset_test )
 
    BOOST_TEST_MESSAGE( "Resetting database" );
    shared_db_lock.reset();
-   db.reset();
+   db.reset( db.get_unique_lock() );
 
    // Object should not exist on reset db
    shared_db_lock = db.get_shared_lock();
@@ -785,7 +785,7 @@ BOOST_AUTO_TEST_CASE( merkle_root_test )
    shared_db_lock.reset();
    state_1.reset();
    state_2.reset();
-   db.commit_node( state_2_id );
+   db.commit_node( state_2_id, db.get_unique_lock() );
    state_2 = db.get_node( state_2_id, db.get_shared_lock() );
    BOOST_CHECK_EQUAL( merkle_root, state_2->merkle_root() );
 
@@ -1088,8 +1088,8 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
 
    BOOST_TEST_MESSAGE( "Test block time fork resolution" );
 
-   db.close();
-   db.open( temp, [&]( state_node_ptr ){}, &state_db::block_time_comparator );
+   db.close( db.get_unique_lock() );
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::block_time_comparator, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
 
    header.set_timestamp( 100 );
@@ -1140,8 +1140,8 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
 
    BOOST_TEST_MESSAGE( "Test pob fork resolution" );
 
-   db.close();
-   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+   db.close( db.get_unique_lock() );
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
 
    std::string signer1 = "signer1";
@@ -1205,8 +1205,8 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    state_4.reset();
    state_5.reset();
 
-   db.close();
-   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+   db.close( db.get_unique_lock() );
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
 
    // BEGIN: Create two forks, then double produce on the newer fork
@@ -1292,8 +1292,8 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    state_4.reset();
    state_5.reset();
 
-   db.close();
-   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+   db.close( db.get_unique_lock() );
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
 
    // BEGIN: Create two forks, then double produce on the older fork
@@ -1375,8 +1375,8 @@ BOOST_AUTO_TEST_CASE( fork_resolution )
    state_4.reset();
    state_5.reset();
 
-   db.close();
-   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator );
+   db.close( db.get_unique_lock() );
+   db.open( temp, [&]( state_node_ptr ){}, &state_db::pob_comparator, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
 
    // BEGIN: Edge case when double production is the first block
@@ -1458,10 +1458,10 @@ BOOST_AUTO_TEST_CASE( restart_cache )
    state_1.reset();
    shared_db_lock.reset();
 
-   db.commit_node( state_id );
+   db.commit_node( state_id, db.get_unique_lock() );
 
-   db.close();
-   db.open( temp );
+   db.close( db.get_unique_lock() );
+   db.open( temp, [&]( state_db::state_node_ptr root ){}, &state_db::fifo_comparator, db.get_unique_lock() );
    shared_db_lock = db.get_shared_lock();
 
    state_1 = db.get_root( shared_db_lock );

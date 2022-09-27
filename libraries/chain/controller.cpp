@@ -183,12 +183,12 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
       root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
       LOG(info) << "Wrote chain ID into new database";
-   }, comp );
+   }, comp, _db.get_unique_lock() );
 
    if ( reset )
    {
       LOG(info) << "Resetting database...";
-      _db.reset();
+      _db.reset( _db.get_unique_lock() );
    }
 
    auto head = _db.get_head( _db.get_shared_lock() );
@@ -197,7 +197,7 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
 void controller_impl::close()
 {
-   _db.close();
+   _db.close( _db.get_unique_lock() );
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
@@ -436,8 +436,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          parent_node.reset();
          ctx.clear_state_node();
 
-         // This will defaulty grab the unique lock
-         _db.commit_node( lib_id );
+         _db.commit_node( lib_id, _db.get_unique_lock() );
 
          db_lock = _db.get_shared_lock();
       }

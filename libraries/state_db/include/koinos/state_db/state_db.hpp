@@ -210,17 +210,17 @@ class database final
       /**
        * Open the database.
        */
-      void open( const std::filesystem::path& p, genesis_init_function init = nullptr, state_node_comparator_function comp = &fifo_comparator, const unique_lock_ptr& lock = unique_lock_ptr() );
+      void open( const std::filesystem::path& p, genesis_init_function init, state_node_comparator_function comp, const unique_lock_ptr& lock );
 
       /**
        * Close the database.
        */
-      void close( const unique_lock_ptr& lock = unique_lock_ptr() );
+      void close( const unique_lock_ptr& lock );
 
       /**
        * Reset the database.
        */
-      void reset( const unique_lock_ptr& lock = unique_lock_ptr() );
+      void reset( const unique_lock_ptr& lock );
 
       /**
        * Get an ancestor of a node at a particular revision
@@ -279,7 +279,7 @@ class database final
        * TODO: Implement thread safety within commit node to make
        * database thread safe for all callers.
        */
-      void commit_node( const state_node_id& node_id, const unique_lock_ptr& lock = unique_lock_ptr() );
+      void commit_node( const state_node_id& node_id, const unique_lock_ptr& lock );
 
       /**
        * Get and return the current "head" node.
