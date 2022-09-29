@@ -201,13 +201,23 @@ std::pair< std::string, std::string > hash_compute_keys( crypto::multicodec id )
    }
 }
 
-void generate_receipt( execution_context& context, protocol::block_receipt& receipt, const protocol::block& block )
+void generate_receipt(
+   execution_context& context,
+   protocol::block_receipt& receipt,
+   const protocol::block& block,
+   uint64_t disk_storage_charged,
+   uint64_t network_bandwidth_charged,
+   uint64_t compute_bandwidth_charged
+    )
 {
    receipt.set_id( block.id() );
    receipt.set_height( block.header().height() );
    receipt.set_disk_storage_used( context.resource_meter().disk_storage_used() );
-   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
    receipt.set_network_bandwidth_used( context.resource_meter().network_bandwidth_used() );
+   receipt.set_compute_bandwidth_used( context.resource_meter().compute_bandwidth_used() );
+   receipt.set_disk_storage_charged( disk_storage_charged );
+   receipt.set_network_bandwidth_charged( network_bandwidth_charged );
+   receipt.set_compute_bandwidth_charged( compute_bandwidth_charged );
 
    for ( const auto& [ transaction_id, event ] : context.chronicler().events() )
       if ( !transaction_id )
@@ -408,6 +418,10 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          "unable to consume system rc for block producer: ${p}", ("p", util::to_base58( block.header().signer() ))
       );
 
+      auto disk_storage_used = context.resource_meter().disk_storage_used();
+      auto network_bandwidth_used = context.resource_meter().network_bandwidth_used();
+      auto compute_bandwidth_used = context.resource_meter().compute_bandwidth_used();
+
       KOINOS_ASSERT(
          system_call::consume_block_resources(
             context,
@@ -419,11 +433,23 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
          "unable to consume block resources"
       );
 
-      generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
+      generate_receipt(
+         context,
+         std::get< protocol::block_receipt >( context.receipt() ),
+         block,
+         disk_storage_used,
+         network_bandwidth_used,
+         compute_bandwidth_used );
    }
    catch ( ... )
    {
-      generate_receipt( context, std::get< protocol::block_receipt >( context.receipt() ), block );
+      generate_receipt(
+         context,
+         std::get< protocol::block_receipt >( context.receipt() ),
+         block,
+         context.resource_meter().disk_storage_used(),
+         context.resource_meter().network_bandwidth_used(),
+         context.resource_meter().compute_bandwidth_used() );
       throw;
    }
 }
