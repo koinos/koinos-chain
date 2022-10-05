@@ -443,7 +443,15 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    }
    catch ( koinos::exception& e )
    {
-      LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
+      if ( block_node && !block_node->is_finalized() )
+      {
+         _db.discard_node( block_node->id(), db_lock );
+         LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
+      }
+      else
+      {
+         LOG(error) << "Block application failed after finalization - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
+      }
 
       if ( _client )
       {
@@ -460,20 +468,18 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       if ( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
          e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
 
-      if ( block_node )
-      {
-         _db.discard_node( block_node->id(), db_lock );
-      }
-
       throw;
    }
    catch ( ... )
    {
-      LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
-
-      if ( block_node )
+      if ( block_node && !block_node->is_finalized() )
       {
          _db.discard_node( block_node->id(), db_lock );
+         LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
+      }
+      else
+      {
+         LOG(error) << "Block application failed after finalization - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
       }
 
       throw;
