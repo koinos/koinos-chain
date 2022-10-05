@@ -210,30 +210,30 @@ class database final
       /**
        * Open the database.
        */
-      void open( const std::filesystem::path& p, genesis_init_function init = nullptr, state_node_comparator_function comp = &fifo_comparator, const unique_lock_ptr& lock = unique_lock_ptr() );
+      void open( const std::filesystem::path& p, genesis_init_function init, state_node_comparator_function comp, const unique_lock_ptr& lock );
 
       /**
        * Close the database.
        */
-      void close( const unique_lock_ptr& lock = unique_lock_ptr() );
+      void close( const unique_lock_ptr& lock );
 
       /**
        * Reset the database.
        */
-      void reset( const unique_lock_ptr& lock = unique_lock_ptr() );
+      void reset( const unique_lock_ptr& lock );
 
       /**
        * Get an ancestor of a node at a particular revision
        */
-      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child_id, const shared_lock_ptr& lock = shared_lock_ptr() ) const;
-      state_node_ptr get_node_at_revision( uint64_t revision, const shared_lock_ptr& lock = shared_lock_ptr() ) const;
+      state_node_ptr get_node_at_revision( uint64_t revision, const state_node_id& child_id, const shared_lock_ptr& lock ) const;
+      state_node_ptr get_node_at_revision( uint64_t revision, const shared_lock_ptr& lock ) const;
 
       /**
        * Get the state_node for the given state_node_id.
        *
        * Return an empty pointer if no node for the given id exists.
        */
-      state_node_ptr get_node( const state_node_id& node_id, const shared_lock_ptr& lock = shared_lock_ptr() ) const;
+      state_node_ptr get_node( const state_node_id& node_id, const shared_lock_ptr& lock ) const;
 
       /**
        * Create a writable state_node.
@@ -250,12 +250,12 @@ class database final
        * to be freed.  This merge may occur immediately, or it may be
        * deferred or parallelized.
        */
-      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id, const protocol::block_header& header = protocol::block_header(), const shared_lock_ptr& lock = shared_lock_ptr() );
+      state_node_ptr create_writable_node( const state_node_id& parent_id, const state_node_id& new_id, const protocol::block_header& header, const shared_lock_ptr& lock );
 
       /**
        * Finalize a node.  The node will no longer be writable.
        */
-      void finalize_node( const state_node_id& node_id, const shared_lock_ptr& lock = shared_lock_ptr() );
+      void finalize_node( const state_node_id& node_id, const shared_lock_ptr& lock );
 
       /**
        * Discard the node, it can no longer be used.
@@ -266,7 +266,7 @@ class database final
        * This will fail if the node you are deleting would cause the
        * current head node to be delted.
        */
-      void discard_node( const state_node_id& node_id, const shared_lock_ptr& lock = shared_lock_ptr() );
+      void discard_node( const state_node_id& node_id, const shared_lock_ptr& lock );
 
       /**
        * Squash the node in to the root state, committing it.
@@ -279,7 +279,7 @@ class database final
        * TODO: Implement thread safety within commit node to make
        * database thread safe for all callers.
        */
-      void commit_node( const state_node_id& node_id, const unique_lock_ptr& lock = unique_lock_ptr() );
+      void commit_node( const state_node_id& node_id, const unique_lock_ptr& lock );
 
       /**
        * Get and return the current "head" node.
@@ -288,7 +288,7 @@ class database final
        * chain wins in a tie of length. Only finalized
        * nodes are eligible to become head.
        */
-      state_node_ptr get_head( const shared_lock_ptr& lock = shared_lock_ptr() ) const;
+      state_node_ptr get_head( const shared_lock_ptr& lock ) const;
 
       /**
        * Get and return a vector of all fork heads.
@@ -296,14 +296,14 @@ class database final
        * Fork heads are any finalized nodes that do
        * not have children.
        */
-      std::vector< state_node_ptr > get_fork_heads( const shared_lock_ptr& lock = shared_lock_ptr() ) const;
+      std::vector< state_node_ptr > get_fork_heads( const shared_lock_ptr& lock ) const;
 
       /**
        * Get and return the current "root" node.
        *
        * All state nodes are guaranteed to a descendant of root.
        */
-      state_node_ptr get_root( const shared_lock_ptr& lock = shared_lock_ptr() ) const;
+      state_node_ptr get_root( const shared_lock_ptr& lock ) const;
 
    private:
       std::unique_ptr< detail::database_impl > impl;

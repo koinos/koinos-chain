@@ -177,42 +177,47 @@ struct thunk_fixture
       entry->set_value( util::converter::as< std::string >( unsigned_varint{ std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ) } ) );
       *entry->mutable_space() = chain::state::space::metadata();
 
-      db.open( temp, [&]( state_db::state_node_ptr root )
-      {
-         // Write genesis objects into the database
-         for ( const auto& entry : _genesis_data.entries() )
+      db.open(
+         temp,
+         [&]( state_db::state_node_ptr root )
          {
+            // Write genesis objects into the database
+            for ( const auto& entry : _genesis_data.entries() )
+            {
+               KOINOS_ASSERT(
+                  !root->get_object( entry.space(), entry.key() ),
+                  koinos::chain::unexpected_state_exception,
+                  "encountered unexpected object in initial state"
+               );
+
+               root->put_object( entry.space(), entry.key(), &entry.value() );
+            }
+            LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
+
+            // Read genesis public key from the database, assert its existence at the correct location
             KOINOS_ASSERT(
-               !root->get_object( entry.space(), entry.key() ),
+               root->get_object( chain::state::space::metadata(), chain::state::key::genesis_key ),
                koinos::chain::unexpected_state_exception,
-               "encountered unexpected object in initial state"
+               "could not find genesis public key in database"
             );
 
-            root->put_object( entry.space(), entry.key(), &entry.value() );
-         }
-         LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
+            // Calculate and write the chain ID into the database
+            auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data );
+            LOG(info) << "Calculated chain ID: " << chain_id;
+            auto chain_id_str = util::converter::as< std::string >( chain_id );
+            KOINOS_ASSERT(
+               !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
+               koinos::chain::unexpected_state_exception,
+               "encountered unexpected chain id in initial state"
+            );
+            root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
+            LOG(info) << "Wrote chain ID into new database";
+         },
+         &state_db::fifo_comparator,
+         db.get_unique_lock() );
 
-         // Read genesis public key from the database, assert its existence at the correct location
-         KOINOS_ASSERT(
-            root->get_object( chain::state::space::metadata(), chain::state::key::genesis_key ),
-            koinos::chain::unexpected_state_exception,
-            "could not find genesis public key in database"
-         );
-
-         // Calculate and write the chain ID into the database
-         auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data );
-         LOG(info) << "Calculated chain ID: " << chain_id;
-         auto chain_id_str = util::converter::as< std::string >( chain_id );
-         KOINOS_ASSERT(
-            !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
-            koinos::chain::unexpected_state_exception,
-            "encountered unexpected chain id in initial state"
-         );
-         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
-         LOG(info) << "Wrote chain ID into new database";
-      } );
-
-      ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
+      auto shared_db_lock = db.get_shared_lock();
+      ctx.set_state_node( db.create_writable_node( db.get_head( shared_db_lock )->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ), protocol::block_header(), shared_db_lock ) );
       ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "thunk_tests"s,
@@ -228,7 +233,7 @@ struct thunk_fixture
    {
       boost::log::core::get()->remove_all_sinks();
       ctx.clear_state_node();
-      db.close();
+      db.close( db.get_unique_lock() );
       std::filesystem::remove_all( temp );
    }
 
@@ -975,14 +980,15 @@ BOOST_AUTO_TEST_CASE( last_irreversible_block_test )
 { try {
 
    BOOST_TEST_MESSAGE( "last irreversible block test" );
+   auto shared_db_lock = db.get_shared_lock();
 
    for( uint64_t i = 0; i < chain::default_irreversible_threshold; i++ )
    {
       auto lib = chain::system_call::get_last_irreversible_block( ctx );
       BOOST_REQUIRE_EQUAL( lib, 0 );
 
-      db.finalize_node( ctx.get_state_node()->id() );
-      ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), crypto::hash( crypto::multicodec::sha2_256, i ) ) );
+      db.finalize_node( ctx.get_state_node()->id(), shared_db_lock );
+      ctx.set_state_node( db.create_writable_node( ctx.get_state_node()->id(), crypto::hash( crypto::multicodec::sha2_256, i ), protocol::block_header(), shared_db_lock ) );
    }
 
    auto lib = chain::system_call::get_last_irreversible_block( ctx );
@@ -1501,9 +1507,10 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, alice_private_key );
 
-   const auto head_state_node = db.get_head();
-   auto control_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "control"s ) );
-   auto trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "transaction"s ) );
+   auto shared_db_lock = db.get_shared_lock();
+   const auto head_state_node = db.get_head( shared_db_lock );
+   auto control_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "control"s ), protocol::block_header(), shared_db_lock );
+   auto trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "transaction"s ), protocol::block_header(), shared_db_lock );
 
    auto session = ctx.make_session( 1'000'000 );
 
@@ -1511,11 +1518,11 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
 
    ctx.set_state_node( trx_state_node );
    KOINOS_REQUIRE_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::invalid_contract );
-   db.finalize_node( trx_state_node->id() );
+   db.finalize_node( trx_state_node->id(), shared_db_lock );
 
    ctx.set_state_node( control_state_node );
    chain::system_call::set_account_nonce( ctx, transaction.header().payer(), transaction.header().nonce() );
-   db.finalize_node( control_state_node->id() );
+   db.finalize_node( control_state_node->id(), shared_db_lock );
 
    BOOST_REQUIRE( trx_state_node->merkle_root() == control_state_node->merkle_root() );
 
@@ -1524,12 +1531,12 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    transaction.mutable_header()->set_rc_limit( 10'000'001 );
    sign_transaction( transaction, alice_private_key );
 
-   auto failed_trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "failed_trx"s ) );
+   auto failed_trx_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "failed_trx"s ), protocol::block_header(), shared_db_lock );
    ctx.set_state_node( failed_trx_state_node );
 
    KOINOS_CHECK_THROW( chain::system_call::apply_transaction( ctx, transaction ), chain::failure );
 
-   auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
+   auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ), shared_db_lock );
    protocol::block block;
    block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
    block.mutable_header()->set_height( 1 );
@@ -1541,7 +1548,7 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
    block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
 
-   auto block_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "block"s ) );
+   auto block_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "block"s ), protocol::block_header(), shared_db_lock );
    ctx.set_state_node( block_state_node );
    ctx.set_intent( chain::intent::block_application );
 
@@ -1572,8 +1579,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion )
    block.set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, block.header() ) ) );
    block.set_signature( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( block.id() ) ) ) );
 
-   db.discard_node( block_state_node->id() );
-   block_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "block"s ) );
+   db.discard_node( block_state_node->id(), shared_db_lock );
+   block_state_node = db.create_writable_node( head_state_node->id(), crypto::hash( crypto::multicodec::sha2_256, "block"s ), protocol::block_header(), shared_db_lock );
    ctx.set_state_node( block_state_node );
 
    chain::system_call::apply_block( ctx, block );
@@ -2301,7 +2308,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
    transaction.add_signatures( util::converter::as< std::string >( _signing_private_key.sign_compact( util::converter::to< crypto::multihash >( transaction.id() ) ) ) );
    ctx.set_transaction( transaction );
 
-   auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ) );
+   auto parent_node = db.get_node( crypto::multihash::zero( crypto::multicodec::sha2_256 ), db.get_shared_lock() );
    protocol::block block;
    block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
    block.mutable_header()->set_height( 1 );

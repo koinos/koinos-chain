@@ -183,21 +183,21 @@ void controller_impl::open( const std::filesystem::path& p, const chain::genesis
 
       root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
       LOG(info) << "Wrote chain ID into new database";
-   }, comp );
+   }, comp, _db.get_unique_lock() );
 
    if ( reset )
    {
       LOG(info) << "Resetting database...";
-      _db.reset();
+      _db.reset( _db.get_unique_lock() );
    }
 
-   auto head = _db.get_head();
+   auto head = _db.get_head( _db.get_shared_lock() );
    LOG(info) << "Opened database at block - Height: " << head->revision() << ", ID: " << head->id();
 }
 
 void controller_impl::close()
 {
-   _db.close();
+   _db.close( _db.get_unique_lock() );
 }
 
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
@@ -436,8 +436,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          parent_node.reset();
          ctx.clear_state_node();
 
-         // This will defaulty grab the unique lock
-         _db.commit_node( lib_id );
+         _db.commit_node( lib_id, _db.get_unique_lock() );
 
          db_lock = _db.get_shared_lock();
       }
@@ -633,7 +632,7 @@ rpc::chain::get_chain_id_response controller_impl::get_chain_id( const rpc::chai
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
 
    rpc::chain::get_chain_id_response resp;
@@ -696,7 +695,7 @@ rpc::chain::get_resource_limits_response controller_impl::get_resource_limits( c
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
 
    auto value = system_call::get_resource_limits( ctx );
@@ -716,7 +715,7 @@ rpc::chain::get_account_rc_response controller_impl::get_account_rc( const rpc::
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
 
    auto value = system_call::get_account_rc( ctx, request.account() );
@@ -748,6 +747,8 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
 {
    KOINOS_ASSERT( request.contract_id().size(), missing_required_arguments_exception, "missing expected field: ${f}", ("f", "contract_id") );
 
+   auto db_lock = _db.get_shared_lock();
+
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::user_mode,
@@ -760,7 +761,7 @@ rpc::chain::read_contract_response controller_impl::read_contract( const rpc::ch
       head_block_ptr = _cached_head_block;
       KOINOS_ASSERT( head_block_ptr, internal_error_exception, "error retrieving head block" );
 
-      ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+      ctx.set_state_node( _db.get_head( db_lock )->create_anonymous_node() );
    }
 
    ctx.set_block( *head_block_ptr );
@@ -790,7 +791,7 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
       .call_privilege = privilege::kernel_mode
    } );
 
-   ctx.set_state_node( _db.get_head()->create_anonymous_node() );
+   ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
 
    auto nonce = system_call::get_account_nonce( ctx, request.account() );

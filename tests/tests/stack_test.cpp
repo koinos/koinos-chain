@@ -165,42 +165,46 @@ struct stack_fixture
       entry->set_value( util::converter::as< std::string >( unsigned_varint{ std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ) } ) );
       *entry->mutable_space() = chain::state::space::metadata();
 
-      db.open( temp, [&]( state_db::state_node_ptr root )
-      {
-         // Write genesis objects into the database
-         for ( const auto& entry : _genesis_data.entries() )
+      db.open(
+         temp,
+         [&]( state_db::state_node_ptr root )
          {
+            // Write genesis objects into the database
+            for ( const auto& entry : _genesis_data.entries() )
+            {
+               KOINOS_ASSERT(
+                  !root->get_object( entry.space(), entry.key() ),
+                  koinos::chain::unexpected_state_exception,
+                  "encountered unexpected object in initial state"
+               );
+
+               root->put_object( entry.space(), entry.key(), &entry.value() );
+            }
+            LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
+
+            // Read genesis public key from the database, assert its existence at the correct location
             KOINOS_ASSERT(
-               !root->get_object( entry.space(), entry.key() ),
+               root->get_object( chain::state::space::metadata(), chain::state::key::genesis_key ),
                koinos::chain::unexpected_state_exception,
-               "encountered unexpected object in initial state"
+               "could not find genesis public key in database"
             );
 
-            root->put_object( entry.space(), entry.key(), &entry.value() );
-         }
-         LOG(info) << "Wrote " << _genesis_data.entries().size() << " genesis objects into new database";
+            // Calculate and write the chain ID into the database
+            auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data );
+            LOG(info) << "Calculated chain ID: " << chain_id;
+            auto chain_id_str = util::converter::as< std::string >( chain_id );
+            KOINOS_ASSERT(
+               !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
+               koinos::chain::unexpected_state_exception,
+               "encountered unexpected chain id in initial state"
+            );
+            root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
+            LOG(info) << "Wrote chain ID into new database";
+         },
+         &state_db::fifo_comparator,
+         db.get_unique_lock() );
 
-         // Read genesis public key from the database, assert its existence at the correct location
-         KOINOS_ASSERT(
-            root->get_object( chain::state::space::metadata(), chain::state::key::genesis_key ),
-            koinos::chain::unexpected_state_exception,
-            "could not find genesis public key in database"
-         );
-
-         // Calculate and write the chain ID into the database
-         auto chain_id = crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data );
-         LOG(info) << "Calculated chain ID: " << chain_id;
-         auto chain_id_str = util::converter::as< std::string >( chain_id );
-         KOINOS_ASSERT(
-            !root->get_object( chain::state::space::metadata(), chain::state::key::chain_id ),
-            koinos::chain::unexpected_state_exception,
-            "encountered unexpected chain id in initial state"
-         );
-         root->put_object( chain::state::space::metadata(), chain::state::key::chain_id, &chain_id_str );
-         LOG(info) << "Wrote chain ID into new database";
-      } );
-
-      ctx.set_state_node( db.create_writable_node( db.get_head()->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ) ) );
+      ctx.set_state_node( db.create_writable_node( db.get_head( db.get_shared_lock() )->id(), crypto::hash( crypto::multicodec::sha2_256, 1 ), protocol::block_header(), db.get_shared_lock() ) );
       ctx.reset_cache();
       ctx.push_frame( chain::stack_frame {
          .contract_id = "stack_tests"s,
@@ -228,7 +232,7 @@ struct stack_fixture
    {
       boost::log::core::get()->remove_all_sinks();
       ctx.clear_state_node();
-      db.close();
+      db.close( db.get_unique_lock() );
       std::filesystem::remove_all( temp );
    }
 
