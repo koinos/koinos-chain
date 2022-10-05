@@ -461,7 +461,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       if ( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
          e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
 
-      if ( block_node )
+      if ( block_node && !block_node->is_finalized() )
       {
          _db.discard_node( block_node->id(), db_lock );
       }
@@ -472,7 +472,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    {
       LOG(warning) << "Block application failed - Height: " << block_height << ", ID: " << block_id << ", for an unknown reason";
 
-      if ( block_node )
+      if ( block_node && !block_node->is_finalized() )
       {
          _db.discard_node( block_node->id(), db_lock );
       }
