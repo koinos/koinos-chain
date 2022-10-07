@@ -441,7 +441,15 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          parent_node.reset();
          ctx.clear_state_node();
 
-         _db.commit_node( lib_id, _db.get_unique_lock() );
+         // There is a race condition where the LIB from a later block can be updated,
+         // resulting in a failure to commit the LIB on an earlier block. If that happens,
+         // ignore the exception
+         try 
+         {
+            _db.commit_node( lib_id, _db.get_unique_lock() );
+         }
+         catch ( const state_db::illegal_argument& ) { /* do nothing */ }
+         
 
          db_lock = _db.get_shared_lock();
       }
