@@ -156,6 +156,7 @@ class database_impl final
        */
       mutable std::timed_mutex                   _index_mutex;
       mutable std::shared_mutex                  _node_mutex;
+      mutable std::shared_mutex                  _fork_heads_mutex;
 };
 
 shared_lock_ptr database_impl::get_shared_lock() const
@@ -199,6 +200,7 @@ void database_impl::reset( const unique_lock_ptr& lock )
    //
    KOINOS_ASSERT( verify_unique_lock( lock ), illegal_argument, "database is not properly locked" );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
+   std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
 
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    // Wipe and start over from empty database!
@@ -211,6 +213,7 @@ void database_impl::open( const std::filesystem::path& p, genesis_init_function 
 {
    KOINOS_ASSERT( verify_unique_lock( lock ), illegal_argument, "database is not properly locked" );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
+   std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
    open_lockless( p, init, comp );
 }
 
@@ -238,6 +241,7 @@ void database_impl::close( const unique_lock_ptr& lock )
 {
    KOINOS_ASSERT( verify_unique_lock( lock ), illegal_argument, "database is not properly locked" );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
+   std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
    close_lockless();
 }
 
@@ -383,6 +387,7 @@ void database_impl::finalize_node( const state_node_id& node_id, const shared_lo
    }
    else if ( node->revision() == _head->revision() )
    {
+      std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
       fork_list forks;
       forks.reserve( _fork_heads.size() );
       std::transform(
@@ -411,6 +416,7 @@ void database_impl::finalize_node( const state_node_id& node_id, const shared_lo
    }
 
    // When node is finalized, parent node needs to be removed from heads, if it exists.
+   std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
    if ( node->parent_id() != _head->id() )
    {
       auto parent_itr = _fork_heads.find( node->parent_id() );
@@ -425,6 +431,7 @@ void database_impl::discard_node( const state_node_id& node_id, const std::unord
 {
    KOINOS_ASSERT( verify_shared_lock( lock ), illegal_argument, "database is not properly locked" );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
+   std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
    discard_node_lockless( node_id, whitelist );
 }
 
@@ -487,6 +494,7 @@ void database_impl::commit_node( const state_node_id& node_id, const unique_lock
 {
    KOINOS_ASSERT( verify_unique_lock( lock ), illegal_argument, "database is not properly locked" );;
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
+   std::unique_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
 
    // If the node_id to commit is the root id, return. It is already committed.
@@ -529,6 +537,7 @@ std::vector< state_node_ptr > database_impl::get_fork_heads( const shared_lock_p
 {
    KOINOS_ASSERT( verify_shared_lock( lock ), illegal_argument, "database is not properly locked" );
    std::lock_guard< std::timed_mutex > index_lock( _index_mutex );
+   std::shared_lock< std::shared_mutex > fork_heads_lock( _fork_heads_mutex );
    KOINOS_ASSERT( is_open(), database_not_open, "database is not open" );
    std::vector< state_node_ptr > fork_heads;
    fork_heads.reserve( _fork_heads.size() );

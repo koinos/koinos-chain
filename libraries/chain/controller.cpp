@@ -255,6 +255,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
    auto block_node   = _db.get_node( block_id, db_lock );
    auto parent_node  = _db.get_node( parent_id, db_lock );
 
+   bool new_head = false;
+
    if ( block_node ) return {}; // Block has been applied
 
    // This prevents returning "unknown previous block" when the pushed block is the LIB
@@ -381,7 +383,10 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          _db.finalize_node( block_node->id(), db_lock );
 
          if ( block_node->id() == _db.get_head( db_lock )->id() )
+         {
+            new_head = true;
             _cached_head_block = std::make_shared< protocol::block >( block );
+         }
       }
 
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
@@ -399,7 +404,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          *ba.mutable_block() = block;
          *ba.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
          ba.set_live( live );
-         ba.set_head( block_node->id() == _db.get_head( db_lock )->id() );
+         ba.set_head( new_head );
 
          _client->broadcast( "koinos.block.accept", util::converter::as< std::string >( ba ) );
 
