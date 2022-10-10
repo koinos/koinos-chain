@@ -328,7 +328,7 @@ state_node_ptr database_impl::create_writable_node( const state_node_id& parent_
    // Needs to be configurable
    auto timeout = std::chrono::system_clock::now() + std::chrono::seconds( 1 );
 
-   state_node_ptr parent_state = get_node_lockless( parent_id );
+   state_node_ptr parent_state = get_node( parent_id, lock );
 
    if ( parent_state )
    {
