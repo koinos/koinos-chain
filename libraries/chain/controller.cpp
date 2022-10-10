@@ -454,7 +454,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          db_lock = _db.get_shared_lock();
       }
    }
-   catch ( block_state_error_exception& e )
+   catch ( const block_state_error_exception& e )
    {
       LOG(warning) << "Block application failed - Height: " << block_height << " ID: " << block_id << ", with reason: " << e.what();
       throw;
