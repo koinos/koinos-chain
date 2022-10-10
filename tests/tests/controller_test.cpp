@@ -983,10 +983,11 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
    set_transaction_merkle_roots( transaction, crypto::multicodec::sha2_256 );
    sign_transaction( transaction, random_private_key );
 
+   auto block_time = std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count();
    koinos::protocol::block block;
    block.mutable_header()->set_height( 1 );
    block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
-   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_timestamp( block_time );
    block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    block.mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
    *block.add_transactions() = transaction;
@@ -1032,7 +1033,7 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
    block.Clear();
    block.mutable_header()->set_height( 2 );
    block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
-   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_timestamp( ++block_time );
    block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    block.mutable_header()->set_previous( previous_id );
    *block.add_transactions() = transaction;
@@ -1076,7 +1077,7 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
    block.Clear();
    block.mutable_header()->set_height( 3 );
    block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
-   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_timestamp( ++block_time );
    block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    block.mutable_header()->set_previous( previous_id );
    *block.add_transactions() = transaction;
@@ -1110,7 +1111,7 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
    block.Clear();
    block.mutable_header()->set_height( 4 );
    block.mutable_header()->set_signer( _block_signing_private_key.get_public_key().to_address_bytes() );
-   block.mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( std::chrono::system_clock::now().time_since_epoch() ).count() );
+   block.mutable_header()->set_timestamp( ++block_time );
    block.mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
    block.mutable_header()->set_previous( previous_id );
    *block.add_transactions() = transaction;
