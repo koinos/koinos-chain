@@ -774,7 +774,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
    set_system_call_event event;
    event.set_call_id( o.call_id() );
    event.mutable_target()->CopyFrom( o.target() );
-   system_call::event( context, "set_system_call_event", event.SerializeAsString(), {} );
+   system_call::event( context, "koinos.chain.set_system_call_event", event.SerializeAsString(), {} );
 }
 
 THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_system_contract_operation&) o) )
@@ -797,7 +797,7 @@ THUNK_DEFINE( void, apply_set_system_contract_operation, ((const protocol::set_s
    set_system_contract_event event;
    event.set_contract_id( o.contract_id() );
    event.set_system_contract( o.system_contract() );
-   system_call::event( context, "set_system_contract_event", event.SerializeAsString(), {} );
+   system_call::event( context, "koinos.chain.set_system_contract_event", event.SerializeAsString(), {} );
 }
 
 THUNK_DEFINE_VOID( void, pre_block_callback ) {}
