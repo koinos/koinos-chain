@@ -1704,6 +1704,25 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
    trx.add_signatures( util::converter::as< std::string >( key_b.sign_compact( id_mh ) ) );
 
    koinos::chain::system_call::apply_transaction( ctx, trx );
+
+   BOOST_TEST_MESSAGE( "Try calling authorize directly" );
+
+   ctx.set_transaction( trx );
+   chain::system_call::call( ctx, key_a.get_public_key().to_address_bytes(), chain::authorize_entrypoint, std::string() );
+   BOOST_TEST_PASSPOINT();
+
+   ctx.push_frame( chain::stack_frame {
+      .contract_id = "thunk_tests"s,
+      .call_privilege = chain::privilege::user_mode
+   } );
+
+   KOINOS_REQUIRE_THROW(
+      chain::system_call::call( ctx, key_a.get_public_key().to_address_bytes(), chain::authorize_entrypoint, std::string() ),
+      chain::insufficient_privileges
+   )
+
+   auto authorized = chain::system_call::check_authority( ctx, chain::authorization_type::contract_call, key_a.get_public_key().to_address_bytes() );
+   BOOST_CHECK_EQUAL( authorized, true );
 }
 
 BOOST_AUTO_TEST_CASE( get_chain_id )

@@ -1271,6 +1271,9 @@ THUNK_DEFINE( call_result, call, ((const std::string&) contract_id, (uint32_t) e
    auto contract_meta = util::converter::to< contract_metadata_object >( contract_meta_object.value() );
    KOINOS_ASSERT( contract_meta.hash().size(), invalid_contract_exception, "contract hash does not exist" );
 
+   // authorize should only be called from kernel mode
+   KOINOS_ASSERT( entry_point != authorize_entrypoint || context.get_caller_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "calling privileged thunk from non-privileged code" );
+
    try
    {
       with_stack_frame(
