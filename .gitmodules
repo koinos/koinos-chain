@@ -16,3 +16,6 @@
 [submodule "libraries/proto"]
 	path = libraries/proto
 	url = https://github.com/koinos/koinos-proto-cpp.git
+[submodule "libraries/state_db"]
+	path = libraries/state_db
+	url = https://github.com/koinos/koinos-state-db-cpp.git
