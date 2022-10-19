@@ -103,9 +103,3 @@ hunter_config(koinos_mq
    CMAKE_ARGS
       BUILD_TESTS=OFF
 )
-
-hunter_config(koinos_state_db
-   GIT_SUBMODULE "libraries/state_db"
-   CMAKE_ARGS
-      BUILD_TESTS=OFF
-)
