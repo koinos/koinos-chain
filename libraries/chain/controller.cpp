@@ -375,15 +375,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto lib = system_call::get_last_irreversible_block( ctx );
 
-      db_lock.reset();
-      block_node.reset();
-      parent_node.reset();
-      ctx.clear_state_node();
-
-      {
+      try {
          // We need to finalize our node, checking if it is the new head block, update the cached head block,
          // and advancing LIB as an atomic action or else we risk _db.get_head(), _cached_head_block, and
          // LIB desyncing from each other
+         db_lock.reset();
+         block_node.reset();
+         parent_node.reset();
+         ctx.clear_state_node();
 
          auto unique_db_lock = _db.get_unique_lock();
          _db.finalize_node( block_id, unique_db_lock );
@@ -397,7 +396,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          if ( lib > _db.get_root( unique_db_lock )->revision() )
          {
-            auto lib_id = _db.get_node_at_revision( lib, block_node->id(), unique_db_lock )->id();
+            auto lib_id = _db.get_node_at_revision( lib, block_id, unique_db_lock )->id();
             _db.commit_node( lib_id, unique_db_lock );
          }
 
@@ -405,6 +404,14 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          db_lock = _db.get_shared_lock();
          block_node = _db.get_node( block_id, db_lock );
          ctx.set_state_node( block_node );
+      }
+      catch ( ... )
+      {
+         // If any exception is thrown, reset to the expected local state and then rethrow.
+         db_lock = _db.get_shared_lock();
+         block_node = _db.get_node( block_id, db_lock );
+         ctx.set_state_node( block_node );
+         throw;
       }
 
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
