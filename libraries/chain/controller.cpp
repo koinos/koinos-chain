@@ -374,7 +374,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       }
 
       auto lib = system_call::get_last_irreversible_block( ctx );
-      auto lib_id = _db.get_node_at_revision( lib, block_node->id(), db_lock )->id();
 
       db_lock.reset();
       block_node.reset();
@@ -398,6 +397,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
          if ( lib > _db.get_root( unique_db_lock )->revision() )
          {
+            auto lib_id = _db.get_node_at_revision( lib, block_node->id(), unique_db_lock )->id();
             _db.commit_node( lib_id, unique_db_lock );
          }
 
