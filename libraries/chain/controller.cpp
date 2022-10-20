@@ -375,18 +375,43 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
       auto lib = system_call::get_last_irreversible_block( ctx );
 
-      {
-         // We need to finalize out node, checking if it is the new head block, and update the cached head block
-         // as an atomic action or else we risk _db.get_head() and _cached_head_block desyncing from each other
-         std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
+      try {
+         // We need to finalize our node, checking if it is the new head block, update the cached head block,
+         // and advancing LIB as an atomic action or else we risk _db.get_head(), _cached_head_block, and
+         // LIB desyncing from each other
+         db_lock.reset();
+         block_node.reset();
+         parent_node.reset();
+         ctx.clear_state_node();
 
-         _db.finalize_node( block_node->id(), db_lock );
+         auto unique_db_lock = _db.get_unique_lock();
+         _db.finalize_node( block_id, unique_db_lock );
 
-         if ( block_node->id() == _db.get_head( db_lock )->id() )
+         if ( block_id == _db.get_head( unique_db_lock )->id() )
          {
+            std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
             new_head = true;
             _cached_head_block = std::make_shared< protocol::block >( block );
          }
+
+         if ( lib > _db.get_root( unique_db_lock )->revision() )
+         {
+            auto lib_id = _db.get_node_at_revision( lib, block_id, unique_db_lock )->id();
+            _db.commit_node( lib_id, unique_db_lock );
+         }
+
+         unique_db_lock.reset();
+         db_lock = _db.get_shared_lock();
+         block_node = _db.get_node( block_id, db_lock );
+         ctx.set_state_node( block_node );
+      }
+      catch ( ... )
+      {
+         // If any exception is thrown, reset to the expected local state and then rethrow.
+         db_lock = _db.get_shared_lock();
+         block_node = _db.get_node( block_id, db_lock );
+         ctx.set_state_node( block_node );
+         throw;
       }
 
       resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
@@ -431,27 +456,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
             _client->broadcast( "koinos.event." + util::to_base58( event.source() ) + "." + event.name(), ep.SerializeAsString() );
          }
-      }
-
-      if ( lib > _db.get_root( db_lock )->revision() )
-      {
-         auto lib_id = _db.get_node_at_revision( lib, block_node->id(), db_lock )->id();
-         db_lock.reset();
-         block_node.reset();
-         parent_node.reset();
-         ctx.clear_state_node();
-
-         // There is a race condition where the LIB from a later block can be updated,
-         // resulting in a failure to commit the LIB on an earlier block. If that happens,
-         // ignore the exception
-         try 
-         {
-            _db.commit_node( lib_id, _db.get_unique_lock() );
-         }
-         catch ( const state_db::illegal_argument& ) { /* do nothing */ }
-         
-
-         db_lock = _db.get_shared_lock();
       }
    }
    catch ( const block_state_error_exception& e )
