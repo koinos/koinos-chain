@@ -386,6 +386,8 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          auto unique_db_lock = _db.get_unique_lock();
          _db.finalize_node( block_id, unique_db_lock );
 
+         resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( _db.get_node( block_id, unique_db_lock )->merkle_root() ) );
+
          if ( block_id == _db.get_head( unique_db_lock )->id() )
          {
             std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
@@ -413,7 +415,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          throw;
       }
 
-      resp.mutable_receipt()->set_state_merkle_root( util::converter::as< std::string >( block_node->merkle_root() ) );
+      // It is NOT safe to use block_node after this point without checking it against null
 
       if ( _client )
       {
