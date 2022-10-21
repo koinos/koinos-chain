@@ -599,7 +599,7 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
          // If the transaction fails for any other reason within the operations, it is reverted.
          // Mana is still charged, but the block does not fail
          receipt.set_reverted( true );
-         system_call::log( context, e.get_message() );
+         thunk::_log( context, "transaction reverted: " + e.get_message() );
          reverted_exception_ptr = std::current_exception();
       }
       catch ( const std::exception& e )
