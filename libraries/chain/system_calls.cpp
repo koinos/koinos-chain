@@ -454,18 +454,6 @@ THUNK_DEFINE( void, apply_block, ((const protocol::block&) block) )
    }
 }
 
-inline void log_reversion( const std::string& msg, const protocol::transaction& trx )
-{
-   if ( !msg.empty() )
-   {
-      LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted with: " << msg;
-   }
-   else
-   {
-      LOG(info) << "Transaction " << util::to_hex( trx.id() ) << " reverted";
-   }
-}
-
 THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
 {
    protocol::transaction_receipt receipt;
@@ -610,9 +598,8 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       {
          // If the transaction fails for any other reason within the operations, it is reverted.
          // Mana is still charged, but the block does not fail
-         log_reversion( e.get_message(), trx );
          receipt.set_reverted( true );
-
+         system_call::log( context, e.get_message() );
          reverted_exception_ptr = std::current_exception();
       }
       catch ( const std::exception& e )
@@ -633,8 +620,10 @@ THUNK_DEFINE( void, apply_transaction, ((const protocol::transaction&) trx) )
       context.set_state_node( block_node );
 
       used_rc = payer_session->used_rc();
-      events = payer_session->events();
       logs = payer_session->logs();
+      if ( !receipt.reverted() )
+         events = payer_session->events();
+
       disk_storage_used = context.resource_meter().disk_storage_used() - start_disk_used;
       network_bandwidth_used = context.resource_meter().network_bandwidth_used() - start_network_used;
       compute_bandwidth_used = context.resource_meter().compute_bandwidth_used() - start_compute_used;
