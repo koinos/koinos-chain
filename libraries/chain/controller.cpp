@@ -272,7 +272,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
 
    if ( !index_to && live )
    {
-      LOG(info) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
+      LOG(debug) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
    }
 
    block_node = _db.create_writable_node( parent_id, block_id, block.header(), db_lock );
@@ -356,8 +356,7 @@ rpc::chain::submit_block_response controller_impl::submit_block(
       {
          auto num_transactions = block.transactions_size();
 
-         LOG(info) << "Block application successful - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
-         LOG(info) << "Consumed resources: " << disk_storage_used << " disk, " << network_bandwidth_used << " network, " << compute_bandwidth_used << " compute";
+         LOG(info) << "Block applied - Height: " << block_height << ", ID: " << block_id << " (" << num_transactions << ( num_transactions == 1 ? " transaction)" : " transactions)" );
       }
       else if ( block_height % index_message_interval == 0 )
       {
@@ -523,7 +522,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    auto transaction    = request.transaction();
    auto transaction_id = util::to_hex( transaction.id() );
 
-   LOG(info) << "Pushing transaction - ID: " << transaction_id;
+   LOG(debug) << "Pushing transaction - ID: " << transaction_id;
 
    auto db_lock = _db.get_shared_lock();
    state_node_ptr head;
@@ -581,7 +580,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
          KOINOS_ASSERT( resp.has_check_pending_account_resources(), rpc_failure_exception, "received unexpected response from mempool" );
       }
 
-      LOG(info) << "Transaction application successful - ID: " << transaction_id;
+      LOG(debug) << "Transaction applied - ID: " << transaction_id;
 
       KOINOS_ASSERT( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ), unexpected_receipt_exception, "expected transaction receipt" );
       *resp.mutable_receipt() = std::get< protocol::transaction_receipt >( ctx.receipt() );
