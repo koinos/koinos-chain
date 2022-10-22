@@ -784,7 +784,9 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 
    BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).id(), trx5.id() );
    BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).reverted(), true );
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).logs().size(), 2 );
    BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).logs(0), "Greetings from koinos vm" );
+   BOOST_REQUIRE_EQUAL( resp.receipt().transaction_receipts(2).logs(1), "transaction reverted: insufficient rc" );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
