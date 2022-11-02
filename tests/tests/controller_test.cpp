@@ -720,6 +720,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
 
    koinos::protocol::transaction trx4;
 
+   nonce_value.set_uint64_value( 1 );
+
    // Upload the hello contract
    auto op4 = trx4.add_operations()->mutable_upload_contract();
    op4->set_contract_id( util::converter::as< std::string >( forever_private_key.get_public_key().to_address_bytes() ) );
@@ -733,6 +735,8 @@ BOOST_AUTO_TEST_CASE( transaction_reversion_test )
    BOOST_TEST_MESSAGE( "Creating operation that calls both contracts" );
 
    koinos::protocol::transaction trx5;
+
+   nonce_value.set_uint64_value( 2 );
 
    auto op5 = trx5.add_operations()->mutable_call_contract();
    op5->set_contract_id( op3->contract_id() );
