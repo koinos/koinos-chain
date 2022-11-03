@@ -599,7 +599,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    }
    catch ( koinos::exception& e )
    {
-      LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
+      LOG(debug) << "Transaction application failed - ID: " << transaction_id << ", with reason: " << e.what();
 
       if ( std::holds_alternative< protocol::transaction_receipt >( ctx.receipt() ) )
          e.add_json( "logs", std::get< protocol::transaction_receipt >( ctx.receipt() ).logs() );
@@ -608,7 +608,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    }
    catch ( ... )
    {
-      LOG(warning) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
+      LOG(debug) << "Transaction application failed - ID: " << transaction_id << ", for an unknown reason";
       throw;
    }
 

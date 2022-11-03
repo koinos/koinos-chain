@@ -748,12 +748,15 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ((const protocol::set_syste
       KOINOS_ASSERT( contract_meta.system(), invalid_contract_exception, "contract is not a system contract" );
       KOINOS_ASSERT( o.call_id() != chain::system_call_id::call, reversion_exception, "cannot override call_contract" );
 
-      LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << util::to_hex( o.target().system_call_bundle().entry_point() );
+      if ( context.intent() == intent::block_application  )
+         LOG(info) << "Overriding system call " << o.call_id() << " with contract " << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point " << util::to_hex( o.target().system_call_bundle().entry_point() );
    }
    else
    {
       KOINOS_ASSERT( thunk_dispatcher::instance().thunk_exists( o.target().thunk_id() ), unknown_thunk_exception, "thunk ${tid} does not exist", ("tid", o.target().thunk_id()) );
-      LOG(info) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
+
+      if ( context.intent() == intent::block_application  )
+         LOG(info) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
    }
 
    // Place the override in the database
