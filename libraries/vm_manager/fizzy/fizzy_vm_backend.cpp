@@ -24,7 +24,7 @@ namespace constants {
 char* resolve_ptr( FizzyInstance* fizzy_instance, uint32_t ptr, uint32_t size )
 {
    KOINOS_ASSERT( fizzy_instance != nullptr, null_argument_exception, "fizzy_instance was unexpectedly null pointer" );
-   size_t mem_size = fizzy_get_instance_memory_size( fizzy_instance );
+   std::size_t mem_size = fizzy_get_instance_memory_size( fizzy_instance );
    char* mem_data = (char *) fizzy_get_instance_memory_data( fizzy_instance );
    KOINOS_ASSERT( mem_data != nullptr, fizzy_returned_null_exception, "fizzy_get_instance_memory_data() unexpectedly returned null pointer" );
 
@@ -39,8 +39,8 @@ char* resolve_ptr( FizzyInstance* fizzy_instance, uint32_t ptr, uint32_t size )
    }
 
    // How much memory exists between pointer and end of memory?
-   uint32_t mem_at_ptr = mem_size - ptr;
-   if ( uint64_t( mem_at_ptr ) < uint64_t(size) )
+   std::size_t mem_at_ptr = mem_size - ptr;
+   if ( mem_at_ptr < std::size_t( size ) )
       return nullptr;
 
    return mem_data + ptr;
@@ -153,7 +153,7 @@ void fizzy_runner::instantiate_module()
 
    FizzyError fizzy_err;
 
-   size_t memory_pages_limit = 512;     // Number of 64k pages allowed to allocate
+   uint32_t memory_pages_limit = 512;     // Number of 64k pages allowed to allocate
 
    KOINOS_ASSERT( _instance == nullptr, runner_state_exception, "_instance was unexpectedly non-null" );
    _instance = fizzy_resolve_instantiate( _module->get(), host_funcs, num_host_funcs, nullptr, nullptr, nullptr, 0, memory_pages_limit, &fizzy_err );

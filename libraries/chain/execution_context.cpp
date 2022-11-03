@@ -159,7 +159,7 @@ privilege execution_context::get_privilege() const
 
 const std::string& execution_context::get_contract_id() const
 {
-   for ( int32_t i = _stack.size() - 1; i >= 0; --i )
+   for ( auto i = _stack.size() - 1; i >= 0; --i )
    {
       if ( _stack[ i ].contract_id.size() )
          return _stack[ i ].contract_id;

@@ -122,7 +122,7 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
          auto* by_height_req = req.mutable_get_blocks_by_height();
          by_height_req->set_head_block_id( _target_head.id() );
          by_height_req->set_ancestor_start_height( last_height + 1 );
-         by_height_req->set_num_blocks( batch_size );
+         by_height_req->set_num_blocks( uint32_t( batch_size ) );
          by_height_req->set_return_block( true );
          by_height_req->set_return_receipt( false );
 
