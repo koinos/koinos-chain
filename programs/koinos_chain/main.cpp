@@ -311,7 +311,7 @@ int main( int argc, char** argv )
 
 const std::string& version_string()
 {
-   static std::string v_str = "Koinos chain v";
+   static std::string v_str = "Koinos Chain v";
    v_str += std::to_string( KOINOS_MAJOR_VERSION ) + "." + std::to_string( KOINOS_MINOR_VERSION ) + "." + std::to_string( KOINOS_PATCH_VERSION );
    v_str += " (" + std::string( KOINOS_GIT_HASH ) + ")";
    return v_str;
