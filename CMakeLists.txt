@@ -1,6 +1,9 @@
 
 cmake_minimum_required(VERSION 3.10.2)
 
+include("cmake/CheckGit.cmake")
+CheckGitSetup()
+
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
@@ -36,7 +39,10 @@ HunterGate(
    LOCAL
 )
 
-project(koinos_chain VERSION 0.1.0 LANGUAGES CXX C)
+project(koinos_chain VERSION 1.0.0 LANGUAGES CXX C)
+add_compile_definitions(KOINOS_MAJOR_VERSION=${PROJECT_VERSION_MAJOR})
+add_compile_definitions(KOINOS_MINOR_VERSION=${PROJECT_VERSION_MINOR})
+add_compile_definitions(KOINOS_PATCH_VERSION=${PROJECT_VERSION_PATCH})
 
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 

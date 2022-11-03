@@ -35,9 +35,7 @@
 #include <koinos/util/random.hpp>
 #include <koinos/util/services.hpp>
 
-#define KOINOS_MAJOR_VERSION "0"
-#define KOINOS_MINOR_VERSION "4"
-#define KOINOS_PATCH_VERSION "0"
+#include "git_version.h"
 
 #define FIFO_ALGORITHM                      "fifo"
 #define BLOCK_TIME_ALGORITHM                "block-time"
@@ -70,7 +68,6 @@ using namespace boost;
 using namespace koinos;
 
 const std::string& version_string();
-void splash();
 void attach_request_handler( chain::controller& controller, mq::request_handler& reqhandler );
 
 int main( int argc, char** argv )
@@ -118,8 +115,6 @@ int main( int argc, char** argv )
          return EXIT_SUCCESS;
       }
 
-      splash();
-
       auto basedir = std::filesystem::path( args[ BASEDIR_OPTION ].as< std::string >() );
       if ( basedir.is_relative() )
          basedir = std::filesystem::current_path() / basedir;
@@ -152,6 +147,8 @@ int main( int argc, char** argv )
       fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
 
       koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
+
+      LOG(info) << version_string();
 
       KOINOS_ASSERT( jobs > 1, invalid_argument, "jobs must be greater than 1" );
 
@@ -314,24 +311,10 @@ int main( int argc, char** argv )
 
 const std::string& version_string()
 {
-   static std::string v_str = "Koinos chain v" KOINOS_MAJOR_VERSION "." KOINOS_MINOR_VERSION "." KOINOS_PATCH_VERSION;
+   static std::string v_str = "Koinos Chain v";
+   v_str += std::to_string( KOINOS_MAJOR_VERSION ) + "." + std::to_string( KOINOS_MINOR_VERSION ) + "." + std::to_string( KOINOS_PATCH_VERSION );
+   v_str += " (" + std::string( KOINOS_GIT_HASH ) + ")";
    return v_str;
-}
-
-void splash()
-{
-   const char* banner = R"BANNER(
-  _  __     _
- | |/ /___ (_)_ __   ___  ___
- | ' // _ \| | '_ \ / _ \/ __|
- | . \ (_) | | | | | (_) \__ \
- |_|\_\___/|_|_| |_|\___/|___/)BANNER";
-
-   std::cout.write( banner, std::strlen( banner ) );
-   std::cout << std::endl;
-   const char* launch_message = "          ...launching network";
-   std::cout.write( launch_message, std::strlen( launch_message ) );
-   std::cout << std::endl << std::flush;
 }
 
 void attach_request_handler(
