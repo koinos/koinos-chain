@@ -59,7 +59,7 @@ endfunction()
 
 function(CheckGitSetup)
 
-    add_custom_target(AlwaysCheckGit COMMAND ${CMAKE_COMMAND}
+    add_custom_target(check_git COMMAND ${CMAKE_COMMAND}
         -DRUN_CHECK_GIT_VERSION=1
         -Dpre_configure_dir=${pre_configure_dir}
         -Dpost_configure_file=${post_configure_dir}
@@ -70,7 +70,7 @@ function(CheckGitSetup)
 
     add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
     target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
-    add_dependencies(git_version AlwaysCheckGit)
+    add_dependencies(git_version check_git)
     add_library(Koinos::git ALIAS git_version)
 
     CheckGitVersion()
