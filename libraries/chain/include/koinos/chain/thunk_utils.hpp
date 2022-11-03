@@ -75,7 +75,7 @@ data.register_thunk<BOOST_PP_CAT(elem,_THUNK_ARGS_SUFFIX),BOOST_PP_CAT(elem,_THU
 #define _THUNK_DETAIL_DEFINE_TYPES(args) BOOST_PP_SEQ_FOR_EACH_I(_THUNK_DETAIL_DEFINE_TYPES_EACH, data, BOOST_PP_VARIADIC_TO_SEQ args)
 
 namespace koinos::chain::detail {
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, int64_t value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, int64_t value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -87,7 +87,7 @@ namespace koinos::chain::detail {
          ref->SetInt64( &msg, fd, value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, uint64_t value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, uint64_t value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -96,7 +96,7 @@ namespace koinos::chain::detail {
       ref->SetUInt64( &msg, fd, value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, int32_t value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, int32_t value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -108,7 +108,7 @@ namespace koinos::chain::detail {
          ref->SetInt32( &msg, fd, value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, uint32_t value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, uint32_t value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -117,7 +117,7 @@ namespace koinos::chain::detail {
       ref->SetUInt32( &msg, fd, value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, bool value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, bool value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -126,7 +126,7 @@ namespace koinos::chain::detail {
       ref->SetBool( &msg, fd, value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::string& value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::string& value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -135,7 +135,7 @@ namespace koinos::chain::detail {
       ref->SetString( &msg, fd, value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const google::protobuf::Message& value )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const google::protobuf::Message& value )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -145,7 +145,7 @@ namespace koinos::chain::detail {
       m->CopyFrom( value );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< uint64_t >& values )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::vector< uint64_t >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -156,7 +156,7 @@ namespace koinos::chain::detail {
          ref->AddUInt64( &msg, fd, v );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< int64_t >& values )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::vector< int64_t >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -167,7 +167,7 @@ namespace koinos::chain::detail {
          ref->AddInt64( &msg, fd, v );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< uint32_t >& values )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::vector< uint32_t >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -178,7 +178,7 @@ namespace koinos::chain::detail {
          ref->AddUInt32( &msg, fd, v );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< int32_t >& values )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::vector< int32_t >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -194,7 +194,7 @@ namespace koinos::chain::detail {
       }
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< bool >& values )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::vector< bool >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -205,7 +205,7 @@ namespace koinos::chain::detail {
          ref->AddBool( &msg, fd, v );
    }
 
-   inline void set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< std::string >& values )
+   inline void set_message_field( google::protobuf::Message& msg, int index, const std::vector< std::string >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();
@@ -218,7 +218,7 @@ namespace koinos::chain::detail {
 
    template< typename T >
    std::enable_if_t< std::is_base_of_v< google::protobuf::Message, T >, void >
-   inline set_message_field( google::protobuf::Message& msg, std::size_t index, const std::vector< T >& values )
+   inline set_message_field( google::protobuf::Message& msg, int index, const std::vector< T >& values )
    {
       auto desc = msg.GetDescriptor();
       auto ref = msg.GetReflection();

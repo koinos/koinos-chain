@@ -51,7 +51,7 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
       if ( msg_len <= ret_len )
       {
          std::memcpy( ret_ptr, error_bytes.data(), msg_len );
-         *bytes_written = msg_len;
+         *bytes_written = uint32_t( msg_len );
       }
       else
       {
@@ -94,7 +94,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
                   auto obj_len = res.res.object().size();
                   KOINOS_ASSERT( obj_len <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
                   memcpy( ret_ptr, res.res.object().data(), obj_len );
-                  *bytes_written = obj_len;
+                  *bytes_written = uint32_t( obj_len );
                }
                else
                   *bytes_written = 0;
@@ -140,7 +140,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
       if ( msg_len <= ret_len )
       {
          std::memcpy( ret_ptr, error_bytes.data(), msg_len );
-         *bytes_written = msg_len;
+         *bytes_written = uint32_t( msg_len );
       }
       else
       {

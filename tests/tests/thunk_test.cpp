@@ -821,7 +821,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    char ret_buf[100];
    uint32_t bytes_written = 0;
    ctx.set_privilege( chain::privilege::user_mode );
-   KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
+   KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), uint32_t( args.size() ), &bytes_written ), chain::unknown_thunk );
 
    BOOST_TEST_MESSAGE( "Test overriding a system call with another thunk" );
 
@@ -846,9 +846,9 @@ BOOST_AUTO_TEST_CASE( override_tests )
    koinos::chain::system_call::log( host._ctx, "Hello World" );
    BOOST_REQUIRE_EQUAL( "thunk: Hello World", host._ctx.chronicler().logs()[3] );
 
-   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), args.size(), &bytes_written );
+   host.invoke_system_call( chain::system_call_id::log, ret_buf, 100, args.data(), uint32_t( args.size() ), &bytes_written );
    ctx.set_privilege( chain::privilege::user_mode );
-   KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written ), chain::unknown_thunk );
+   KOINOS_CHECK_THROW( host.invoke_system_call( 0, ret_buf, 100, args.data(), uint32_t( args.size() ), &bytes_written ), chain::unknown_thunk );
    ctx.set_privilege( chain::privilege::kernel_mode );
 
    BOOST_TEST_MESSAGE( "Test enabling new thunk passthrough" );
@@ -858,7 +858,7 @@ BOOST_AUTO_TEST_CASE( override_tests )
    ctx.set_state_node( ctx.get_state_node()->create_anonymous_node() );
    ctx.reset_cache();
 
-   host.invoke_system_call( 0, ret_buf, 100, args.data(), args.size(), &bytes_written );
+   host.invoke_system_call( 0, ret_buf, 100, args.data(), uint32_t( args.size() ), &bytes_written );
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
@@ -878,9 +878,9 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    host.invoke_thunk(
       chain::system_call_id::log,
       ret.data(),
-      ret.size(),
+      uint32_t( ret.size() ),
       arg.data(),
-      arg.size(),
+      uint32_t( arg.size() ),
       &bytes_written
    );
 
@@ -888,7 +888,7 @@ BOOST_AUTO_TEST_CASE( thunk_test )
    BOOST_REQUIRE_EQUAL( "Hello World", ctx.chronicler().logs()[0] );
 
    ctx.push_frame( chain::stack_frame{ .contract_id = "user_contract", .call_privilege = chain::user_mode } );
-   KOINOS_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), ret.size(), arg.data(), arg.size(), &bytes_written ), chain::insufficient_privileges );
+   KOINOS_REQUIRE_THROW( host.invoke_thunk( chain::system_call_id::log, ret.data(), uint32_t( ret.size() ), arg.data(), uint32_t( arg.size() ), &bytes_written ), chain::insufficient_privileges );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_CASE( system_call_test )
@@ -907,9 +907,9 @@ BOOST_AUTO_TEST_CASE( system_call_test )
    host.invoke_system_call(
       chain::system_call_id::log,
       ret.data(),
-      ret.size(),
+      uint32_t( ret.size() ),
       arg.data(),
-      arg.size(),
+      uint32_t( arg.size() ),
       &bytes_written
    );
 

@@ -283,7 +283,7 @@ namespace detail
       KOINOS_ASSERT( s.size() <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
       #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
       std::memcpy( ret_ptr, s.c_str(), s.size() );
-      *bytes_written = s.size();
+      *bytes_written = uint32_t( s.size() );
    }
 
 } // detail
