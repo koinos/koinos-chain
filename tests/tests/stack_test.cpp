@@ -478,7 +478,6 @@ BOOST_AUTO_TEST_CASE( user_from_user )
    ctx.set_transaction( trx );
    chain::system_call::apply_set_system_contract_operation( ctx, set_system_op );
 
-   nonce_value.set_uint64_value( 2 );
    trx.mutable_header()->set_nonce( util::converter::as< std::string>( nonce_value ) );
    set_transaction_merkle_roots( trx, koinos::crypto::multicodec::sha2_256 );
    sign_transaction( trx, user_key );
