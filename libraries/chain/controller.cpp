@@ -348,10 +348,6 @@ rpc::chain::submit_block_response controller_impl::submit_block(
          KOINOS_ASSERT( resp.has_add_block(), rpc_failure_exception, "unexpected response when submitting block: ${r}", ("r", resp) );
       }
 
-      uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
-      uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
-      uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
-
       if ( !index_to && live )
       {
          auto num_transactions = block.transactions_size();
@@ -559,10 +555,6 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
 
       system_call::apply_transaction( ctx, transaction );
-
-      uint64_t disk_storage_used      = ctx.resource_meter().disk_storage_used();
-      uint64_t network_bandwidth_used = ctx.resource_meter().network_bandwidth_used();
-      uint64_t compute_bandwidth_used = ctx.resource_meter().compute_bandwidth_used();
 
       if ( _client )
       {

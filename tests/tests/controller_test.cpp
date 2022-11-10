@@ -393,7 +393,6 @@ BOOST_AUTO_TEST_CASE( block_irreversibility )
    start_time = std::chrono::system_clock::now().time_since_epoch();
    for ( uint64_t i = chain::default_irreversible_threshold + 1; i <= chain::default_irreversible_threshold + 3; i++ )
    {
-      auto duration = std::chrono::system_clock::now().time_since_epoch();
       block_req.mutable_block()->mutable_header()->set_timestamp( std::chrono::duration_cast< std::chrono::milliseconds >( start_time + std::chrono::milliseconds{ i } ).count() );
       block_req.mutable_block()->mutable_header()->set_height( head_info_res.head_topology().height() + 1 );
       block_req.mutable_block()->mutable_header()->set_previous( head_info_res.head_topology().id() );

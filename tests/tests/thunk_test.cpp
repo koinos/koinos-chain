@@ -2103,6 +2103,8 @@ BOOST_AUTO_TEST_CASE( syscall_override_return )
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
+#define THUNK_TIME_PRINT_STATS false
+
 BOOST_AUTO_TEST_CASE( thunk_time )
 { try {
    crypto::multihash contract_seed = crypto::hash( crypto::multicodec::sha2_256, std::string{ "contract" } );
@@ -2160,8 +2162,10 @@ BOOST_AUTO_TEST_CASE( thunk_time )
          auto session = ctx.make_session( 1'000'000 );
 
          uint64_t compute_bandwidth_start = ctx.resource_meter().compute_bandwidth_used();
+#if THUNK_TIME_PRINT_STATS
          uint64_t network_bandwidth_start = ctx.resource_meter().network_bandwidth_used();
          uint64_t disk_storage_start      = ctx.resource_meter().disk_storage_used();
+#endif
 
          chain::host_api hapi( ctx );
          auto hash = util::converter::as< std::string >( crypto::multihash::empty( crypto::multicodec::sha2_256 ) );
@@ -2175,20 +2179,26 @@ BOOST_AUTO_TEST_CASE( thunk_time )
          auto stop = std::chrono::high_resolution_clock::now();
 
          uint64_t compute_bandwidth_stop = ctx.resource_meter().compute_bandwidth_used();
+#if THUNK_TIME_PRINT_STATS
          uint64_t network_bandwidth_stop = ctx.resource_meter().network_bandwidth_used();
          uint64_t disk_storage_stop      = ctx.resource_meter().disk_storage_used();
+#endif
 
          uint64_t compute_used = compute_bandwidth_stop - compute_bandwidth_start;
+#if THUNK_TIME_PRINT_STATS
          uint64_t network_used = network_bandwidth_stop - network_bandwidth_start;
          uint64_t disk_used = disk_storage_stop - disk_storage_start;
+#endif
 
          auto duration = std::chrono::duration_cast< std::chrono::nanoseconds >( stop - start );
-         //LOG(info) << "benchmark contract took: " << duration.count() << "us";
-         //LOG(info) << " -> compute: " << compute_used;
-         //LOG(info) << " -> network: " << network_used;
-         //LOG(info) << " -> disk: " << disk_used;
+#if THUNK_TIME_PRINT_STATS
+         LOG(info) << "benchmark contract took: " << duration.count() << "us";
+         LOG(info) << " -> compute: " << compute_used;
+         LOG(info) << " -> network: " << network_used;
+         LOG(info) << " -> disk: " << disk_used;
+         LOG(info) << " -> approximate nanoseconds per compute: " << compute_used / double( duration.count() );
+#endif
          benchmarks.push_back( compute_used / double( duration.count() ) );
-         //LOG(info) << " -> approximate nanoseconds per compute: " << compute_used / double( duration.count() );
       }
       catch ( const koinos::exception& e )
       {

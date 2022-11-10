@@ -114,9 +114,9 @@ module_ptr parse_bytecode( const char* bytecode_data, size_t bytecode_size )
 {
    FizzyError fizzy_err;
    KOINOS_ASSERT( bytecode_data != nullptr, fizzy_returned_null_exception, "fizzy_instance was unexpectedly null pointer" );
-   auto ptr = fizzy_parse(reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, nullptr);
+   auto ptr = fizzy_parse( reinterpret_cast< const uint8_t* >( bytecode_data ), bytecode_size, &fizzy_err );
 
-   if ( ptr == nullptr)
+   if ( ptr == nullptr )
    {
       std::string error_code = fizzy_error_code_name( fizzy_err.code );
       std::string error_message = fizzy_err.message;
