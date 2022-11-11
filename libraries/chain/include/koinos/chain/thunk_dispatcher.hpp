@@ -278,12 +278,11 @@ namespace detail
 
       ret = std::apply( thunk, thunk_args );
 
-      std::string s;
-      ret.SerializeToString( &s );
-      KOINOS_ASSERT( s.size() <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
-      #pragma message "TODO: We should avoid making copies where possible (Issue #473)"
-      std::memcpy( ret_ptr, s.c_str(), s.size() );
-      *bytes_written = uint32_t( s.size() );
+      std::size_t byte_size = ret.ByteSizeLong();
+      KOINOS_ASSERT( byte_size <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
+
+      ret.SerializeToArray( ret_ptr, uint32_t( byte_size ) );
+      *bytes_written = uint32_t( byte_size );
    }
 
 } // detail
@@ -325,8 +324,7 @@ class thunk_dispatcher
          {
             ArgStruct args;
             ctx.resource_meter().use_compute_bandwidth( ctx.get_compute_bandwidth( "deserialize_message_per_byte" ) * arg_len );
-            std::string s( arg_ptr, arg_len );
-            args.ParseFromString( s );
+            args.ParseFromArray( arg_ptr, arg_len );
             detail::call_thunk_impl< ArgStruct, RetStruct >( thunk, ctx, ret_ptr, ret_len, args, bytes_written );
          });
          _pass_through_map.insert_or_assign( id, thunk );
