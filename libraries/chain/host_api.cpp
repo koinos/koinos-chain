@@ -82,7 +82,6 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
          [&]() {
             if ( _ctx.system_call_exists( sid ) )
             {
-               #pragma message "TODO: Brainstorm how to avoid arg/ret copy and validate pointers"
                std::string args( arg_ptr, arg_len );
                auto res = _ctx.system_call( sid, args );
                code = res.code;
