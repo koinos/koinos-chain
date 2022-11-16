@@ -28,6 +28,7 @@
 #include <koinos/crypto/elliptic.hpp>
 
 #include <koinos/vm_manager/exceptions.hpp>
+#include <koinos/vm_manager/fizzy/exceptions.hpp>
 
 #include <koinos/contracts/token/token.pb.h>
 
@@ -2725,6 +2726,37 @@ BOOST_AUTO_TEST_CASE( thunk_time )
       std::cout << "   { \"" << key << "\", " << compute << " }," << std::endl;
    }
    std::cout << "};" << std::endl;
+} KOINOS_CATCH_LOG_AND_RETHROW(info) }
+
+BOOST_AUTO_TEST_CASE( null_bytes_written_test )
+{ try {
+   BOOST_TEST_MESSAGE( "Upload the contract" );
+
+   auto contract_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "contract"s ) );
+   auto contract_address = contract_private_key.get_public_key().to_address_bytes();
+   koinos::protocol::transaction trx;
+   sign_transaction( trx, contract_private_key );
+   ctx.set_transaction( trx );
+
+   koinos::protocol::upload_contract_operation op;
+   op.set_contract_id( util::converter::as< std::string >( contract_address ) );
+   op.set_bytecode( get_null_bytes_written_wasm() );
+
+   koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+
+   auto bytecode_object = koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
+   auto meta = util::converter::to< koinos::chain::contract_metadata_object >( koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_metadata(), op.contract_id() ).value() );
+
+   BOOST_REQUIRE( bytecode_object.exists() );
+   BOOST_REQUIRE( bytecode_object.value().size() == op.bytecode().size() );
+   BOOST_REQUIRE( std::memcmp( bytecode_object.value().c_str(), op.bytecode().c_str(), op.bytecode().size() ) == 0 );
+   BOOST_REQUIRE( meta.hash() == util::converter::as< std::string >( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, bytecode_object.value() ) ) );
+
+   BOOST_TEST_MESSAGE( "Test executing a contract" );
+
+   koinos::protocol::call_contract_operation op2;
+   op2.set_contract_id( op.contract_id() );
+   BOOST_CHECK_THROW( koinos::chain::system_call::apply_call_contract_operation( ctx, op2 ), koinos::vm_manager::fizzy::wasm_memory_exception );
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
 BOOST_AUTO_TEST_SUITE_END()
