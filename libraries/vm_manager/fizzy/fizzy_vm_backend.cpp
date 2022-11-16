@@ -184,6 +184,7 @@ FizzyExecutionResult fizzy_runner::_invoke_thunk( const FizzyValue* args, FizzyE
 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_thunk()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_thunk()" );
+      KOINOS_ASSERT( bytes_written != nullptr, wasm_memory_exception, "invalid bytes_written in invoke_thunk()" );
 
       int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
       KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
@@ -230,6 +231,8 @@ FizzyExecutionResult fizzy_runner::_invoke_system_call( const FizzyValue* args, 
 
       KOINOS_ASSERT( ret_ptr != nullptr, wasm_memory_exception, "invalid ret_ptr in invoke_system_call()" );
       KOINOS_ASSERT( arg_ptr != nullptr, wasm_memory_exception, "invalid arg_ptr in invoke_system_call()" );
+      KOINOS_ASSERT( bytes_written != nullptr, wasm_memory_exception, "invalid bytes_written in invoke_system_call()" );
+
       int64_t* ticks = fizzy_get_execution_context_ticks(_fizzy_context);
       KOINOS_ASSERT( ticks != nullptr, fizzy_returned_null_exception, "fizzy_get_execution_context_ticks() unexpectedly returned null pointer" );
       _hapi.use_meter_ticks( uint64_t( _previous_ticks - *ticks ) );
