@@ -546,15 +546,9 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
    {
       ctx.reset_cache();
 
-      payer = transaction.header().payer();
-
+      payer        = transaction.header().payer();
       max_payer_rc = system_call::get_account_rc( ctx, payer );
-
       trx_rc_limit = transaction.header().rc_limit();
-
-      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
-
-      system_call::apply_transaction( ctx, transaction );
 
       if ( _client )
       {
@@ -572,7 +566,11 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
 
          KOINOS_ASSERT( !resp.has_error(), rpc_failure_exception, "received error from mempool: ${e}", ("e", resp.error()) );
          KOINOS_ASSERT( resp.has_check_pending_account_resources(), rpc_failure_exception, "received unexpected response from mempool" );
+         KOINOS_ASSERT( resp.check_pending_account_resources().success(), insufficient_rc_exception, "insufficient pending account resources" );
       }
+
+      ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
+      system_call::apply_transaction( ctx, transaction );
 
       LOG(debug) << "Transaction applied - ID: " << transaction_id;
 
