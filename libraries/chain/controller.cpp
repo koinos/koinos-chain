@@ -550,7 +550,7 @@ rpc::chain::submit_transaction_response controller_impl::submit_transaction( con
       max_payer_rc = system_call::get_account_rc( ctx, payer );
       trx_rc_limit = transaction.header().rc_limit();
 
-      if ( _client )
+      if ( request.broadcast() && _client )
       {
          rpc::mempool::mempool_request req;
          auto* check_pending = req.mutable_check_pending_account_resources();
