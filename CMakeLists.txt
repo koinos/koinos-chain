@@ -44,6 +44,10 @@ add_compile_definitions(KOINOS_MAJOR_VERSION=${PROJECT_VERSION_MAJOR})
 add_compile_definitions(KOINOS_MINOR_VERSION=${PROJECT_VERSION_MINOR})
 add_compile_definitions(KOINOS_PATCH_VERSION=${PROJECT_VERSION_PATCH})
 
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12.0")
+   cmake_policy(SET CMP0074 NEW)
+endif ()
+
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
 # This is to force color output when using ccache with Unix Makefiles
