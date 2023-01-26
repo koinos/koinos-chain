@@ -34,8 +34,8 @@ set(
 include("cmake/HunterGate.cmake")
 
 HunterGate(
-   URL "https://github.com/cpp-pm/hunter/archive/v0.23.313.tar.gz"
-   SHA1 "6c369e5aab2749a616917df3b23511535f413604"
+   URL "https://github.com/cpp-pm/hunter/archive/v0.24.14.tar.gz"
+   SHA1 "00901c19eefc02d24b16705b5f5a2b4f093a73fb"
    LOCAL
 )
 
@@ -43,6 +43,10 @@ project(koinos_chain VERSION 1.0.2 LANGUAGES CXX C)
 add_compile_definitions(KOINOS_MAJOR_VERSION=${PROJECT_VERSION_MAJOR})
 add_compile_definitions(KOINOS_MINOR_VERSION=${PROJECT_VERSION_MINOR})
 add_compile_definitions(KOINOS_PATCH_VERSION=${PROJECT_VERSION_PATCH})
+
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12.0")
+   cmake_policy(SET CMP0074 NEW)
+endif ()
 
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
@@ -102,6 +106,11 @@ hunter_add_package(rocksdb)
 hunter_add_package(yaml-cpp)
 hunter_add_package(Protobuf)
 hunter_add_package(fizzy)
+hunter_add_package(gRPC)
+hunter_add_package(abseil)
+hunter_add_package(re2)
+hunter_add_package(c-ares)
+hunter_add_package(ZLIB)
 
 hunter_add_package(koinos_log)
 hunter_add_package(koinos_util)
@@ -121,6 +130,11 @@ find_package(RocksDB CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(fizzy CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+find_package(absl CONFIG REQUIRED)
+find_package(re2 CONFIG REQUIRED)
+find_package(c-ares CONFIG REQUIRED)
+find_package(ZLIB CONFIG REQUIRED)
 
 find_package(koinos_crypto CONFIG REQUIRED)
 find_package(koinos_exception CONFIG REQUIRED)
