@@ -39,7 +39,7 @@ HunterGate(
    LOCAL
 )
 
-project(koinos_chain VERSION 1.0.2 LANGUAGES CXX C)
+project(koinos_chain VERSION 1.0.3 LANGUAGES CXX C)
 add_compile_definitions(KOINOS_MAJOR_VERSION=${PROJECT_VERSION_MAJOR})
 add_compile_definitions(KOINOS_MINOR_VERSION=${PROJECT_VERSION_MINOR})
 add_compile_definitions(KOINOS_PATCH_VERSION=${PROJECT_VERSION_PATCH})
