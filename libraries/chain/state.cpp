@@ -6,29 +6,6 @@
 
 namespace koinos::chain {
 
-bool operator<( const object_space& lhs, const object_space& rhs )
-{
-   if ( lhs.system() < rhs.system() )
-   {
-      return true;
-   }
-   else if ( lhs.system() > rhs.system() )
-   {
-      return false;
-   }
-
-   if ( lhs.zone() < rhs.zone() )
-   {
-      return true;
-   }
-   else if ( lhs.system() > rhs.system() )
-   {
-      return false;
-   }
-
-   return lhs.id() < rhs.id();
-}
-
 namespace state {
 
 namespace space {

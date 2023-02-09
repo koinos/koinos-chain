@@ -14,8 +14,6 @@
 
 namespace koinos::chain {
 
-bool operator<( const object_space& lhs, const object_space& rhs );
-
 namespace state {
 
 namespace zone {
