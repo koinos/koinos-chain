@@ -46,6 +46,7 @@ class controller final
       rpc::chain::get_account_nonce_response get_account_nonce( const rpc::chain::get_account_nonce_request& );
       rpc::chain::get_account_rc_response get_account_rc( const rpc::chain::get_account_rc_request& );
       rpc::chain::get_resource_limits_response get_resource_limits( const rpc::chain::get_resource_limits_request& );
+      rpc::chain::invoke_system_call_response invoke_system_call( const rpc::chain::invoke_system_call_request& );
 
    private:
       std::unique_ptr< detail::controller_impl > _my;

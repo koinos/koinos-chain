@@ -100,6 +100,8 @@ class controller_impl final
       rpc::chain::get_account_nonce_response get_account_nonce( const rpc::chain::get_account_nonce_request& );
       rpc::chain::get_account_rc_response get_account_rc( const rpc::chain::get_account_rc_request& );
       rpc::chain::get_resource_limits_response get_resource_limits( const rpc::chain::get_resource_limits_request& );
+      rpc::chain::invoke_system_call_response invoke_system_call( const rpc::chain::invoke_system_call_request& request );
+
 
    private:
       state_db::database                        _db;
@@ -827,6 +829,24 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
    rpc::chain::get_account_nonce_response resp;
    resp.set_nonce( nonce );
+
+   return resp;
+}
+
+rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( const rpc::chain::invoke_system_call_request& request )
+{
+   execution_context ctx( _vm_backend );
+   ctx.push_frame( stack_frame {
+      .call_privilege = privilege::kernel_mode
+   } );
+
+   ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
+   ctx.reset_cache();
+
+   auto res = ctx.system_call( request.system_call_id(), request.args() );
+
+   rpc::chain::invoke_system_call_response resp;
+   resp.set_value( res.res.object().data() );
 
    return resp;
 }
