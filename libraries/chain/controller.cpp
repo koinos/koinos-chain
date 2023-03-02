@@ -843,7 +843,18 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
    ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
 
-   auto res = ctx.system_call( request.system_call_id(), request.args() );
+   koinos::chain::execution_result res;
+   if (request.has_id())
+   {
+      res = ctx.system_call( request.id(), request.args() );
+   }
+   else
+   {
+      system_call_id val;
+      if (!system_call_id_Parse( request.name(), &val ))
+         KOINOS_THROW( unknown_system_call_exception, "Invalid system call name" );
+      res = ctx.system_call( val, request.args() );
+   }
 
    rpc::chain::invoke_system_call_response resp;
    resp.set_value( res.res.SerializeAsString() );
