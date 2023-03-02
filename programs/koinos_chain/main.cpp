@@ -366,6 +366,9 @@ void attach_request_handler(
                   case rpc::chain::chain_request::RequestCase::kGetResourceLimits:
                      *resp.mutable_get_resource_limits() = controller.get_resource_limits( args.get_resource_limits() );
                      break;
+                  case rpc::chain::chain_request::RequestCase::kInvokeSystemCall:
+                     *resp.mutable_invoke_system_call() = controller.invoke_system_call( args.invoke_system_call() );
+                     break;
                   default:
                      resp.mutable_error()->set_message( "Error: attempted to call unknown rpc" );
                      break;
