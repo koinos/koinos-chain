@@ -844,20 +844,20 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
    ctx.reset_cache();
 
    koinos::chain::execution_result res;
-   if (request.has_id())
+   if ( request.has_id() )
    {
       res = ctx.system_call( request.id(), request.args() );
    }
-   else if (request.has_name())
+   else if ( request.has_name() )
    {
       system_call_id val;
-      if (!system_call_id_Parse( request.name(), &val ))
-         KOINOS_THROW( unknown_system_call_exception, "Invalid system call name" );
+      if ( !system_call_id_Parse( request.name(), &val ) )
+         KOINOS_THROW( unknown_system_call_exception, "unknown system call name" );
       res = ctx.system_call( val, request.args() );
    }
    else
    {
-      KOINOS_THROW( unknown_system_call_exception, "Missing system call id or name" );
+      KOINOS_THROW( unknown_system_call_exception, "missing system call id or name" );
    }
 
    rpc::chain::invoke_system_call_response resp;
