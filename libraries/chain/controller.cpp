@@ -835,6 +835,12 @@ rpc::chain::get_account_nonce_response controller_impl::get_account_nonce( const
 
 rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( const rpc::chain::invoke_system_call_request& request )
 {
+   KOINOS_ASSERT(
+      request.has_id() || request.has_name(),
+      missing_required_arguments_exception,
+      "missing expected field: ${f1} or ${f2}", ("f1", "id")("f2", "name")
+   );
+
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
       .call_privilege = privilege::user_mode
@@ -846,18 +852,14 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
    koinos::chain::execution_result res;
    if ( request.has_id() )
    {
-      res = ctx.system_call( request.id(), request.args() );
+      res = ctx.system_call( static_cast< uint32_t >( request.id() ), request.args() );
    }
-   else if ( request.has_name() )
+   else
    {
       system_call_id val;
       if ( !system_call_id_Parse( request.name(), &val ) )
          KOINOS_THROW( unknown_system_call_exception, "unknown system call name" );
       res = ctx.system_call( val, request.args() );
-   }
-   else
-   {
-      KOINOS_THROW( unknown_system_call_exception, "missing system call id or name" );
    }
 
    rpc::chain::invoke_system_call_response resp;
