@@ -863,7 +863,7 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
    }
 
    rpc::chain::invoke_system_call_response resp;
-   resp.set_value( res.res.SerializeAsString() );
+   resp.set_value( res.res.object() );
 
    return resp;
 }
