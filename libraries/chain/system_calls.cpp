@@ -18,6 +18,7 @@
 #include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/chain/events.pb.h>
+#include <koinos/state_db/state_db.pb.h>
 
 #include <koinos/log.hpp>
 
@@ -225,6 +226,9 @@ void generate_receipt(
 
    for ( const auto& message : context.chronicler().logs() )
       *receipt.add_logs() = message;
+
+   //for ( const auto& entry : context.get_state_node()->get_delta_entries() )
+   //   *receipt.add_state_delta_entries() = entry;
 }
 
 void generate_receipt(
@@ -253,6 +257,11 @@ void generate_receipt(
 
    for ( const auto& message : logs )
       *receipt.add_logs() = message;
+
+   //context.get_state_node()->merkle_root();
+   context.get_state_node()->get_delta_entries();
+   //for ( const auto& entry : context.get_state_node()->get_delta_entries() )
+   //   *receipt.add_state_delta_entries() = entry;
 }
 
 uint64_t hashes_per_leaves( uint64_t leaves )
