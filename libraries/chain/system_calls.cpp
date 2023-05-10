@@ -208,8 +208,7 @@ void generate_receipt(
    const protocol::block& block,
    uint64_t disk_storage_charged,
    uint64_t network_bandwidth_charged,
-   uint64_t compute_bandwidth_charged
-    )
+   uint64_t compute_bandwidth_charged )
 {
    receipt.set_id( block.id() );
    receipt.set_height( block.header().height() );
