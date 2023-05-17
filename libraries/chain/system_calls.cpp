@@ -18,7 +18,6 @@
 #include <koinos/chain/session.hpp>
 #include <koinos/crypto/multihash.hpp>
 #include <koinos/chain/events.pb.h>
-#include <koinos/state_db/state_db.pb.h>
 
 #include <koinos/log.hpp>
 
