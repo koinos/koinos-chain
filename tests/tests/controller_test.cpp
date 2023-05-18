@@ -865,7 +865,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
 
    BOOST_TEST_MESSAGE( "Check the resulting block receipt" );
 
-   LOG(info) << block_resp;
+   LOG(debug) << block_resp;
 
    BOOST_REQUIRE_EQUAL( block_resp.receipt().id(), block_req.block().id() );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts_size(), 2 );
@@ -913,7 +913,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).events_size(), 0 );
    BOOST_REQUIRE_EQUAL( block_resp.receipt().transaction_receipts( 1 ).state_delta_entries_size(), 5 );
 
-   LOG(info) << block_resp;
+   LOG(debug) << block_resp;
 
    auto rc_limit3 = 8'000'000;
 
@@ -964,7 +964,7 @@ BOOST_AUTO_TEST_CASE( receipt_test )
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().events_size(), 1 );
    BOOST_REQUIRE_EQUAL( tx_resp.receipt().state_delta_entries_size(), 3 );
 
-   LOG(info) << tx_resp.receipt();
+   LOG(debug) << tx_resp.receipt();
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 
