@@ -207,8 +207,7 @@ void generate_receipt(
    const protocol::block& block,
    uint64_t disk_storage_charged,
    uint64_t network_bandwidth_charged,
-   uint64_t compute_bandwidth_charged
-    )
+   uint64_t compute_bandwidth_charged )
 {
    receipt.set_id( block.id() );
    receipt.set_height( block.header().height() );
@@ -225,6 +224,9 @@ void generate_receipt(
 
    for ( const auto& message : context.chronicler().logs() )
       *receipt.add_logs() = message;
+
+   for ( const auto& entry : context.get_state_node()->get_delta_entries() )
+      *receipt.add_state_delta_entries() = entry;
 }
 
 void generate_receipt(
@@ -253,6 +255,9 @@ void generate_receipt(
 
    for ( const auto& message : logs )
       *receipt.add_logs() = message;
+
+   for ( const auto& entry : context.get_state_node()->get_delta_entries() )
+      *receipt.add_state_delta_entries() = entry;
 }
 
 uint64_t hashes_per_leaves( uint64_t leaves )
