@@ -11,6 +11,8 @@ using event_bundle = std::pair< std::optional< std::string >, protocol::event_da
 
 struct abstract_chronicler_session
 {
+   virtual ~abstract_chronicler_session()                      = default;
+
    virtual void push_event( const protocol::event_data& ev )   = 0;
    virtual const std::vector< protocol::event_data >& events() = 0;
 
