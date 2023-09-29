@@ -48,6 +48,10 @@
 #define AMQP_DEFAULT                        "amqp://guest:guest@localhost:5672/"
 #define LOG_LEVEL_OPTION                    "log-level"
 #define LOG_LEVEL_DEFAULT                   "info"
+#define LOG_DIR_OPTION                      "log-dir"
+#define LOG_DIR_DEFAULT                     ""
+#define LOG_COLOR_OPTION                    "log-color"
+#define LOG_COLOR_DEFAULT                   false
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
@@ -72,11 +76,11 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
 int main( int argc, char** argv )
 {
-   std::string amqp_url, log_level, instance_id, fork_algorithm_option;
+   std::string amqp_url, log_level, log_dir, instance_id, fork_algorithm_option;
    std::filesystem::path statedir, genesis_data_file;
    uint64_t jobs, read_compute_limit;
    chain::genesis_data genesis_data;
-   bool reset;
+   bool reset, log_color;
    chain::fork_resolution_algorithm fork_algorithm;
 
    try
@@ -96,7 +100,9 @@ int main( int argc, char** argv )
          (STATEDIR_OPTION                       , program_options::value< std::string >(),
             "The location of the blockchain state files (absolute path or relative to basedir/chain)")
          (RESET_OPTION                          , program_options::value< bool >(), "Reset the database")
-         (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')");
+         (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')")
+         (LOG_DIR_OPTION                        , program_options::value< std::string >(), "The logging directory")
+         (LOG_COLOR_OPTION                      , program_options::value< bool >(), "Log color toggle");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -138,6 +144,8 @@ int main( int argc, char** argv )
 
       amqp_url              = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
       log_level             = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+      log_dir               = util::get_option< std::string >( LOG_DIR_OPTION, LOG_DIR_DEFAULT, args, chain_config, global_config );
+      log_color             = util::get_option< bool >( LOG_COLOR_OPTION, LOG_COLOR_DEFAULT, args, chain_config, global_config );
       instance_id           = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
       statedir              = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
       genesis_data_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
@@ -146,7 +154,15 @@ int main( int argc, char** argv )
       read_compute_limit    = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
       fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
 
-      koinos::initialize_logging( util::service::chain, instance_id, log_level, basedir / util::service::chain / "logs" );
+      std::optional< std::filesystem::path > logdir_path;
+      if ( !log_dir.empty() )
+      {
+         logdir_path = std::make_optional< std::filesystem::path >( log_dir );
+         if ( logdir_path->is_relative() )
+            logdir_path = basedir / util::service::chain / *logdir_path;
+      }
+
+      koinos::initialize_logging( util::service::chain, instance_id, log_level, logdir_path, log_color );
 
       LOG(info) << version_string();
 
