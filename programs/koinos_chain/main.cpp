@@ -51,7 +51,9 @@
 #define LOG_DIR_OPTION                      "log-dir"
 #define LOG_DIR_DEFAULT                     ""
 #define LOG_COLOR_OPTION                    "log-color"
-#define LOG_COLOR_DEFAULT                   false
+#define LOG_COLOR_DEFAULT                   true
+#define LOG_DATETIME_OPTION                 "log-datetime"
+#define LOG_DATETIME_DEFAULT                true
 #define INSTANCE_ID_OPTION                  "instance-id"
 #define STATEDIR_OPTION                     "statedir"
 #define JOBS_OPTION                         "jobs"
@@ -102,7 +104,8 @@ int main( int argc, char** argv )
          (RESET_OPTION                          , program_options::value< bool >(), "Reset the database")
          (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')")
          (LOG_DIR_OPTION                        , program_options::value< std::string >(), "The logging directory")
-         (LOG_COLOR_OPTION                      , program_options::value< bool >(), "Log color toggle");
+         (LOG_COLOR_OPTION                      , program_options::value< bool >(), "Log color toggle")
+         (LOG_DATETIME_OPTION                   , program_options::value< bool >(), "Log datetime on console toggle");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -146,6 +149,7 @@ int main( int argc, char** argv )
       log_level             = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
       log_dir               = util::get_option< std::string >( LOG_DIR_OPTION, LOG_DIR_DEFAULT, args, chain_config, global_config );
       log_color             = util::get_option< bool >( LOG_COLOR_OPTION, LOG_COLOR_DEFAULT, args, chain_config, global_config );
+      log_datetime          = util::get_option< bool >( LOG_DATETIME_OPTION, LOG_DATETIME_DEFAULT, args, chain_config, global_config );
       instance_id           = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
       statedir              = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
       genesis_data_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
@@ -162,7 +166,7 @@ int main( int argc, char** argv )
             logdir_path = basedir / util::service::chain / *logdir_path;
       }
 
-      koinos::initialize_logging( util::service::chain, instance_id, log_level, logdir_path, log_color );
+      koinos::initialize_logging( util::service::chain, instance_id, log_level, logdir_path, log_color, log_datetime );
 
       LOG(info) << version_string();
 
