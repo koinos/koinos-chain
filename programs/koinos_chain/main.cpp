@@ -82,7 +82,7 @@ int main( int argc, char** argv )
    std::filesystem::path statedir, genesis_data_file;
    uint64_t jobs, read_compute_limit;
    chain::genesis_data genesis_data;
-   bool reset, log_color;
+   bool reset, log_color, log_datetime;
    chain::fork_resolution_algorithm fork_algorithm;
 
    try
