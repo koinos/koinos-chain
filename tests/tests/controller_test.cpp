@@ -16,6 +16,8 @@
 #include <koinos/tests/contracts.hpp>
 #include <koinos/tests/util.hpp>
 
+#include <koinos/chain/chain.pb.h>
+#include <koinos/chain/system_calls.pb.h>
 #include <koinos/contracts/token/token.pb.h>
 
 #include <chrono>
@@ -1148,12 +1150,14 @@ BOOST_AUTO_TEST_CASE( system_call_override_test )
 
 BOOST_AUTO_TEST_CASE( invoke_system_call_test )
 { try {
+   rpc::chain::invoke_system_call_response syscall_response;
+   rpc::chain::submit_block_response block_response;
 
-   rpc::chain::invoke_system_call_request syscall_req;
+   koinos::rpc::chain::invoke_system_call_request syscall_req;
 
-   BOOST_TEST_MESSAGE( "Retrieve the compute thunk registry from genesis data" );
+   BOOST_TEST_MESSAGE( "Read get_object" );
 
-   chain::get_object_arguments get_object_args;
+   koinos::chain::get_object_arguments get_object_args;
 
    *get_object_args.mutable_space() = chain::state::space::metadata();
    get_object_args.set_key( chain::state::key::compute_bandwidth_registry );
@@ -1161,15 +1165,15 @@ BOOST_AUTO_TEST_CASE( invoke_system_call_test )
    syscall_req.set_name( chain::system_call_id_Name( chain::system_call_id::get_object ) );
    *syscall_req.mutable_args() = get_object_args.SerializeAsString();
 
-   auto resp = _controller.invoke_system_call( syscall_req );
+   syscall_response = _controller.invoke_system_call( syscall_req );
 
-   chain::get_object_result res;
+   koinos::chain::get_object_result res;
 
-   res.ParseFromString( resp.value() );
+   res.ParseFromString( syscall_response.value() );
 
    koinos::chain::compute_bandwidth_registry registry;
 
-   chain::database_object obj = res.value();
+   koinos::chain::database_object obj = res.value();
 
    registry.ParseFromString( obj.value() );
 
@@ -1179,9 +1183,9 @@ BOOST_AUTO_TEST_CASE( invoke_system_call_test )
       BOOST_REQUIRE_EQUAL( thunk_compute[ entry.name() ], entry.compute() );
    }
 
-   BOOST_TEST_MESSAGE( "Modify the compute thunk registry in genesis data" );
+   BOOST_TEST_MESSAGE( "Write put_object" );
 
-   chain::put_object_arguments put_object_args;
+   koinos::chain::put_object_arguments put_object_args;
 
    *put_object_args.mutable_space() = chain::state::space::metadata();
    put_object_args.set_key( chain::state::key::compute_bandwidth_registry );
@@ -1191,6 +1195,192 @@ BOOST_AUTO_TEST_CASE( invoke_system_call_test )
    *syscall_req.mutable_args() = put_object_args.SerializeAsString();
 
    BOOST_REQUIRE_THROW( _controller.invoke_system_call( syscall_req ), koinos::chain::read_only_context_exception );
+
+   BOOST_TEST_MESSAGE( "Setup system call overrides" );
+
+   rpc::chain::submit_block_request block_req;
+
+   auto duration = std::chrono::system_clock::now().time_since_epoch();
+   auto timestamp = std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count();
+   block_req.mutable_block()->mutable_header()->set_timestamp( timestamp );
+   block_req.mutable_block()->mutable_header()->set_height( 1 );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+   block_req.mutable_block()->mutable_header()->set_previous( util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+
+   koinos::protocol::transaction tx;
+
+   auto random_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "syscall_rpc"s ) );
+   auto contract_address = random_private_key.get_public_key().to_address_bytes();
+
+   koinos::protocol::upload_contract_operation upload_op;
+   upload_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
+   upload_op.set_bytecode( get_syscall_rpc_wasm() );
+
+   *tx.add_operations()->mutable_upload_contract() = upload_op;
+
+   koinos::chain::value_type nonce_value;
+   nonce_value.set_uint64_value( 1 );
+
+   tx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   tx.mutable_header()->set_rc_limit( 10'000'000 );
+   tx.mutable_header()->set_chain_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data ) ) );
+   tx.mutable_header()->set_payer( contract_address );
+
+   set_transaction_merkle_roots( tx, koinos::crypto::multicodec::sha2_256 );
+
+   sign_transaction( tx, random_private_key );
+   add_signature( tx, _block_signing_private_key );
+
+   *block_req.mutable_block()->add_transactions() = tx;
+
+   set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+   block_response = _controller.submit_block( block_req );
+   for ( const auto& log : block_response.receipt().transaction_receipts(0).logs() )
+   {
+      LOG(info) << log;
+   }
+
+   block_req.mutable_block()->mutable_header()->set_timestamp( timestamp + 1 );
+   block_req.mutable_block()->mutable_header()->set_height( _controller.get_head_info().head_topology().height() + 1 );
+   block_req.mutable_block()->mutable_header()->set_previous( _controller.get_head_info().head_topology().id() );
+   block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root( _controller.get_head_info().head_state_merkle_root() );
+
+   block_req.mutable_block()->clear_transactions();
+
+   koinos::protocol::set_system_contract_operation set_system_op;
+   set_system_op.set_contract_id( upload_op.contract_id() );
+   set_system_op.set_system_contract( true );
+
+   // success
+   koinos::protocol::set_system_call_operation set_syscall_op;
+   set_syscall_op.set_call_id( std::underlying_type_t< chain::system_call_id >( 20001 ) );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x01 );
+
+   // failure
+   koinos::protocol::set_system_call_operation set_syscall_op2;
+   set_syscall_op2.set_call_id( std::underlying_type_t< chain::system_call_id >( 20002 ) );
+   set_syscall_op2.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op2.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x02 );
+
+   // reversion
+   koinos::protocol::set_system_call_operation set_syscall_op3;
+   set_syscall_op3.set_call_id( std::underlying_type_t< chain::system_call_id >( 20003 ) );
+   set_syscall_op3.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op3.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x03 );
+
+   // write
+   koinos::protocol::set_system_call_operation set_syscall_op4;
+   set_syscall_op4.set_call_id( std::underlying_type_t< chain::system_call_id >( 20004 ) );
+   set_syscall_op4.mutable_target()->mutable_system_call_bundle()->set_contract_id( upload_op.contract_id() );
+   set_syscall_op4.mutable_target()->mutable_system_call_bundle()->set_entry_point( 0x04 );
+
+   tx.Clear();
+   *tx.add_operations()->mutable_set_system_contract() = set_system_op;
+   *tx.add_operations()->mutable_set_system_call() = set_syscall_op;
+   *tx.add_operations()->mutable_set_system_call() = set_syscall_op2;
+   *tx.add_operations()->mutable_set_system_call() = set_syscall_op3;
+   *tx.add_operations()->mutable_set_system_call() = set_syscall_op4;
+
+   nonce_value.set_uint64_value( 1 );
+
+   tx.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+   tx.mutable_header()->set_rc_limit( 10'000'000 );
+   tx.mutable_header()->set_chain_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, _genesis_data ) ) );
+   tx.mutable_header()->set_payer( _block_signing_private_key.get_public_key().to_address_bytes() );
+
+   set_transaction_merkle_roots( tx, koinos::crypto::multicodec::sha2_256 );
+
+   sign_transaction( tx, _block_signing_private_key );
+
+   *block_req.mutable_block()->add_transactions() = tx;
+
+   set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+   block_req.mutable_block()->set_id( util::converter::as< std::string >( crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+   sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+   block_response = _controller.submit_block( block_req );
+   for ( const auto& log : block_response.receipt().transaction_receipts(0).logs() )
+   {
+      LOG(info) << log;
+   }
+
+
+   BOOST_TEST_MESSAGE( "System call echo" );
+
+   koinos::chain::error_data arg_errdata, errdata;
+   *arg_errdata.mutable_message() = "audentes fortuna iuvat";
+
+   syscall_req.set_id( 20001 );
+   *syscall_req.mutable_args() = arg_errdata.SerializeAsString();
+
+   syscall_response = _controller.invoke_system_call( syscall_req );
+
+   errdata.ParseFromString( syscall_response.value() );
+
+   BOOST_REQUIRE_EQUAL( errdata.message(), arg_errdata.message() );
+
+   BOOST_TEST_MESSAGE( "System call failure" );
+
+   syscall_req.set_id( 20002 );
+
+   try
+   {
+      _controller.invoke_system_call( syscall_req );
+      BOOST_FAIL( "Expected failure exception to be thrown" );
+   }
+   catch ( const koinos::chain::failure_exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( e.get_code(), koinos::chain::failure );
+      BOOST_REQUIRE_EQUAL( e.get_message(), "failure" );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( "An unexpected exception was thrown" );
+   }
+
+   BOOST_TEST_MESSAGE( "System call reversion" );
+
+   syscall_req.set_id( 20003 );
+
+   try
+   {
+      _controller.invoke_system_call( syscall_req );
+      BOOST_FAIL( "Expected reversion exception to be thrown" );
+   }
+   catch ( const koinos::chain::reversion_exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( e.get_code(), koinos::chain::reversion );
+      BOOST_REQUIRE_EQUAL( e.get_message(), "reversion" );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( "An unexpected exception was thrown" );
+   }
+
+   BOOST_TEST_MESSAGE( "System call write" );
+
+   syscall_req.set_id( 20004 );
+
+   try
+   {
+      _controller.invoke_system_call( syscall_req );
+      BOOST_FAIL( "Expected reversion exception to be thrown" );
+   }
+   catch ( const koinos::chain::reversion_exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( e.get_code(), koinos::chain::read_only_context );
+      BOOST_REQUIRE_EQUAL( e.get_message(), "cannot put object during read only call" );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( "An unexpected exception was thrown" );
+   }
 
 } KOINOS_CATCH_LOG_AND_RETHROW(info) }
 BOOST_AUTO_TEST_SUITE_END()

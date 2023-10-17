@@ -5,6 +5,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/chain/thunk_dispatcher.hpp>
@@ -844,11 +845,16 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
 
    execution_context ctx( _vm_backend, intent::read_only );
    ctx.push_frame( stack_frame {
-      .call_privilege = privilege::user_mode
+      .call_privilege = privilege::kernel_mode
    } );
 
    ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
+
+   resource_limit_data rl;
+   rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
+
+   ctx.resource_meter().set_resource_limit_data( rl );
 
    system_call_id syscall_id;
 
@@ -862,26 +868,17 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
          KOINOS_THROW( unknown_system_call_exception, "unknown system call name" );
    }
 
-   koinos::chain::execution_result exec_result;
-   if ( ctx.system_call_exists( syscall_id ) )
-   {
-      exec_result = ctx.system_call( static_cast< uint32_t >( request.id() ), request.args() );
-   }
-   else
-   {
-      uint32_t thunk_id = ctx.thunk_translation( syscall_id );
-      KOINOS_ASSERT( koinos::chain::thunk_dispatcher::instance().thunk_exists( thunk_id ), unknown_thunk_exception, "thunk ${tid} does not exist", ("tid", thunk_id) );
-      auto desc = chain::system_call_id_descriptor();
-      auto enum_value = desc->FindValueByNumber( thunk_id );
-      KOINOS_ASSERT( enum_value, unknown_thunk_exception, "unrecognized thunk id ${id}", ("id", thunk_id) );
-      auto compute = ctx.get_compute_bandwidth( enum_value->name() );
-      ctx.resource_meter().use_compute_bandwidth( compute );
+   koinos::chain::host_api hapi( ctx );
 
-      char retbuf[1000000];
-      uint32_t bytes_written;
-      koinos::chain::thunk_dispatcher::instance().call_thunk( thunk_id, ctx, (char*)&retbuf, uint32_t( sizeof(retbuf) ), request.args().c_str(), uint32_t( request.args().size() ), &bytes_written );
-      *exec_result.res.mutable_object() = std::string( retbuf, bytes_written );
-   }
+   const int32_t bufsize = 1000000;
+   std::vector< char > buffer( bufsize, 0 );
+   uint32_t bytes_written;
+
+   hapi.call( syscall_id, &buffer[0], bufsize, request.args().c_str(), uint32_t( request.args().size() ), &bytes_written );
+
+   koinos::chain::execution_result exec_result;
+
+   *exec_result.res.mutable_object() = std::string( &buffer[0], bytes_written );
 
    rpc::chain::invoke_system_call_response resp;
    resp.set_value( exec_result.res.object() );

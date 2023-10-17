@@ -16,6 +16,7 @@ const std::string& get_hello_wasm();
 const std::string& get_koin_wasm();
 const std::string& get_null_bytes_written_wasm();
 const std::string& get_syscall_override_wasm();
+const std::string& get_syscall_rpc_wasm();
 
 const std::string& get_call_contract_wasm();
 const std::string& get_call_system_call_wasm();

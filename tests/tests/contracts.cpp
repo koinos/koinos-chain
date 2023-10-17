@@ -14,6 +14,7 @@
 #include <koinos/tests/wasm/koin.hpp>
 #include <koinos/tests/wasm/null_bytes_written.hpp>
 #include <koinos/tests/wasm/syscall_override.hpp>
+#include <koinos/tests/wasm/syscall_rpc.hpp>
 
 #include <koinos/tests/wasm/stack/call_contract.hpp>
 #include <koinos/tests/wasm/stack/call_system_call.hpp>
@@ -45,6 +46,7 @@ KOINOS_DEFINE_GET_WASM( hello )
 KOINOS_DEFINE_GET_WASM( koin )
 KOINOS_DEFINE_GET_WASM( null_bytes_written )
 KOINOS_DEFINE_GET_WASM( syscall_override )
+KOINOS_DEFINE_GET_WASM( syscall_rpc )
 KOINOS_DEFINE_GET_WASM( call_contract )
 KOINOS_DEFINE_GET_WASM( call_system_call )
 KOINOS_DEFINE_GET_WASM( call_system_call2 )
