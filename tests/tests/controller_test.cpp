@@ -92,7 +92,7 @@ struct controller_fixture
       { "verify_vrf_proof", 144067 },
    };
 
-   controller_fixture() : _controller( 10'000'000 )
+   controller_fixture() : _controller( 10'000'000, 64'000 )
    {
       initialize_logging( "koinos_test", {}, "info" );
 

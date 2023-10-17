@@ -64,6 +64,8 @@
 #define GENESIS_DATA_FILE_DEFAULT           "genesis_data.json"
 #define READ_COMPUTE_BANDWITH_LIMIT_OPTION  "read-compute-bandwidth-limit"
 #define READ_COMPUTE_BANDWITH_LIMIT_DEFAULT 10'000'000
+#define SYSTEM_CALL_BUFFER_SIZE_OPTION      "system-call-buffer-size"
+#define SYSTEM_CALL_BUFFER_SIZE_DEFAULT     64'000
 #define FORK_ALGORITHM_OPTION               "fork-algorithm"
 #define FORK_ALGORITHM_DEFAULT              FIFO_ALGORITHM
 
@@ -81,6 +83,7 @@ int main( int argc, char** argv )
    std::string amqp_url, log_level, log_dir, instance_id, fork_algorithm_option;
    std::filesystem::path statedir, genesis_data_file;
    uint64_t jobs, read_compute_limit;
+   int32_t syscall_bufsize;
    chain::genesis_data genesis_data;
    bool reset, log_color, log_datetime;
    chain::fork_resolution_algorithm fork_algorithm;
@@ -105,7 +108,8 @@ int main( int argc, char** argv )
          (FORK_ALGORITHM_OPTION             ",f", program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')")
          (LOG_DIR_OPTION                        , program_options::value< std::string >(), "The logging directory")
          (LOG_COLOR_OPTION                      , program_options::value< bool >(), "Log color toggle")
-         (LOG_DATETIME_OPTION                   , program_options::value< bool >(), "Log datetime on console toggle");
+         (LOG_DATETIME_OPTION                   , program_options::value< bool >(), "Log datetime on console toggle")
+         (SYSTEM_CALL_BUFFER_SIZE_OPTION        , program_options::value< uint32_t >(), "System call RPC invocation buffer size");
 
       program_options::variables_map args;
       program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -157,6 +161,7 @@ int main( int argc, char** argv )
       jobs                  = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
       read_compute_limit    = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
       fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
+      syscall_bufsize       = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION, SYSTEM_CALL_BUFFER_SIZE_DEFAULT, args, chain_config, global_config );
 
       std::optional< std::filesystem::path > logdir_path;
       if ( !log_dir.empty() )

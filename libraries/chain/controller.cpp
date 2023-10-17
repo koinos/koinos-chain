@@ -81,7 +81,7 @@ std::string format_time( int64_t time )
 class controller_impl final
 {
    public:
-      controller_impl( uint64_t read_compute_bandwith_limit );
+      controller_impl( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize );
       ~controller_impl();
 
       void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
@@ -110,6 +110,7 @@ class controller_impl final
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
       uint64_t                                  _read_compute_bandwidth_limit;
+      uint32_t                                  _syscall_bufsize;
       std::shared_mutex                         _cached_head_block_mutex;
       std::shared_ptr< const protocol::block >  _cached_head_block;
 
@@ -119,7 +120,9 @@ class controller_impl final
       fork_data get_fork_data( state_db::shared_lock_ptr db_lock );
 };
 
-controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _read_compute_bandwidth_limit( read_compute_bandwidth_limit )
+controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit, uint32_t syscall_bufsize ) :
+   _read_compute_bandwidth_limit( read_compute_bandwidth_limit ),
+   _syscall_bufsize( syscall_bufsize )
 {
    _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
@@ -870,11 +873,10 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
 
    koinos::chain::host_api hapi( ctx );
 
-   const int32_t bufsize = 1000000;
-   std::vector< char > buffer( bufsize, 0 );
+   std::vector< char > buffer( _syscall_bufsize, 0 );
    uint32_t bytes_written;
 
-   hapi.call( syscall_id, &buffer[0], bufsize, request.args().c_str(), uint32_t( request.args().size() ), &bytes_written );
+   hapi.call( syscall_id, &buffer[0], _syscall_bufsize, request.args().c_str(), uint32_t( request.args().size() ), &bytes_written );
 
    koinos::chain::execution_result exec_result;
 
@@ -888,7 +890,8 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
 
 } // detail
 
-controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit ) ) {}
+controller::controller( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize ) :
+   _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit, syscall_bufsize ) ) {}
 
 controller::~controller() = default;
 
