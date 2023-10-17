@@ -8,7 +8,6 @@
 #include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
-#include <koinos/chain/thunk_dispatcher.hpp>
 
 #include <koinos/exception.hpp>
 
@@ -875,15 +874,11 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
 
    std::vector< char > buffer( _syscall_bufsize, 0 );
    uint32_t bytes_written;
+   rpc::chain::invoke_system_call_response resp;
 
    hapi.call( syscall_id, &buffer[0], _syscall_bufsize, request.args().c_str(), uint32_t( request.args().size() ), &bytes_written );
 
-   koinos::chain::execution_result exec_result;
-
-   *exec_result.res.mutable_object() = std::string( &buffer[0], bytes_written );
-
-   rpc::chain::invoke_system_call_response resp;
-   resp.set_value( exec_result.res.object() );
+   resp.set_value( std::string( &buffer[0], bytes_written ) );
 
    return resp;
 }

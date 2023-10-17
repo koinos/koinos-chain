@@ -8,6 +8,6 @@ add_library(koinos_vm_manager_lib
             fizzy/module_cache.cpp
 
             ${HEADERS})
-target_link_libraries(koinos_vm_manager_lib Koinos::exception Koinos::log Koinos::util fizzy::fizzy)
+target_link_libraries(koinos_vm_manager_lib Koinos::exception Koinos::log Koinos::util Koinos::proto fizzy::fizzy)
 target_include_directories(koinos_vm_manager_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(Koinos::vm_manager ALIAS koinos_vm_manager_lib)

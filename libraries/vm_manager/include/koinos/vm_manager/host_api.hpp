@@ -3,9 +3,7 @@
 #include <cstdint>
 #include <tuple>
 
-namespace koinos::chain {
-   struct error_data;
-}
+#include <koinos/chain/chain.pb.h>
 
 namespace koinos::vm_manager {
 
