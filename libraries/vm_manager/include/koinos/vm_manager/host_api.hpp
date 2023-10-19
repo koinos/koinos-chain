@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <tuple>
 
-#include <koinos/chain/chain.pb.h>
-
 namespace koinos::vm_manager {
 
 /**
@@ -18,7 +16,6 @@ class abstract_host_api
       abstract_host_api();
       virtual ~abstract_host_api();
 
-      virtual std::pair< int32_t, koinos::chain::error_data > call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written ) = 0;
       virtual int32_t invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  ) = 0;
       virtual int32_t invoke_system_call( uint32_t xid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  ) = 0;
       virtual int64_t get_meter_ticks()const = 0;

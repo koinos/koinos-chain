@@ -16,7 +16,7 @@ namespace koinos::chain {
 host_api::host_api( execution_context& ctx ) : _ctx( ctx ) {}
 host_api::~host_api() {}
 
-int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written  )
+int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written )
 {
    KOINOS_ASSERT( _ctx.get_privilege() == privilege::kernel_mode, insufficient_privileges_exception, "'invoke_thunk' must be called from a system context" );
 
@@ -63,10 +63,9 @@ int32_t host_api::invoke_thunk( uint32_t tid, char* ret_ptr, uint32_t ret_len, c
    return code;
 }
 
-std::pair< int32_t, error_data > host_api::call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written )
+void host_api::call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written )
 {
-   int32_t code = 0;
-   error_data error;
+   *bytes_written = 0;
 
    with_stack_frame(
       _ctx,
@@ -78,20 +77,15 @@ std::pair< int32_t, error_data > host_api::call( uint32_t sid, char* ret_ptr, ui
          if ( _ctx.system_call_exists( sid ) )
          {
             std::string args( arg_ptr, arg_len );
-            auto res = _ctx.system_call( sid, args );
-            code = res.code;
+            auto exec_res = _ctx.system_call( sid, args );
 
-            if ( code )
-               error = res.res.error();
-            else if ( res.res.has_object() )
+            if ( exec_res.res.has_object() )
             {
-               auto obj_len = res.res.object().size();
+               auto obj_len = exec_res.res.object().size();
                KOINOS_ASSERT( obj_len <= ret_len, insufficient_return_buffer_exception, "return buffer is not large enough for the return value" );
-               memcpy( ret_ptr, res.res.object().data(), obj_len );
+               memcpy( ret_ptr, exec_res.res.object().data(), obj_len );
                *bytes_written = uint32_t( obj_len );
             }
-            else
-               *bytes_written = 0;
          }
          else
          {
@@ -106,8 +100,6 @@ std::pair< int32_t, error_data > host_api::call( uint32_t sid, char* ret_ptr, ui
          }
       }
    );
-
-   return std::make_pair( code, error );
 }
 
 int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_len, const char* arg_ptr, uint32_t arg_len, uint32_t* bytes_written )
@@ -117,7 +109,7 @@ int32_t host_api::invoke_system_call( uint32_t sid, char* ret_ptr, uint32_t ret_
 
    try
    {
-      std::tie( code, error ) = call( sid, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
+      call( sid, ret_ptr, ret_len, arg_ptr, arg_len, bytes_written );
    }
    catch ( const koinos::exception& e )
    {
