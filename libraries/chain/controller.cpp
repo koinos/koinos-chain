@@ -846,9 +846,20 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
    );
 
    execution_context ctx( _vm_backend, intent::read_only );
-   ctx.push_frame( stack_frame {
-      .call_privilege = privilege::kernel_mode
-   } );
+
+   stack_frame sframe;
+
+   if ( request.has_caller_data() )
+   {
+      sframe.contract_id = request.caller_data().caller();
+      sframe.call_privilege = request.caller_data().caller_privilege();
+   }
+   else
+   {
+      sframe.call_privilege = privilege::kernel_mode;
+   }
+
+   ctx.push_frame( std::move( sframe ) );
 
    ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();

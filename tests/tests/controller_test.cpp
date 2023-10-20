@@ -6,6 +6,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 #include <koinos/crypto/multihash.hpp>
@@ -29,69 +30,6 @@ using namespace std::string_literals;
 
 struct controller_fixture
 {
-   std::map< std::string, uint64_t > thunk_compute {
-      { "apply_block", 16465 },
-      { "apply_call_contract_operation", 685 },
-      { "apply_set_system_call_operation", 136081 },
-      { "apply_set_system_contract_operation", 8692 },
-      { "apply_transaction", 12542 },
-      { "apply_upload_contract_operation", 3130 },
-      { "call", 3573 },
-      { "check_authority", 12653 },
-      { "check_system_authority", 12750 },
-      { "consume_account_rc", 735 },
-      { "consume_block_resources", 753 },
-      { "deserialize_message_per_byte", 1 },
-      { "deserialize_multihash_base", 102 },
-      { "deserialize_multihash_per_byte", 404 },
-      { "event", 1222 },
-      { "event_per_impacted", 101 },
-      { "exit", 11636 },
-      { "get_account_nonce", 821 },
-      { "get_account_rc", 1072 },
-      { "get_arguments", 809 },
-      { "get_block", 1134 },
-      { "get_block_field", 1417 },
-      { "get_caller", 825 },
-      { "get_chain_id", 1046 },
-      { "get_contract_id", 778 },
-      { "get_head_info", 2099 },
-      { "get_last_irreversible_block", 772 },
-      { "get_next_object", 11181 },
-      { "get_object", 1054 },
-      { "get_operation", 1081 },
-      { "get_prev_object", 15445 },
-      { "get_resource_limits", 1227 },
-      { "get_transaction", 1584 },
-      { "get_transaction_field", 1530 },
-      { "hash", 1570 },
-      { "keccak_256_base", 1406 },
-      { "keccak_256_per_byte", 1 },
-      { "log", 738 },
-      { "object_serialization_per_byte", 1 },
-      { "post_block_callback", 741 },
-      { "post_transaction_callback", 721 },
-      { "pre_block_callback", 730 },
-      { "pre_transaction_callback", 729 },
-      { "process_block_signature", 4499 },
-      { "put_object", 1057 },
-      { "recover_public_key", 29630 },
-      { "remove_object", 893 },
-      { "ripemd_160_base", 1343 },
-      { "ripemd_160_per_byte", 1 },
-      { "set_account_nonce", 749 },
-      { "sha1_base", 1151 },
-      { "sha1_per_byte", 1 },
-      { "sha2_256_base", 1385 },
-      { "sha2_256_per_byte", 1 },
-      { "sha2_512_base", 1445 },
-      { "sha2_512_per_byte", 1 },
-      { "verify_account_nonce", 822 },
-      { "verify_merkle_root", 1 },
-      { "verify_signature", 762 },
-      { "verify_vrf_proof", 144067 },
-   };
-
    controller_fixture() : _controller( 10'000'000, 64'000 )
    {
       initialize_logging( "koinos_test", {}, "info" );
@@ -143,7 +81,7 @@ struct controller_fixture
 
       koinos::chain::compute_bandwidth_registry cbr;
 
-      for ( const auto& [ key, value ] : thunk_compute )
+      for ( const auto& [ key, value ] : _thunk_compute )
       {
          auto centry = cbr.add_entries();
          centry->set_name( key );
@@ -159,6 +97,19 @@ struct controller_fixture
       entry->set_key( chain::state::key::block_hash_code );
       entry->set_value( util::converter::as< std::string >( unsigned_varint{ std::underlying_type_t< crypto::multicodec >( crypto::multicodec::sha2_256 ) } ) );
       *entry->mutable_space() = chain::state::space::metadata();
+
+      _alice_private_key = koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
+      _alice_address = _alice_private_key.get_public_key().to_address_bytes();
+
+      koinos::chain::object_space alice_space;
+      alice_space.set_system( false );
+      alice_space.set_zone( _alice_address );
+      alice_space.set_id( 0 );
+
+      entry = _genesis_data.add_entries();
+      entry->set_key( _alice_address );
+      entry->set_value( "alpha bravo charlie delta" );
+      *entry->mutable_space() = alice_space;
 
       _controller.open( _state_dir, _genesis_data, chain::fork_resolution_algorithm::fifo, false );
    }
@@ -223,6 +174,71 @@ struct controller_fixture
    std::filesystem::path  _state_dir;
    crypto::private_key    _block_signing_private_key;
    chain::genesis_data    _genesis_data;
+   crypto::private_key    _alice_private_key;
+   std::string            _alice_address;
+
+   std::map< std::string, uint64_t > _thunk_compute {
+      { "apply_block", 16465 },
+      { "apply_call_contract_operation", 685 },
+      { "apply_set_system_call_operation", 136081 },
+      { "apply_set_system_contract_operation", 8692 },
+      { "apply_transaction", 12542 },
+      { "apply_upload_contract_operation", 3130 },
+      { "call", 3573 },
+      { "check_authority", 12653 },
+      { "check_system_authority", 12750 },
+      { "consume_account_rc", 735 },
+      { "consume_block_resources", 753 },
+      { "deserialize_message_per_byte", 1 },
+      { "deserialize_multihash_base", 102 },
+      { "deserialize_multihash_per_byte", 404 },
+      { "event", 1222 },
+      { "event_per_impacted", 101 },
+      { "exit", 11636 },
+      { "get_account_nonce", 821 },
+      { "get_account_rc", 1072 },
+      { "get_arguments", 809 },
+      { "get_block", 1134 },
+      { "get_block_field", 1417 },
+      { "get_caller", 825 },
+      { "get_chain_id", 1046 },
+      { "get_contract_id", 778 },
+      { "get_head_info", 2099 },
+      { "get_last_irreversible_block", 772 },
+      { "get_next_object", 11181 },
+      { "get_object", 1054 },
+      { "get_operation", 1081 },
+      { "get_prev_object", 15445 },
+      { "get_resource_limits", 1227 },
+      { "get_transaction", 1584 },
+      { "get_transaction_field", 1530 },
+      { "hash", 1570 },
+      { "keccak_256_base", 1406 },
+      { "keccak_256_per_byte", 1 },
+      { "log", 738 },
+      { "object_serialization_per_byte", 1 },
+      { "post_block_callback", 741 },
+      { "post_transaction_callback", 721 },
+      { "pre_block_callback", 730 },
+      { "pre_transaction_callback", 729 },
+      { "process_block_signature", 4499 },
+      { "put_object", 1057 },
+      { "recover_public_key", 29630 },
+      { "remove_object", 893 },
+      { "ripemd_160_base", 1343 },
+      { "ripemd_160_per_byte", 1 },
+      { "set_account_nonce", 749 },
+      { "sha1_base", 1151 },
+      { "sha1_per_byte", 1 },
+      { "sha2_256_base", 1385 },
+      { "sha2_256_per_byte", 1 },
+      { "sha2_512_base", 1445 },
+      { "sha2_512_per_byte", 1 },
+      { "verify_account_nonce", 822 },
+      { "verify_merkle_root", 1 },
+      { "verify_signature", 762 },
+      { "verify_vrf_proof", 144067 },
+   };
 };
 
 enum token_entry : uint32_t
@@ -1155,7 +1171,33 @@ BOOST_AUTO_TEST_CASE( invoke_system_call_test )
 
    koinos::rpc::chain::invoke_system_call_request syscall_req;
 
-   BOOST_TEST_MESSAGE( "Read get_object" );
+   BOOST_TEST_MESSAGE( "Read get_contract_id (system)" );
+
+   syscall_req.set_id( chain::system_call_id::get_contract_id );
+
+   syscall_response = _controller.invoke_system_call( syscall_req );
+
+   koinos::chain::get_contract_id_result contract_id_result;
+
+   contract_id_result.ParseFromString( syscall_response.value() );
+
+   BOOST_REQUIRE_EQUAL( contract_id_result.value(), koinos::chain::constants::system );
+
+   BOOST_TEST_MESSAGE( "Read get_contract_id (user)" );
+
+   syscall_req.set_id( chain::system_call_id::get_contract_id );
+   syscall_req.mutable_caller_data()->set_caller_privilege( koinos::chain::privilege::user_mode );
+   syscall_req.mutable_caller_data()->set_caller( _alice_address );
+
+   syscall_response = _controller.invoke_system_call( syscall_req );
+
+   contract_id_result.ParseFromString( syscall_response.value() );
+
+   BOOST_REQUIRE_EQUAL( contract_id_result.value(), _alice_address );
+
+   syscall_req.Clear();
+
+   BOOST_TEST_MESSAGE( "Read get_object (system)" );
 
    koinos::chain::get_object_arguments get_object_args;
 
@@ -1177,18 +1219,68 @@ BOOST_AUTO_TEST_CASE( invoke_system_call_test )
 
    registry.ParseFromString( obj.value() );
 
-   BOOST_REQUIRE_EQUAL( registry.entries().size(), thunk_compute.size() );
+   BOOST_REQUIRE_EQUAL( registry.entries().size(), _thunk_compute.size() );
    for ( auto const &entry : registry.entries() )
    {
-      BOOST_REQUIRE_EQUAL( thunk_compute[ entry.name() ], entry.compute() );
+      BOOST_REQUIRE_EQUAL( _thunk_compute[ entry.name() ], entry.compute() );
    }
 
-   BOOST_TEST_MESSAGE( "Write put_object" );
+   BOOST_TEST_MESSAGE( "Read get_object (user)" );
+
+   koinos::chain::object_space alice_space;
+   alice_space.set_system( false );
+   alice_space.set_zone( _alice_address );
+   alice_space.set_id( 0 );
+
+   *get_object_args.mutable_space() = alice_space;
+   get_object_args.set_key( _alice_address );
+
+   syscall_req.set_name( chain::system_call_id_Name( chain::system_call_id::get_object ) );
+   *syscall_req.mutable_args() = get_object_args.SerializeAsString();
+
+   try
+   {
+      _controller.invoke_system_call( syscall_req );
+      BOOST_FAIL( "Expected reversion exception to be thrown" );
+   }
+   catch ( const koinos::chain::reversion_exception& e )
+   {
+      BOOST_REQUIRE_EQUAL( e.get_code(), koinos::chain::reversion );
+      BOOST_REQUIRE_EQUAL( e.get_message(), "privileged code can only access system space" );
+   }
+   catch ( ... )
+   {
+      BOOST_FAIL( "An unexpected exception was thrown" );
+   }
+
+   syscall_req.mutable_caller_data()->set_caller_privilege( koinos::chain::privilege::user_mode );
+   syscall_req.mutable_caller_data()->set_caller( _alice_address );
+
+   syscall_response = _controller.invoke_system_call( syscall_req );
+
+   res.ParseFromString( syscall_response.value() );
+
+   BOOST_REQUIRE_EQUAL( res.value().value(), "alpha bravo charlie delta" );
+
+   syscall_req.Clear();
+
+   BOOST_TEST_MESSAGE( "Write put_object (system)" );
 
    koinos::chain::put_object_arguments put_object_args;
 
    *put_object_args.mutable_space() = chain::state::space::metadata();
    put_object_args.set_key( chain::state::key::compute_bandwidth_registry );
+   *put_object_args.mutable_obj() = std::string( "junk" );
+
+   syscall_req.set_name( chain::system_call_id_Name( chain::system_call_id::put_object ) );
+   *syscall_req.mutable_args() = put_object_args.SerializeAsString();
+
+   BOOST_REQUIRE_THROW( _controller.invoke_system_call( syscall_req ), koinos::chain::read_only_context_exception );
+
+   BOOST_TEST_MESSAGE( "Write put_object (user)" );
+
+   *put_object_args.mutable_space() = alice_space;
+   put_object_args.set_key( _alice_address );
    *put_object_args.mutable_obj() = std::string( "junk" );
 
    syscall_req.set_name( chain::system_call_id_Name( chain::system_call_id::put_object ) );
