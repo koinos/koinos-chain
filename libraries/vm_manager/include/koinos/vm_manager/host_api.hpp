@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <tuple>
 
 namespace koinos::vm_manager {
 
