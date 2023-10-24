@@ -5,6 +5,7 @@
 #include <koinos/chain/constants.hpp>
 #include <koinos/chain/controller.hpp>
 #include <koinos/chain/exceptions.hpp>
+#include <koinos/chain/host_api.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -79,7 +80,7 @@ std::string format_time( int64_t time )
 class controller_impl final
 {
    public:
-      controller_impl( uint64_t read_compute_bandwith_limit );
+      controller_impl( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize );
       ~controller_impl();
 
       void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
@@ -108,6 +109,7 @@ class controller_impl final
       std::shared_ptr< vm_manager::vm_backend > _vm_backend;
       std::shared_ptr< mq::client >             _client;
       uint64_t                                  _read_compute_bandwidth_limit;
+      uint32_t                                  _syscall_bufsize;
       std::shared_mutex                         _cached_head_block_mutex;
       std::shared_ptr< const protocol::block >  _cached_head_block;
 
@@ -117,7 +119,9 @@ class controller_impl final
       fork_data get_fork_data( state_db::shared_lock_ptr db_lock );
 };
 
-controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit ) : _read_compute_bandwidth_limit( read_compute_bandwidth_limit )
+controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit, uint32_t syscall_bufsize ) :
+   _read_compute_bandwidth_limit( read_compute_bandwidth_limit ),
+   _syscall_bufsize( syscall_bufsize )
 {
    _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
    KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
@@ -842,35 +846,58 @@ rpc::chain::invoke_system_call_response controller_impl::invoke_system_call( con
    );
 
    execution_context ctx( _vm_backend, intent::read_only );
-   ctx.push_frame( stack_frame {
-      .call_privilege = privilege::user_mode
-   } );
+
+   stack_frame sframe;
+
+   if ( request.has_caller_data() )
+   {
+      sframe.contract_id = request.caller_data().caller();
+      sframe.call_privilege = request.caller_data().caller_privilege();
+   }
+   else
+   {
+      sframe.call_privilege = privilege::kernel_mode;
+   }
+
+   ctx.push_frame( std::move( sframe ) );
 
    ctx.set_state_node( _db.get_head( _db.get_shared_lock() )->create_anonymous_node() );
    ctx.reset_cache();
 
-   koinos::chain::execution_result res;
+   resource_limit_data rl;
+   rl.set_compute_bandwidth_limit( _read_compute_bandwidth_limit );
+
+   ctx.resource_meter().set_resource_limit_data( rl );
+
+   system_call_id syscall_id;
+
    if ( request.has_id() )
    {
-      res = ctx.system_call( static_cast< uint32_t >( request.id() ), request.args() );
+      syscall_id = system_call_id( request.id() );
    }
    else
    {
-      system_call_id val;
-      if ( !system_call_id_Parse( request.name(), &val ) )
+      if ( !system_call_id_Parse( request.name(), &syscall_id ) )
          KOINOS_THROW( unknown_system_call_exception, "unknown system call name" );
-      res = ctx.system_call( val, request.args() );
    }
 
+   koinos::chain::host_api hapi( ctx );
+
+   std::vector< char > buffer( _syscall_bufsize, 0 );
+   uint32_t bytes_written;
    rpc::chain::invoke_system_call_response resp;
-   resp.set_value( res.res.object() );
+
+   hapi.call( syscall_id, &buffer[0], _syscall_bufsize, request.args().c_str(), uint32_t( request.args().size() ), &bytes_written );
+
+   resp.set_value( std::string( &buffer[0], bytes_written ) );
 
    return resp;
 }
 
 } // detail
 
-controller::controller( uint64_t read_compute_bandwith_limit ) : _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit ) ) {}
+controller::controller( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize ) :
+   _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit, syscall_bufsize ) ) {}
 
 controller::~controller() = default;
 

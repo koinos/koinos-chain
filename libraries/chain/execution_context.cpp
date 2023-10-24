@@ -7,10 +7,6 @@
 
 namespace koinos::chain {
 
-namespace constants {
-   const std::string system = "";
-}
-
 execution_context::execution_context( std::shared_ptr< vm_manager::vm_backend > vm_backend, chain::intent i ) :
    _vm_backend( vm_backend )
 {
@@ -159,7 +155,7 @@ privilege execution_context::get_privilege() const
 
 const std::string& execution_context::get_contract_id() const
 {
-   for ( auto i = _stack.size() - 1; i >= 0; --i )
+   for ( auto i = _stack.size(); i-- > 0; )
    {
       if ( _stack[ i ].contract_id.size() )
          return _stack[ i ].contract_id;

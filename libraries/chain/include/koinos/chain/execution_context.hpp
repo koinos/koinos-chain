@@ -24,6 +24,10 @@
 
 namespace koinos::chain {
 
+namespace constants {
+   const std::string system = std::string{};
+}
+
 using koinos::state_db::state_node_ptr;
 using koinos::state_db::anonymous_state_node_ptr;
 using koinos::state_db::abstract_state_node;

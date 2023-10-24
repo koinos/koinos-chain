@@ -26,7 +26,7 @@ enum class fork_resolution_algorithm
 class controller final
 {
    public:
-      controller( uint64_t read_compute_bandwith_limit = 0 );
+      controller( uint64_t read_compute_bandwith_limit = 0, uint32_t syscall_bufsize = 0 );
       ~controller();
 
       void open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset );
