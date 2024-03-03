@@ -25,12 +25,12 @@
 #include <koinos/tests/wasm/stack/user_from_system.hpp>
 #include <koinos/tests/wasm/stack/user_from_user.hpp>
 
-#define KOINOS_DEFINE_GET_WASM( contract_name ) \
-const std::string& get_ ## contract_name ## _wasm () \
-{ \
-   static std::string wasm( (const char*) contract_name ## _wasm, contract_name ## _wasm_len ); \
-   return wasm; \
-}
+#define KOINOS_DEFINE_GET_WASM( contract_name )                                                                        \
+  const std::string& get_##contract_name##_wasm()                                                                      \
+  {                                                                                                                    \
+    static std::string wasm( (const char*)contract_name##_wasm, contract_name##_wasm_len );                            \
+    return wasm;                                                                                                       \
+  }
 
 KOINOS_DEFINE_GET_WASM( authorize )
 KOINOS_DEFINE_GET_WASM( benchmark )

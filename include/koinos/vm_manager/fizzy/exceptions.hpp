@@ -23,4 +23,4 @@ KOINOS_DECLARE_DERIVED_EXCEPTION( fizzy_returned_null_exception, fizzy_vm_except
 KOINOS_DECLARE_DERIVED_EXCEPTION( null_argument_exception, fizzy_vm_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( runner_state_exception, fizzy_vm_exception );
 
-} // koinos::vm_manager::fizzy
+} // namespace koinos::vm_manager::fizzy

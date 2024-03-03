@@ -12,19 +12,19 @@ namespace koinos::vm_manager::fizzy {
 /**
  * Implementation of vm_backend for Fizzy.
  */
-class fizzy_vm_backend : public vm_backend
+class fizzy_vm_backend: public vm_backend
 {
-   public:
-      fizzy_vm_backend();
-      virtual ~fizzy_vm_backend();
+public:
+  fizzy_vm_backend();
+  virtual ~fizzy_vm_backend();
 
-      virtual std::string backend_name();
-      virtual void initialize();
+  virtual std::string backend_name();
+  virtual void initialize();
 
-      virtual void run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id = std::string() );
+  virtual void run( abstract_host_api& hapi, const std::string& bytecode, const std::string& id = std::string() );
 
-   private:
-      module_cache _cache;
+private:
+  module_cache _cache;
 };
 
-} // koinos::vm_manager::fizzy
+} // namespace koinos::vm_manager::fizzy

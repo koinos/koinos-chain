@@ -6,4 +6,4 @@ abstract_host_api::abstract_host_api() {}
 
 abstract_host_api::~abstract_host_api() {}
 
-} // koinos::vm_manager
+} // namespace koinos::vm_manager

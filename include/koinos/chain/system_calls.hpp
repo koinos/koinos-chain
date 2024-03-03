@@ -9,8 +9,8 @@
 #include <koinos/crypto/multihash.hpp>
 
 #include <koinos/chain/chain.pb.h>
-#include <koinos/chain/system_calls.pb.h>
 #include <koinos/chain/system_call_ids.pb.h>
+#include <koinos/chain/system_calls.pb.h>
 #include <koinos/protocol/protocol.pb.h>
 
 #include <koinos/state_db/state_db.hpp>
@@ -53,7 +53,7 @@ namespace thunk {
 
 void _nop( execution_context& );
 
-} // thunk
+} // namespace thunk
 
 // General Blockchain Management
 
@@ -72,14 +72,21 @@ THUNK_DECLARE_VOID( get_chain_id_result, get_chain_id );
 
 // System Helpers
 
-THUNK_DECLARE( process_block_signature_result, process_block_signature, const std::string& digest, const protocol::block_header& header, const std::string& signature_data );
+THUNK_DECLARE( process_block_signature_result,
+               process_block_signature,
+               const std::string& digest,
+               const protocol::block_header& header,
+               const std::string& signature_data );
 THUNK_DECLARE_VOID( get_transaction_result, get_transaction );
 THUNK_DECLARE( get_transaction_field_result, get_transaction_field, const std::string& field );
 THUNK_DECLARE_VOID( get_block_result, get_block );
 THUNK_DECLARE( get_block_field_result, get_block_field, const std::string& field );
 THUNK_DECLARE_VOID( get_last_irreversible_block_result, get_last_irreversible_block );
 THUNK_DECLARE( get_account_nonce_result, get_account_nonce, const std::string& account );
-THUNK_DECLARE( verify_account_nonce_result, verify_account_nonce, const std::string& account, const std::string& nonce );
+THUNK_DECLARE( verify_account_nonce_result,
+               verify_account_nonce,
+               const std::string& account,
+               const std::string& nonce );
 THUNK_DECLARE( void, set_account_nonce, const std::string& account, const std::string& nonce );
 THUNK_DECLARE_VOID( check_system_authority_result, check_system_authority );
 THUNK_DECLARE_VOID( get_operation_result, get_operation );
@@ -89,7 +96,11 @@ THUNK_DECLARE_VOID( get_operation_result, get_operation );
 THUNK_DECLARE( get_account_rc_result, get_account_rc, const std::string& account );
 THUNK_DECLARE( consume_account_rc_result, consume_account_rc, const std::string& account, uint64_t rc );
 THUNK_DECLARE_VOID( get_resource_limits_result, get_resource_limits );
-THUNK_DECLARE( consume_block_resources_result, consume_block_resources, uint64_t disk, uint64_t network, uint64_t compute );
+THUNK_DECLARE( consume_block_resources_result,
+               consume_block_resources,
+               uint64_t disk,
+               uint64_t network,
+               uint64_t compute );
 
 // Database
 
@@ -102,15 +113,39 @@ THUNK_DECLARE( get_prev_object_result, get_prev_object, const object_space& spac
 // Logging
 
 THUNK_DECLARE( void, log, const std::string& msg );
-THUNK_DECLARE( void, event, const std::string& name, const std::string& data, const std::vector< std::string >& impacted );
+THUNK_DECLARE( void,
+               event,
+               const std::string& name,
+               const std::string& data,
+               const std::vector< std::string >& impacted );
 
 // Cryptography
 
 THUNK_DECLARE( hash_result, hash, uint64_t code, const std::string& obj, uint64_t size = 0 );
-THUNK_DECLARE( recover_public_key_result, recover_public_key, dsa type, const std::string& signature_data, const std::string& digest, bool compressed );
-THUNK_DECLARE( verify_merkle_root_result, verify_merkle_root, const std::string& root, const std::vector< std::string >& hashes );
-THUNK_DECLARE( verify_signature_result, verify_signature, dsa type, const std::string& public_key, const std::string& signature, const std::string& digest, bool compressed );
-THUNK_DECLARE( verify_vrf_proof_result, verify_vrf_proof, dsa type, const std::string& public_key, const std::string& proof, const std::string& hash, const std::string& message );
+THUNK_DECLARE( recover_public_key_result,
+               recover_public_key,
+               dsa type,
+               const std::string& signature_data,
+               const std::string& digest,
+               bool compressed );
+THUNK_DECLARE( verify_merkle_root_result,
+               verify_merkle_root,
+               const std::string& root,
+               const std::vector< std::string >& hashes );
+THUNK_DECLARE( verify_signature_result,
+               verify_signature,
+               dsa type,
+               const std::string& public_key,
+               const std::string& signature,
+               const std::string& digest,
+               bool compressed );
+THUNK_DECLARE( verify_vrf_proof_result,
+               verify_vrf_proof,
+               dsa type,
+               const std::string& public_key,
+               const std::string& proof,
+               const std::string& hash,
+               const std::string& message );
 
 // Contract Management
 
@@ -119,13 +154,17 @@ THUNK_DECLARE( void, exit, int32_t code, result res );
 THUNK_DECLARE_VOID( get_arguments_result, get_arguments );
 THUNK_DECLARE_VOID( get_contract_id_result, get_contract_id );
 THUNK_DECLARE_VOID( get_caller_result, get_caller );
-THUNK_DECLARE( check_authority_result, check_authority, authorization_type type, const std::string& account, const std::string& data );
+THUNK_DECLARE( check_authority_result,
+               check_authority,
+               authorization_type type,
+               const std::string& account,
+               const std::string& data );
 
 namespace system_call {
-   inline bool check_authority( execution_context& context, authorization_type type, const std::string& account )
-   {
-      return check_authority( context, type, account, "" );
-   }
+inline bool check_authority( execution_context& context, authorization_type type, const std::string& account )
+{
+  return check_authority( context, type, account, "" );
 }
+} // namespace system_call
 
-} // koinos::chain
+} // namespace koinos::chain

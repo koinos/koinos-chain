@@ -8,10 +8,10 @@
 
 namespace koinos::chain {
 
-   using std::map;
-   using std::vector;
-   using std::string;
-   using std::pair;
-   using std::make_pair;
+using std::make_pair;
+using std::map;
+using std::pair;
+using std::string;
+using std::vector;
 
-} // koinos::chain
+} // namespace koinos::chain
