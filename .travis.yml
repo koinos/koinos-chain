@@ -2,49 +2,113 @@ language: c++
 
 cache:
   ccache: true
-  pip: true
 
 addons:
   apt:
-    packages:
-      - python3
-      - python3-pip
-      - python3-setuptools
     update: true
+    packages:
+      - clang
+      - clang-format
+      - llvm
+      - llvm-dev
+      - lcov
+      - ruby
+      - gcc-12
+      - g++-12
+
+env:
+  global:
+    - CMAKE_C_COMPILER_LAUNCHER=ccache
+    - CMAKE_CXX_COMPILER_LAUNCHER=ccache
 
 jobs:
   include:
-    - os: linux
+    - name: "Static Analysis"
+      os: linux
       dist: jammy
       env:
-        - RUN_TYPE=coverage
-        - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
-    - os: linux
+        - CC=clang
+        - CXX=clang++
+      before_script:
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSTATIC_ANALYSIS=ON .
+      script:
+        - cmake --build . --config Debug --parallel 3
+
+    - name: "Sanitizer"
+      os: linux
       dist: jammy
       env:
-        - RUN_TYPE=test
-        - MATRIX_EVAL="CC=gcc && CXX=g++"
-    - os: linux
+        - CC=clang
+        - CXX=clang++
+      before_script:
+        - mkdir build-address
+        - pushd build-address
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=Address ..
+        - cmake --build . --config Debug --parallel 3
+        - popd
+        - mkdir build-stack
+        - pushd build-stack
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=Stack ..
+        - cmake --build . --config Debug --parallel 3
+        - popd
+        - mkdir build-thread
+        - pushd build-thread
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=Thread ..
+        - cmake --build . --config Debug --parallel 3
+        - popd
+      script:
+        - pushd build-address/tests
+        - ctest -j1 --output-on-failure
+        - popd
+        - pushd build-stack/tests
+        - ctest -j1 --output-on-failure
+        - popd
+        - pushd build-thread/tests
+        - ctest -j1 --output-on-failure
+
+    - name: "Coverage"
+      os: linux
       dist: jammy
       env:
-        - RUN_TYPE=test
-        - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
-    - os: linux
+        - CC=clang
+        - CXX=clang++
+      install:
+        - sudo gem install coveralls-lcov
+      before_script:
+        - mkdir build
+        - cd build
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=ON ..
+      script:
+        - cmake --build . --config Debug --parallel 3 --target coverage
+      after_success:
+        - coveralls-lcov --repo-token $COVERALLS_REPO_TOKEN --service-name travis-pro --service-job-id $TRAVIS_JOB_ID ./coverage.info
+
+    - name: "GCC Unit Tests"
+      os: linux
       dist: jammy
       env:
-        - BUILD_DOCKER=1
+        - CC=gcc-12
+        - CXX=g++-12
+      before_script:
+        - cmake -DCMAKE_BUILD_TYPE=Release .
+        - cmake --build . --config Release --parallel 3
+      script:
+        - cd tests
+        - ctest -j3 --output-on-failure
 
-before_install:
-  - eval "${MATRIX_EVAL}"
-
-install:
-  - ci/install.sh
-
-script:
-  - ci/build.sh && ci/test.sh
-
-after_success:
-  - ci/after_success.sh
+    - name: "Clang Unit Tests and Formatting"
+      os: linux
+      dist: jammy
+      env:
+        - CC=clang
+        - CXX=clang++
+      before_script:
+        - cmake -DCMAKE_BUILD_TYPE=Release .
+        - cmake --build . --config Release --parallel 3
+      script:
+        - cmake --build . --config Release --parallel 3 --target format.check
+        - cd tests
+        - ctest -j3 --output-on-failure
 
 notifications:
   slack:

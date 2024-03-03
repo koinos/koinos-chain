@@ -1,3 +1,0 @@
-#include "git_version.h"
-const char *KOINOS_GIT_HASH = "@GIT_HASH@";
-
