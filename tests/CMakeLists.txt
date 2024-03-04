@@ -35,6 +35,6 @@ koinos_add_format(TARGET chain_tests)
 
 koinos_coverage(
   EXECUTABLE
-  chain_tests
+    chain_tests
   EXCLUDE
     "tests/*")
