@@ -176,7 +176,13 @@ value_type get_nested_field_value( execution_context& context,
                  ( "type", parent_message.GetTypeName() ) );
 
   std::vector< std::string > field_path;
-  boost::split( field_path, field_name, boost::is_any_of( "." ) );
+
+  // The following line fails static analysis and is reportedly a false-positive.
+  // See the following issue reports:
+  // * https://github.com/boostorg/algorithm/issues/63
+  // * https://bugs.llvm.org/show_bug.cgi?id=44247
+  // * https://bugs.llvm.org/show_bug.cgi?id=41141
+  boost::split( field_path, field_name, boost::is_any_of( "." ) ); // NOLINT
 
   const google::protobuf::Reflection* reflection            = parent_message.GetReflection();
   const google::protobuf::Message* message                  = &parent_message;
