@@ -110,6 +110,39 @@ jobs:
         - cd tests
         - ctest -j3 --output-on-failure
 
+    - name: "Docker and Integration Tests"
+      os: linux
+      dist: jammy
+      env:
+        - DOCKER_ORG=koinos
+        - DOCKER_REPO=$TRAVIS_REPO_SLUG
+        - TAG=`if [ $TRAVIS_BRANCH == "main" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
+        - CHAIN_TAG=$TAG
+      install:
+        - sudo curl -L "https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        - sudo chmod +x /usr/local/bin/docker-compose
+        - eval "$(gimme 1.18.1)"
+        - source ~/.gimme/envs/go1.18.1.env
+        - git clone https://github.com/koinos/koinos-integration-tests.git
+        - pushd koinos-integration-tests
+        - go get ./...
+        - popd
+      before_script:
+        - cp -R ~/.ccache ./ccache
+        - docker build . -t build --target builder
+        - docker build . -t $DOCKER_ORG/$DOCKER_REPO:$TAG
+        - docker run -td --name extract-ccache build
+        - docker cp extract-ccache:/build/.ccache ~/.ccache
+      script:
+        - pushd koinos-integration-tests
+        #- ./run.sh
+      after_success:
+        - |
+          if [ "$TRAVIS_PULL_REQUEST_BRANCH" == "" ]; then
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+            docker push $DOCKER_ORG/$DOCKER_REPO:$TAG
+          fi
+
 notifications:
   slack:
     secure: jA1UWnXRjaqTxqPDNhQhZXAk7mC7xLAuI6NLSFPh+ybYv+goM1wefZp6IkdX5u1EHB0UCF4jbmczQxjVEhvBCBx8sy9DmxFICfjDtbsEnHksRsROpKPePF4DTwZMsjKn5+oPF7fBHr0ShzpdcZ7rmbFWQnfXI6Bin6znDV6xd8XNV5jI26FAaL0eIQd/+bjKHpDCDRzu2MJY44+Awpf0tbdwfWqj9EZ9SHl1wMsyvp1BSOlOtErEiv0EUWjmM1VTE2nPYzn2N7YoRv6nwtTpqJ+Y1xgm0mJ0DtV39xyo4+AhyxJAoJqkjkrP5AIepUyz+1o+m/4j/98FjfTi3JugMOzWAJqiAyWLVJG74W7Zs3h+M+W+eRSDhMfybgwEWz2+IFrP0Re9C7XI+KGLLAZ734lzESNKs6grisIRnk226YawffeDMJ/zT1uyWs3VIw9TuXI/0SnSnE+Gno0Xbho37jTT1lqRHsrMRzbC44rF+dBqMJE+m70naHj9MrR+0fHNGct19X73nDadIJeJNlMdV5OgddxLvCZL7RsD8c1MDQDWrASfConS6P/TPVsYeLxia3uSl8NoXwSRX7+j91bQnI0YFzpgKyJdYE2WtNJULgqOTftKr+7orzMqMqjBNdlRhsB7Yh6pepKWbLX1N1N3UoDhtia9JoWz04vQcq2l42w=

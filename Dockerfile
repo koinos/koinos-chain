@@ -1,4 +1,4 @@
-FROM alpine:latest as builder
+FROM alpine:3.18 as builder
 
 RUN apk update && \
     apk add  \
@@ -10,22 +10,18 @@ RUN apk update && \
         libgmpxx \
         cmake \
         make \
-        git \
-        perl \
-        python3 \
-        py3-pip \
-        py3-setuptools && \
-    pip3 install --user dataclasses_json Jinja2 importlib_resources pluginbase gitpython
+        git
 
-ADD . /koinos-chain
-WORKDIR /koinos-chain
+ADD . /build
+WORKDIR /build
 
-ENV CC=/usr/lib/ccache/bin/gcc
-ENV CXX=/usr/lib/ccache/bin/g++
+ENV CC=gcc
+ENV CXX=g++
+ENV CMAKE_C_COMPILER_LAUNCHER=ccache
+ENV CMAKE_CXX_COMPILER_LAUNCHER=ccache
+ENV CCACHE_DIR /build/.ccache
 
-RUN mkdir -p /koinos-chain/.ccache && \
-    ln -s /koinos-chain/.ccache $HOME/.ccache && \
-    git submodule update --init --recursive && \
+RUN git submodule update --init --recursive && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     cmake --build . --config Release --parallel
 
@@ -34,5 +30,5 @@ RUN apk update && \
     apk add \
         musl \
         libstdc++
-COPY --from=builder /koinos-chain/programs/koinos_chain/koinos_chain /usr/local/bin
+COPY --from=builder /build/src/koinos_chain /usr/local/bin
 ENTRYPOINT [ "/usr/local/bin/koinos_chain" ]
