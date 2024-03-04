@@ -103,7 +103,7 @@ private:
   module_ptr _module                    = nullptr;
   FizzyInstance* _instance              = nullptr;
   FizzyExecutionContext* _fizzy_context = nullptr;
-  int64_t _previous_ticks;
+  int64_t _previous_ticks               = 0;
   std::exception_ptr _exception;
 };
 
