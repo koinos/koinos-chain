@@ -113,7 +113,6 @@ jobs:
     - name: "Docker and Integration Tests"
       os: linux
       dist: jammy
-      language: go
       go:
         - 1.18.x
       services:
