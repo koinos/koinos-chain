@@ -114,7 +114,7 @@ jobs:
       os: linux
       dist: jammy
       env:
-        - TAG=`if [ $TRAVIS_BRANCH == "main" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
+        - TAG=`if [ $TRAVIS_BRANCH == "master" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
         - CHAIN_TAG=$TAG
       install:
         - sudo curl -L "https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
