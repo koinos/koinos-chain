@@ -114,7 +114,7 @@ jobs:
       os: linux
       dist: jammy
       go:
-        - 1.18.x
+        - 1.19.x
       services:
         - docker
       env:
