@@ -1,5 +1,8 @@
 language: c++
 
+services:
+  - docker
+
 cache:
   ccache: true
 
@@ -117,8 +120,6 @@ jobs:
         - TAG=`if [ $TRAVIS_BRANCH == "master" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
         - CHAIN_TAG=$TAG
       install:
-        - sudo curl -L "https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        - sudo chmod +x /usr/local/bin/docker-compose
         - eval "$(gimme 1.18.1)"
         - source ~/.gimme/envs/go1.18.1.env
         - git clone https://github.com/koinos/koinos-integration-tests.git
