@@ -123,6 +123,7 @@ jobs:
       install:
         - git clone https://github.com/koinos/koinos-integration-tests.git
         - pushd koinos-integration-tests
+        - go version
         - go get ./...
         - popd
       before_script:
@@ -136,7 +137,7 @@ jobs:
         #- ./run.sh
       after_success:
         - |
-          if [ "$TRAVIS_PULL_REQUEST_BRANCH" == "" ]; then
+          if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
             echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
             docker push $TRAVIS_REPO_SLUG:$TAG
           fi
