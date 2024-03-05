@@ -114,8 +114,6 @@ jobs:
       os: linux
       dist: jammy
       env:
-        - DOCKER_ORG=koinos
-        - DOCKER_REPO=$TRAVIS_REPO_SLUG
         - TAG=`if [ $TRAVIS_BRANCH == "main" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
         - CHAIN_TAG=$TAG
       install:
@@ -130,7 +128,7 @@ jobs:
       before_script:
         - cp -R ~/.ccache ./ccache
         - docker build . -t build --target builder
-        - docker build . -t $DOCKER_ORG/$DOCKER_REPO:$TAG
+        - docker build . -t $TRAVIS_REPO_SLUG:$TAG
         - docker run -td --name extract-ccache build
         - docker cp extract-ccache:/build/.ccache ~/.ccache
       script:
@@ -140,7 +138,7 @@ jobs:
         - |
           if [ "$TRAVIS_PULL_REQUEST_BRANCH" == "" ]; then
             echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-            docker push $DOCKER_ORG/$DOCKER_REPO:$TAG
+            docker push $TRAVIS_REPO_SLUG:$TAG
           fi
 
 notifications:
