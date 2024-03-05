@@ -129,7 +129,6 @@ jobs:
         - popd
       before_script:
         - cp -R ~/.ccache ./ccache
-        - docker info
         - docker build . -t build --target builder
         - docker build . -t $DOCKER_ORG/$DOCKER_REPO:$TAG
         - docker run -td --name extract-ccache build

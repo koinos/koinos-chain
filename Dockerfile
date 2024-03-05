@@ -23,7 +23,7 @@ ENV CCACHE_DIR /build/.ccache
 
 RUN git submodule update --init --recursive && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
-    cmake --build . --config Release --parallel
+    cmake --build . --config Release --parallel 3
 
 FROM alpine:latest
 RUN apk update && \
