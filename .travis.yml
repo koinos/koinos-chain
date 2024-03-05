@@ -1,8 +1,5 @@
 language: c++
 
-services:
-  - docker
-
 cache:
   ccache: true
 
@@ -116,12 +113,15 @@ jobs:
     - name: "Docker and Integration Tests"
       os: linux
       dist: jammy
+      language: go
+      go:
+        - 1.18.x
+      services:
+        - docker
       env:
         - TAG=`if [ $TRAVIS_BRANCH == "master" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
         - CHAIN_TAG=$TAG
       install:
-        - eval "$(gimme 1.18.1)"
-        - source ~/.gimme/envs/go1.18.1.env
         - git clone https://github.com/koinos/koinos-integration-tests.git
         - pushd koinos-integration-tests
         - go get ./...
