@@ -15,6 +15,7 @@ addons:
       - ruby
       - gcc-12
       - g++-12
+      - golang-go
 
 env:
   global:
@@ -113,8 +114,6 @@ jobs:
     - name: "Docker and Integration Tests"
       os: linux
       dist: jammy
-      go:
-        - 1.19.x
       services:
         - docker
       env:
@@ -123,7 +122,6 @@ jobs:
       install:
         - git clone https://github.com/koinos/koinos-integration-tests.git
         - pushd koinos-integration-tests
-        - go version
         - go get ./...
         - popd
       before_script:
