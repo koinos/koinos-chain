@@ -91,41 +91,26 @@ int main( int argc, char** argv )
   try
   {
     program_options::options_description options;
-    options.add_options()( HELP_OPTION ",h", "Print this help message and exit" )( VERSION_OPTION ",v",
-                                                                                   "Print version string and exit" )(
-      BASEDIR_OPTION ",d",
-      program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ),
-      "Koinos base directory" )( AMQP_OPTION ",a", program_options::value< std::string >(), "AMQP server URL" )(
-      LOG_LEVEL_OPTION ",l",
-      program_options::value< std::string >(),
-      "The log filtering level" )( INSTANCE_ID_OPTION ",i",
-                                   program_options::value< std::string >(),
-                                   "An ID that uniquely identifies the instance" )(
-      JOBS_OPTION ",j",
-      program_options::value< uint64_t >(),
-      "The number of worker jobs" )( READ_COMPUTE_BANDWITH_LIMIT_OPTION ",b",
-                                     program_options::value< uint64_t >(),
-                                     "The compute bandwidth when reading contracts via the API" )(
-      GENESIS_DATA_FILE_OPTION ",g",
-      program_options::value< std::string >(),
-      "The genesis data file" )(
-      STATEDIR_OPTION,
-      program_options::value< std::string >(),
-      "The location of the blockchain state files (absolute path or relative to basedir/chain)" )(
-      RESET_OPTION,
-      program_options::value< bool >(),
-      "Reset the database" )(
-      FORK_ALGORITHM_OPTION ",f",
-      program_options::value< std::string >(),
-      "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')" )(
-      LOG_DIR_OPTION,
-      program_options::value< std::string >(),
-      "The logging directory" )( LOG_COLOR_OPTION, program_options::value< bool >(), "Log color toggle" )(
-      LOG_DATETIME_OPTION,
-      program_options::value< bool >(),
-      "Log datetime on console toggle" )( SYSTEM_CALL_BUFFER_SIZE_OPTION,
-                                          program_options::value< uint32_t >(),
-                                          "System call RPC invocation buffer size" );
+
+    // clang-format off
+    options.add_options()
+      ( HELP_OPTION ",h"                       , "Print this help message and exit" )
+      ( VERSION_OPTION ",v"                    , "Print version string and exit" )
+      ( BASEDIR_OPTION ",d"                    , program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ), "Koinos base directory" )
+      ( AMQP_OPTION ",a"                       , program_options::value< std::string >(), "AMQP server URL" )
+      ( LOG_LEVEL_OPTION ",l"                  , program_options::value< std::string >(), "The log filtering level" )
+      ( INSTANCE_ID_OPTION ",i"                , program_options::value< std::string >(), "An ID that uniquely identifies the instance" )
+      ( JOBS_OPTION ",j"                       , program_options::value< uint64_t >()   , "The number of worker jobs" )
+      ( READ_COMPUTE_BANDWITH_LIMIT_OPTION ",b", program_options::value< uint64_t >()   , "The compute bandwidth when reading contracts via the API" )
+      ( GENESIS_DATA_FILE_OPTION ",g"          , program_options::value< std::string >(), "The genesis data file" )
+      ( STATEDIR_OPTION                        , program_options::value< std::string >(), "The location of the blockchain state files (absolute path or relative to basedir/chain)" )
+      ( RESET_OPTION                           , program_options::value< bool >()       , "Reset the database" )
+      ( FORK_ALGORITHM_OPTION ",f"             , program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')" )
+      ( LOG_DIR_OPTION                         , program_options::value< std::string >(), "The logging directory" )
+      ( LOG_COLOR_OPTION                       , program_options::value< bool >()       , "Log color toggle" )
+      ( LOG_DATETIME_OPTION                    , program_options::value< bool >()       , "Log datetime on console toggle" )
+      ( SYSTEM_CALL_BUFFER_SIZE_OPTION         , program_options::value< uint32_t >()   , "System call RPC invocation buffer size" );
+    // clang-format on
 
     program_options::variables_map args;
     program_options::store( program_options::parse_command_line( argc, argv, options ), args );
@@ -165,46 +150,21 @@ int main( int argc, char** argv )
       chain_config  = config[ util::service::chain ];
     }
 
-    amqp_url = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
-    log_level =
-      util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-    log_dir   = util::get_option< std::string >( LOG_DIR_OPTION, LOG_DIR_DEFAULT, args, chain_config, global_config );
-    log_color = util::get_option< bool >( LOG_COLOR_OPTION, LOG_COLOR_DEFAULT, args, chain_config, global_config );
-    log_datetime =
-      util::get_option< bool >( LOG_DATETIME_OPTION, LOG_DATETIME_DEFAULT, args, chain_config, global_config );
-    instance_id = util::get_option< std::string >( INSTANCE_ID_OPTION,
-                                                   util::random_alphanumeric( 5 ),
-                                                   args,
-                                                   chain_config,
-                                                   global_config );
-    statedir    = std::filesystem::path(
-      util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
-    genesis_data_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION,
-                                                                                GENESIS_DATA_FILE_DEFAULT,
-                                                                                args,
-                                                                                chain_config,
-                                                                                global_config ) );
+    // clang-format off
+    amqp_url              = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+    log_level             = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+    log_dir               = util::get_option< std::string >( LOG_DIR_OPTION, LOG_DIR_DEFAULT, args, chain_config, global_config );
+    log_color             = util::get_option< bool >( LOG_COLOR_OPTION, LOG_COLOR_DEFAULT, args, chain_config, global_config );
+    log_datetime          = util::get_option< bool >( LOG_DATETIME_OPTION, LOG_DATETIME_DEFAULT, args, chain_config, global_config );
+    instance_id           = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
+    statedir              = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
+    genesis_data_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
     reset                 = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
-    jobs                  = util::get_option< uint64_t >( JOBS_OPTION,
-                                         std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ),
-                                         args,
-                                         chain_config,
-                                         global_config );
-    read_compute_limit    = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION,
-                                                       READ_COMPUTE_BANDWITH_LIMIT_DEFAULT,
-                                                       args,
-                                                       chain_config,
-                                                       global_config );
-    fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION,
-                                                             FORK_ALGORITHM_DEFAULT,
-                                                             args,
-                                                             chain_config,
-                                                             global_config );
-    syscall_bufsize       = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION,
-                                                    SYSTEM_CALL_BUFFER_SIZE_DEFAULT,
-                                                    args,
-                                                    chain_config,
-                                                    global_config );
+    jobs                  = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
+    read_compute_limit    = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
+    fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
+    syscall_bufsize       = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION, SYSTEM_CALL_BUFFER_SIZE_DEFAULT, args, chain_config, global_config );
+    // clang-format on
 
     std::optional< std::filesystem::path > logdir_path;
     if( !log_dir.empty() )
