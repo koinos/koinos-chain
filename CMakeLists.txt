@@ -13,7 +13,7 @@ include("${koinos_cmake_SOURCE_DIR}/Koinos.cmake")
 
 project(koinos_chain
   VERSION 1.2.0
-  DESCRIPTION "The Koinos chain"
+  DESCRIPTION "Koinos Chain microservice"
   LANGUAGES CXX C)
 
 koinos_define_version()

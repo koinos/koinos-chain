@@ -1,5 +1,3 @@
-# libkoinos_chain
-
 add_library(chain
   koinos/chain/chronicler.cpp
   koinos/chain/controller.cpp
@@ -13,22 +11,21 @@ add_library(chain
   koinos/chain/system_calls.cpp
   koinos/chain/thunk_dispatcher.cpp
 
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/chronicler.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/constants.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/controller.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/exceptions.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/execution_context.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/host_api.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/indexer.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/proto_utils.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/resource_meter.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/session.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/state.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/system_calls.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/thunk_dispatcher.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/thunk_utils.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/chain/types.hpp
-)
+  koinos/chain/chronicler.hpp
+  koinos/chain/constants.hpp
+  koinos/chain/controller.hpp
+  koinos/chain/exceptions.hpp
+  koinos/chain/execution_context.hpp
+  koinos/chain/host_api.hpp
+  koinos/chain/indexer.hpp
+  koinos/chain/proto_utils.hpp
+  koinos/chain/resource_meter.hpp
+  koinos/chain/session.hpp
+  koinos/chain/state.hpp
+  koinos/chain/system_calls.hpp
+  koinos/chain/thunk_dispatcher.hpp
+  koinos/chain/thunk_utils.hpp
+  koinos/chain/types.hpp)
 
 target_link_libraries(
   chain
@@ -44,12 +41,9 @@ target_link_libraries(
 target_include_directories(
   chain
     PUBLIC
-      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-      $<INSTALL_INTERFACE:include>)
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 koinos_add_format(TARGET chain)
-
-# libkoinos_vm_manager
 
 add_library(vm_manager
   koinos/vm_manager/host_api.cpp
@@ -57,10 +51,9 @@ add_library(vm_manager
   koinos/vm_manager/fizzy/fizzy_vm_backend.cpp
   koinos/vm_manager/fizzy/module_cache.cpp
 
-  ${PROJECT_SOURCE_DIR}/include/koinos/vm_manager/fizzy/exceptions.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/vm_manager/fizzy/fizzy_vm_backend.hpp
-  ${PROJECT_SOURCE_DIR}/include/koinos/vm_manager/fizzy/module_cache.hpp
-)
+  koinos/vm_manager/fizzy/exceptions.hpp
+  koinos/vm_manager/fizzy/fizzy_vm_backend.hpp
+  koinos/vm_manager/fizzy/module_cache.hpp)
 
 target_link_libraries(
   vm_manager
@@ -73,12 +66,9 @@ target_link_libraries(
 target_include_directories(
   vm_manager
     PUBLIC
-      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-      $<INSTALL_INTERFACE:include>)
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 koinos_add_format(TARGET vm_manager)
-
-# koinos_chain
 
 add_executable(koinos_chain koinos_chain.cpp)
 target_link_libraries(
@@ -89,8 +79,6 @@ target_link_libraries(
       Boost::program_options)
 
 koinos_add_format(TARGET koinos_chain)
-
-# koinos_vm_driver
 
 add_executable(koinos_vm_driver koinos_vm_driver.cpp)
 target_link_libraries(

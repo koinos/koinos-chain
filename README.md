@@ -8,7 +8,6 @@ This project's structure follows the [Pitchfork](https://api.csswg.org/bikeshed/
 
 ```
 ├── build/   # An ephemeral directory for building the project. Not checked in, but excluded via .gitignore.
-├── include/ # Contains all public headers for the Koinos Chain.
 ├── src/     # Contains all source code and private headers for Koinos Chain.
 ├── tools/   # Contains additional tooling for Koinos Chain, primarily WASM test code.
 └── tests/   # Contains tests for Koinos Chain.
