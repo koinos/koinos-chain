@@ -132,7 +132,7 @@ jobs:
         - docker cp extract-ccache:/build/.ccache ~/.ccache
       script:
         - pushd koinos-integration-tests
-        #- ./run.sh
+        - ./run.sh
       after_success:
         - |
           if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
