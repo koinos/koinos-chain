@@ -1,2 +1,0 @@
-add_subdirectory(koinos_chain)
-add_subdirectory(koinos_vm_driver)

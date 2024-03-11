@@ -2,49 +2,143 @@ language: c++
 
 cache:
   ccache: true
-  pip: true
 
 addons:
   apt:
-    packages:
-      - python3
-      - python3-pip
-      - python3-setuptools
     update: true
+    packages:
+      - clang
+      - clang-format
+      - llvm
+      - llvm-dev
+      - lcov
+      - ruby
+      - gcc-12
+      - g++-12
+      - golang-go
+
+env:
+  global:
+    - CMAKE_C_COMPILER_LAUNCHER=ccache
+    - CMAKE_CXX_COMPILER_LAUNCHER=ccache
 
 jobs:
   include:
-    - os: linux
+    - name: "Static Analysis"
+      os: linux
       dist: jammy
       env:
-        - RUN_TYPE=coverage
-        - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
-    - os: linux
+        - CC=clang
+        - CXX=clang++
+      before_script:
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSTATIC_ANALYSIS=ON .
+      script:
+        - cmake --build . --config Debug --parallel 3
+
+    - name: "Sanitizer"
+      os: linux
       dist: jammy
       env:
-        - RUN_TYPE=test
-        - MATRIX_EVAL="CC=gcc && CXX=g++"
-    - os: linux
+        - CC=clang
+        - CXX=clang++
+      before_script:
+        - mkdir build-address
+        - pushd build-address
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=Address ..
+        - cmake --build . --config Debug --parallel 3
+        - popd
+        - mkdir build-stack
+        - pushd build-stack
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=Stack ..
+        - cmake --build . --config Debug --parallel 3
+        - popd
+        - mkdir build-thread
+        - pushd build-thread
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=Thread ..
+        - cmake --build . --config Debug --parallel 3
+        - popd
+      script:
+        - pushd build-address/tests
+        - ctest -j1 --output-on-failure
+        - popd
+        - pushd build-stack/tests
+        - ctest -j1 --output-on-failure
+        - popd
+        - pushd build-thread/tests
+        - ctest -j1 --output-on-failure
+
+    - name: "Coverage"
+      os: linux
       dist: jammy
       env:
-        - RUN_TYPE=test
-        - MATRIX_EVAL="CC=clang-11 && CXX=clang++-11"
-    - os: linux
+        - CC=clang
+        - CXX=clang++
+      install:
+        - sudo gem install coveralls-lcov
+      before_script:
+        - mkdir build
+        - cd build
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=ON ..
+      script:
+        - cmake --build . --config Debug --parallel 3 --target coverage
+      after_success:
+        - coveralls-lcov --repo-token $COVERALLS_REPO_TOKEN --service-name travis-pro --service-job-id $TRAVIS_JOB_ID ./coverage.info
+
+    - name: "GCC Unit Tests"
+      os: linux
       dist: jammy
       env:
-        - BUILD_DOCKER=1
+        - CC=gcc-12
+        - CXX=g++-12
+      before_script:
+        - cmake -DCMAKE_BUILD_TYPE=Release .
+        - cmake --build . --config Release --parallel 3
+      script:
+        - cd tests
+        - ctest -j3 --output-on-failure
 
-before_install:
-  - eval "${MATRIX_EVAL}"
+    - name: "Clang Unit Tests and Formatting"
+      os: linux
+      dist: jammy
+      env:
+        - CC=clang
+        - CXX=clang++
+      before_script:
+        - cmake -DCMAKE_BUILD_TYPE=Release .
+        - cmake --build . --config Release --parallel 3
+      script:
+        - cmake --build . --config Release --parallel 3 --target format.check
+        - cd tests
+        - ctest -j3 --output-on-failure
 
-install:
-  - ci/install.sh
-
-script:
-  - ci/build.sh && ci/test.sh
-
-after_success:
-  - ci/after_success.sh
+    - name: "Docker and Integration Tests"
+      os: linux
+      dist: jammy
+      services:
+        - docker
+      env:
+        - TAG=`if [ $TRAVIS_BRANCH == "master" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
+        - CHAIN_TAG=$TAG
+      install:
+        - git clone https://github.com/koinos/koinos-integration-tests.git
+        - pushd koinos-integration-tests
+        - go get ./...
+        - popd
+      before_script:
+        - cp -R ~/.ccache ./ccache
+        - docker build . -t build --target builder
+        - docker build . -t $TRAVIS_REPO_SLUG:$TAG
+        - docker run -td --name extract-ccache build
+        - docker cp extract-ccache:/build/.ccache ~/.ccache
+      script:
+        - pushd koinos-integration-tests
+        - ./run.sh
+      after_success:
+        - |
+          if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+            docker push $TRAVIS_REPO_SLUG:$TAG
+          fi
 
 notifications:
   slack:
