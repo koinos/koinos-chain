@@ -6,7 +6,7 @@ include(FetchContent)
 FetchContent_Declare(
   koinos_cmake
   GIT_REPOSITORY https://github.com/koinos/koinos-cmake.git
-  GIT_TAG        113f07791c56b292bbcb10164b759daa68a74121)
+  GIT_TAG        0c8433a118eb4cd5a86bb7ac4708a38db8166801)
 FetchContent_MakeAvailable(koinos_cmake)
 
 include("${koinos_cmake_SOURCE_DIR}/Koinos.cmake")
