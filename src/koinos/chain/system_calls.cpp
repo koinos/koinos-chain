@@ -185,8 +185,15 @@ void generate_receipt( execution_context& context,
   for( const auto& message: context.chronicler().logs() )
     *receipt.add_logs() = message;
 
-  for( const auto& entry: context.get_state_node()->get_delta_entries() )
-    *receipt.add_state_delta_entries() = entry;
+  try
+  {
+    for( const auto& entry: context.get_state_node()->get_delta_entries() )
+      *receipt.add_state_delta_entries() = entry;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 void generate_receipt( execution_context& context,
@@ -215,8 +222,15 @@ void generate_receipt( execution_context& context,
   for( const auto& message: logs )
     *receipt.add_logs() = message;
 
-  for( const auto& entry: context.get_state_node()->get_delta_entries() )
-    *receipt.add_state_delta_entries() = entry;
+  try
+  {
+    for( const auto& entry: context.get_state_node()->get_delta_entries() )
+      *receipt.add_state_delta_entries() = entry;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 uint64_t hashes_per_leaves( uint64_t leaves )
@@ -260,30 +274,37 @@ THUNK_DEFINE_BEGIN();
 
 THUNK_DEFINE_VOID( get_head_info_result, get_head_info )
 {
-  auto head = context.get_state_node();
-
-  get_head_info_result ret;
-  auto* hi = ret.mutable_value();
-
-  hi->mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
-  hi->mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
-  hi->mutable_head_topology()->set_height( head->revision() );
-  hi->set_last_irreversible_block( system_call::get_last_irreversible_block( context ) );
-
-  if( const auto* block = context.get_block(); block != nullptr )
+  try
   {
-    hi->set_head_block_time( block->header().timestamp() );
-  }
-  else
-  {
-    auto head_block_object = system_call::get_object( context, state::space::metadata(), state::key::head_block );
-    uint64_t time          = head_block_object.exists()
-                               ? util::converter::to< protocol::block >( head_block_object.value() ).header().timestamp()
-                               : 0;
-    hi->set_head_block_time( time );
-  }
+    auto head = context.get_state_node();
 
-  return ret;
+    get_head_info_result ret;
+    auto* hi = ret.mutable_value();
+
+    hi->mutable_head_topology()->set_id( util::converter::as< std::string >( head->id() ) );
+    hi->mutable_head_topology()->set_previous( util::converter::as< std::string >( head->parent_id() ) );
+    hi->mutable_head_topology()->set_height( head->revision() );
+    hi->set_last_irreversible_block( system_call::get_last_irreversible_block( context ) );
+
+    if( const auto* block = context.get_block(); block != nullptr )
+    {
+      hi->set_head_block_time( block->header().timestamp() );
+    }
+    else
+    {
+      auto head_block_object = system_call::get_object( context, state::space::metadata(), state::key::head_block );
+      uint64_t time          = head_block_object.exists()
+                                 ? util::converter::to< protocol::block >( head_block_object.value() ).header().timestamp()
+                                 : 0;
+      hi->set_head_block_time( time );
+    }
+
+    return ret;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
@@ -364,7 +385,14 @@ THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
     // We directly call put_object on the state node so that we do not charge disk_storage for the storage of the new
     // head block
     const auto serialized_block = util::converter::as< std::string >( block );
-    context.get_state_node()->put_object( state::space::metadata(), state::key::head_block, &serialized_block );
+    try
+    {
+      context.get_state_node()->put_object( state::space::metadata(), state::key::head_block, &serialized_block );
+    }
+    catch( const state_db::state_db_exception& e )
+    {
+      throw reversion_exception( e );
+    }
 
     for( const auto& tx: block.transactions() )
     {
@@ -546,9 +574,19 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
     // The anonymous node must be created after requiring authority and the pre transaction callback
     // because those calls might write to database and those writes must persist regardless of whether
     // the rest of the transaction is reverted or not.
-    auto block_node = context.get_state_node();
-    auto trx_node   = block_node->create_anonymous_node();
-    context.set_state_node( trx_node, block_node->parent() );
+    state_db::abstract_state_node_ptr block_node;
+    state_db::anonymous_state_node_ptr trx_node;
+
+    try
+    {
+      block_node = context.get_state_node();
+      trx_node   = block_node->create_anonymous_node();
+      context.set_state_node( trx_node, block_node->parent() );
+    }
+    catch( const state_db::state_db_exception& e )
+    {
+      throw reversion_exception( e );
+    }
 
     try
     {
@@ -574,7 +612,14 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
 
       system_call::post_transaction_callback( context );
 
-      trx_node->commit();
+      try
+      {
+        trx_node->commit();
+      }
+      catch( const state_db::state_db_exception& e )
+      {
+        throw reversion_exception( e );
+      }
     }
     catch( const failure_exception& )
     {
@@ -916,13 +961,20 @@ THUNK_DEFINE( get_block_field_result, get_block_field, ( (const std::string&)fie
 
 THUNK_DEFINE_VOID( get_last_irreversible_block_result, get_last_irreversible_block )
 {
-  auto head = context.get_state_node();
+  try
+  {
+    auto head = context.get_state_node();
 
-  get_last_irreversible_block_result ret;
-  ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold
-                                                                   : 0 );
+    get_last_irreversible_block_result ret;
+    ret.set_value( head->revision() > default_irreversible_threshold ? head->revision() - default_irreversible_threshold
+                                                                     : 0 );
 
-  return ret;
+    return ret;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 THUNK_DEFINE( get_account_nonce_result, get_account_nonce, ( (const std::string&)account ) )
@@ -1073,11 +1125,18 @@ THUNK_DEFINE( void, put_object, ( (const object_space&)space, (const std::string
 
   state::assert_permissions( context, space );
 
-  auto state = context.get_state_node();
-  KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
-  auto val = util::converter::as< state_db::object_value >( obj );
+  try
+  {
+    auto state = context.get_state_node();
+    KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
+    auto val = util::converter::as< state_db::object_value >( obj );
 
-  context.resource_meter().use_disk_storage( state->put_object( space, key, &val ) );
+    context.resource_meter().use_disk_storage( state->put_object( space, key, &val ) );
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 THUNK_DEFINE( void, remove_object, ( (const object_space&)space, (const std::string&)key ) )
@@ -1086,79 +1145,107 @@ THUNK_DEFINE( void, remove_object, ( (const object_space&)space, (const std::str
 
   state::assert_permissions( context, space );
 
-  auto state = context.get_state_node();
-  KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
+  try
+  {
+    auto state = context.get_state_node();
+    KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
-  context.resource_meter().use_disk_storage( state->remove_object( space, key ) );
+    context.resource_meter().use_disk_storage( state->remove_object( space, key ) );
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 THUNK_DEFINE( get_object_result, get_object, ( (const object_space&)space, (const std::string&)key ) )
 {
   state::assert_permissions( context, space );
 
-  abstract_state_node_ptr state = context.get_state_node();
-
-  KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
-
-  const auto result = state->get_object( space, key );
-
-  get_object_result ret;
-
-  if( result )
+  try
   {
-    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" )
-                                                    * result->size() );
-    ret.mutable_value()->set_exists( true );
-    ret.mutable_value()->set_value( result->data(), result->size() );
-  }
+    abstract_state_node_ptr state = context.get_state_node();
 
-  return ret;
+    KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
+
+    const auto result = state->get_object( space, key );
+
+    get_object_result ret;
+
+    if( result )
+    {
+      context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" )
+                                                      * result->size() );
+      ret.mutable_value()->set_exists( true );
+      ret.mutable_value()->set_value( result->data(), result->size() );
+    }
+
+    return ret;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 THUNK_DEFINE( get_next_object_result, get_next_object, ( (const object_space&)space, (const std::string&)key ) )
 {
   state::assert_permissions( context, space );
 
-  abstract_state_node_ptr state = context.get_state_node();
-  KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
-
-  const auto [ result, next_key ] = state->get_next_object( space, key );
-
-  get_next_object_result ret;
-
-  if( result )
+  try
   {
-    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" )
-                                                    * result->size() );
-    ret.mutable_value()->set_exists( true );
-    ret.mutable_value()->set_value( result->data(), result->size() );
-    ret.mutable_value()->set_key( next_key );
-  }
+    abstract_state_node_ptr state = context.get_state_node();
+    KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
-  return ret;
+    const auto [ result, next_key ] = state->get_next_object( space, key );
+
+    get_next_object_result ret;
+
+    if( result )
+    {
+      context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" )
+                                                      * result->size() );
+      ret.mutable_value()->set_exists( true );
+      ret.mutable_value()->set_value( result->data(), result->size() );
+      ret.mutable_value()->set_key( next_key );
+    }
+
+    return ret;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 THUNK_DEFINE( get_prev_object_result, get_prev_object, ( (const object_space&)space, (const std::string&)key ) )
 {
   state::assert_permissions( context, space );
 
-  abstract_state_node_ptr state = context.get_state_node();
-  KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
-
-  const auto [ result, next_key ] = state->get_prev_object( space, key );
-
-  get_prev_object_result ret;
-
-  if( result )
+  try
   {
-    context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" )
-                                                    * result->size() );
-    ret.mutable_value()->set_exists( true );
-    ret.mutable_value()->set_value( result->data(), result->size() );
-    ret.mutable_value()->set_key( next_key );
-  }
+    abstract_state_node_ptr state = context.get_state_node();
+    KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
 
-  return ret;
+    const auto [ result, next_key ] = state->get_prev_object( space, key );
+
+    get_prev_object_result ret;
+
+    if( result )
+    {
+      context.resource_meter().use_compute_bandwidth( context.get_compute_bandwidth( "object_serialization_per_byte" )
+                                                      * result->size() );
+      ret.mutable_value()->set_exists( true );
+      ret.mutable_value()->set_value( result->data(), result->size() );
+      ret.mutable_value()->set_key( next_key );
+    }
+
+    return ret;
+  }
+  catch( const state_db::state_db_exception& e )
+  {
+    throw reversion_exception( e );
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

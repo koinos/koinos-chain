@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include <koinos/exception.hpp>
+#include <koinos/chain/exceptions.hpp>
 
 namespace koinos::vm_manager {
 
