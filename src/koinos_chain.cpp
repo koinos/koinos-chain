@@ -465,6 +465,10 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
         nlohmann::json j;
         j[ "code" ] = chain::internal_error;
         error->set_data( j.dump() );
+
+        chain::error_details details;
+        details.set_code( chain::internal_error );
+        error->add_details()->PackFrom( details );
       }
 
       LOG( debug ) << "Sending RPC response: " << resp;
