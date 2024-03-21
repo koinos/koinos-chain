@@ -408,6 +408,9 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
             case rpc::chain::chain_request::RequestCase::kInvokeSystemCall:
               *resp.mutable_invoke_system_call() = controller.invoke_system_call( args.invoke_system_call() );
               break;
+            case rpc::chain::chain_request::RequestCase::kProposeBlock:
+              *resp.mutable_propose_block() = controller.propose_block( args.propose_block() );
+              break;
             default:
               resp.mutable_error()->set_message( "Error: attempted to call unknown rpc" );
               break;

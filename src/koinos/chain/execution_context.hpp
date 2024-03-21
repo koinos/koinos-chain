@@ -54,7 +54,8 @@ enum class intent : uint64_t
 {
   read_only,
   block_application,
-  transaction_application
+  transaction_application,
+  block_proposal
 };
 
 struct system_call_cache_bundle
@@ -151,6 +152,9 @@ public:
 
   const execution_result& get_result();
 
+  void add_failed_transaction_index( int i );
+  const std::vector< int >& get_failed_transaction_indices() const;
+
 private:
   void build_compute_registry_cache();
   void build_descriptor_pool();
@@ -175,6 +179,8 @@ private:
 
   execution_context_cache _cache;
   execution_result _result;
+
+  std::vector< int > _failed_transaction_indices;
 };
 
 namespace detail {

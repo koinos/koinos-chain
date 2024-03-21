@@ -295,7 +295,7 @@ THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
     KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode,
                    insufficient_privileges_exception,
                    "calling privileged thunk from non-privileged code" );
-    KOINOS_ASSERT( context.intent() == intent::block_application,
+    KOINOS_ASSERT( context.intent() == intent::block_application || context.intent() == intent::block_proposal,
                    insufficient_privileges_exception,
                    "expected block application intent while applying block" );
 
@@ -366,14 +366,28 @@ THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
     const auto serialized_block = util::converter::as< std::string >( block );
     context.get_state_node()->put_object( state::space::metadata(), state::key::head_block, &serialized_block );
 
-    for( const auto& tx: block.transactions() )
+    for( int i = 0; i < block.transactions_size(); i++ )
     {
+      const auto& tx = block.transactions( i );
+
       try
       {
         system_call::apply_transaction( context, tx );
       }
       catch( const reversion_exception& )
       {} /* do nothing */
+      catch( failure_exception& e )
+      {
+        if( context.intent() == intent::block_proposal )
+          context.add_failed_transaction_index( i );
+        else
+        {
+          // Taken from the guts of KOINOS_CAPTURE_AND_RETHROW to preserve behavior
+          koinos::detail::json_initializer init( e );
+          init( "transaction_id", util::to_hex( tx.id() ) );
+          throw;
+        }
+      }
       KOINOS_CAPTURE_CATCH_AND_RETHROW( ( "transaction_id", util::to_hex( tx.id() ) ) )
     }
 
@@ -578,7 +592,11 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
     }
     catch( const failure_exception& )
     {
-      throw;
+      if( context.intent() != intent::block_proposal )
+        throw;
+
+      context.set_state_node( block_node );
+      return;
     }
     catch( const reversion_exception& e )
     {
@@ -637,6 +655,8 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
     switch( context.intent() )
     {
       case intent::block_application:
+        [[fallthrough]];
+      case intent::block_proposal:
         KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ),
                        failure_exception,
                        "expected block receipt with block application intent" );
@@ -666,6 +686,8 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
     switch( context.intent() )
     {
       case intent::block_application:
+        [[fallthrough]];
+      case intent::block_proposal:
         KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( context.receipt() ),
                        failure_exception,
                        "expected block receipt with block application intent" );
@@ -772,7 +794,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ( (const protocol::set_syst
     KOINOS_ASSERT( contract_meta.system(), invalid_contract_exception, "contract is not a system contract" );
     KOINOS_ASSERT( o.call_id() != chain::system_call_id::call, reversion_exception, "cannot override call_contract" );
 
-    if( context.intent() == intent::block_application )
+    if( context.intent() == intent::block_application || context.intent() == intent::block_proposal )
       LOG( info ) << "Overriding system call " << o.call_id() << " with contract "
                   << util::to_base58( o.target().system_call_bundle().contract_id() ) << " at entry point "
                   << util::to_hex( o.target().system_call_bundle().entry_point() );
@@ -784,7 +806,7 @@ THUNK_DEFINE( void, apply_set_system_call_operation, ( (const protocol::set_syst
                    "thunk ${tid} does not exist",
                    ( "tid", o.target().thunk_id() ) );
 
-    if( context.intent() == intent::block_application )
+    if( context.intent() == intent::block_application || context.intent() == intent::block_proposal )
       LOG( info ) << "Overriding system call " << o.call_id() << " with thunk " << o.target().thunk_id();
   }
 

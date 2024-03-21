@@ -411,6 +411,93 @@ BOOST_AUTO_TEST_CASE( submission_tests )
   KOINOS_CATCH_LOG_AND_RETHROW( info )
 }
 
+BOOST_AUTO_TEST_CASE( propose_block )
+{
+  try
+  {
+    auto key = koinos::crypto::private_key::regenerate(
+      koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "foobar1"s ) );
+
+    BOOST_TEST_MESSAGE( "Test propose block" );
+
+    rpc::chain::propose_block_request block_req;
+
+    auto duration = std::chrono::system_clock::now().time_since_epoch();
+    block_req.mutable_block()->mutable_header()->set_timestamp(
+      std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+    block_req.mutable_block()->mutable_header()->set_height( 1 );
+    block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root(
+      _controller.get_head_info().head_state_merkle_root() );
+    block_req.mutable_block()->mutable_header()->set_previous(
+      util::converter::as< std::string >( crypto::multihash::zero( crypto::multicodec::sha2_256 ) ) );
+
+    set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+    block_req.mutable_block()->set_id( util::converter::as< std::string >(
+      koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+    sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+    auto block_resp = _controller.propose_block( block_req );
+    BOOST_REQUIRE( block_resp.has_receipt() );
+    BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices_size(), 0 );
+
+    BOOST_TEST_MESSAGE( "Test with invalid transactions" );
+
+    block_req.mutable_block()->mutable_header()->set_timestamp( block_req.mutable_block()->mutable_header()->timestamp() + 1 );
+    block_req.mutable_block()->mutable_header()->set_height( 2 );
+    block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root(
+      _controller.get_head_info().head_state_merkle_root() );
+    block_req.mutable_block()->mutable_header()->set_previous( block_req.block().id() );
+
+    // Fails because nonce is 1, should be 0
+    auto* invalid_transaction = block_req.mutable_block()->add_transactions();
+
+    chain::value_type nonce_value;
+    nonce_value.set_uint64_value( 0 );
+    invalid_transaction->mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+    invalid_transaction->mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
+    invalid_transaction->mutable_header()->set_rc_limit( 10'000'000 );
+    invalid_transaction->mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+    invalid_transaction->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, invalid_transaction->header() ) ) );
+    set_transaction_merkle_roots( *invalid_transaction, crypto::multicodec::sha2_256 );
+    sign_transaction( *invalid_transaction, key );
+
+    auto* valid_transaction = block_req.mutable_block()->add_transactions();
+
+    nonce_value.set_uint64_value( 1 );
+    valid_transaction->mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+    valid_transaction->mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
+    valid_transaction->mutable_header()->set_rc_limit( 10'000'000 );
+    valid_transaction->mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+    valid_transaction->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, valid_transaction->header() ) ) );
+    set_transaction_merkle_roots( *valid_transaction, crypto::multicodec::sha2_256 );
+    sign_transaction( *valid_transaction, key );
+
+    // Fails becaus rc_limit is too low
+    invalid_transaction = block_req.mutable_block()->add_transactions();
+
+    nonce_value.set_uint64_value( 2 );
+    invalid_transaction->mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+    invalid_transaction->mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
+    invalid_transaction->mutable_header()->set_rc_limit( 10 );
+    invalid_transaction->mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+    invalid_transaction->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, invalid_transaction->header() ) ) );
+    set_transaction_merkle_roots( *invalid_transaction, crypto::multicodec::sha2_256 );
+    sign_transaction( *invalid_transaction, key );
+
+    set_block_merkle_roots( *block_req.mutable_block(), crypto::multicodec::sha2_256 );
+    block_req.mutable_block()->set_id( util::converter::as< std::string >(
+      koinos::crypto::hash( crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+    sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+    block_resp = _controller.propose_block( block_req );
+    BOOST_REQUIRE( !block_resp.has_receipt() );
+    BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices_size(), 2 );
+    BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices( 0 ), 0 );
+    BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices( 1 ), 2 );
+  }
+  KOINOS_CATCH_LOG_AND_RETHROW( info )
+}
+
 BOOST_AUTO_TEST_CASE( block_irreversibility )
 {
   try
