@@ -87,7 +87,7 @@ struct apply_block_options
 struct apply_block_result
 {
   std::optional< protocol::block_receipt > receipt;
-  std::vector< int > failed_transaction_indices;
+  std::vector< uint32_t > failed_transaction_indices;
 };
 
 class controller_impl final

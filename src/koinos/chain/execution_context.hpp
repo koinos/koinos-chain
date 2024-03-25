@@ -152,8 +152,8 @@ public:
 
   const execution_result& get_result();
 
-  void add_failed_transaction_index( int i );
-  const std::vector< int >& get_failed_transaction_indices() const;
+  void add_failed_transaction_index( uint32_t i );
+  const std::vector< uint32_t >& get_failed_transaction_indices() const;
 
 private:
   void build_compute_registry_cache();
@@ -180,7 +180,7 @@ private:
   execution_context_cache _cache;
   execution_result _result;
 
-  std::vector< int > _failed_transaction_indices;
+  std::vector< uint32_t > _failed_transaction_indices;
 };
 
 namespace detail {

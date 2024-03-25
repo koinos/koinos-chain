@@ -366,7 +366,7 @@ THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
     const auto serialized_block = util::converter::as< std::string >( block );
     context.get_state_node()->put_object( state::space::metadata(), state::key::head_block, &serialized_block );
 
-    for( int i = 0; i < block.transactions_size(); i++ )
+    for( uint32_t i = 0; i < block.transactions_size(); i++ )
     {
       const auto& tx = block.transactions( i );
 
