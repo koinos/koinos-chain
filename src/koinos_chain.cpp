@@ -420,10 +420,18 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
           auto j      = e.get_json();
           j[ "code" ] = e.get_code();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
           error->set_data( j.dump() );
+#pragma clang diagnostic pop
 
           chain::error_details details;
           details.set_code( e.get_code() );
+
+          if( const auto& logs = j[ "logs" ]; logs )
+            for( const auto& line: logs )
+              details.add_logs( logs );
+
           error->add_details()->PackFrom( details );
         }
         catch( std::exception& e )
@@ -433,7 +441,10 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
           nlohmann::json j;
           j[ "code" ] = chain::internal_error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
           error->set_data( j.dump() );
+#pragma clang diagnostic pop
 
           chain::error_details details;
           details.set_code( chain::internal_error );
@@ -448,7 +459,10 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
           nlohmann::json j;
           j[ "code" ] = chain::internal_error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
           error->set_data( j.dump() );
+#pragma clang diagnostic pop
 
           chain::error_details details;
           details.set_code( chain::internal_error );
@@ -464,7 +478,10 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
         nlohmann::json j;
         j[ "code" ] = chain::internal_error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         error->set_data( j.dump() );
+#pragma clang diagnostic pop
 
         chain::error_details details;
         details.set_code( chain::internal_error );
