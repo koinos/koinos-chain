@@ -442,7 +442,8 @@ BOOST_AUTO_TEST_CASE( propose_block )
 
     BOOST_TEST_MESSAGE( "Test with invalid transactions" );
 
-    block_req.mutable_block()->mutable_header()->set_timestamp( block_req.mutable_block()->mutable_header()->timestamp() + 1 );
+    block_req.mutable_block()->mutable_header()->set_timestamp( block_req.mutable_block()->mutable_header()->timestamp()
+                                                                + 1 );
     block_req.mutable_block()->mutable_header()->set_height( 2 );
     block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root(
       _controller.get_head_info().head_state_merkle_root() );
@@ -457,7 +458,8 @@ BOOST_AUTO_TEST_CASE( propose_block )
     invalid_transaction->mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
     invalid_transaction->mutable_header()->set_rc_limit( 10'000'000 );
     invalid_transaction->mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
-    invalid_transaction->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, invalid_transaction->header() ) ) );
+    invalid_transaction->set_id( util::converter::as< std::string >(
+      crypto::hash( crypto::multicodec::sha2_256, invalid_transaction->header() ) ) );
     set_transaction_merkle_roots( *invalid_transaction, crypto::multicodec::sha2_256 );
     sign_transaction( *invalid_transaction, key );
 
@@ -468,7 +470,8 @@ BOOST_AUTO_TEST_CASE( propose_block )
     valid_transaction->mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
     valid_transaction->mutable_header()->set_rc_limit( 10'000'000 );
     valid_transaction->mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
-    valid_transaction->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, valid_transaction->header() ) ) );
+    valid_transaction->set_id(
+      util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, valid_transaction->header() ) ) );
     set_transaction_merkle_roots( *valid_transaction, crypto::multicodec::sha2_256 );
     sign_transaction( *valid_transaction, key );
 
@@ -480,7 +483,8 @@ BOOST_AUTO_TEST_CASE( propose_block )
     invalid_transaction->mutable_header()->set_payer( key.get_public_key().to_address_bytes() );
     invalid_transaction->mutable_header()->set_rc_limit( 10 );
     invalid_transaction->mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
-    invalid_transaction->set_id( util::converter::as< std::string >( crypto::hash( crypto::multicodec::sha2_256, invalid_transaction->header() ) ) );
+    invalid_transaction->set_id( util::converter::as< std::string >(
+      crypto::hash( crypto::multicodec::sha2_256, invalid_transaction->header() ) ) );
     set_transaction_merkle_roots( *invalid_transaction, crypto::multicodec::sha2_256 );
     sign_transaction( *invalid_transaction, key );
 
