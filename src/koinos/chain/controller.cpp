@@ -621,7 +621,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
 
   rpc::chain::submit_transaction_response resp;
 
-  std::string payer;
+  std::string payer, payee, nonce;
   uint64_t max_payer_rc;
   uint64_t trx_rc_limit;
 
@@ -653,25 +653,37 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
     ctx.reset_cache();
 
     payer        = transaction.header().payer();
+    payee        = transaction.header().payee();
+    nonce        = transaction.header().nonce();
     max_payer_rc = system_call::get_account_rc( ctx, payer );
     trx_rc_limit = transaction.header().rc_limit();
 
     if( request.broadcast() && _client )
     {
-      rpc::mempool::mempool_request req;
-      auto* check_pending = req.mutable_check_pending_account_resources();
+      rpc::mempool::mempool_request req1, req2;
+      auto* check_pending = req1.mutable_check_pending_account_resources();
 
       check_pending->set_payer( payer );
       check_pending->set_max_payer_rc( max_payer_rc );
       check_pending->set_rc_limit( trx_rc_limit );
 
-      auto future = _client->rpc( util::service::mempool,
-                                  util::converter::as< std::string >( req ),
-                                  750ms,
-                                  mq::retry_policy::none );
+      auto* check_nonce = req2.mutable_check_account_nonce();
+
+      check_nonce->set_payee( payee.empty() ? payer : payee );
+      check_nonce->set_nonce( nonce );
+
+      auto future1 = _client->rpc( util::service::mempool,
+                                   util::converter::as< std::string >( req1 ),
+                                   750ms,
+                                   mq::retry_policy::none );
+
+      auto future2 = _client->rpc( util::service::mempool,
+                                   util::converter::as< std::string >( req2 ),
+                                   750ms,
+                                   mq::retry_policy::none );
 
       rpc::mempool::mempool_response resp;
-      resp.ParseFromString( future.get() );
+      resp.ParseFromString( future1.get() );
 
       KOINOS_ASSERT( !resp.has_error(),
                      rpc_failure_exception,
@@ -683,6 +695,17 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
       KOINOS_ASSERT( resp.check_pending_account_resources().success(),
                      insufficient_rc_exception,
                      "insufficient pending account resources" );
+
+      resp.ParseFromString( future2.get() );
+
+      KOINOS_ASSERT( !resp.has_error(),
+                     rpc_failure_exception,
+                     "received error from mempool: ${e}",
+                     ( "e", resp.error() ) );
+      KOINOS_ASSERT( resp.has_check_account_nonce(),
+                     rpc_failure_exception,
+                     "received unexpected response from mempool" );
+      KOINOS_ASSERT( resp.check_account_nonce().success(), invalid_nonce_exception, "invalid account nonce" );
     }
 
     ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
