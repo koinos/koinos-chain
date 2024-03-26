@@ -430,7 +430,7 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 
           if( const auto& logs = j[ "logs" ]; logs )
             for( const auto& line: logs )
-              details.add_logs( logs );
+              details.add_logs( line.get< std::string >() );
 
           error->add_details()->PackFrom( details );
         }
