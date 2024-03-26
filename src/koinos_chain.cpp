@@ -428,7 +428,7 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
           chain::error_details details;
           details.set_code( e.get_code() );
 
-          if( const auto& logs = j[ "logs" ]; logs )
+          if( const auto& logs = j[ "logs" ]; logs.is_array() )
             for( const auto& line: logs )
               details.add_logs( line.get< std::string >() );
 
