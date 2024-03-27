@@ -77,6 +77,19 @@ std::string format_time( int64_t time )
   return ss.str();
 }
 
+struct apply_block_options
+{
+  uint64_t index_to;
+  std::chrono::system_clock::time_point application_time;
+  bool propose_block;
+};
+
+struct apply_block_result
+{
+  std::optional< protocol::block_receipt > receipt;
+  std::vector< uint32_t > failed_transaction_indices;
+};
+
 class controller_impl final
 {
 public:
@@ -87,8 +100,7 @@ public:
   void close();
   void set_client( std::shared_ptr< mq::client > c );
 
-  rpc::chain::submit_block_response
-  submit_block( const rpc::chain::submit_block_request&, uint64_t index_to, std::chrono::system_clock::time_point now );
+  apply_block_result apply_block( const protocol::block& block, const apply_block_options& opts );
 
   rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
   rpc::chain::get_head_info_response get_head_info( const rpc::chain::get_head_info_request& );
@@ -271,13 +283,11 @@ void controller_impl::validate_transaction( const protocol::transaction& t )
                  ( "field", "signature_data" )( "transaction_id", util::to_hex( t.id() ) ) );
 }
 
-rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chain::submit_block_request& request,
-                                                                 uint64_t index_to,
-                                                                 std::chrono::system_clock::time_point now )
+apply_block_result controller_impl::apply_block( const protocol::block& block, const apply_block_options& opts )
 {
-  validate_block( request.block() );
+  validate_block( block );
 
-  rpc::chain::submit_block_response resp;
+  apply_block_result res;
 
   static constexpr uint64_t index_message_interval = 1'000;
   static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
@@ -285,12 +295,12 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
   auto time_lower_bound = uint64_t( 0 );
   auto time_upper_bound =
-    std::chrono::duration_cast< std::chrono::milliseconds >( ( now + time_delta ).time_since_epoch() ).count();
+    std::chrono::duration_cast< std::chrono::milliseconds >( ( opts.application_time + time_delta ).time_since_epoch() )
+      .count();
   uint64_t parent_height = 0;
 
   auto db_lock = _db.get_shared_lock();
 
-  const auto& block = request.block();
   auto block_id     = util::converter::to< crypto::multihash >( block.id() );
   auto block_height = block.header().height();
   auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
@@ -313,11 +323,11 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
     return {}; // Block is current LIB
   }
 
-  bool live =
-    block.header().timestamp()
-    > std::chrono::duration_cast< std::chrono::milliseconds >( ( now - live_delta ).time_since_epoch() ).count();
+  bool live = block.header().timestamp() > std::chrono::duration_cast< std::chrono::milliseconds >(
+                                             ( opts.application_time - live_delta ).time_since_epoch() )
+                                             .count();
 
-  if( !index_to && live )
+  if( !opts.index_to && live )
   {
     LOG( debug ) << "Pushing block - Height: " << block_height << ", ID: " << block_id;
   }
@@ -339,7 +349,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
     time_lower_bound = head_info.head_block_time();
   }
 
-  execution_context ctx( _vm_backend, intent::block_application );
+  execution_context ctx( _vm_backend, opts.propose_block ? intent::block_proposal : intent::block_application );
 
   try
   {
@@ -375,10 +385,22 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
 
     system_call::apply_block( ctx, block );
 
+    res.failed_transaction_indices = ctx.get_failed_transaction_indices();
+
+    if( opts.propose_block && res.failed_transaction_indices.size() )
+    {
+      // Icky, but the transaction failure code is in a catch block
+      // so use the current flow of control
+
+      KOINOS_THROW( failure_exception,
+                    "${n} transactions failed in the block",
+                    ( "n", res.failed_transaction_indices.size() ) );
+    }
+
     KOINOS_ASSERT( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ),
                    unexpected_receipt_exception,
                    "expected block receipt" );
-    *resp.mutable_receipt() = std::get< protocol::block_receipt >( ctx.receipt() );
+    res.receipt = std::get< protocol::block_receipt >( ctx.receipt() );
 
     if( _client )
     {
@@ -405,7 +427,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
                      ( "r", resp ) );
     }
 
-    if( !index_to && live )
+    if( !opts.index_to && live )
     {
       auto num_transactions = block.transactions_size();
 
@@ -414,16 +436,17 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
     }
     else if( block_height % index_message_interval == 0 )
     {
-      if( index_to )
+      if( opts.index_to )
       {
-        auto progress = block_height / static_cast< double >( index_to ) * 100;
+        auto progress = block_height / static_cast< double >( opts.index_to ) * 100;
         LOG( info ) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
       }
       else
       {
-        auto to_go = std::chrono::duration_cast< std::chrono::seconds >(
-                       now.time_since_epoch() - std::chrono::milliseconds( block.header().timestamp() ) )
-                       .count();
+        auto to_go =
+          std::chrono::duration_cast< std::chrono::seconds >(
+            opts.application_time.time_since_epoch() - std::chrono::milliseconds( block.header().timestamp() ) )
+            .count();
         LOG( info ) << "Sync progress - Height: " << block_height << ", ID: " << block_id << " ("
                     << format_time( to_go ) << " block time remaining)";
       }
@@ -444,7 +467,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
       auto unique_db_lock = _db.get_unique_lock();
       _db.finalize_node( block_id, unique_db_lock );
 
-      resp.mutable_receipt()->set_state_merkle_root(
+      res.receipt->set_state_merkle_root(
         util::converter::as< std::string >( _db.get_node( block_id, unique_db_lock )->merkle_root() ) );
 
       if( block_id == _db.get_head( unique_db_lock )->id() )
@@ -539,7 +562,25 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
                    << ", with reason: " << e.what();
     }
 
-    if( _client )
+    if( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
+      e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
+
+    if( opts.propose_block )
+    {
+      if( _client )
+      {
+        broadcast::transaction_failed trx_failed;
+
+        for( auto i: res.failed_transaction_indices )
+        {
+          trx_failed.set_id( block.transactions( i ).id() );
+          _client->broadcast( "koinos.transaction.fail", util::converter::as< std::string >( trx_failed ) );
+        }
+      }
+
+      return res;
+    }
+    else if( _client )
     {
       const auto& exception_data = e.get_json();
 
@@ -550,9 +591,6 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
         _client->broadcast( "koinos.transaction.fail", util::converter::as< std::string >( ptf ) );
       }
     }
-
-    if( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
-      e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
 
     throw;
   }
@@ -573,7 +611,7 @@ rpc::chain::submit_block_response controller_impl::submit_block( const rpc::chai
     throw;
   }
 
-  return resp;
+  return res;
 }
 
 rpc::chain::submit_transaction_response
@@ -1026,7 +1064,35 @@ rpc::chain::submit_block_response controller::submit_block( const rpc::chain::su
                                                             uint64_t index_to,
                                                             std::chrono::system_clock::time_point now )
 {
-  return _my->submit_block( request, index_to, now );
+  rpc::chain::submit_block_response resp;
+
+  auto res = _my->apply_block( request.block(), detail::apply_block_options{ index_to, now, false } );
+
+  if( res.receipt )
+    *resp.mutable_receipt() = res.receipt.value();
+
+  return resp;
+}
+
+rpc::chain::propose_block_response controller::propose_block( const rpc::chain::propose_block_request& request,
+                                                              uint64_t index_to,
+                                                              std::chrono::system_clock::time_point now )
+{
+  rpc::chain::propose_block_response resp;
+
+  auto res = _my->apply_block( request.block(), detail::apply_block_options{ index_to, now, true } );
+
+  if( res.receipt )
+    *resp.mutable_receipt() = res.receipt.value();
+  else
+  {
+    for( auto i: res.failed_transaction_indices )
+    {
+      resp.add_failed_transaction_indices( i );
+    }
+  }
+
+  return resp;
 }
 
 rpc::chain::submit_transaction_response

@@ -40,6 +40,10 @@ public:
   submit_block( const rpc::chain::submit_block_request&,
                 uint64_t index_to                         = 0,
                 std::chrono::system_clock::time_point now = std::chrono::system_clock::now() );
+  rpc::chain::propose_block_response
+  propose_block( const rpc::chain::propose_block_request&,
+                 uint64_t index_to                         = 0,
+                 std::chrono::system_clock::time_point now = std::chrono::system_clock::now() );
   rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
   rpc::chain::get_head_info_response get_head_info( const rpc::chain::get_head_info_request& = {} );
   rpc::chain::get_chain_id_response get_chain_id( const rpc::chain::get_chain_id_request& = {} );
