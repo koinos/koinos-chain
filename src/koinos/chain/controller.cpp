@@ -1066,8 +1066,10 @@ rpc::chain::submit_block_response controller::submit_block( const rpc::chain::su
 {
   rpc::chain::submit_block_response resp;
 
-  auto res                = _my->apply_block( request.block(), detail::apply_block_options{ index_to, now, false } );
-  *resp.mutable_receipt() = res.receipt.value();
+  auto res = _my->apply_block( request.block(), detail::apply_block_options{ index_to, now, false } );
+
+  if( res.receipt )
+    *resp.mutable_receipt() = res.receipt.value();
 
   return resp;
 }
