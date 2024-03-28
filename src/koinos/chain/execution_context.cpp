@@ -439,4 +439,14 @@ const execution_result& execution_context::get_result()
   return _result;
 }
 
+void execution_context::add_failed_transaction_index( uint32_t i )
+{
+  _failed_transaction_indices.push_back( i );
+}
+
+const std::vector< uint32_t >& execution_context::get_failed_transaction_indices() const
+{
+  return _failed_transaction_indices;
+}
+
 } // namespace koinos::chain

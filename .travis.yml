@@ -119,12 +119,26 @@ jobs:
       env:
         - TAG=`if [ $TRAVIS_BRANCH == "master" ]; then echo -n latest; else echo -n $TRAVIS_BRANCH; fi`
         - CHAIN_TAG=$TAG
+      before_install:
+        - sudo systemctl stop docker.service && sudo systemctl stop docker.socket
+        - sudo apt-get install ca-certificates curl
+        - sudo install -m 0755 -d /etc/apt/keyrings
+        - sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        - sudo chmod a+r /etc/apt/keyrings/docker.asc
+        - |
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        - sudo apt-get update
       install:
+        - sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         - git clone https://github.com/koinos/koinos-integration-tests.git
         - pushd koinos-integration-tests
         - go get ./...
         - popd
       before_script:
+        - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
         - cp -R ~/.ccache ./ccache
         - docker build . -t build --target builder
         - docker build . -t $TRAVIS_REPO_SLUG:$TAG
@@ -136,7 +150,6 @@ jobs:
       after_success:
         - |
           if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
             docker push $TRAVIS_REPO_SLUG:$TAG
           fi
 
