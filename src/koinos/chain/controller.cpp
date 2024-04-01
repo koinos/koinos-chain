@@ -565,7 +565,7 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
     if( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
       e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
 
-    if( opts.propose_block )
+    if( opts.propose_block && res.failed_transaction_indices.size() )
     {
       if( _client )
       {

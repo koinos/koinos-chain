@@ -498,6 +498,10 @@ BOOST_AUTO_TEST_CASE( propose_block )
     BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices_size(), 2 );
     BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices( 0 ), 0 );
     BOOST_REQUIRE_EQUAL( block_resp.failed_transaction_indices( 1 ), 2 );
+
+    // Sign the block with the wrong key to trigger a failure in system_call::apply_block
+    sign_block( *block_req.mutable_block(), key );
+    BOOST_REQUIRE_THROW( _controller.propose_block( block_req ), koinos::exception );
   }
   KOINOS_CATCH_LOG_AND_RETHROW( info )
 }
