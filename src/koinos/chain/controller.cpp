@@ -293,8 +293,6 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
   static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
   static constexpr std::chrono::seconds live_delta = std::chrono::seconds( 60 );
 
-  bool has_failed_transactions = false;
-
   auto time_lower_bound = uint64_t( 0 );
   auto time_upper_bound =
     std::chrono::duration_cast< std::chrono::milliseconds >( ( opts.application_time + time_delta ).time_since_epoch() )
@@ -393,8 +391,6 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
     {
       // Icky, but the transaction failure code is in a catch block
       // so use the current flow of control
-
-      has_failed_transactions = true;
 
       KOINOS_THROW( failure_exception,
                     "${n} transactions failed in the block",
@@ -569,7 +565,7 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
     if( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
       e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
 
-    if( has_failed_transactions )
+    if( opts.propose_block && res.failed_transaction_indices.size() )
     {
       if( _client )
       {
