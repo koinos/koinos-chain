@@ -540,6 +540,8 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
                        util::to_hex( system_call::get_account_nonce( context, nonce_account ) ) ) );
 
       system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
+
+      context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
     }
     catch( const reversion_exception& e )
     {
@@ -567,8 +569,6 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
     try
     {
       system_call::pre_transaction_callback( context );
-
-      context.resource_meter().use_network_bandwidth( trx.ByteSizeLong() );
 
       for( const auto& o: trx.operations() )
       {
