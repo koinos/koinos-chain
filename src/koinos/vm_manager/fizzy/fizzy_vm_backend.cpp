@@ -155,7 +155,7 @@ void fizzy_runner::instantiate_module()
                                               FizzyValueTypeI32 };
   size_t invoke_thunk_num_args            = 6;
   FizzyExternalFunction invoke_thunk_fn   = {
-    {FizzyValueTypeI32, invoke_thunk_arg_types, invoke_thunk_num_args},
+    { FizzyValueTypeI32, invoke_thunk_arg_types, invoke_thunk_num_args },
     invoke_thunk,
     this
   };
@@ -177,7 +177,7 @@ void fizzy_runner::instantiate_module()
                                                     FizzyValueTypeI32 };
   size_t invoke_system_call_num_args            = 6;
   FizzyExternalFunction invoke_system_call_fn   = {
-    {FizzyValueTypeI32, invoke_system_call_arg_types, invoke_system_call_num_args},
+    { FizzyValueTypeI32, invoke_system_call_arg_types, invoke_system_call_num_args },
     invoke_system_call,
     this
   };

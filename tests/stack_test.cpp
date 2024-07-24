@@ -224,7 +224,12 @@ struct stack_fixture
     sign_transaction( trx, _stack_assertion_private_key );
     ctx.set_transaction( trx );
 
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
   }
 
   ~stack_fixture()
@@ -309,7 +314,12 @@ BOOST_AUTO_TEST_CASE( simple_user_contract )
     upload_op.set_bytecode( get_user_from_user_wasm() );
     sign_transaction( trx, user_key );
     ctx.set_transaction( trx );
-    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    }
 
     trx.mutable_header()->set_rc_limit( 1'000'000 );
     trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
@@ -361,7 +371,12 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
     upload_op.set_bytecode( get_system_from_user_wasm() );
     sign_transaction( trx, override_key );
     ctx.set_transaction( trx );
-    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    }
 
     protocol::set_system_contract_operation set_system_op;
     set_system_op.set_contract_id( upload_op.contract_id() );
@@ -381,7 +396,12 @@ BOOST_AUTO_TEST_CASE( syscall_from_user )
     upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
     upload_op.set_bytecode( get_call_system_call_wasm() );
     sign_transaction( trx, user_key );
-    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    }
 
     // We need to rebuild the cache after a system call override
     ctx.reset_cache();
@@ -452,14 +472,25 @@ BOOST_AUTO_TEST_CASE( user_from_user )
   upload_op.set_bytecode( get_user_from_user_wasm() );
   sign_transaction( trx, user_key );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   auto calling_key = crypto::private_key::regenerate( crypto::hash( crypto::multicodec::sha2_256, "calling_key"s ) );
   upload_op.set_contract_id( util::converter::as< std::string >( calling_key.get_public_key().to_address_bytes() ) );
   upload_op.set_bytecode( get_call_contract_wasm() );
   sign_transaction( trx, calling_key );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   trx.mutable_header()->set_rc_limit( 1'000'000 );
   trx.mutable_header()->set_chain_id( chain::system_call::get_chain_id( ctx ) );
@@ -537,7 +568,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
   upload_op.set_bytecode( get_system_from_system_wasm() );
   sign_transaction( trx, override_key );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   protocol::set_system_contract_operation set_system_op;
   set_system_op.set_contract_id( upload_op.contract_id() );
@@ -563,7 +599,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_thunk )
   upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
   upload_op.set_bytecode( get_call_system_call_wasm() );
   sign_transaction( trx, user_key );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   // Call user contract
   // We need to update the state node after a system call override
@@ -615,7 +656,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
   upload_op.set_bytecode( get_system_from_system_wasm() );
   sign_transaction( trx, override_key );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   protocol::set_system_contract_operation set_system_op;
   set_system_op.set_contract_id( upload_op.contract_id() );
@@ -638,7 +684,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
   upload_op.set_bytecode( get_call_system_call2_wasm() );
   sign_transaction( trx, override_key2 );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   set_system_op.set_contract_id( upload_op.contract_id() );
   set_system_op.set_system_contract( true );
@@ -657,7 +708,13 @@ BOOST_AUTO_TEST_CASE( syscall_override_from_syscall_override )
   upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
   upload_op.set_bytecode( get_call_system_call_wasm() );
   sign_transaction( trx, user_key );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   // Call user contract
   // We need to rebuild the cache after a system call override
@@ -709,7 +766,13 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
   upload_op.set_bytecode( get_call_contract_wasm() );
   sign_transaction( trx, override_key );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   protocol::set_system_contract_operation set_system_op;
   set_system_op.set_contract_id( upload_op.contract_id() );
@@ -733,7 +796,13 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
   upload_op.set_bytecode( get_system_from_system_wasm() );
   sign_transaction( trx, system_contract );
   ctx.set_transaction( trx );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   set_system_op.set_contract_id( upload_op.contract_id() );
   set_system_op.set_system_contract( true );
@@ -747,7 +816,13 @@ BOOST_AUTO_TEST_CASE( system_contract_from_syscall_override )
   upload_op.set_contract_id( util::converter::as< std::string >( user_key.get_public_key().to_address_bytes() ) );
   upload_op.set_bytecode( get_call_system_call_wasm() );
   sign_transaction( trx, user_key );
-  chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   // Call user contract
   // We need to rebuild the cache after a system call override

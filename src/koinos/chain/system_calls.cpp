@@ -70,60 +70,6 @@ void register_thunks( thunk_dispatcher& td )
                   ( nop ) )
 }
 
-// RAII class to ensure apply context block state is consistent if there is an error applying
-// the block.
-struct block_guard
-{
-  block_guard( execution_context& context, const protocol::block& block ):
-      ctx( context )
-  {
-    ctx.set_block( block );
-  }
-
-  ~block_guard()
-  {
-    ctx.clear_block();
-  }
-
-  execution_context& ctx;
-};
-
-// RAII class to ensure apply context transaction state is consistent if there is an error applying
-// the transaction.
-struct transaction_guard
-{
-  transaction_guard( execution_context& context, const protocol::transaction& trx ):
-      ctx( context )
-  {
-    ctx.set_transaction( trx );
-  }
-
-  ~transaction_guard()
-  {
-    ctx.clear_transaction();
-  }
-
-  execution_context& ctx;
-};
-
-// RAII class to ensure apply context operation state is consistent if there is an error applying
-// the operation.
-struct operation_guard
-{
-  operation_guard( execution_context& context, const protocol::operation& op ):
-      ctx( context )
-  {
-    ctx.set_operation( op );
-  }
-
-  ~operation_guard()
-  {
-    ctx.clear_operation();
-  }
-
-  execution_context& ctx;
-};
-
 void validate_hash_code( crypto::multicodec id )
 {
   switch( id )
@@ -1485,11 +1431,25 @@ THUNK_DEFINE_VOID( get_caller_result, get_caller )
 
 THUNK_DEFINE( check_authority_result,
               check_authority,
-              ( (authorization_type)type, (const std::string&)account, (const std::string&)data ) )
+              ( (authorization_type)x, (const std::string&)account, (const std::string&)data ) )
 {
   KOINOS_ASSERT( !context.read_only(),
                  read_only_context_exception,
                  "unable to perform action while context is read only" );
+
+  authorization_type auth_type = contract_call;
+  if( auto caller = context.get_caller(); caller == constants::system )
+  {
+    if( auto op = context.get_operation(); op && op->has_upload_contract() )
+    {
+      auth_type = contract_upload;
+    }
+    else
+    {
+      auth_type = transaction_application;
+    }
+  }
+  assert( x == auth_type );
 
   check_authority_result res;
 
@@ -1501,7 +1461,7 @@ THUNK_DEFINE( check_authority_result,
     auto account_contract_meta =
       util::converter::to< contract_metadata_object >( account_contract_meta_object.value() );
 
-    switch( type )
+    switch( auth_type )
     {
       case contract_call:
         authorize_override = account_contract_meta.authorizes_call_contract();
@@ -1521,9 +1481,9 @@ THUNK_DEFINE( check_authority_result,
   if( authorize_override )
   {
     authorize_arguments args;
-    args.set_type( type );
+    args.set_type( auth_type );
 
-    if( type == contract_call )
+    if( auth_type == contract_call )
     {
       args.mutable_call()->set_contract_id( context.get_caller() );
       args.mutable_call()->set_entry_point( context.get_caller_entry_point() );
