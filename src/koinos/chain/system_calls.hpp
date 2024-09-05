@@ -20,6 +20,60 @@ namespace koinos::chain {
 class execution_context;
 class thunk_dispatcher;
 
+// RAII class to ensure apply context block state is consistent if there is an error applying
+// the block.
+struct block_guard
+{
+  block_guard( execution_context& context, const protocol::block& block ):
+      ctx( context )
+  {
+    ctx.set_block( block );
+  }
+
+  ~block_guard()
+  {
+    ctx.clear_block();
+  }
+
+  execution_context& ctx;
+};
+
+// RAII class to ensure apply context transaction state is consistent if there is an error applying
+// the transaction.
+struct transaction_guard
+{
+  transaction_guard( execution_context& context, const protocol::transaction& trx ):
+      ctx( context )
+  {
+    ctx.set_transaction( trx );
+  }
+
+  ~transaction_guard()
+  {
+    ctx.clear_transaction();
+  }
+
+  execution_context& ctx;
+};
+
+// RAII class to ensure apply context operation state is consistent if there is an error applying
+// the operation.
+struct operation_guard
+{
+  operation_guard( execution_context& context, const protocol::operation& op ):
+      ctx( context )
+  {
+    ctx.set_operation( op );
+  }
+
+  ~operation_guard()
+  {
+    ctx.clear_operation();
+  }
+
+  execution_context& ctx;
+};
+
 void register_thunks( thunk_dispatcher& td );
 
 /*

@@ -715,7 +715,12 @@ BOOST_AUTO_TEST_CASE( contract_tests )
     op.set_contract_id( util::converter::as< std::string >( contract_address ) );
     op.set_bytecode( get_hello_wasm() );
 
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
     auto bytecode_object =
       koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
@@ -741,7 +746,12 @@ BOOST_AUTO_TEST_CASE( contract_tests )
 
     // Upload the return test contract
     op.set_bytecode( get_contract_return_wasm() );
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
     auto contract_ret = koinos::chain::system_call::call( ctx, op.contract_id(), 0, "echo" );
 
@@ -771,7 +781,12 @@ BOOST_AUTO_TEST_CASE( override_tests )
     contract_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
     contract_op.set_bytecode( get_hello_wasm() );
 
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = contract_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op );
+    }
 
     koinos::protocol::call_contract_operation call_op;
     call_op.set_contract_id( contract_op.contract_id() );
@@ -793,7 +808,12 @@ BOOST_AUTO_TEST_CASE( override_tests )
     sign_transaction( tx, random_private_key2 );
     ctx.set_transaction( tx );
 
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op2 );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = contract_op2;
+      koinos::chain::operation_guard guard( ctx, op );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, contract_op2 );
+    }
 
     // Set the system call
     koinos::protocol::set_system_call_operation set_op;
@@ -1285,7 +1305,12 @@ BOOST_AUTO_TEST_CASE( token_tests )
     op.set_contract_id( util::converter::as< std::string >( contract_address ) );
     op.set_bytecode( get_koin_wasm() );
 
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
     koinos::protocol::set_system_contract_operation sys_op;
     sys_op.set_contract_id( op.contract_id() );
@@ -1494,7 +1519,12 @@ BOOST_AUTO_TEST_CASE( call_contract_operation_failure )
     op.set_contract_id( util::converter::as< std::string >( contract_address ) );
     op.set_bytecode( get_koin_wasm() );
 
-    chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
     koinos::protocol::set_system_contract_operation sys_op;
     sys_op.set_contract_id( op.contract_id() );
@@ -1552,7 +1582,12 @@ BOOST_AUTO_TEST_CASE( tick_limit )
       util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
     op.set_bytecode( get_forever_wasm() );
 
-    chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
     auto bytecode_object =
       koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
@@ -1819,7 +1854,12 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
   upload_op.set_contract_id( util::converter::as< std::string >( contract_address ) );
   upload_op.set_bytecode( get_koin_wasm() );
 
-  koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   koinos::protocol::set_system_contract_operation sys_op;
   sys_op.set_contract_id( upload_op.contract_id() );
@@ -1854,7 +1894,12 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
   sign_transaction( trx, key_a );
   ctx.set_transaction( trx );
 
-  koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   BOOST_TEST_MESSAGE( "Transfer from 'a' to 'b'" );
   koinos::contracts::token::transfer_arguments transfer_args;
@@ -1888,7 +1933,12 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
 
   sign_transaction( trx, key_a );
 
-  koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
 
   koinos::chain::system_call::call( ctx,
                                     util::converter::as< std::string >( contract_address ),
@@ -1898,11 +1948,21 @@ BOOST_AUTO_TEST_CASE( authorize_tests )
   upload_op.set_authorizes_upload_contract( false );
   upload_op.set_authorizes_transaction_application( true );
 
-  KOINOS_REQUIRE_THROW( koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op ),
-                        chain::authorization_failure );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    KOINOS_REQUIRE_THROW( koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op ),
+                          chain::authorization_failure );
+  }
 
   sign_transaction( trx, key_b );
-  koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  {
+    koinos::protocol::operation op;
+    *op.mutable_upload_contract() = upload_op;
+    koinos::chain::operation_guard guard( ctx, op );
+    koinos::chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+  }
   BOOST_TEST_PASSPOINT();
 
   BOOST_TEST_MESSAGE( "Override authorize use rc" );
@@ -2095,7 +2155,12 @@ BOOST_AUTO_TEST_CASE( system_rc )
 
     ctx.set_transaction( trx );
 
-    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    }
 
     protocol::set_system_contract_operation set_system_op;
     set_system_op.set_contract_id( koin_id );
@@ -2191,8 +2256,18 @@ BOOST_AUTO_TEST_CASE( contract_exit )
     trx.add_signatures( util::converter::as< std::string >( call_pk.sign_compact( trx_id ) ) );
     ctx.set_transaction( trx );
 
-    chain::system_call::apply_upload_contract_operation( ctx, upload_exit_op );
-    chain::system_call::apply_upload_contract_operation( ctx, upload_call_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_exit_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_exit_op );
+    }
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_call_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_call_op );
+    }
 
     BOOST_TEST_MESSAGE( "Testing failure returned to a user contract" );
 
@@ -2322,7 +2397,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_return )
 
     ctx.set_transaction( trx );
 
-    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    }
 
     chain::system_call::call( ctx, echo_contract_id, 0, "hello world" );
 
@@ -2333,7 +2413,12 @@ BOOST_AUTO_TEST_CASE( syscall_override_return )
     upload_op.set_contract_id( override_contract_id );
 
     sign_transaction( trx, override_pk );
-    chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = upload_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, upload_op );
+    }
 
     protocol::set_system_contract_operation set_system_op;
     set_system_op.set_contract_id( override_contract_id );
@@ -2395,9 +2480,19 @@ BOOST_AUTO_TEST_CASE( thunk_time )
     b.set_signature( util::converter::as< std::string >( contract_pk.sign_compact( id_mh ) ) );
     ctx.set_block( b );
 
-    chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
-    chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = empty_contract_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op );
+    }
 
     protocol::set_system_contract_operation ssconp;
     ssconp.set_contract_id( empty_contract_pk.get_public_key().to_address_bytes() );
@@ -2600,6 +2695,7 @@ BOOST_AUTO_TEST_CASE( thunk_time )
     transaction.mutable_header()->set_payee( _signing_private_key.get_public_key().to_address_bytes() );
     transaction.mutable_header()->set_rc_limit( 1'000'000 );
     transaction.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+
     auto operation_merkle_tree =
       crypto::merkle_tree( crypto::multicodec::sha2_256, std::vector< protocol::operation >{} );
     transaction.mutable_header()->set_operation_merkle_root(
@@ -2915,11 +3011,16 @@ BOOST_AUTO_TEST_CASE( thunk_time )
     transaction.add_signatures( util::converter::as< std::string >( empty_contract_pk.sign_compact( trx_id ) ) );
     ctx.set_transaction( transaction );
 
-    timer( "apply_upload_contract_operation",
-           [ & ]()
-           {
-             chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op );
-           } );
+    {
+      koinos::protocol::operation op;
+      *op.mutable_upload_contract() = empty_contract_op;
+      koinos::chain::operation_guard guard( ctx, op );
+      timer( "apply_upload_contract_operation",
+             [ & ]()
+             {
+               chain::system_call::apply_upload_contract_operation( ctx, empty_contract_op );
+             } );
+    }
 
     ctx.resource_meter().set_resource_limit_data( chain::system_call::get_resource_limits( ctx ) );
 
@@ -3267,7 +3368,12 @@ BOOST_AUTO_TEST_CASE( null_bytes_written_test )
     op.set_contract_id( util::converter::as< std::string >( contract_address ) );
     op.set_bytecode( get_null_bytes_written_wasm() );
 
-    koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    {
+      koinos::protocol::operation wop;
+      *wop.mutable_upload_contract() = op;
+      koinos::chain::operation_guard guard( ctx, wop );
+      koinos::chain::system_call::apply_upload_contract_operation( ctx, op );
+    }
 
     auto bytecode_object =
       koinos::chain::system_call::get_object( ctx, koinos::chain::state::space::contract_bytecode(), op.contract_id() );
@@ -3286,6 +3392,7 @@ BOOST_AUTO_TEST_CASE( null_bytes_written_test )
 
     koinos::protocol::call_contract_operation op2;
     op2.set_contract_id( op.contract_id() );
+
     BOOST_CHECK_THROW( koinos::chain::system_call::apply_call_contract_operation( ctx, op2 ),
                        koinos::vm_manager::fizzy::wasm_memory_exception );
   }
