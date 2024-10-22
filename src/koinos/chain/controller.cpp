@@ -721,9 +721,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
                      rpc_failure_exception,
                      "received error from mempool: ${e}",
                      ( "e", resp.error() ) );
-      KOINOS_ASSERT( resp.has_get_pending_nonce(),
-                     rpc_failure_exception,
-                     "received unexpected response from mempool" );
+      KOINOS_ASSERT( resp.has_get_pending_nonce(), rpc_failure_exception, "received unexpected response from mempool" );
       auto mempool_nonce = util::converter::to< chain::value_type >( resp.get_pending_nonce().nonce() );
 
       if( mempool_nonce.has_uint64_value() )
