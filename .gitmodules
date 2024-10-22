@@ -1,0 +1,3 @@
+[submodule "external/proto"]
+	path = external/proto
+	url = https://github.com/koinos/koinos-proto-cpp.git

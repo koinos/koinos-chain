@@ -930,7 +930,12 @@ THUNK_DEFINE( verify_account_nonce_result,
                  ( "n", util::to_hex( current_nonce_value ) )( "a", util::to_base58( account ) ) );
 
   verify_account_nonce_result res;
-  res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
+
+  if( !context.get_block() && context.get_mempool_nonce() )
+    res.set_value( nonce_value.uint64_value() == context.get_mempool_nonce()->uint64_value() + 1 );
+  else
+    res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
+
   return res;
 }
 
