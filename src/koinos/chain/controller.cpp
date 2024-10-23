@@ -624,6 +624,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
   std::string payer, payee, nonce;
   uint64_t max_payer_rc;
   uint64_t trx_rc_limit;
+  chain::value_type mempool_nonce;
 
   auto transaction    = request.transaction();
   auto transaction_id = util::to_hex( transaction.id() );
@@ -722,7 +723,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
                      "received error from mempool: ${e}",
                      ( "e", resp.error() ) );
       KOINOS_ASSERT( resp.has_get_pending_nonce(), rpc_failure_exception, "received unexpected response from mempool" );
-      auto mempool_nonce = util::converter::to< chain::value_type >( resp.get_pending_nonce().nonce() );
+      mempool_nonce = util::converter::to< chain::value_type >( resp.get_pending_nonce().nonce() );
 
       if( mempool_nonce.has_uint64_value() )
         ctx.set_mempool_nonce( mempool_nonce );

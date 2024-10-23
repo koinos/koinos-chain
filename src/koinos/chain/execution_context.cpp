@@ -93,17 +93,17 @@ void execution_context::clear_operation()
 
 void execution_context::set_mempool_nonce( const chain::value_type& mempool_nonce )
 {
-  _mempool_nonce = std::make_unique< chain::value_type >( mempool_nonce );
+  _mempool_nonce = &mempool_nonce;
 }
 
 const chain::value_type* execution_context::get_mempool_nonce() const
 {
-  return &( *_mempool_nonce );
+  return _mempool_nonce;
 }
 
 void execution_context::clear_mempool_nonce()
 {
-  _mempool_nonce.reset();
+  _mempool_nonce = nullptr;
 }
 
 const std::string& execution_context::get_contract_call_args() const

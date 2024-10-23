@@ -172,11 +172,10 @@ private:
   abstract_state_node_ptr _current_state_node;
   abstract_state_node_ptr _parent_state_node;
 
-  const protocol::block* _block     = nullptr;
-  const protocol::transaction* _trx = nullptr;
-  const protocol::operation* _op    = nullptr;
-
-  std::unique_ptr< chain::value_type > _mempool_nonce;
+  const protocol::block* _block           = nullptr;
+  const protocol::transaction* _trx       = nullptr;
+  const protocol::operation* _op          = nullptr;
+  const chain::value_type* _mempool_nonce = nullptr;
 
   chain::resource_meter _resource_meter;
   chain::chronicler _chronicler;
