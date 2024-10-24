@@ -91,6 +91,21 @@ void execution_context::clear_operation()
   _op = nullptr;
 }
 
+void execution_context::set_mempool_nonce( const chain::value_type& mempool_nonce )
+{
+  _mempool_nonce = &mempool_nonce;
+}
+
+const chain::value_type* execution_context::get_mempool_nonce() const
+{
+  return _mempool_nonce;
+}
+
+void execution_context::clear_mempool_nonce()
+{
+  _mempool_nonce = nullptr;
+}
+
 const std::string& execution_context::get_contract_call_args() const
 {
   KOINOS_ASSERT( _stack.size() > 1, chain::internal_error_exception, "stack is empty" );
