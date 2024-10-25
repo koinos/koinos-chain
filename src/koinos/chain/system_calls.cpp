@@ -483,7 +483,9 @@ THUNK_DEFINE( void, apply_transaction, ( (const protocol::transaction&)trx ) )
                      "invalid transaction nonce - account: ${a}, nonce: ${n}, current nonce: ${c}",
                      ( "a", util::to_base58( nonce_account ) )( "n", util::to_hex( trx.header().nonce() ) )(
                        "c",
-                       util::to_hex( system_call::get_account_nonce( context, nonce_account ) ) ) );
+                       context.get_mempool_nonce()
+                         ? util::to_hex( *context.get_mempool_nonce() )
+                         : util::to_hex( system_call::get_account_nonce( context, nonce_account ) ) ) );
 
       system_call::set_account_nonce( context, nonce_account, trx.header().nonce() );
 
@@ -930,7 +932,12 @@ THUNK_DEFINE( verify_account_nonce_result,
                  ( "n", util::to_hex( current_nonce_value ) )( "a", util::to_base58( account ) ) );
 
   verify_account_nonce_result res;
-  res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
+
+  if( context.get_mempool_nonce() )
+    res.set_value( nonce_value.uint64_value() == context.get_mempool_nonce()->uint64_value() + 1 );
+  else
+    res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
+
   return res;
 }
 

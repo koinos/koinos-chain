@@ -624,6 +624,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
   std::string payer, payee, nonce;
   uint64_t max_payer_rc;
   uint64_t trx_rc_limit;
+  chain::value_type mempool_nonce;
 
   auto transaction    = request.transaction();
   auto transaction_id = util::to_hex( transaction.id() );
@@ -660,7 +661,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
 
     if( request.broadcast() && _client )
     {
-      rpc::mempool::mempool_request req1, req2;
+      rpc::mempool::mempool_request req1, req2, req3;
       auto* check_pending = req1.mutable_check_pending_account_resources();
 
       check_pending->set_payer( payer );
@@ -672,6 +673,10 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
       check_nonce->set_payee( payee.empty() ? payer : payee );
       check_nonce->set_nonce( nonce );
 
+      auto* pending_nonce = req3.mutable_get_pending_nonce();
+
+      pending_nonce->set_payee( payee.empty() ? payer : payee );
+
       auto future1 = _client->rpc( util::service::mempool,
                                    util::converter::as< std::string >( req1 ),
                                    750ms,
@@ -679,6 +684,11 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
 
       auto future2 = _client->rpc( util::service::mempool,
                                    util::converter::as< std::string >( req2 ),
+                                   750ms,
+                                   mq::retry_policy::none );
+
+      auto future3 = _client->rpc( util::service::mempool,
+                                   util::converter::as< std::string >( req3 ),
                                    750ms,
                                    mq::retry_policy::none );
 
@@ -706,6 +716,17 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
                      rpc_failure_exception,
                      "received unexpected response from mempool" );
       KOINOS_ASSERT( resp.check_account_nonce().success(), invalid_nonce_exception, "invalid account nonce" );
+
+      resp.ParseFromString( future3.get() );
+      KOINOS_ASSERT( !resp.has_error(),
+                     rpc_failure_exception,
+                     "received error from mempool: ${e}",
+                     ( "e", resp.error() ) );
+      KOINOS_ASSERT( resp.has_get_pending_nonce(), rpc_failure_exception, "received unexpected response from mempool" );
+      mempool_nonce = util::converter::to< chain::value_type >( resp.get_pending_nonce().nonce() );
+
+      if( mempool_nonce.has_uint64_value() )
+        ctx.set_mempool_nonce( mempool_nonce );
     }
 
     ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );

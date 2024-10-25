@@ -12,6 +12,7 @@
 
 #include <koinos/chain/chain.pb.h>
 #include <koinos/chain/system_call_ids.pb.h>
+#include <koinos/chain/value.pb.h>
 #include <koinos/protocol/protocol.pb.h>
 
 #include <deque>
@@ -107,6 +108,10 @@ public:
   const protocol::operation* get_operation() const;
   void clear_operation();
 
+  void set_mempool_nonce( const chain::value_type& );
+  const chain::value_type* get_mempool_nonce() const;
+  void clear_mempool_nonce();
+
   void set_contract_call_args( const std::string& args );
   const std::string& get_contract_call_args() const;
 
@@ -167,9 +172,10 @@ private:
   abstract_state_node_ptr _current_state_node;
   abstract_state_node_ptr _parent_state_node;
 
-  const protocol::block* _block     = nullptr;
-  const protocol::transaction* _trx = nullptr;
-  const protocol::operation* _op    = nullptr;
+  const protocol::block* _block           = nullptr;
+  const protocol::transaction* _trx       = nullptr;
+  const protocol::operation* _op          = nullptr;
+  const chain::value_type* _mempool_nonce = nullptr;
 
   chain::resource_meter _resource_meter;
   chain::chronicler _chronicler;

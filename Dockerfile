@@ -1,4 +1,4 @@
-FROM alpine:3.18 as builder
+FROM alpine:3.18 AS builder
 
 RUN apk update && \
     apk add  \
@@ -15,10 +15,10 @@ RUN apk update && \
 ADD . /build
 WORKDIR /build
 
-ENV CC=gcc
-ENV CXX=g++
-ENV CMAKE_C_COMPILER_LAUNCHER=ccache
-ENV CMAKE_CXX_COMPILER_LAUNCHER=ccache
+ENV CC gcc
+ENV CXX g++
+ENV CMAKE_C_COMPILER_LAUNCHER ccache
+ENV CMAKE_CXX_COMPILER_LAUNCHER ccache
 ENV CCACHE_DIR /build/.ccache
 
 RUN git submodule update --init --recursive && \
