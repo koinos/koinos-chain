@@ -934,9 +934,7 @@ THUNK_DEFINE( verify_account_nonce_result,
   verify_account_nonce_result res;
 
   if( context.get_mempool_nonce() )
-  {
     res.set_value( nonce_value.uint64_value() == context.get_mempool_nonce()->uint64_value() + 1 );
-  }
   else
     res.set_value( nonce_value.uint64_value() == current_nonce_value.uint64_value() + 1 );
 
