@@ -322,6 +322,10 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
     KOINOS_ASSERT( block_id == root->id(), unknown_previous_block_exception, "unknown previous block" );
     return {}; // Block is current LIB
   }
+  else
+  {
+    KOINOS_ASSERT( parent_node->is_finalized(), unknown_previous_block_exception, "unknown previous block" );
+  }
 
   bool live = block.header().timestamp() > std::chrono::duration_cast< std::chrono::milliseconds >(
                                              ( opts.application_time - live_delta ).time_since_epoch() )
