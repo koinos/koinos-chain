@@ -269,6 +269,10 @@ void controller_impl::validate_transaction( const protocol::transaction& t )
                  missing_required_arguments_exception,
                  "missing expected field in transaction: ${field}",
                  ( "field", "header" )( "transaction_id", util::to_hex( t.id() ) ) );
+  KOINOS_ASSERT( t.header().payer().size(),
+                 missing_required_arguments_exception,
+                 "missing expected field in transaction: ${field}",
+                 ( "field", "payer" )( "transaction_id", util::to_hex( t.id() ) ) );
   KOINOS_ASSERT( t.header().rc_limit(),
                  missing_required_arguments_exception,
                  "missing expected field in transaction header: ${field}",
