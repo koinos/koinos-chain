@@ -28,7 +28,7 @@ enum class fork_resolution_algorithm
 class controller final
 {
 public:
-  controller( uint64_t read_compute_bandwith_limit = 0, uint32_t syscall_bufsize = 0 );
+  controller( uint64_t read_compute_bandwith_limit = 0, uint32_t syscall_bufsize = 0, std::optional< uint64_t > pending_transaction_limit = {} );
   ~controller();
 
   void

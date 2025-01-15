@@ -33,6 +33,9 @@ KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( malformed_transaction_exception, fai
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( block_resource_failure_exception,
                                             failure_exception,
                                             block_resource_failure );
+KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( pending_transaction_limit_exceeded_exception,
+                                            failure_exception,
+                                            pending_transaction_limit_exceeded );
 
 // Framework failures
 KOINOS_DECLARE_DERIVED_EXCEPTION_WITH_CODE( unknown_backend_exception, failure_exception, unknown_backend );
