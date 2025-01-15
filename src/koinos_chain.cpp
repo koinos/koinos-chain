@@ -171,7 +171,7 @@ int main( int argc, char** argv )
     fork_algorithm_option             = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
     syscall_bufsize                   = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION, SYSTEM_CALL_BUFFER_SIZE_DEFAULT, args, chain_config, global_config );
     disable_pending_transaction_limit = util::get_option< bool >( DISABLE_PENDING_TRANSACTION_LIMIT_OPTION, DISABLE_PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
-    pending_transaction_limit         = util::get_option< uint32_t >( PENDING_TRANSACTION_LIMIT_OPTION, PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
+    pending_transaction_limit         = util::get_option< uint64_t >( PENDING_TRANSACTION_LIMIT_OPTION, PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
     // clang-format on
 
     std::optional< std::filesystem::path > logdir_path;
