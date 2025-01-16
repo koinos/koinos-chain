@@ -93,7 +93,9 @@ struct apply_block_result
 class controller_impl final
 {
 public:
-  controller_impl( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize, std::optional< uint64_t > pending_transaction_limit );
+  controller_impl( uint64_t read_compute_bandwith_limit,
+                   uint32_t syscall_bufsize,
+                   std::optional< uint64_t > pending_transaction_limit );
   ~controller_impl();
 
   void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
@@ -128,7 +130,9 @@ private:
   fork_data get_fork_data( state_db::shared_lock_ptr db_lock );
 };
 
-controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit, uint32_t syscall_bufsize, std::optional< uint64_t > pending_transaction_limit ):
+controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit,
+                                  uint32_t syscall_bufsize,
+                                  std::optional< uint64_t > pending_transaction_limit ):
     _read_compute_bandwidth_limit( read_compute_bandwidth_limit ),
     _syscall_bufsize( syscall_bufsize ),
     _pending_transaction_limit( pending_transaction_limit )
@@ -761,10 +765,12 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
                        rpc_failure_exception,
                        "received error from mempool: ${e}",
                        ( "e", resp.error() ) );
-        KOINOS_ASSERT( resp.has_get_pending_transaction_count(), rpc_failure_exception, "received unexpected response from mempool" );
+        KOINOS_ASSERT( resp.has_get_pending_transaction_count(),
+                       rpc_failure_exception,
+                       "received unexpected response from mempool" );
         KOINOS_ASSERT( resp.get_pending_transaction_count().count() < _pending_transaction_limit,
-                      pending_transaction_limit_exceeded_exception,
-                      "pending transaction limit exceeded" );
+                       pending_transaction_limit_exceeded_exception,
+                       "pending transaction limit exceeded" );
       }
     }
 
@@ -1096,8 +1102,12 @@ controller_impl::invoke_system_call( const rpc::chain::invoke_system_call_reques
 
 } // namespace detail
 
-controller::controller( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize, std::optional< uint64_t > pending_transaction_limit ):
-    _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit, syscall_bufsize, pending_transaction_limit ) )
+controller::controller( uint64_t read_compute_bandwith_limit,
+                        uint32_t syscall_bufsize,
+                        std::optional< uint64_t > pending_transaction_limit ):
+    _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit,
+                                                      syscall_bufsize,
+                                                      pending_transaction_limit ) )
 {}
 
 controller::~controller() = default;

@@ -255,7 +255,10 @@ int main( int argc, char** argv )
   asio::io_context client_ioc, server_ioc, main_ioc;
   auto client          = std::make_shared< mq::client >( client_ioc );
   auto request_handler = mq::request_handler( server_ioc );
-  chain::controller controller( read_compute_limit, syscall_bufsize, disable_pending_transaction_limit ? std::optional< uint64_t >( {} ) : pending_transaction_limit );
+  chain::controller controller( read_compute_limit,
+                                syscall_bufsize,
+                                disable_pending_transaction_limit ? std::optional< uint64_t >( {} )
+                                                                  : pending_transaction_limit );
 
   try
   {
