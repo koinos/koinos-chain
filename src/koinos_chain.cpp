@@ -257,7 +257,7 @@ int main( int argc, char** argv )
   auto request_handler = mq::request_handler( server_ioc );
   chain::controller controller( read_compute_limit,
                                 syscall_bufsize,
-                                disable_pending_transaction_limit ? std::optional< uint64_t >( {} )
+                                disable_pending_transaction_limit ? std::optional< uint64_t >()
                                                                   : pending_transaction_limit );
 
   try
