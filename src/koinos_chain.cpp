@@ -41,33 +41,37 @@
 #define BLOCK_TIME_ALGORITHM "block-time"
 #define POB_ALGORITHM        "pob"
 
-#define HELP_OPTION                         "help"
-#define VERSION_OPTION                      "version"
-#define BASEDIR_OPTION                      "basedir"
-#define AMQP_OPTION                         "amqp"
-#define AMQP_DEFAULT                        "amqp://guest:guest@localhost:5672/"
-#define LOG_LEVEL_OPTION                    "log-level"
-#define LOG_LEVEL_DEFAULT                   "info"
-#define LOG_DIR_OPTION                      "log-dir"
-#define LOG_DIR_DEFAULT                     ""
-#define LOG_COLOR_OPTION                    "log-color"
-#define LOG_COLOR_DEFAULT                   true
-#define LOG_DATETIME_OPTION                 "log-datetime"
-#define LOG_DATETIME_DEFAULT                true
-#define INSTANCE_ID_OPTION                  "instance-id"
-#define STATEDIR_OPTION                     "statedir"
-#define JOBS_OPTION                         "jobs"
-#define JOBS_DEFAULT                        uint64_t( 2 )
-#define STATEDIR_DEFAULT                    "blockchain"
-#define RESET_OPTION                        "reset"
-#define GENESIS_DATA_FILE_OPTION            "genesis-data"
-#define GENESIS_DATA_FILE_DEFAULT           "genesis_data.json"
-#define READ_COMPUTE_BANDWITH_LIMIT_OPTION  "read-compute-bandwidth-limit"
-#define READ_COMPUTE_BANDWITH_LIMIT_DEFAULT 10'000'000
-#define SYSTEM_CALL_BUFFER_SIZE_OPTION      "system-call-buffer-size"
-#define SYSTEM_CALL_BUFFER_SIZE_DEFAULT     64'000
-#define FORK_ALGORITHM_OPTION               "fork-algorithm"
-#define FORK_ALGORITHM_DEFAULT              FIFO_ALGORITHM
+#define HELP_OPTION                               "help"
+#define VERSION_OPTION                            "version"
+#define BASEDIR_OPTION                            "basedir"
+#define AMQP_OPTION                               "amqp"
+#define AMQP_DEFAULT                              "amqp://guest:guest@localhost:5672/"
+#define LOG_LEVEL_OPTION                          "log-level"
+#define LOG_LEVEL_DEFAULT                         "info"
+#define LOG_DIR_OPTION                            "log-dir"
+#define LOG_DIR_DEFAULT                           ""
+#define LOG_COLOR_OPTION                          "log-color"
+#define LOG_COLOR_DEFAULT                         true
+#define LOG_DATETIME_OPTION                       "log-datetime"
+#define LOG_DATETIME_DEFAULT                      true
+#define INSTANCE_ID_OPTION                        "instance-id"
+#define STATEDIR_OPTION                           "statedir"
+#define JOBS_OPTION                               "jobs"
+#define JOBS_DEFAULT                              uint64_t( 2 )
+#define STATEDIR_DEFAULT                          "blockchain"
+#define RESET_OPTION                              "reset"
+#define GENESIS_DATA_FILE_OPTION                  "genesis-data"
+#define GENESIS_DATA_FILE_DEFAULT                 "genesis_data.json"
+#define READ_COMPUTE_BANDWITH_LIMIT_OPTION        "read-compute-bandwidth-limit"
+#define READ_COMPUTE_BANDWITH_LIMIT_DEFAULT       10'000'000
+#define SYSTEM_CALL_BUFFER_SIZE_OPTION            "system-call-buffer-size"
+#define SYSTEM_CALL_BUFFER_SIZE_DEFAULT           64'000
+#define FORK_ALGORITHM_OPTION                     "fork-algorithm"
+#define FORK_ALGORITHM_DEFAULT                    FIFO_ALGORITHM
+#define DISABLE_PENDING_TRANSACTION_LIMIT_OPTION  "disable-pending-transaction-limit"
+#define DISABLE_PENDING_TRANSACTION_LIMIT_DEFAULT false
+#define PENDING_TRANSACTION_LIMIT_OPTION          "pending-transaction-limit"
+#define PENDING_TRANSACTION_LIMIT_DEFAULT         10
 
 KOINOS_DECLARE_EXCEPTION( service_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_argument, service_exception );
@@ -82,10 +86,10 @@ int main( int argc, char** argv )
 {
   std::string amqp_url, log_level, log_dir, instance_id, fork_algorithm_option;
   std::filesystem::path statedir, genesis_data_file;
-  uint64_t jobs, read_compute_limit;
-  int32_t syscall_bufsize;
+  uint64_t jobs, read_compute_limit, pending_transaction_limit;
+  uint32_t syscall_bufsize;
   chain::genesis_data genesis_data;
-  bool reset, log_color, log_datetime;
+  bool reset, log_color, log_datetime, disable_pending_transaction_limit;
   chain::fork_resolution_algorithm fork_algorithm;
 
   try
@@ -94,22 +98,24 @@ int main( int argc, char** argv )
 
     // clang-format off
     options.add_options()
-      ( HELP_OPTION ",h"                       , "Print this help message and exit" )
-      ( VERSION_OPTION ",v"                    , "Print version string and exit" )
-      ( BASEDIR_OPTION ",d"                    , program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ), "Koinos base directory" )
-      ( AMQP_OPTION ",a"                       , program_options::value< std::string >(), "AMQP server URL" )
-      ( LOG_LEVEL_OPTION ",l"                  , program_options::value< std::string >(), "The log filtering level" )
-      ( INSTANCE_ID_OPTION ",i"                , program_options::value< std::string >(), "An ID that uniquely identifies the instance" )
-      ( JOBS_OPTION ",j"                       , program_options::value< uint64_t >()   , "The number of worker jobs" )
-      ( READ_COMPUTE_BANDWITH_LIMIT_OPTION ",b", program_options::value< uint64_t >()   , "The compute bandwidth when reading contracts via the API" )
-      ( GENESIS_DATA_FILE_OPTION ",g"          , program_options::value< std::string >(), "The genesis data file" )
-      ( STATEDIR_OPTION                        , program_options::value< std::string >(), "The location of the blockchain state files (absolute path or relative to basedir/chain)" )
-      ( RESET_OPTION                           , program_options::value< bool >()       , "Reset the database" )
-      ( FORK_ALGORITHM_OPTION ",f"             , program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')" )
-      ( LOG_DIR_OPTION                         , program_options::value< std::string >(), "The logging directory" )
-      ( LOG_COLOR_OPTION                       , program_options::value< bool >()       , "Log color toggle" )
-      ( LOG_DATETIME_OPTION                    , program_options::value< bool >()       , "Log datetime on console toggle" )
-      ( SYSTEM_CALL_BUFFER_SIZE_OPTION         , program_options::value< uint32_t >()   , "System call RPC invocation buffer size" );
+      ( HELP_OPTION ",h"                        , "Print this help message and exit" )
+      ( VERSION_OPTION ",v"                     , "Print version string and exit" )
+      ( BASEDIR_OPTION ",d"                     , program_options::value< std::string >()->default_value( util::get_default_base_directory().string() ), "Koinos base directory" )
+      ( AMQP_OPTION ",a"                        , program_options::value< std::string >(), "AMQP server URL" )
+      ( LOG_LEVEL_OPTION ",l"                   , program_options::value< std::string >(), "The log filtering level" )
+      ( INSTANCE_ID_OPTION ",i"                 , program_options::value< std::string >(), "An ID that uniquely identifies the instance" )
+      ( JOBS_OPTION ",j"                        , program_options::value< uint64_t >()   , "The number of worker jobs" )
+      ( READ_COMPUTE_BANDWITH_LIMIT_OPTION ",b" , program_options::value< uint64_t >()   , "The compute bandwidth when reading contracts via the API" )
+      ( GENESIS_DATA_FILE_OPTION ",g"           , program_options::value< std::string >(), "The genesis data file" )
+      ( STATEDIR_OPTION                         , program_options::value< std::string >(), "The location of the blockchain state files (absolute path or relative to basedir/chain)" )
+      ( RESET_OPTION                            , program_options::value< bool >()       , "Reset the database" )
+      ( FORK_ALGORITHM_OPTION ",f"              , program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')" )
+      ( LOG_DIR_OPTION                          , program_options::value< std::string >(), "The logging directory" )
+      ( LOG_COLOR_OPTION                        , program_options::value< bool >()       , "Log color toggle" )
+      ( LOG_DATETIME_OPTION                     , program_options::value< bool >()       , "Log datetime on console toggle" )
+      ( SYSTEM_CALL_BUFFER_SIZE_OPTION          , program_options::value< uint32_t >()   , "System call RPC invocation buffer size" )
+      ( DISABLE_PENDING_TRANSACTION_LIMIT_OPTION, program_options::value< bool >()       , "Disable the pending transaction limit")
+      ( PENDING_TRANSACTION_LIMIT_OPTION        , program_options::value< uint64_t >()   , "Pending transaction limit per address (Default: 10)" );
     // clang-format on
 
     program_options::variables_map args;
@@ -151,19 +157,21 @@ int main( int argc, char** argv )
     }
 
     // clang-format off
-    amqp_url              = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
-    log_level             = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
-    log_dir               = util::get_option< std::string >( LOG_DIR_OPTION, LOG_DIR_DEFAULT, args, chain_config, global_config );
-    log_color             = util::get_option< bool >( LOG_COLOR_OPTION, LOG_COLOR_DEFAULT, args, chain_config, global_config );
-    log_datetime          = util::get_option< bool >( LOG_DATETIME_OPTION, LOG_DATETIME_DEFAULT, args, chain_config, global_config );
-    instance_id           = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
-    statedir              = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
-    genesis_data_file     = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
-    reset                 = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
-    jobs                  = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
-    read_compute_limit    = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
-    fork_algorithm_option = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
-    syscall_bufsize       = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION, SYSTEM_CALL_BUFFER_SIZE_DEFAULT, args, chain_config, global_config );
+    amqp_url                          = util::get_option< std::string >( AMQP_OPTION, AMQP_DEFAULT, args, chain_config, global_config );
+    log_level                         = util::get_option< std::string >( LOG_LEVEL_OPTION, LOG_LEVEL_DEFAULT, args, chain_config, global_config );
+    log_dir                           = util::get_option< std::string >( LOG_DIR_OPTION, LOG_DIR_DEFAULT, args, chain_config, global_config );
+    log_color                         = util::get_option< bool >( LOG_COLOR_OPTION, LOG_COLOR_DEFAULT, args, chain_config, global_config );
+    log_datetime                      = util::get_option< bool >( LOG_DATETIME_OPTION, LOG_DATETIME_DEFAULT, args, chain_config, global_config );
+    instance_id                       = util::get_option< std::string >( INSTANCE_ID_OPTION, util::random_alphanumeric( 5 ), args, chain_config, global_config );
+    statedir                          = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
+    genesis_data_file                 = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
+    reset                             = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
+    jobs                              = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
+    read_compute_limit                = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
+    fork_algorithm_option             = util::get_option< std::string >( FORK_ALGORITHM_OPTION, FORK_ALGORITHM_DEFAULT, args, chain_config, global_config );
+    syscall_bufsize                   = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION, SYSTEM_CALL_BUFFER_SIZE_DEFAULT, args, chain_config, global_config );
+    disable_pending_transaction_limit = util::get_option< bool >( DISABLE_PENDING_TRANSACTION_LIMIT_OPTION, DISABLE_PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
+    pending_transaction_limit         = util::get_option< uint64_t >( PENDING_TRANSACTION_LIMIT_OPTION, PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
     // clang-format on
 
     std::optional< std::filesystem::path > logdir_path;
@@ -247,7 +255,10 @@ int main( int argc, char** argv )
   asio::io_context client_ioc, server_ioc, main_ioc;
   auto client          = std::make_shared< mq::client >( client_ioc );
   auto request_handler = mq::request_handler( server_ioc );
-  chain::controller controller( read_compute_limit, syscall_bufsize );
+  chain::controller controller( read_compute_limit,
+                                syscall_bufsize,
+                                disable_pending_transaction_limit ? std::optional< uint64_t >()
+                                                                  : pending_transaction_limit );
 
   try
   {

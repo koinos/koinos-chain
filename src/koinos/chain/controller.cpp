@@ -93,7 +93,9 @@ struct apply_block_result
 class controller_impl final
 {
 public:
-  controller_impl( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize );
+  controller_impl( uint64_t read_compute_bandwith_limit,
+                   uint32_t syscall_bufsize,
+                   std::optional< uint64_t > pending_transaction_limit );
   ~controller_impl();
 
   void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
@@ -118,6 +120,7 @@ private:
   std::shared_ptr< mq::client > _client;
   uint64_t _read_compute_bandwidth_limit;
   uint32_t _syscall_bufsize;
+  std::optional< uint64_t > _pending_transaction_limit;
   std::shared_mutex _cached_head_block_mutex;
   std::shared_ptr< const protocol::block > _cached_head_block;
 
@@ -127,9 +130,12 @@ private:
   fork_data get_fork_data( state_db::shared_lock_ptr db_lock );
 };
 
-controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit, uint32_t syscall_bufsize ):
+controller_impl::controller_impl( uint64_t read_compute_bandwidth_limit,
+                                  uint32_t syscall_bufsize,
+                                  std::optional< uint64_t > pending_transaction_limit ):
     _read_compute_bandwidth_limit( read_compute_bandwidth_limit ),
-    _syscall_bufsize( syscall_bufsize )
+    _syscall_bufsize( syscall_bufsize ),
+    _pending_transaction_limit( pending_transaction_limit )
 {
   _vm_backend = vm_manager::get_vm_backend(); // Default is fizzy
   KOINOS_ASSERT( _vm_backend, unknown_backend_exception, "could not get vm backend" );
@@ -669,7 +675,7 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
 
     if( request.broadcast() && _client )
     {
-      rpc::mempool::mempool_request req1, req2, req3;
+      rpc::mempool::mempool_request req1, req2, req3, req4;
       auto* check_pending = req1.mutable_check_pending_account_resources();
 
       check_pending->set_payer( payer );
@@ -685,6 +691,12 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
 
       pending_nonce->set_payee( payee.empty() ? payer : payee );
 
+      if( _pending_transaction_limit )
+      {
+        auto* pending_transaction_count = req4.mutable_get_pending_transaction_count();
+        pending_transaction_count->set_payee( payee.empty() ? payer : payee );
+      }
+
       auto future1 = _client->rpc( util::service::mempool,
                                    util::converter::as< std::string >( req1 ),
                                    750ms,
@@ -699,6 +711,16 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
                                    util::converter::as< std::string >( req3 ),
                                    750ms,
                                    mq::retry_policy::none );
+
+      std::shared_future< std::string > future4;
+
+      if( _pending_transaction_limit )
+      {
+        future4 = _client->rpc( util::service::mempool,
+                                util::converter::as< std::string >( req4 ),
+                                750ms,
+                                mq::retry_policy::none );
+      }
 
       rpc::mempool::mempool_response resp;
       resp.ParseFromString( future1.get() );
@@ -735,6 +757,21 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
 
       if( mempool_nonce.has_uint64_value() )
         ctx.set_mempool_nonce( mempool_nonce );
+
+      if( _pending_transaction_limit )
+      {
+        resp.ParseFromString( future4.get() );
+        KOINOS_ASSERT( !resp.has_error(),
+                       rpc_failure_exception,
+                       "received error from mempool: ${e}",
+                       ( "e", resp.error() ) );
+        KOINOS_ASSERT( resp.has_get_pending_transaction_count(),
+                       rpc_failure_exception,
+                       "received unexpected response from mempool" );
+        KOINOS_ASSERT( resp.get_pending_transaction_count().count() < _pending_transaction_limit,
+                       pending_transaction_limit_exceeded_exception,
+                       "pending transaction limit exceeded" );
+      }
     }
 
     ctx.resource_meter().set_resource_limit_data( system_call::get_resource_limits( ctx ) );
@@ -1065,8 +1102,12 @@ controller_impl::invoke_system_call( const rpc::chain::invoke_system_call_reques
 
 } // namespace detail
 
-controller::controller( uint64_t read_compute_bandwith_limit, uint32_t syscall_bufsize ):
-    _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit, syscall_bufsize ) )
+controller::controller( uint64_t read_compute_bandwith_limit,
+                        uint32_t syscall_bufsize,
+                        std::optional< uint64_t > pending_transaction_limit ):
+    _my( std::make_unique< detail::controller_impl >( read_compute_bandwith_limit,
+                                                      syscall_bufsize,
+                                                      pending_transaction_limit ) )
 {}
 
 controller::~controller() = default;
