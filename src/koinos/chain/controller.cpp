@@ -791,8 +791,10 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
       *ta.mutable_receipt()     = std::get< protocol::transaction_receipt >( ctx.receipt() );
       ta.set_height( ctx.get_state_node()->revision() );
       ta.set_system_disk_storage_used( ctx.resource_meter().disk_storage_used() - ta.receipt().disk_storage_used() );
-      ta.set_system_network_bandwidth_used( ctx.resource_meter().network_bandwidth_used() - ta.receipt().network_bandwidth_used() );
-      ta.set_system_compute_bandwidth_used( ctx.resource_meter().compute_bandwidth_used() - ta.receipt().compute_bandwidth_used() );
+      ta.set_system_network_bandwidth_used( ctx.resource_meter().network_bandwidth_used()
+                                            - ta.receipt().network_bandwidth_used() );
+      ta.set_system_compute_bandwidth_used( ctx.resource_meter().compute_bandwidth_used()
+                                            - ta.receipt().compute_bandwidth_used() );
 
       _client->broadcast( "koinos.transaction.accept", util::converter::as< std::string >( ta ) );
     }
