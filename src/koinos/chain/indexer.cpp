@@ -8,7 +8,7 @@
 #include <koinos/util/services.hpp>
 
 constexpr std::size_t request_queue_size = 100;
-constexpr std::size_t block_queue_size = 100;
+constexpr std::size_t block_queue_size   = 100;
 
 namespace koinos::chain {
 

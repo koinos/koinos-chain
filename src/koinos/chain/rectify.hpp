@@ -8,4 +8,4 @@ namespace koinos::chain {
 
 void maybe_rectify_state( execution_context&, const protocol::block&, protocol::block_receipt& );
 
-} // koinos::chain
+} // namespace koinos::chain
