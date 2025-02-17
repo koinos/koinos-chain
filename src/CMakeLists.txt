@@ -5,6 +5,7 @@ add_library(chain
   koinos/chain/host_api.cpp
   koinos/chain/indexer.cpp
   koinos/chain/proto_utils.cpp
+  koinos/chain/rectify.cpp
   koinos/chain/resource_meter.cpp
   koinos/chain/session.cpp
   koinos/chain/state.cpp
@@ -19,6 +20,7 @@ add_library(chain
   koinos/chain/host_api.hpp
   koinos/chain/indexer.hpp
   koinos/chain/proto_utils.hpp
+  koinos/chain/rectify.hpp
   koinos/chain/resource_meter.hpp
   koinos/chain/session.hpp
   koinos/chain/state.hpp

@@ -42,6 +42,11 @@ public:
   submit_block( const rpc::chain::submit_block_request&,
                 uint64_t index_to                         = 0,
                 std::chrono::system_clock::time_point now = std::chrono::system_clock::now() );
+  void apply_block_delta(
+    const protocol::block&,
+    const protocol::block_receipt&,
+    uint64_t index_to
+  );
   rpc::chain::propose_block_response
   propose_block( const rpc::chain::propose_block_request&,
                  uint64_t index_to                         = 0,
