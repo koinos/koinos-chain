@@ -647,8 +647,6 @@ void controller_impl::apply_block_delta( const protocol::block& block,
   auto block_node   = _db.get_node( block_id, db_lock );
   auto parent_node  = _db.get_node( parent_id, db_lock );
 
-  bool new_head = false;
-
   if( block_node )
   {
     block_node.reset();
@@ -714,7 +712,6 @@ void controller_impl::apply_block_delta( const protocol::block& block,
       if( block_id == _db.get_head( unique_db_lock )->id() )
       {
         std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
-        new_head           = true;
         _cached_head_block = std::make_shared< protocol::block >( block );
       }
 
