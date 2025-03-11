@@ -7,13 +7,19 @@
 #include <koinos/rpc/block_store/block_store_rpc.pb.h>
 #include <koinos/util/services.hpp>
 
+constexpr std::size_t request_queue_size = 100;
+constexpr std::size_t block_queue_size   = 100;
+
 namespace koinos::chain {
 
-indexer::indexer( boost::asio::io_context& ioc, controller& c, std::shared_ptr< mq::client > mc ):
+indexer::indexer( boost::asio::io_context& ioc, controller& c, std::shared_ptr< mq::client > mc, bool verify_blocks ):
     _ioc( ioc ),
     _controller( c ),
     _client( mc ),
-    _signals( ioc )
+    _verify_blocks( verify_blocks ),
+    _signals( ioc ),
+    _request_queue( request_queue_size ),
+    _block_queue( block_queue_size )
 {
   _signals.add( SIGINT );
   _signals.add( SIGTERM );
@@ -126,7 +132,7 @@ void indexer::send_requests( uint64_t last_height, uint64_t batch_size )
       by_height_req->set_ancestor_start_height( last_height + 1 );
       by_height_req->set_num_blocks( uint32_t( batch_size ) );
       by_height_req->set_return_block( true );
-      by_height_req->set_return_receipt( false );
+      by_height_req->set_return_receipt( true );
 
       std::shared_future< std::string > data;
 
@@ -182,8 +188,8 @@ void indexer::process_requests( uint64_t last_height, uint64_t batch_size )
     if( !resp.has_get_blocks_by_height() )
       return handle_error( "unexpected block store response" );
 
-    for( auto& block_item: *resp.mutable_get_blocks_by_height()->mutable_block_items() )
-      _block_queue.push( std::move( *block_item.mutable_block() ) );
+    for( uint64_t i = 0; i < resp.get_blocks_by_height().block_items_size(); i++ )
+      _block_queue.push( std::move( *resp.mutable_get_blocks_by_height()->mutable_block_items( i ) ) );
 
     boost::asio::post( std::bind( &indexer::send_requests,
                                   this,
@@ -223,10 +229,16 @@ void indexer::process_block()
       return;
     }
 
-    rpc::chain::submit_block_request submit_block;
+    auto block_item = _block_queue.pull();
 
-    *submit_block.mutable_block() = _block_queue.pull();
-    _controller.submit_block( submit_block, _target_head.height() );
+    if( _verify_blocks )
+    {
+      rpc::chain::submit_block_request submit_block;
+      *submit_block.mutable_block() = block_item.block();
+      _controller.submit_block( submit_block, _target_head.height() );
+    }
+    else
+      _controller.apply_block_delta( block_item.block(), block_item.receipt(), _target_head.height() );
 
     boost::asio::post( std::bind( &indexer::process_block, this ) );
   }

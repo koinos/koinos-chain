@@ -72,6 +72,8 @@
 #define DISABLE_PENDING_TRANSACTION_LIMIT_DEFAULT false
 #define PENDING_TRANSACTION_LIMIT_OPTION          "pending-transaction-limit"
 #define PENDING_TRANSACTION_LIMIT_DEFAULT         10
+#define VERIFY_BLOCKS_OPTION                      "verify-blocks"
+#define VERIFY_BLOCKS_DEFAULT                     false
 
 KOINOS_DECLARE_EXCEPTION( service_exception );
 KOINOS_DECLARE_DERIVED_EXCEPTION( invalid_argument, service_exception );
@@ -89,7 +91,7 @@ int main( int argc, char** argv )
   uint64_t jobs, read_compute_limit, pending_transaction_limit;
   uint32_t syscall_bufsize;
   chain::genesis_data genesis_data;
-  bool reset, log_color, log_datetime, disable_pending_transaction_limit;
+  bool reset, log_color, log_datetime, disable_pending_transaction_limit, verify_blocks;
   chain::fork_resolution_algorithm fork_algorithm;
 
   try
@@ -115,7 +117,8 @@ int main( int argc, char** argv )
       ( LOG_DATETIME_OPTION                     , program_options::value< bool >()       , "Log datetime on console toggle" )
       ( SYSTEM_CALL_BUFFER_SIZE_OPTION          , program_options::value< uint32_t >()   , "System call RPC invocation buffer size" )
       ( DISABLE_PENDING_TRANSACTION_LIMIT_OPTION, program_options::value< bool >()       , "Disable the pending transaction limit")
-      ( PENDING_TRANSACTION_LIMIT_OPTION        , program_options::value< uint64_t >()   , "Pending transaction limit per address (Default: 10)" );
+      ( PENDING_TRANSACTION_LIMIT_OPTION        , program_options::value< uint64_t >()   , "Pending transaction limit per address (Default: 10)" )
+      ( VERIFY_BLOCKS_OPTION                    , program_options::value< bool >()       , "Verify block receipts on reindex" );
     // clang-format on
 
     program_options::variables_map args;
@@ -172,6 +175,7 @@ int main( int argc, char** argv )
     syscall_bufsize                   = util::get_option< uint32_t >( SYSTEM_CALL_BUFFER_SIZE_OPTION, SYSTEM_CALL_BUFFER_SIZE_DEFAULT, args, chain_config, global_config );
     disable_pending_transaction_limit = util::get_option< bool >( DISABLE_PENDING_TRANSACTION_LIMIT_OPTION, DISABLE_PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
     pending_transaction_limit         = util::get_option< uint64_t >( PENDING_TRANSACTION_LIMIT_OPTION, PENDING_TRANSACTION_LIMIT_DEFAULT, args, chain_config, global_config );
+    verify_blocks                     = util::get_option< bool >( VERIFY_BLOCKS_OPTION, VERIFY_BLOCKS_DEFAULT, args, chain_config, global_config );
     // clang-format on
 
     std::optional< std::filesystem::path > logdir_path;
@@ -315,7 +319,7 @@ int main( int argc, char** argv )
     client->rpc( util::service::mempool, m_req.SerializeAsString() ).get();
     LOG( info ) << "Established connection to mempool";
 
-    chain::indexer indexer( client_ioc, controller, client );
+    chain::indexer indexer( client_ioc, controller, client, verify_blocks );
 
     if( indexer.index().get() )
     {

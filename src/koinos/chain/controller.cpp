@@ -6,6 +6,7 @@
 #include <koinos/chain/exceptions.hpp>
 #include <koinos/chain/execution_context.hpp>
 #include <koinos/chain/host_api.hpp>
+#include <koinos/chain/rectify.hpp>
 #include <koinos/chain/state.hpp>
 #include <koinos/chain/system_calls.hpp>
 
@@ -103,6 +104,7 @@ public:
   void set_client( std::shared_ptr< mq::client > c );
 
   apply_block_result apply_block( const protocol::block& block, const apply_block_options& opts );
+  void apply_block_delta( const protocol::block&, const protocol::block_receipt&, uint64_t );
 
   rpc::chain::submit_transaction_response submit_transaction( const rpc::chain::submit_transaction_request& );
   rpc::chain::get_head_info_response get_head_info( const rpc::chain::get_head_info_request& );
@@ -416,6 +418,8 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
                    "expected block receipt" );
     res.receipt = std::get< protocol::block_receipt >( ctx.receipt() );
 
+    maybe_rectify_state( ctx, block, *res.receipt );
+
     if( _client )
     {
       rpc::block_store::block_store_request req;
@@ -626,6 +630,154 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
   }
 
   return res;
+}
+
+void controller_impl::apply_block_delta( const protocol::block& block,
+                                         const protocol::block_receipt& receipt,
+                                         uint64_t index_to )
+{
+  uint64_t index_message_interval                  = std::max( 10'000ull, index_to / 1'000ull );
+  static constexpr std::chrono::seconds time_delta = std::chrono::seconds( 5 );
+
+  auto db_lock = _db.get_shared_lock();
+
+  auto block_id     = util::converter::to< crypto::multihash >( block.id() );
+  auto block_height = block.header().height();
+  auto parent_id    = util::converter::to< crypto::multihash >( block.header().previous() );
+  auto block_node   = _db.get_node( block_id, db_lock );
+  auto parent_node  = _db.get_node( parent_id, db_lock );
+
+  if( block_node )
+  {
+    block_node.reset();
+    _db.discard_node( block_id, db_lock );
+  }
+
+  // This prevents returning "unknown previous block" when the pushed block is the LIB
+  if( !parent_node )
+  {
+    auto root = _db.get_root( db_lock );
+    KOINOS_ASSERT( block_height >= root->revision(),
+                   pre_irreversibility_block_exception,
+                   "block is prior to irreversibility" );
+    KOINOS_ASSERT( block_id == root->id(), unknown_previous_block_exception, "unknown previous block" );
+    return; // Block is current LIB
+  }
+
+  block_node = _db.create_writable_node( parent_id, block_id, block.header(), db_lock );
+
+  execution_context ctx( _vm_backend, intent::block_application );
+
+  try
+  {
+    ctx.push_frame( stack_frame{ .call_privilege = privilege::kernel_mode } );
+
+    ctx.set_state_node( block_node );
+    ctx.reset_cache();
+
+    for( const auto& delta_entry: receipt.state_delta_entries() )
+    {
+      chain::object_space object_space;
+      object_space.set_system( delta_entry.object_space().system() );
+      object_space.set_zone( delta_entry.object_space().zone() );
+      object_space.set_id( delta_entry.object_space().id() );
+
+      if( delta_entry.has_value() )
+        block_node->put_object( object_space, delta_entry.key(), &delta_entry.value() );
+      else
+        block_node->remove_object( object_space, delta_entry.key() );
+    }
+
+    if( block_height % index_message_interval == 0 )
+    {
+      auto progress = block_height / static_cast< double >( index_to ) * 100;
+      LOG( info ) << "Indexing chain (" << progress << "%) - Height: " << block_height << ", ID: " << block_id;
+    }
+
+    auto lib = system_call::get_last_irreversible_block( ctx );
+
+    try
+    {
+      // We need to finalize our node, checking if it is the new head block, update the cached head block,
+      // and advancing LIB as an atomic action or else we risk _db.get_head(), _cached_head_block, and
+      // LIB desyncing from each other
+      db_lock.reset();
+      block_node.reset();
+      parent_node.reset();
+      ctx.clear_state_node();
+
+      auto unique_db_lock = _db.get_unique_lock();
+      _db.finalize_node( block_id, unique_db_lock );
+
+      if( block_id == _db.get_head( unique_db_lock )->id() )
+      {
+        std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
+        _cached_head_block = std::make_shared< protocol::block >( block );
+      }
+
+      if( lib > _db.get_root( unique_db_lock )->revision() )
+      {
+        auto lib_id = _db.get_node_at_revision( lib, block_id, unique_db_lock )->id();
+        _db.commit_node( lib_id, unique_db_lock );
+      }
+
+      unique_db_lock.reset();
+      db_lock    = _db.get_shared_lock();
+      block_node = _db.get_node( block_id, db_lock );
+      ctx.set_state_node( block_node );
+    }
+    catch( ... )
+    {
+      // If any exception is thrown, reset to the expected local state and then rethrow.
+      db_lock    = _db.get_shared_lock();
+      block_node = _db.get_node( block_id, db_lock );
+      ctx.set_state_node( block_node );
+      throw;
+    }
+
+    // It is NOT safe to use block_node after this point without checking it against null
+  }
+  catch( const block_state_error_exception& e )
+  {
+    LOG( warning ) << "Block application failed - Height: " << block_height << " ID: " << block_id
+                   << ", with reason: " << e.what();
+    throw;
+  }
+  catch( koinos::exception& e )
+  {
+    if( block_node && !block_node->is_finalized() )
+    {
+      _db.discard_node( block_node->id(), db_lock );
+      LOG( warning ) << "Block application failed - Height: " << block_height << " ID: " << block_id
+                     << ", with reason: " << e.what();
+    }
+    else
+    {
+      LOG( error ) << "Block application failed after finalization - Height: " << block_height << " ID: " << block_id
+                   << ", with reason: " << e.what();
+    }
+
+    if( std::holds_alternative< protocol::block_receipt >( ctx.receipt() ) )
+      e.add_json( "logs", std::get< protocol::block_receipt >( ctx.receipt() ).logs() );
+
+    throw;
+  }
+  catch( ... )
+  {
+    if( block_node && !block_node->is_finalized() )
+    {
+      _db.discard_node( block_node->id(), db_lock );
+      LOG( warning ) << "Block application failed - Height: " << block_height << ", ID: " << block_id
+                     << ", for an unknown reason";
+    }
+    else
+    {
+      LOG( error ) << "Block application failed after finalization - Height: " << block_height << ", ID: " << block_id
+                   << ", for an unknown reason";
+    }
+
+    throw;
+  }
 }
 
 rpc::chain::submit_transaction_response
@@ -1147,6 +1299,13 @@ rpc::chain::submit_block_response controller::submit_block( const rpc::chain::su
     *resp.mutable_receipt() = res.receipt.value();
 
   return resp;
+}
+
+void controller::apply_block_delta( const protocol::block& block,
+                                    const protocol::block_receipt& receipt,
+                                    uint64_t index_to )
+{
+  _my->apply_block_delta( block, receipt, index_to );
 }
 
 rpc::chain::propose_block_response controller::propose_block( const rpc::chain::propose_block_request& request,
