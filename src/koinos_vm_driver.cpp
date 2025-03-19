@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstddef>
 #include <fstream>
 #include <iostream>
@@ -10,32 +11,38 @@
 #include <koinos/chain/types.hpp>
 #include <koinos/exception.hpp>
 
+#include <koinos/chain/chain.pb.h>
+
 #define HELP_OPTION     "help"
 #define CONTRACT_OPTION "contract"
 #define VM_OPTION       "vm"
 #define LIST_VM_OPTION  "list"
 #define TICKS_OPTION    "ticks"
+#define RUNS_OPTION     "runs"
 
 using namespace koinos;
+using namespace std::chrono_literals;
 
 int main( int argc, char** argv, char** envp )
 {
   try
   {
     boost::program_options::options_description desc( "Koinos VM options" );
-    desc.add_options()( HELP_OPTION ",h", "print usage message" )( CONTRACT_OPTION ",c",
-                                                                   boost::program_options::value< std::string >(),
-                                                                   "the contract to run" )(
-      VM_OPTION ",v",
-      boost::program_options::value< std::string >()->default_value( "" ),
-      "the VM backend to use" )( TICKS_OPTION ",t",
-                                 boost::program_options::value< int64_t >()->default_value( 10 * 1'000 * 1'000 ),
-                                 "set maximum allowed ticks" )( LIST_VM_OPTION ",l", "list available VM backends" );
+
+    // clang-format off
+    desc.add_options()
+      ( HELP_OPTION     ",h", "print usage message" )
+      ( CONTRACT_OPTION ",c", boost::program_options::value< std::string >(), "the contract to run" )
+      ( VM_OPTION       ",v", boost::program_options::value< std::string >()->default_value( "" ), "the VM backend to use" )
+      ( TICKS_OPTION    ",t", boost::program_options::value< int64_t >()->default_value( std::numeric_limits< int64_t >::max() ), "set maximum allowed ticks" )
+      ( LIST_VM_OPTION  ",l", "list available VM backends" )
+      ( RUNS_OPTION     ",r", boost::program_options::value< uint64_t >()->default_value( 1 ), "set ");
+    // clang-format on
 
     boost::program_options::variables_map vmap;
     boost::program_options::store( boost::program_options::parse_command_line( argc, argv, desc ), vmap );
 
-    initialize_logging( "koinos_vm_drivier", {}, "info" );
+    initialize_logging( "koinos_vm_driver", {}, "info" );
 
     if( vmap.count( HELP_OPTION ) )
     {
@@ -78,19 +85,31 @@ int main( int argc, char** argv, char** envp )
 
     chain::execution_context ctx( vm_backend );
 
-    auto rld = chain::system_call::get_resource_limits( ctx );
+    //auto rld = chain::system_call::get_resource_limits( ctx );
+    chain::resource_limit_data rld;
     rld.set_compute_bandwidth_limit( vmap[ TICKS_OPTION ].as< int64_t >() );
-    ctx.resource_meter().set_resource_limit_data( rld );
-    chain::host_api hapi( ctx );
+    auto run_limit = vmap[ RUNS_OPTION ].as< uint64_t >();
 
-    vm_backend->run( hapi, bytecode );
+    auto start = std::chrono::steady_clock::now();
 
-    if( ctx.chronicler().logs().size() )
+    for( uint64_t i = 0; i < run_limit; i++ )
     {
-      LOG( info ) << "Contract output:";
-      for( const auto& message: ctx.chronicler().logs() )
-        LOG( info ) << message;
+      ctx.resource_meter().set_resource_limit_data( rld );
+      chain::host_api hapi( ctx );
+
+      vm_backend->run( hapi, bytecode );
+
+//      if( ctx.chronicler().logs().size() )
+//      {
+//        LOG( info ) << "Contract output:";
+//        for( const auto& message: ctx.chronicler().logs() )
+//          LOG( info ) << message;
+//      }
     }
+
+    auto stop = std::chrono::steady_clock::now();
+
+    LOG( info ) << "Total Runtime: " << (stop - start) / 1.0s << "s";
   }
   catch( const koinos::exception& e )
   {

@@ -222,6 +222,12 @@ chain::intent execution_context::intent() const
 void execution_context::build_compute_registry_cache()
 {
   auto parent_state_node = get_parent_node();
+  if( !parent_state_node )
+  {
+    _cache.compute_bandwidth.emplace();
+    return;
+  }
+
   KOINOS_ASSERT( parent_state_node,
                  chain::reversion_exception,
                  "cannot build execution context cache without a state node" );
@@ -238,6 +244,12 @@ void execution_context::build_compute_registry_cache()
 void execution_context::build_descriptor_pool()
 {
   auto parent_state_node = get_parent_node();
+  if( !parent_state_node )
+  {
+    _cache.descriptor_pool.emplace();
+    return;
+  }
+
   KOINOS_ASSERT( parent_state_node,
                  chain::reversion_exception,
                  "cannot build execution context cache without a state node" );
@@ -255,16 +267,17 @@ void execution_context::build_descriptor_pool()
 
 void execution_context::cache_system_call( uint32_t id )
 {
-  auto parent_state_node = get_parent_node();
-  KOINOS_ASSERT( parent_state_node,
-                 chain::reversion_exception,
-                 "cannot build execution context cache without a state node" );
-
   if( _cache.system_call_table.find( id ) != _cache.system_call_table.end() )
     return;
 
-  auto obj =
-    parent_state_node->get_object( state::space::system_call_dispatch(), util::converter::as< std::string >( id ) );
+  auto parent_state_node = get_parent_node();
+  const std::string *obj = nullptr;
+
+  if( parent_state_node )
+  {
+    obj =
+      parent_state_node->get_object( state::space::system_call_dispatch(), util::converter::as< std::string >( id ) );
+  }
 
   if( obj != nullptr )
   {
@@ -337,6 +350,8 @@ uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name
     build_compute_registry_cache();
 
   auto itr = _cache.compute_bandwidth->find( thunk_name );
+  if( itr == _cache.compute_bandwidth->end() )
+    return 0;
 
   KOINOS_ASSERT( itr != _cache.compute_bandwidth->end(),
                  reversion_exception,
