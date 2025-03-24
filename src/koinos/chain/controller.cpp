@@ -792,8 +792,8 @@ controller_impl::submit_transaction( const rpc::chain::submit_transaction_reques
   uint64_t trx_rc_limit;
   chain::value_type mempool_nonce;
 
-  auto transaction    = request.transaction();
-  auto transaction_id = util::to_hex( transaction.id() );
+  const auto& transaction = request.transaction();
+  auto transaction_id     = util::to_hex( transaction.id() );
 
   LOG( debug ) << "Pushing transaction - ID: " << transaction_id;
 

@@ -27,6 +27,7 @@
 
 using namespace koinos;
 using namespace std::string_literals;
+using namespace std::chrono_literals;
 
 struct controller_fixture
 {
@@ -1687,4 +1688,113 @@ BOOST_AUTO_TEST_CASE( invoke_system_call_test )
   }
   KOINOS_CATCH_LOG_AND_RETHROW( info )
 }
+
+BOOST_AUTO_TEST_CASE( transfer_benchmark )
+{
+  try
+  {
+    BOOST_TEST_MESSAGE( "Benchmarking transfers per second" );
+
+    auto rc_limit1 = 10'000'000;
+    auto rc_limit2 = 9'000'000;
+
+    auto contract_private_key = koinos::crypto::private_key::regenerate(
+      koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "contract"s ) );
+    auto alice_private_key =
+      koinos::crypto::private_key::regenerate( koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, "alice"s ) );
+    auto alice_address = alice_private_key.get_public_key().to_address_bytes();
+    koinos::protocol::transaction trx1;
+    koinos::chain::value_type nonce_value;
+    nonce_value.set_uint64_value( 1 );
+
+    // Upload the KOIN contract
+    auto op1 = trx1.add_operations()->mutable_upload_contract();
+    op1->set_contract_id(
+      util::converter::as< std::string >( contract_private_key.get_public_key().to_address_bytes() ) );
+    op1->set_bytecode( get_koin_wasm() );
+    auto sys_op = trx1.add_operations()->mutable_set_system_contract();
+    sys_op->set_contract_id( op1->contract_id() );
+    sys_op->set_system_contract( true );
+    trx1.mutable_header()->set_rc_limit( rc_limit1 );
+    trx1.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+    trx1.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+    set_transaction_merkle_roots( trx1, koinos::crypto::multicodec::sha2_256 );
+    sign_transaction( trx1, contract_private_key );
+    add_signature( trx1, _block_signing_private_key );
+
+    koinos::protocol::transaction trx2;
+
+    koinos::contracts::token::mint_arguments mint_arg;
+    mint_arg.set_to( alice_address );
+    mint_arg.set_value( 100 );
+
+    auto op2 = trx2.add_operations()->mutable_call_contract();
+    op2->set_contract_id( op1->contract_id() );
+    op2->set_entry_point( token_entry::mint );
+    op2->set_args( mint_arg.SerializeAsString() );
+    trx2.mutable_header()->set_rc_limit( rc_limit2 );
+    trx2.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+    trx2.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+    set_transaction_merkle_roots( trx2, koinos::crypto::multicodec::sha2_256 );
+    sign_transaction( trx2, alice_private_key );
+
+    koinos::rpc::chain::submit_block_request block_req;
+
+    auto duration = std::chrono::system_clock::now().time_since_epoch();
+    block_req.mutable_block()->mutable_header()->set_timestamp(
+      std::chrono::duration_cast< std::chrono::milliseconds >( duration ).count() );
+    block_req.mutable_block()->mutable_header()->set_height( 1 );
+    block_req.mutable_block()->mutable_header()->set_previous(
+      util::converter::as< std::string >( koinos::crypto::multihash::zero( koinos::crypto::multicodec::sha2_256 ) ) );
+    block_req.mutable_block()->mutable_header()->set_previous_state_merkle_root(
+      _controller.get_head_info().head_state_merkle_root() );
+    *block_req.mutable_block()->add_transactions() = trx1;
+    *block_req.mutable_block()->add_transactions() = trx2;
+
+    set_block_merkle_roots( *block_req.mutable_block(), koinos::crypto::multicodec::sha2_256 );
+    block_req.mutable_block()->set_id( util::converter::as< std::string >(
+      koinos::crypto::hash( koinos::crypto::multicodec::sha2_256, block_req.block().header() ) ) );
+    sign_block( *block_req.mutable_block(), _block_signing_private_key );
+
+    _controller.submit_block( block_req );
+
+    auto rc_limit3 = 8'000'000;
+
+    koinos::protocol::transaction trx3;
+    nonce_value.set_uint64_value( 2 );
+
+    koinos::contracts::token::transfer_arguments xfer_arg;
+    xfer_arg.set_from( alice_address );
+    xfer_arg.set_to( contract_private_key.get_public_key().to_address_bytes() );
+    xfer_arg.set_value( 0 );
+
+    auto op3 = trx3.add_operations()->mutable_call_contract();
+    op3->set_contract_id( op1->contract_id() );
+    op3->set_entry_point( token_entry::transfer );
+    op3->set_args( xfer_arg.SerializeAsString() );
+    trx3.mutable_header()->set_rc_limit( rc_limit3 );
+    trx3.mutable_header()->set_nonce( util::converter::as< std::string >( nonce_value ) );
+    trx3.mutable_header()->set_chain_id( _controller.get_chain_id().chain_id() );
+    set_transaction_merkle_roots( trx3, koinos::crypto::multicodec::sha2_256 );
+    sign_transaction( trx3, alice_private_key );
+
+    koinos::rpc::chain::submit_transaction_request tx_req;
+    *tx_req.mutable_transaction() = trx3;
+
+    auto start = std::chrono::steady_clock::now();
+
+    constexpr int transactions = 10'000;
+
+    for (int i = 0; i < transactions; i++ )
+      _controller.submit_transaction( tx_req );
+
+    auto stop = std::chrono::steady_clock::now();
+
+    auto seconds = (stop - start) / 1.0s;
+
+    LOG(info) << "Benchmark time: " << seconds << "s (" << transactions / seconds << " TPS)";
+  }
+  KOINOS_CATCH_LOG_AND_RETHROW( info )
+}
+
 BOOST_AUTO_TEST_SUITE_END()
