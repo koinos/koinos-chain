@@ -34,7 +34,7 @@ public:
   ~controller();
 
   void
-  open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset );
+  open( const std::filesystem::path& p, const chain::genesis_data& data, const chain::genesis_data& hardfork_data, const chain::genesis_data& hardfork_times_data, fork_resolution_algorithm algo, bool reset );
   void close();
   void set_client( std::shared_ptr< mq::client > c );
 

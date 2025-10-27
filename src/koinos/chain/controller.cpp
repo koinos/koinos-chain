@@ -99,7 +99,7 @@ public:
                    std::optional< uint64_t > pending_transaction_limit );
   ~controller_impl();
 
-  void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
+  void open( const std::filesystem::path& p, const genesis_data& data, const genesis_data& hardfork_data, const genesis_data& hardfork_times_data, fork_resolution_algorithm algo, bool reset );
   void close();
   void set_client( std::shared_ptr< mq::client > c );
 
@@ -125,6 +125,8 @@ private:
   std::optional< uint64_t > _pending_transaction_limit;
   std::shared_mutex _cached_head_block_mutex;
   std::shared_ptr< const protocol::block > _cached_head_block;
+  genesis_data _hardfork_data;
+  genesis_data _hardfork_times_data;
 
   void validate_block( const protocol::block& b );
   void validate_transaction( const protocol::transaction& t );
@@ -155,9 +157,14 @@ controller_impl::~controller_impl()
 
 void controller_impl::open( const std::filesystem::path& p,
                             const chain::genesis_data& data,
+                            const chain::genesis_data& hardfork_data,
+                            const chain::genesis_data& hardfork_times_data,
                             fork_resolution_algorithm algo,
                             bool reset )
 {
+  _hardfork_data = hardfork_data;
+  _hardfork_times_data = hardfork_times_data;
+
   state_db::state_node_comparator_function comp;
 
   switch( algo )
@@ -366,6 +373,14 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
   }
 
   execution_context ctx( _vm_backend, opts.propose_block ? intent::block_proposal : intent::block_application );
+
+  // Set hardfork times data if available
+  if( _hardfork_times_data.entries_size() > 0 )
+    ctx.set_hardfork_times_data( _hardfork_times_data );
+
+  // Set hardfork data loader (lazy loading)
+  if( _hardfork_data.entries_size() > 0 )
+    ctx._hardfork_data_loader = [ this ]() -> genesis_data { return _hardfork_data; };
 
   try
   {
@@ -667,6 +682,14 @@ void controller_impl::apply_block_delta( const protocol::block& block,
   block_node = _db.create_writable_node( parent_id, block_id, block.header(), db_lock );
 
   execution_context ctx( _vm_backend, intent::block_application );
+
+  // Set hardfork times data if available
+  if( _hardfork_times_data.entries_size() > 0 )
+    ctx.set_hardfork_times_data( _hardfork_times_data );
+
+  // Set hardfork data loader (lazy loading)
+  if( _hardfork_data.entries_size() > 0 )
+    ctx._hardfork_data_loader = [ this ]() -> genesis_data { return _hardfork_data; };
 
   try
   {
