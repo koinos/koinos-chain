@@ -329,30 +329,16 @@ void execution_context::reset_cache()
   _cache.descriptor_pool.reset();
   _cache.system_call_table.clear();
   _cache.block_hash_code.reset();
-  // Note: hardfork_data is not reset as it's persistent for the entire execution
 }
 
-const genesis_data& execution_context::get_hardfork_data() const
+void execution_context::set_hardfork_block_heights( const std::vector< uint64_t >& heights )
 {
-  return _cache.hardfork_data;
+  _hardfork_block_heights = heights;
 }
 
-void execution_context::set_hardfork_times_data( const genesis_data& data )
+bool execution_context::should_apply_hardfork( uint64_t block_height ) const
 {
-  _cache.hardfork_times_data = data;
-}
-
-const genesis_data& execution_context::get_hardfork_times_data() const
-{
-  return _cache.hardfork_times_data;
-}
-
-void execution_context::ensure_hardfork_data_loaded()
-{
-  if( _cache.hardfork_data.entries_size() == 0 && _hardfork_data_loader )
-  {
-    _cache.hardfork_data = _hardfork_data_loader();
-  }
+  return std::binary_search( _hardfork_block_heights.begin(), _hardfork_block_heights.end(), block_height );
 }
 
 uint64_t execution_context::get_compute_bandwidth( const std::string& thunk_name )

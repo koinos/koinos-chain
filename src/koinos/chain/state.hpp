@@ -48,8 +48,6 @@ const auto compute_bandwidth_registry = util::converter::as< std::string >(
   crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::compute_bandwidth_registry" ) ) );
 const auto block_hash_code = util::converter::as< std::string >(
   crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::block_hash_code" ) ) );
-const auto hardfork_key = util::converter::as< std::string >(
-  crypto::hash( crypto::multicodec::sha2_256, std::string( "object_key::hardfork_key" ) ) );
 
 } // namespace key
 

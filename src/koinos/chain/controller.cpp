@@ -99,7 +99,7 @@ public:
                    std::optional< uint64_t > pending_transaction_limit );
   ~controller_impl();
 
-  void open( const std::filesystem::path& p, const genesis_data& data, const genesis_data& hardfork_data, const genesis_data& hardfork_times_data, fork_resolution_algorithm algo, bool reset );
+  void open( const std::filesystem::path& p, const genesis_data& data, const genesis_data& hardfork_data, fork_resolution_algorithm algo, bool reset );
   void close();
   void set_client( std::shared_ptr< mq::client > c );
 
@@ -125,8 +125,7 @@ private:
   std::optional< uint64_t > _pending_transaction_limit;
   std::shared_mutex _cached_head_block_mutex;
   std::shared_ptr< const protocol::block > _cached_head_block;
-  genesis_data _hardfork_data;
-  genesis_data _hardfork_times_data;
+  std::vector< uint64_t > _hardfork_block_heights;
 
   void validate_block( const protocol::block& b );
   void validate_transaction( const protocol::transaction& t );
@@ -158,13 +157,9 @@ controller_impl::~controller_impl()
 void controller_impl::open( const std::filesystem::path& p,
                             const chain::genesis_data& data,
                             const chain::genesis_data& hardfork_data,
-                            const chain::genesis_data& hardfork_times_data,
                             fork_resolution_algorithm algo,
                             bool reset )
 {
-  _hardfork_data = hardfork_data;
-  _hardfork_times_data = hardfork_times_data;
-
   state_db::state_node_comparator_function comp;
 
   switch( algo )
@@ -219,6 +214,48 @@ void controller_impl::open( const std::filesystem::path& p,
   {
     LOG( info ) << "Resetting database...";
     _db.reset( _db.get_unique_lock() );
+  }
+
+  // Store hardfork data in database on every startup
+  if( hardfork_data.entries_size() > 0 )
+  {
+    LOG( info ) << "Storing hardfork data in database...";
+    auto db_lock = _db.get_unique_lock();
+    auto root = _db.get_root( db_lock );
+
+    for( const auto& entry: hardfork_data.entries() )
+    {
+      // Decode the key as uint64_value (block height)
+      auto block_height_type = util::converter::to< value_type >( entry.key() );
+      KOINOS_ASSERT( block_height_type.has_uint64_value(),
+                   internal_error_exception,
+                   "hardfork entry key does not contain uint64_value" );
+      uint64_t block_height = block_height_type.uint64_value();
+
+      // Add the block height to the list of hardforks
+      _hardfork_block_heights.push_back( block_height );
+
+      // Store hardfork data in database with key "hardfork-${block_height}"
+      std::string hardfork_key = "hardfork-" + std::to_string( block_height );
+      
+      // Decode the value as genesis_data
+      genesis_data hardfork_entries;
+      KOINOS_ASSERT( hardfork_entries.ParseFromString( entry.value() ),
+                     internal_error_exception,
+                     "failed to parse hardfork data for block height ${height}",
+                     ( "height", block_height ) );
+      
+      // Store the hardfork data in the database
+      std::string serialized_hardfork = util::converter::as< std::string >( hardfork_entries );
+      root->put_object( state::space::metadata(), hardfork_key, &serialized_hardfork );
+      
+      LOG( info ) << "Stored hardfork data for block height " << block_height << " with " << hardfork_entries.entries_size() << " entries";
+    }
+
+    // Sort the block heights for efficient lookup
+    std::sort( _hardfork_block_heights.begin(), _hardfork_block_heights.end() );
+
+    LOG( info ) << "Completed storing hardfork data in database";
   }
 
   auto head = _db.get_head( _db.get_shared_lock() );
@@ -374,13 +411,8 @@ apply_block_result controller_impl::apply_block( const protocol::block& block, c
 
   execution_context ctx( _vm_backend, opts.propose_block ? intent::block_proposal : intent::block_application );
 
-  // Set hardfork times data if available
-  if( _hardfork_times_data.entries_size() > 0 )
-    ctx.set_hardfork_times_data( _hardfork_times_data );
-
-  // Set hardfork data loader (lazy loading)
-  if( _hardfork_data.entries_size() > 0 )
-    ctx._hardfork_data_loader = [ this ]() -> genesis_data { return _hardfork_data; };
+  // Set hardfork block heights for hardfork checking
+  ctx.set_hardfork_block_heights( _hardfork_block_heights );
 
   try
   {
@@ -682,14 +714,6 @@ void controller_impl::apply_block_delta( const protocol::block& block,
   block_node = _db.create_writable_node( parent_id, block_id, block.header(), db_lock );
 
   execution_context ctx( _vm_backend, intent::block_application );
-
-  // Set hardfork times data if available
-  if( _hardfork_times_data.entries_size() > 0 )
-    ctx.set_hardfork_times_data( _hardfork_times_data );
-
-  // Set hardfork data loader (lazy loading)
-  if( _hardfork_data.entries_size() > 0 )
-    ctx._hardfork_data_loader = [ this ]() -> genesis_data { return _hardfork_data; };
 
   try
   {

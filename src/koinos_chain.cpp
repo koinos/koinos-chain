@@ -63,9 +63,7 @@
 #define GENESIS_DATA_FILE_OPTION                  "genesis-data"
 #define GENESIS_DATA_FILE_DEFAULT                 "genesis_data.json"
 #define HARDFORK_DATA_FILE_OPTION                 "hardfork-data"
-#define HARDFORK_DATA_FILE_DEFAULT                "hardfork1.json"
-#define HARDFORK_TIMES_FILE_OPTION                "hardfork-times"
-#define HARDFORK_TIMES_FILE_DEFAULT               "hardfork_times.json"
+#define HARDFORK_DATA_FILE_DEFAULT                "hardfork_data.json"
 #define READ_COMPUTE_BANDWITH_LIMIT_OPTION        "read-compute-bandwidth-limit"
 #define READ_COMPUTE_BANDWITH_LIMIT_DEFAULT       10'000'000
 #define SYSTEM_CALL_BUFFER_SIZE_OPTION            "system-call-buffer-size"
@@ -91,12 +89,11 @@ void attach_request_handler( chain::controller& controller, mq::request_handler&
 int main( int argc, char** argv )
 {
   std::string amqp_url, log_level, log_dir, instance_id, fork_algorithm_option;
-  std::filesystem::path statedir, genesis_data_file, hardfork_data_file, hardfork_times_file;
+  std::filesystem::path statedir, genesis_data_file, hardfork_data_file;
   uint64_t jobs, read_compute_limit, pending_transaction_limit;
   uint32_t syscall_bufsize;
   chain::genesis_data genesis_data;
   chain::genesis_data hardfork_data;
-  chain::genesis_data hardfork_times_data;
   bool reset, log_color, log_datetime, disable_pending_transaction_limit, verify_blocks;
   chain::fork_resolution_algorithm fork_algorithm;
 
@@ -116,7 +113,6 @@ int main( int argc, char** argv )
       ( READ_COMPUTE_BANDWITH_LIMIT_OPTION ",b" , program_options::value< uint64_t >()   , "The compute bandwidth when reading contracts via the API" )
       ( GENESIS_DATA_FILE_OPTION ",g"           , program_options::value< std::string >(), "The genesis data file" )
       ( HARDFORK_DATA_FILE_OPTION               , program_options::value< std::string >(), "The hardfork data file" )
-      ( HARDFORK_TIMES_FILE_OPTION              , program_options::value< std::string >(), "The hardfork times file" )
       ( STATEDIR_OPTION                         , program_options::value< std::string >(), "The location of the blockchain state files (absolute path or relative to basedir/chain)" )
       ( RESET_OPTION                            , program_options::value< bool >()       , "Reset the database" )
       ( FORK_ALGORITHM_OPTION ",f"              , program_options::value< std::string >(), "The fork resolution algorithm to use. Can be 'fifo', 'pob', or 'block-time'. (Default: 'fifo')" )
@@ -177,7 +173,6 @@ int main( int argc, char** argv )
     statedir                          = std::filesystem::path( util::get_option< std::string >( STATEDIR_OPTION, STATEDIR_DEFAULT, args, chain_config, global_config ) );
     genesis_data_file                 = std::filesystem::path( util::get_option< std::string >( GENESIS_DATA_FILE_OPTION, GENESIS_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
     hardfork_data_file                = std::filesystem::path( util::get_option< std::string >( HARDFORK_DATA_FILE_OPTION, HARDFORK_DATA_FILE_DEFAULT, args, chain_config, global_config ) );
-    hardfork_times_file               = std::filesystem::path( util::get_option< std::string >( HARDFORK_TIMES_FILE_OPTION, HARDFORK_TIMES_FILE_DEFAULT, args, chain_config, global_config ) );
     reset                             = util::get_option< bool >( RESET_OPTION, false, args, chain_config, global_config );
     jobs                              = util::get_option< uint64_t >( JOBS_OPTION, std::max( JOBS_DEFAULT, uint64_t( std::thread::hardware_concurrency() ) ), args, chain_config, global_config );
     read_compute_limit                = util::get_option< uint64_t >( READ_COMPUTE_BANDWITH_LIMIT_OPTION, READ_COMPUTE_BANDWITH_LIMIT_DEFAULT, args, chain_config, global_config );
@@ -273,25 +268,6 @@ int main( int argc, char** argv )
       LOG( info ) << "Hardfork data file not found at: " << hardfork_data_file;
     }
 
-    // Load hardfork times data (optional)
-    if( hardfork_times_file.is_relative() )
-      hardfork_times_file = basedir / util::service::chain / hardfork_times_file;
-
-    if( std::filesystem::exists( hardfork_times_file ) )
-    {
-      std::ifstream htfs( hardfork_times_file );
-      std::stringstream hardfork_times_stream;
-      hardfork_times_stream << htfs.rdbuf();
-      std::string hardfork_times_json = hardfork_times_stream.str();
-      htfs.close();
-
-      google::protobuf::util::JsonStringToMessage( hardfork_times_json, &hardfork_times_data, jpo );
-      LOG( info ) << "Loaded hardfork times file: " << hardfork_times_file;
-    }
-    else
-    {
-      LOG( info ) << "Hardfork times file not found at: " << hardfork_times_file;
-    }
 
     LOG( info ) << "Chain ID: " << chain_id;
     LOG( info ) << "Number of jobs: " << jobs;
@@ -351,7 +327,7 @@ int main( int argc, char** argv )
                               server_ioc.run();
                             } );
 
-    controller.open( statedir, genesis_data, hardfork_data, hardfork_times_data, fork_algorithm, reset );
+    controller.open( statedir, genesis_data, hardfork_data, fork_algorithm, reset );
 
     LOG( info ) << "Connecting AMQP client...";
     client->connect( amqp_url );

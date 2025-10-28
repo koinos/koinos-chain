@@ -79,8 +79,6 @@ struct execution_context_cache
   std::optional< google::protobuf::DescriptorPool > descriptor_pool;
   std::map< uint32_t, std::variant< system_call_cache_bundle, thunk_cache_bundle > > system_call_table;
   std::optional< crypto::multicodec > block_hash_code;
-  genesis_data hardfork_data;
-  genesis_data hardfork_times_data;
 };
 
 class execution_context
@@ -146,10 +144,8 @@ public:
   chain::receipt& receipt();
 
   void reset_cache();
-  const genesis_data& get_hardfork_data() const;
-  void set_hardfork_times_data( const genesis_data& data );
-  const genesis_data& get_hardfork_times_data() const;
-  void ensure_hardfork_data_loaded();
+  void set_hardfork_block_heights( const std::vector< uint64_t >& heights );
+  bool should_apply_hardfork( uint64_t block_height ) const;
 
   const google::protobuf::DescriptorPool& descriptor_pool();
 
@@ -191,7 +187,7 @@ private:
 
   execution_context_cache _cache;
   execution_result _result;
-  std::function< genesis_data() > _hardfork_data_loader;
+  std::vector< uint64_t > _hardfork_block_heights;
 
   std::vector< uint32_t > _failed_transaction_indices;
 };

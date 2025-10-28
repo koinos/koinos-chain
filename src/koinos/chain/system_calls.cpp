@@ -196,7 +196,10 @@ namespace thunk {
 
 void _nop( execution_context& ) {}
 
-void _apply_hardfork( execution_context& context, uint32_t hardfork_id )
+// Note: This thunk intentionally skips THUNK_DEFINE because its purpose is to apply hardforks.
+// The system call override mechanism was designed to allow updates without hardforks, but
+// this thunk IS the hardfork mechanism itself, so it must remain fixed and non-overridable.
+void _apply_hardfork( execution_context& context, uint64_t block_height )
 {
   KOINOS_ASSERT( context.get_caller_privilege() == privilege::kernel_mode,
                  insufficient_privileges_exception,
@@ -205,49 +208,39 @@ void _apply_hardfork( execution_context& context, uint32_t hardfork_id )
                  read_only_context_exception,
                  "unable to perform action while context is read only" );
 
-  // Check if the hardfork is already applied
-  auto hardfork_obj = system_call::get_object( context, state::space::metadata(), state::key::hardfork_key );
-  uint32_t applied_hardfork = 0;
-
-  if( hardfork_obj.exists() )
-  {
-    value_type hardfork_value = util::converter::to< value_type >( hardfork_obj.value() );
-    KOINOS_ASSERT( hardfork_value.has_uint32_value(),
-                   internal_error_exception,
-                   "hardfork key does not contain uint32 value" );
-    applied_hardfork = hardfork_value.uint32_value();
-  }
-
-  KOINOS_ASSERT( hardfork_id == applied_hardfork + 1,
+  // Read hardfork data from database using key "hardfork-${block_height}"
+  std::string hardfork_key = "hardfork-" + std::to_string( block_height );
+  auto hardfork_obj = system_call::get_object( context, state::space::metadata(), hardfork_key );
+  
+  KOINOS_ASSERT( hardfork_obj.exists(),
                  reversion_exception,
-                 "cannot apply hardfork ${id}, expected ${expected}",
-                 ( "id", hardfork_id )( "expected", applied_hardfork + 1 ) );
+                 "hardfork data not found for block height ${height}",
+                 ( "height", block_height ) );
 
-  // Load hardfork data lazily if not already loaded
-  context.ensure_hardfork_data_loaded();
-
-  // Get hardfork data from the cache
-  const auto& hardfork_data = context.get_hardfork_data();
-
-  // Apply the hardfork data
-  KOINOS_ASSERT( hardfork_data.entries_size() > 0,
+  // Parse the hardfork data
+  genesis_data hardfork_data;
+  KOINOS_ASSERT( hardfork_data.ParseFromString( hardfork_obj.value() ),
                  reversion_exception,
-                 "hardfork data is empty" );
+                 "failed to parse hardfork data for block height ${height}",
+                 ( "height", block_height ) );
 
+  auto state = context.get_state_node();
+  KOINOS_ASSERT( state, internal_error_exception, "current state node does not exist" );
+  auto val = util::converter::as< state_db::object_value >( obj );
+
+  // Apply the hardfork data (if any)
   for( const auto& entry: hardfork_data.entries() )
   {
-    system_call::put_object( context, entry.space(), entry.key(), entry.value() );
+    // We intentionally avoid using system_call::put_object here,
+    // and use state->put_object instead because:
+    // 1. We do not charge disk_storage for storing new hardfork data
+    //    (to prevent potential issues with disk_storage limits).
+    // 2. Hardforks can be applied to any space, so state::assert_permissions
+    //    is also skipped in this context.
+    state->put_object( entry.space(), entry.key(), &entry.value() );
   }
 
-  // Update the hardfork key with the new hardfork id
-  value_type new_hardfork_value;
-  new_hardfork_value.set_uint32_value( hardfork_id );
-  system_call::put_object( context,
-                           state::space::metadata(),
-                           state::key::hardfork_key,
-                           util::converter::as< std::string >( new_hardfork_value ) );
-
-  LOG( info ) << "Applied hardfork " << hardfork_id;
+  LOG( info ) << "Applied hardfork for block height " << block_height << " with " << hardfork_data.entries_size() << " entries";
 }
 
 } // namespace thunk
@@ -348,6 +341,15 @@ THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
                    malformed_block_exception,
                    "transaction merkle root does not match" );
 
+    // Check if this block height requires a hardfork to be applied
+    const auto block_height = block.header().height();
+    
+    if( context.should_apply_hardfork( block_height ) )
+    {
+      LOG( info ) << "Auto-applying hardfork at block height " << block_height;
+      thunk::_apply_hardfork( context, block_height );
+    }
+
     auto block_hash = util::converter::to< crypto::multihash >(
       system_call::hash( context,
                          std::underlying_type_t< crypto::multicodec >( context.block_hash_code() ),
@@ -360,30 +362,6 @@ THUNK_DEFINE( void, apply_block, ( (const protocol::block&)block ) )
                    "failed to process block signature" );
 
     system_call::pre_block_callback( context );
-
-    // Check if this block height requires a hardfork to be applied
-    const auto block_height = block.header().height();
-    const auto& hardfork_times_data = context.get_hardfork_times_data();
-
-    for( const auto& entry: hardfork_times_data.entries() )
-    {
-      auto entry_value = util::converter::to< value_type >( entry.value() );
-      if( entry_value.has_uint64_value() && entry_value.uint64_value() == block_height )
-      {
-        // Extract hardfork ID from the key using value_type
-        auto hardfork_key_type = util::converter::to< value_type >( entry.key() );
-        if( hardfork_key_type.has_uint32_value() )
-        {
-          auto hardfork_id = hardfork_key_type.uint32_value();
-          LOG( info ) << "Auto-applying hardfork " << hardfork_id << " at block height " << block_height;
-          thunk::_apply_hardfork( context, hardfork_id );
-        }
-        else
-        {
-          LOG( warning ) << "Hardfork key does not contain uint32_value";
-        }
-      }
-    }
 
     // We directly call put_object on the state node so that we do not charge disk_storage for the storage of the new
     // head block
