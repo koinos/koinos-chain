@@ -101,6 +101,11 @@ public:
 
   void open( const std::filesystem::path& p, const genesis_data& data, fork_resolution_algorithm algo, bool reset );
   void close();
+  void reverse_block_delta( const protocol::block& block,
+                            const protocol::block& parent_block,
+                            const protocol::block_receipt& receipt,
+                            uint64_t start_height,
+                            uint64_t target_height );
   void set_client( std::shared_ptr< mq::client > c );
 
   apply_block_result apply_block( const protocol::block& block, const apply_block_options& opts );
@@ -226,6 +231,97 @@ void controller_impl::close()
 void controller_impl::set_client( std::shared_ptr< mq::client > c )
 {
   _client = c;
+}
+
+void controller_impl::reverse_block_delta( const protocol::block& block,
+                                           const protocol::block& parent_block,
+                                           const protocol::block_receipt& receipt,
+                                           uint64_t start_height,
+                                           uint64_t target_height )
+{
+  auto db_lock = _db.get_shared_lock();
+
+  auto block_id       = util::converter::to< crypto::multihash >( block.id() );
+  auto parent_id      = util::converter::to< crypto::multihash >( block.header().previous() );
+  auto parent_height  = parent_block.header().height();
+  auto expected_head  = _db.get_head( db_lock );
+  auto expected_id    = util::converter::as< std::string >( expected_head->id() );
+  auto existing_child = _db.get_node( parent_id, db_lock );
+
+  KOINOS_ASSERT( block.id() == expected_id,
+                 block_state_error_exception,
+                 "reverse delta block is not current head, expected ${e} got ${a}",
+                 ( "e", util::to_hex( expected_id ) )( "a", util::to_hex( block.id() ) ) );
+  KOINOS_ASSERT( block.header().previous() == parent_block.id(),
+                 block_state_error_exception,
+                 "reverse delta parent mismatch for block ${b}",
+                 ( "b", util::to_hex( block.id() ) ) );
+  KOINOS_ASSERT( block.header().height() == parent_height + 1,
+                 block_state_error_exception,
+                 "reverse delta parent height mismatch for block ${b}",
+                 ( "b", util::to_hex( block.id() ) ) );
+  KOINOS_ASSERT( !existing_child,
+                 block_state_error_exception,
+                 "reverse delta target node already exists for block ${b}",
+                 ( "b", util::to_hex( parent_block.id() ) ) );
+
+  auto rewound_node = _db.create_writable_node( block_id, parent_id, parent_block.header(), db_lock );
+  KOINOS_ASSERT( rewound_node, block_state_error_exception, "could not create rewind node" );
+
+  try
+  {
+    for( const auto& delta_entry: receipt.state_delta_entries() )
+    {
+      chain::object_space object_space;
+      object_space.set_system( delta_entry.object_space().system() );
+      object_space.set_zone( delta_entry.object_space().zone() );
+      object_space.set_id( delta_entry.object_space().id() );
+
+      if( delta_entry.has_previous_value() )
+      {
+        rewound_node->put_object( object_space, delta_entry.key(), &delta_entry.previous_value() );
+      }
+      else if( delta_entry.has_value() )
+      {
+        // The object was created in this block, so rollback removes it.
+        rewound_node->remove_object( object_space, delta_entry.key() );
+      }
+      else
+      {
+        KOINOS_THROW( block_state_error_exception, "cannot reverse state delta entry without previous value data" );
+      }
+    }
+
+    db_lock.reset();
+    rewound_node.reset();
+
+    auto unique_db_lock = _db.get_unique_lock();
+    _db.finalize_node( parent_id, unique_db_lock );
+
+    if( parent_id == _db.get_head( unique_db_lock )->id() )
+    {
+      std::unique_lock< std::shared_mutex > head_lock( _cached_head_block_mutex );
+      _cached_head_block = std::make_shared< protocol::block >( parent_block );
+    }
+  }
+  catch( ... )
+  {
+    db_lock = _db.get_shared_lock();
+    if( auto failed_node = _db.get_node( parent_id, db_lock ); failed_node && !failed_node->is_finalized() )
+      _db.discard_node( parent_id, db_lock );
+
+    throw;
+  }
+
+  static constexpr uint64_t log_interval = 1'000;
+  if( parent_height == target_height || parent_height % log_interval == 0 )
+  {
+    const auto rewound   = start_height - parent_height;
+    const auto total     = start_height - target_height;
+    const auto progress  = total ? ( rewound * 100.0 / static_cast< double >( total ) ) : 100.0;
+    const auto parent_id = util::converter::to< crypto::multihash >( parent_block.id() );
+    LOG( info ) << "Rewinding chain (" << progress << "%) - Height: " << parent_height << ", ID: " << parent_id;
+  }
 }
 
 void controller_impl::validate_block( const protocol::block& b )
@@ -1279,6 +1375,15 @@ void controller::open( const std::filesystem::path& p,
 void controller::close()
 {
   _my->close();
+}
+
+void controller::reverse_block_delta( const protocol::block& block,
+                                      const protocol::block& parent_block,
+                                      const protocol::block_receipt& receipt,
+                                      uint64_t start_height,
+                                      uint64_t target_height )
+{
+  _my->reverse_block_delta( block, parent_block, receipt, start_height, target_height );
 }
 
 void controller::set_client( std::shared_ptr< mq::client > c )

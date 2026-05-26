@@ -19,12 +19,17 @@ namespace koinos::chain {
 class indexer final
 {
 public:
-  indexer( boost::asio::io_context& ioc, controller& c, std::shared_ptr< mq::client > mc, bool verify_blocks );
+  indexer( boost::asio::io_context& ioc,
+           controller& c,
+           std::shared_ptr< mq::client > mc,
+           bool verify_blocks,
+           std::optional< uint64_t > go_to_block = {} );
 
   std::future< bool > index();
 
 private:
   void prepare_index();
+  void rewind_to_block( uint64_t target_height );
   void send_requests( uint64_t last_height, uint64_t batch_size );
   void process_requests( uint64_t last_height, uint64_t batch_size );
   void process_block();
@@ -35,6 +40,7 @@ private:
   controller& _controller;
   std::shared_ptr< mq::client > _client;
   bool _verify_blocks = false;
+  std::optional< uint64_t > _go_to_block;
 
   boost::asio::signal_set _signals;
   std::atomic_bool _stopped = false;

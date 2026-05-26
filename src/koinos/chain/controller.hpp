@@ -36,6 +36,11 @@ public:
   void
   open( const std::filesystem::path& p, const chain::genesis_data& data, fork_resolution_algorithm algo, bool reset );
   void close();
+  void reverse_block_delta( const protocol::block& block,
+                            const protocol::block& parent_block,
+                            const protocol::block_receipt& receipt,
+                            uint64_t start_height,
+                            uint64_t target_height );
   void set_client( std::shared_ptr< mq::client > c );
 
   rpc::chain::submit_block_response
