@@ -239,37 +239,32 @@ void controller_impl::reverse_block_delta( const protocol::block& block,
                                            uint64_t start_height,
                                            uint64_t target_height )
 {
-  auto db_lock = _db.get_shared_lock();
-
-  auto block_id       = util::converter::to< crypto::multihash >( block.id() );
-  auto parent_id      = util::converter::to< crypto::multihash >( block.header().previous() );
-  auto parent_height  = parent_block.header().height();
-  auto expected_head  = _db.get_head( db_lock );
-  auto expected_id    = util::converter::as< std::string >( expected_head->id() );
-  auto existing_child = _db.get_node( parent_id, db_lock );
-
-  KOINOS_ASSERT( block.id() == expected_id,
-                 block_state_error_exception,
-                 "reverse delta block is not current head, expected ${e} got ${a}",
-                 ( "e", util::to_hex( expected_id ) )( "a", util::to_hex( block.id() ) ) );
-  KOINOS_ASSERT( block.header().previous() == parent_block.id(),
-                 block_state_error_exception,
-                 "reverse delta parent mismatch for block ${b}",
-                 ( "b", util::to_hex( block.id() ) ) );
-  KOINOS_ASSERT( block.header().height() == parent_height + 1,
-                 block_state_error_exception,
-                 "reverse delta parent height mismatch for block ${b}",
-                 ( "b", util::to_hex( block.id() ) ) );
-  KOINOS_ASSERT( !existing_child,
-                 block_state_error_exception,
-                 "reverse delta target node already exists for block ${b}",
-                 ( "b", util::to_hex( parent_block.id() ) ) );
-
-  auto rewound_node = _db.create_writable_node( block_id, parent_id, parent_block.header(), db_lock );
-  KOINOS_ASSERT( rewound_node, block_state_error_exception, "could not create rewind node" );
+  auto block_id      = util::converter::to< crypto::multihash >( block.id() );
+  auto parent_id     = util::converter::to< crypto::multihash >( block.header().previous() );
+  auto parent_height = parent_block.header().height();
 
   try
   {
+    auto db_lock      = _db.get_shared_lock();
+    auto expected_head = _db.get_head( db_lock );
+    auto expected_id   = util::converter::as< std::string >( expected_head->id() );
+
+    KOINOS_ASSERT( block.id() == expected_id,
+                   block_state_error_exception,
+                   "reverse delta block is not current head, expected ${e} got ${a}",
+                   ( "e", util::to_hex( expected_id ) )( "a", util::to_hex( block.id() ) ) );
+    KOINOS_ASSERT( block.header().previous() == parent_block.id(),
+                   block_state_error_exception,
+                   "reverse delta parent mismatch for block ${b}",
+                   ( "b", util::to_hex( block.id() ) ) );
+    KOINOS_ASSERT( block.header().height() == parent_height + 1,
+                   block_state_error_exception,
+                   "reverse delta parent height mismatch for block ${b}",
+                   ( "b", util::to_hex( block.id() ) ) );
+
+    auto rewound_node = _db.create_writable_node( block_id, parent_id, parent_block.header(), db_lock );
+    KOINOS_ASSERT( rewound_node, block_state_error_exception, "could not create rewind node" );
+
     for( const auto& delta_entry: receipt.state_delta_entries() )
     {
       chain::object_space object_space;
@@ -292,8 +287,10 @@ void controller_impl::reverse_block_delta( const protocol::block& block,
       }
     }
 
-    db_lock.reset();
+    // Release shared lock-backed node handles before taking unique DB lock.
     rewound_node.reset();
+    expected_head.reset();
+    db_lock.reset();
 
     auto unique_db_lock = _db.get_unique_lock();
     _db.finalize_node( parent_id, unique_db_lock );
@@ -306,7 +303,7 @@ void controller_impl::reverse_block_delta( const protocol::block& block,
   }
   catch( ... )
   {
-    db_lock = _db.get_shared_lock();
+    auto db_lock = _db.get_shared_lock();
     if( auto failed_node = _db.get_node( parent_id, db_lock ); failed_node && !failed_node->is_finalized() )
       _db.discard_node( parent_id, db_lock );
 

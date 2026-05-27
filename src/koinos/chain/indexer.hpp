@@ -30,6 +30,7 @@ public:
 private:
   void prepare_index();
   void rewind_to_block( uint64_t target_height );
+  void index_to_target_synchronously( uint64_t start_height );
   void send_requests( uint64_t last_height, uint64_t batch_size );
   void process_requests( uint64_t last_height, uint64_t batch_size );
   void process_block();

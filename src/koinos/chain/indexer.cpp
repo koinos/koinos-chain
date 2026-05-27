@@ -155,8 +155,26 @@ void indexer::prepare_index()
     {
       LOG( info ) << "Indexing to target block - Height: " << _target_head.height()
                   << ", ID: " << util::to_hex( _target_head.id() );
-      boost::asio::post( std::bind( &indexer::send_requests, this, _start_head_info.head_topology().height(), 50 ) );
-      boost::asio::post( std::bind( &indexer::process_block, this ) );
+
+      // go-to-block startup is a one-shot administrative flow; keep it synchronous
+      // to avoid background queue races while rewinding/reindexing.
+      if( _go_to_block.has_value() )
+      {
+        index_to_target_synchronously( _start_head_info.head_topology().height() );
+
+        const auto new_head_info                        = _controller.get_head_info();
+        const std::chrono::duration< double > duration = std::chrono::system_clock::now() - _start_time;
+        LOG( info ) << "Finished indexing "
+                    << new_head_info.head_topology().height() - _start_head_info.head_topology().height()
+                    << " blocks, took " << duration.count() << " seconds";
+        _complete->set_value( true );
+        _complete.reset();
+      }
+      else
+      {
+        boost::asio::post( std::bind( &indexer::send_requests, this, _start_head_info.head_topology().height(), 50 ) );
+        boost::asio::post( std::bind( &indexer::process_block, this ) );
+      }
     }
     else
     {
@@ -265,6 +283,61 @@ void indexer::rewind_to_block( uint64_t target_height )
 
       current_id = block.header().previous();
       --current_height;
+    }
+  }
+}
+
+void indexer::index_to_target_synchronously( uint64_t start_height )
+{
+  uint64_t last_height = start_height;
+
+  while( last_height < _target_head.height() )
+  {
+    const auto remaining  = _target_head.height() - last_height;
+    const auto batch_size = std::min< uint64_t >( 1'000, remaining );
+
+    rpc::block_store::block_store_request req;
+    auto* by_height_req = req.mutable_get_blocks_by_height();
+    by_height_req->set_head_block_id( _target_head.id() );
+    by_height_req->set_ancestor_start_height( last_height + 1 );
+    by_height_req->set_num_blocks( uint32_t( batch_size ) );
+    by_height_req->set_return_block( true );
+    by_height_req->set_return_receipt( true );
+
+    auto data = _client->rpc( util::service::block_store, req.SerializeAsString(), std::chrono::milliseconds( 5'000 ) );
+    rpc::block_store::block_store_response resp;
+
+    KOINOS_ASSERT( resp.ParseFromString( data.get() ), indexer_failure_exception, "could not parse block store response" );
+    KOINOS_ASSERT( !resp.has_error(), indexer_failure_exception, "${e}", ( "e", resp.error().message() ) );
+    KOINOS_ASSERT( resp.has_get_blocks_by_height(), indexer_failure_exception, "unexpected block store response" );
+
+    const auto& items = resp.get_blocks_by_height().block_items();
+    KOINOS_ASSERT( items.size() > 0, indexer_failure_exception, "empty block batch returned during indexing" );
+
+    for( const auto& item: items )
+    {
+      KOINOS_ASSERT( item.has_block() && item.has_receipt(),
+                     indexer_failure_exception,
+                     "indexing requires both block and receipt data" );
+
+      const auto& block = item.block();
+      KOINOS_ASSERT( block.header().height() == last_height + 1,
+                     indexer_failure_exception,
+                     "unexpected block height while indexing; expected ${e}, got ${a}",
+                     ( "e", last_height + 1 )( "a", block.header().height() ) );
+
+      if( _verify_blocks )
+      {
+        rpc::chain::submit_block_request submit_block;
+        *submit_block.mutable_block() = block;
+        _controller.submit_block( submit_block, _target_head.height() );
+      }
+      else
+      {
+        _controller.apply_block_delta( block, item.receipt(), _target_head.height() );
+      }
+
+      last_height = block.header().height();
     }
   }
 }
