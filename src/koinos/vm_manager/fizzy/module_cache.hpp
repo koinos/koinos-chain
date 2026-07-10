@@ -18,6 +18,12 @@ public:
       _module( m )
   {}
 
+  // Sole owner of the raw FizzyModule; copying would free it twice.
+  module_guard( const module_guard& )            = delete;
+  module_guard& operator=( const module_guard& ) = delete;
+  module_guard( module_guard&& )                 = delete;
+  module_guard& operator=( module_guard&& )      = delete;
+
   ~module_guard()
   {
     fizzy_free_module( _module );

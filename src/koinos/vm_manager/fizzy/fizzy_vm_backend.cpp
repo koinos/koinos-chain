@@ -193,7 +193,12 @@ void fizzy_runner::instantiate_module()
   uint32_t memory_pages_limit = 512; // Number of 64k pages allowed to allocate
 
   KOINOS_ASSERT( _instance == nullptr, runner_state_exception, "_instance was unexpectedly non-null" );
-  _instance = fizzy_resolve_instantiate( _module->get(),
+
+  // fizzy_resolve_instantiate takes ownership of the module it is given and
+  // frees it via fizzy_free_instance. The module here is owned by the cache's
+  // module_guard (which frees it via fizzy_free_module), so instantiate a clone
+  // instead — otherwise the same FizzyModule is freed twice (double-free).
+  _instance = fizzy_resolve_instantiate( fizzy_clone_module( _module->get() ),
                                          host_funcs,
                                          num_host_funcs,
                                          nullptr,
